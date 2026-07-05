@@ -44,7 +44,7 @@ function TestimonialsSectionComponent({ section }: { section: TestimonialsSectio
                   “{item.quote}”
                 </blockquote>
                 <figcaption className="mt-6 flex items-center gap-3 border-t pt-5">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-red-800/20 text-xs font-bold text-primary">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                     {initials(item.author)}
                   </span>
                   <div>

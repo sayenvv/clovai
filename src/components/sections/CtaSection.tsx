@@ -8,7 +8,7 @@ function CtaSectionComponent({ section }: { section: CtaSectionConfig }) {
     <section id={section.id} className="scroll-mt-16 py-20">
       <div className="container">
         <Reveal>
-          <div className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-red-800 via-primary to-rose-900 px-8 py-16 text-center shadow-2xl shadow-primary/25 md:py-20">
+          <div className="relative overflow-hidden rounded-3xl border bg-brand-gradient-cta px-8 py-16 text-center shadow-brand md:py-20">
             <div
               className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_45%)]"
               aria-hidden

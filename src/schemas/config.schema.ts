@@ -136,6 +136,7 @@ export const navbarSchema = z.object({
   logo: z.object({
     text: z.string(),
     icon: z.string().default('workflow'),
+    image: z.string().optional(),
     href: z.string().default('/'),
   }),
   items: z.array(navItemSchema),

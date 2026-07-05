@@ -1,26 +1,28 @@
-import { useCallback, useEffect, useMemo, useRef, useState, Suspense, lazy } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense, lazy } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAppConfig } from '@/hooks/use-app-config'
 import { Icon } from '@/components/shared/Icon'
 import { ConfigBadge } from '@/components/shared/ConfigBadge'
-import { ThemeToggle } from '@/components/shared/ThemeToggle'
+import { ProfileMenu } from '@/components/shared/ProfileMenu'
+import { useTheme } from '@/hooks/use-theme'
+import { Logo, LOGO_SIZE_WORKSPACE } from '@/components/shared/Logo'
 import { ShapePalette } from '@/components/designer/ShapePalette'
 import { DesignerCanvas, type Selection } from '@/components/designer/DesignerCanvas'
 import { DesignerMenubar } from '@/components/designer/DesignerMenubar'
+import { ShareDialog } from '@/components/designer/ShareDialog'
 import { PropertiesPanel } from '@/components/designer/PropertiesPanel'
 import { PagesBar } from '@/components/designer/PagesBar'
+import { computeCenteredViewport, zoomViewportAt } from '@/components/designer/viewport-utils'
 import { resolveDesignerPalette } from '@/utils/resolve-designer-palette'
 import { STORAGE_KEYS } from '@/constants'
-import { clampViewportScale } from '@/constants/designer'
+import { exportDiagram } from '@/components/designer/diagram-export'
 import { downloadJson } from '@/utils/download'
 import {
   createNodeId,
   createPage,
-  getNodeSize,
   nodeSize,
   normalizeDocument,
-  resolveNodeStyle,
   type Diagram,
   type DiagramDocument,
   type Viewport,
@@ -52,6 +54,7 @@ function loadDocument(toolId: string): DiagramDocument {
 export default function ToolDetailPage() {
   const { toolId = '' } = useParams()
   const { megaMenu, navbar } = useAppConfig()
+  const { isDark } = useTheme()
 
   const tool = useMemo(
     () => megaMenu.tools.find((t) => t.route === `/tools/${toolId}` && t.isVisible !== false),
@@ -74,11 +77,14 @@ export default function ToolDetailPage() {
   const [snapToGrid, setSnapToGrid] = useState(false)
   const [showGrid, setShowGrid] = useState(true)
   const [codeExportOpen, setCodeExportOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const canvasAreaRef = useRef<HTMLDivElement>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
 
   const activePage = doc.pages.find((page) => page.id === doc.activePageId) ?? doc.pages[0]
   const diagram = activePage.diagram
+  const diagramRef = useRef(diagram)
+  diagramRef.current = diagram
 
   useEffect(() => {
     if (tool) document.title = `${tool.title} — Clovai`
@@ -88,6 +94,26 @@ export default function ToolDetailPage() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.diagram(toolId), JSON.stringify(doc))
   }, [doc, toolId])
+
+  const applyCenteredViewport = useCallback(
+    (targetDiagram: Diagram) => {
+      const rect = canvasAreaRef.current?.getBoundingClientRect()
+      if (!rect?.width || !rect?.height) return
+      setViewport(computeCenteredViewport(targetDiagram, paletteById, rect.width, rect.height))
+    },
+    [paletteById],
+  )
+
+  const centerViewport = useCallback(() => {
+    applyCenteredViewport(diagram)
+  }, [applyCenteredViewport, diagram])
+
+  // Center the active page on load, refresh, and page switch.
+  useLayoutEffect(() => {
+    applyCenteredViewport(diagramRef.current)
+    const frame = requestAnimationFrame(() => applyCenteredViewport(diagramRef.current))
+    return () => cancelAnimationFrame(frame)
+  }, [toolId, activePage.id, applyCenteredViewport])
 
   /* ---- active-page diagram updates ---- */
   const handleChange = useCallback((updater: (previous: Diagram) => Diagram) => {
@@ -169,41 +195,17 @@ export default function ToolDetailPage() {
   )
 
   const zoomBy = useCallback((factor: number) => {
-    setViewport((previous) => ({
-      ...previous,
-      scale: clampViewportScale(previous.scale * factor),
-    }))
+    setViewport((previous) => {
+      const rect = canvasAreaRef.current?.getBoundingClientRect()
+      const anchorX = rect ? rect.width / 2 : 0
+      const anchorY = rect ? rect.height / 2 : 0
+      return zoomViewportAt(previous, factor, anchorX, anchorY)
+    })
   }, [])
 
   const fitToContent = useCallback(() => {
-    if (diagram.nodes.length === 0) return
-    const rect = canvasAreaRef.current?.getBoundingClientRect()
-    if (!rect) return
-
-    let minX = Infinity
-    let minY = Infinity
-    let maxX = -Infinity
-    let maxY = -Infinity
-    diagram.nodes.forEach((node) => {
-      const item = paletteById.get(node.paletteId)
-      if (!item) return
-      const { width, height } = getNodeSize(node, resolveNodeStyle(node, item).shape)
-      minX = Math.min(minX, node.x)
-      minY = Math.min(minY, node.y)
-      maxX = Math.max(maxX, node.x + width)
-      maxY = Math.max(maxY, node.y + height)
-    })
-
-    const padding = 80
-    const contentWidth = maxX - minX + padding * 2
-    const contentHeight = maxY - minY + padding * 2
-    const scale = Math.min(rect.width / contentWidth, rect.height / contentHeight, 1.5)
-    setViewport({
-      scale,
-      x: rect.width / 2 - ((minX + maxX) / 2) * scale,
-      y: rect.height / 2 - ((minY + maxY) / 2) * scale,
-    })
-  }, [diagram.nodes, paletteById])
+    centerViewport()
+  }, [centerViewport])
 
   const duplicateSelection = useCallback(() => {
     if (selection?.kind !== 'node') return
@@ -241,10 +243,41 @@ export default function ToolDetailPage() {
     setSelection(null)
   }, [handleChange])
 
-  /* ---- import / export (whole document, all pages) ---- */
+  /* ---- import / export ---- */
+  const exportBaseName = `${tool?.title ?? toolId}-${activePage.name}`
+
+  const exportOptions = useCallback(
+    () => ({
+      diagram,
+      paletteById,
+      isDark,
+      fileBaseName: exportBaseName,
+    }),
+    [diagram, paletteById, isDark, exportBaseName],
+  )
+
   const exportJson = useCallback(() => {
     downloadJson(doc, `${toolId}-diagram.json`)
   }, [doc, toolId])
+
+  const runImageExport = useCallback(
+    async (format: 'svg' | 'png' | 'pdf') => {
+      if (diagram.nodes.length === 0) return
+      try {
+        await exportDiagram(exportOptions(), format)
+        toast.success(`Exported ${format.toUpperCase()}`)
+      } catch (error) {
+        toast.error(
+          `Export failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+        )
+      }
+    },
+    [diagram.nodes.length, exportOptions],
+  )
+
+  const exportSvg = useCallback(() => runImageExport('svg'), [runImageExport])
+  const exportPng = useCallback(() => runImageExport('png'), [runImageExport])
+  const exportPdf = useCallback(() => runImageExport('pdf'), [runImageExport])
 
   const toggleCodeExport = useCallback(() => {
     setCodeExportOpen((open) => {
@@ -266,6 +299,11 @@ export default function ToolDetailPage() {
           setDoc(imported)
           setSelection(null)
           toast.success(`Imported ${file.name} (${imported.pages.length} page${imported.pages.length === 1 ? '' : 's'})`)
+          requestAnimationFrame(() => {
+            const page =
+              imported.pages.find((p) => p.id === imported.activePageId) ?? imported.pages[0]
+            applyCenteredViewport(page.diagram)
+          })
         } catch (error) {
           toast.error(
             `Could not import: ${error instanceof Error ? error.message : 'invalid file'}`,
@@ -274,7 +312,7 @@ export default function ToolDetailPage() {
       }
       reader.readAsText(file)
     },
-    [paletteById],
+    [paletteById, applyCenteredViewport],
   )
 
   if (!tool) return <Navigate to="/404" replace />
@@ -291,9 +329,7 @@ export default function ToolDetailPage() {
           aria-label={`${navbar.logo.text} home`}
           title="Back to Clovai"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
-            <Icon name={navbar.logo.icon} className="h-4 w-4" aria-hidden />
-          </span>
+          <Logo src={navbar.logo.image} size={LOGO_SIZE_WORKSPACE} rounded="md" />
         </Link>
 
         <div className="h-6 w-px bg-border" aria-hidden />
@@ -314,28 +350,40 @@ export default function ToolDetailPage() {
         </div>
 
         <div className="ml-auto">
-          <ThemeToggle />
+          <ProfileMenu />
         </div>
       </div>
 
+      <ShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        documentTitle={tool.title}
+        toolId={toolId}
+      />
+
       <DesignerMenubar
-        scale={viewport.scale}
         selection={selection}
         isEmpty={diagram.nodes.length === 0}
         snapToGrid={snapToGrid}
         showGrid={showGrid}
         onNew={clearActivePage}
         onImport={() => importInputRef.current?.click()}
-        onExport={exportJson}
+        onExportJson={exportJson}
+        onExportSvg={exportSvg}
+        onExportPng={exportPng}
+        onExportPdf={exportPdf}
         onViewCode={toggleCodeExport}
         onDuplicate={duplicateSelection}
         onDeleteSelection={deleteSelection}
         onZoomIn={() => zoomBy(1.2)}
         onZoomOut={() => zoomBy(1 / 1.2)}
-        onResetView={() => setViewport(DEFAULT_VIEWPORT)}
+        onResetView={centerViewport}
         onFitToContent={fitToContent}
         onSnapToGridChange={setSnapToGrid}
         onShowGridChange={setShowGrid}
+        onShare={() => setShareOpen(true)}
+        toolId={toolId}
+        onManageAccess={() => setShareOpen(true)}
       />
 
       <input
@@ -371,6 +419,8 @@ export default function ToolDetailPage() {
               onSelectionChange={setSelection}
               snapToGrid={snapToGrid}
               showGrid={showGrid}
+              onZoomIn={() => zoomBy(1.2)}
+              onZoomOut={() => zoomBy(1 / 1.2)}
             />
           </div>
           <PagesBar

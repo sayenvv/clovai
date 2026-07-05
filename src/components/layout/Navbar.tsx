@@ -6,9 +6,9 @@ import { cn } from '@/utils/cn'
 import { visibleSorted } from '@/utils/collection'
 import { useAppConfig } from '@/hooks/use-app-config'
 import { Button } from '@/components/ui/button'
-import { Icon } from '@/components/shared/Icon'
 import { CtaButton } from '@/components/shared/CtaButton'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
+import { Logo, LOGO_SIZE } from '@/components/shared/Logo'
 import { MegaMenu } from './MegaMenu'
 import { MobileMenu } from './MobileMenu'
 import type { NavItem } from '@/types/config'
@@ -110,9 +110,7 @@ export const Navbar = memo(function Navbar() {
     >
       <div className="container flex h-16 items-center justify-between">
         <Link to={navbar.logo.href} className="flex items-center gap-2.5" aria-label={navbar.logo.text}>
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-md shadow-primary/25">
-            <Icon name={navbar.logo.icon} className="h-[18px] w-[18px]" aria-hidden />
-          </span>
+          <Logo src={navbar.logo.image} size={LOGO_SIZE} />
           <span className="text-lg font-bold tracking-tight">{navbar.logo.text}</span>
         </Link>
 

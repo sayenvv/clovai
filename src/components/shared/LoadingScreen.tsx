@@ -1,5 +1,5 @@
-import { Workflow } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Logo } from '@/components/shared/Logo'
 
 /** Full-page fallback shown while the active configuration loads. */
 export function LoadingScreen() {
@@ -8,7 +8,7 @@ export function LoadingScreen() {
       <div className="border-b">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Workflow className="h-5 w-5 animate-pulse text-primary" />
+            <Logo size={30} className="animate-pulse opacity-80" />
             <Skeleton className="h-4 w-20" />
           </div>
           <div className="hidden gap-6 md:flex">

@@ -1,5 +1,6 @@
 import { memo, useState } from 'react'
 import {
+  Link2,
   Copy,
   Code2,
   Download,
@@ -19,7 +20,6 @@ import {
 } from 'lucide-react'
 import { useTheme } from '@/hooks/use-theme'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { Selection } from './DesignerCanvas'
+import { WorkspaceMembersTrigger } from './WorkspaceMembersTrigger'
 
 const SHORTCUTS: Array<{ keys: string; action: string }> = [
   { keys: 'Scroll', action: 'Zoom in / out (toward cursor)' },
@@ -51,14 +52,16 @@ const SHORTCUTS: Array<{ keys: string; action: string }> = [
 ]
 
 interface DesignerMenubarProps {
-  scale: number
   selection: Selection
   isEmpty: boolean
   snapToGrid: boolean
   showGrid: boolean
   onNew: () => void
   onImport: () => void
-  onExport: () => void
+  onExportJson: () => void
+  onExportSvg: () => void
+  onExportPng: () => void
+  onExportPdf: () => void
   onViewCode: () => void
   onDuplicate: () => void
   onDeleteSelection: () => void
@@ -68,6 +71,9 @@ interface DesignerMenubarProps {
   onFitToContent: () => void
   onSnapToGridChange: (enabled: boolean) => void
   onShowGridChange: (enabled: boolean) => void
+  onShare: () => void
+  toolId: string
+  onManageAccess: () => void
 }
 
 function MenuTrigger({ label }: { label: string }) {
@@ -84,17 +90,18 @@ function MenuTrigger({ label }: { label: string }) {
   )
 }
 
-/** App-style menu bar (File / Edit / View / Settings) plus quick zoom
- *  controls and the Clovai Engine placeholder. */
+/** App-style menu bar with Share next to Settings and workspace members on the right. */
 export const DesignerMenubar = memo(function DesignerMenubar({
-  scale,
   selection,
   isEmpty,
   snapToGrid,
   showGrid,
   onNew,
   onImport,
-  onExport,
+  onExportJson,
+  onExportSvg,
+  onExportPng,
+  onExportPdf,
   onViewCode,
   onDuplicate,
   onDeleteSelection,
@@ -104,6 +111,9 @@ export const DesignerMenubar = memo(function DesignerMenubar({
   onFitToContent,
   onSnapToGridChange,
   onShowGridChange,
+  onShare,
+  toolId,
+  onManageAccess,
 }: DesignerMenubarProps) {
   const { theme, toggleTheme } = useTheme()
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
@@ -120,8 +130,19 @@ export const DesignerMenubar = memo(function DesignerMenubar({
           <DropdownMenuItem onSelect={onImport}>
             <Upload /> Import JSON…
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onExport} disabled={isEmpty}>
-            <Download /> Export JSON
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Export</DropdownMenuLabel>
+          <DropdownMenuItem onSelect={onExportJson} disabled={isEmpty}>
+            <Download /> JSON (.json)
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onExportSvg} disabled={isEmpty}>
+            <Download /> SVG (.svg)
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onExportPng} disabled={isEmpty}>
+            <Download /> PNG (.png)
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onExportPdf} disabled={isEmpty}>
+            <Download /> PDF (.pdf)
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onViewCode} disabled={isEmpty}>
@@ -167,6 +188,15 @@ export const DesignerMenubar = memo(function DesignerMenubar({
           <DropdownMenuCheckboxItem checked={showGrid} onCheckedChange={onShowGridChange}>
             Show grid
           </DropdownMenuCheckboxItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <MenuTrigger label="Share" />
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onSelect={onShare}>
+            <Link2 /> Share & collaborate…
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -228,31 +258,8 @@ export const DesignerMenubar = memo(function DesignerMenubar({
         </DialogContent>
       </Dialog>
 
-      <div className="mx-1.5 h-5 w-px bg-border" aria-hidden />
-
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onZoomOut} aria-label="Zoom out">
-        <ZoomOut className="h-3.5 w-3.5" />
-      </Button>
-      <span className="w-11 text-center text-xs tabular-nums text-muted-foreground">
-        {Math.round(scale * 100)}%
-      </span>
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onZoomIn} aria-label="Zoom in">
-        <ZoomIn className="h-3.5 w-3.5" />
-      </Button>
-
-      <div className="ml-auto flex items-center gap-2">
-        <Badge variant="gradient" className="hidden sm:inline-flex">
-          Coming soon
-        </Badge>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7"
-          disabled
-          title="Clovai Engine — multi-agent AI generation, launching soon"
-        >
-          <Sparkles /> Generate with AI
-        </Button>
+      <div className="ml-auto flex items-center">
+        <WorkspaceMembersTrigger toolId={toolId} onManageAccess={onManageAccess} />
       </div>
     </div>
   )

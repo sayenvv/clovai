@@ -1,9 +1,9 @@
 import { memo, useMemo } from 'react'
-import { Shapes, Sparkles } from 'lucide-react'
+import { Shapes } from 'lucide-react'
 import { byOrder } from '@/utils/collection'
-import { Badge } from '@/components/ui/badge'
 import { NodeShape } from './NodeShape'
 import { DND_MIME } from './diagram-types'
+import { useTheme } from '@/hooks/use-theme'
 import type { PaletteItem } from '@/types/config'
 
 interface ShapePaletteProps {
@@ -17,9 +17,11 @@ interface ShapePaletteProps {
 const ShapeTile = memo(function ShapeTile({
   item,
   onAdd,
+  isDark,
 }: {
   item: PaletteItem
   onAdd: (paletteId: string) => void
+  isDark: boolean
 }) {
   return (
     <button
@@ -30,11 +32,11 @@ const ShapeTile = memo(function ShapeTile({
       }}
       onClick={() => onAdd(item.id)}
       title={item.description ? `${item.label} — ${item.description}` : item.label}
-      className="group flex cursor-grab flex-col items-center gap-1.5 rounded-lg border bg-background p-2 pt-3 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm active:cursor-grabbing"
+      className="group flex cursor-grab flex-col items-center gap-1.5 rounded-lg p-2 pt-3 transition-all hover:-translate-y-0.5 hover:bg-muted/50 active:cursor-grabbing"
     >
       <div className="flex h-8 w-full items-center justify-center px-1" aria-hidden>
         <div className="h-7 w-12">
-          <NodeShape shape={item.shape} color={item.color} label="" className="!text-[0px] [&_*]:!shadow-none" />
+          <NodeShape shape={item.shape} isDark={isDark} label="" className="!text-[0px] [&_*]:!shadow-none" />
         </div>
       </div>
       <span className="w-full truncate text-center text-[10.5px] font-medium leading-tight text-muted-foreground group-hover:text-foreground">
@@ -52,6 +54,7 @@ export const ShapePalette = memo(function ShapePalette({
   toolTitle,
   onAdd,
 }: ShapePaletteProps) {
+  const { isDark } = useTheme()
   const groups = useMemo(() => {
     const ordered = byOrder(palette)
     const map = new Map<string, PaletteItem[]>()
@@ -67,7 +70,7 @@ export const ShapePalette = memo(function ShapePalette({
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r bg-background" aria-label="Shape palette">
       <div className="flex items-center gap-2 border-b px-4 py-3">
-        <Shapes className="h-4 w-4 text-primary" aria-hidden />
+        <Shapes className="h-4 w-4 text-muted-foreground" aria-hidden />
         <span className="text-sm font-semibold">Shapes</span>
         <span className="ml-auto text-[11px] text-muted-foreground">{palette.length}</span>
       </div>
@@ -80,7 +83,7 @@ export const ShapePalette = memo(function ShapePalette({
             </h3>
             <div className="grid grid-cols-3 gap-1.5">
               {items.map((item) => (
-                <ShapeTile key={item.id} item={item} onAdd={onAdd} />
+                <ShapeTile key={item.id} item={item} onAdd={onAdd} isDark={isDark} />
               ))}
             </div>
           </section>
@@ -92,22 +95,6 @@ export const ShapePalette = memo(function ShapePalette({
             shapes to sketch your ideas.
           </p>
         )}
-      </div>
-
-      <div className="border-t p-3">
-        <div className="rounded-lg border bg-gradient-to-b from-primary/5 to-transparent p-3">
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden />
-            <span className="text-xs font-semibold">Clovai Engine</span>
-            <Badge variant="gradient" className="ml-auto px-1.5 py-0 text-[10px]">
-              Soon
-            </Badge>
-          </div>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-            Multi-agent AI orchestration that turns plain language into complete diagrams —
-            launching soon.
-          </p>
-        </div>
       </div>
     </aside>
   )

@@ -50,7 +50,7 @@ function TabsSectionComponent({ section }: { section: TabsSectionConfig }) {
                     )}
                   </div>
                   <div
-                    className="flex aspect-[4/3] items-center justify-center rounded-xl border bg-gradient-to-br from-primary/10 via-red-500/5 to-rose-500/10"
+                    className="flex aspect-[4/3] items-center justify-center rounded-xl border bg-primary/5"
                     aria-hidden
                   >
                     {tab.icon && <Icon name={tab.icon} className="h-16 w-16 text-primary/40" />}

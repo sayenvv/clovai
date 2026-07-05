@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { byOrder } from '@/utils/collection'
 import { useAppConfig } from '@/hooks/use-app-config'
 import { Icon } from '@/components/shared/Icon'
+import { Logo, LOGO_SIZE } from '@/components/shared/Logo'
 import { ConfigBadge } from '@/components/shared/ConfigBadge'
 import type { Link as LinkConfig } from '@/types/config'
 
@@ -46,9 +47,7 @@ export const Footer = memo(function Footer() {
         <div className="grid gap-10 lg:grid-cols-[1.4fr_repeat(4,1fr)]">
           <div className="max-w-xs">
             <Link to={navbar.logo.href} className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white">
-                <Icon name={navbar.logo.icon} className="h-[18px] w-[18px]" aria-hidden />
-              </span>
+              <Logo src={navbar.logo.image} size={LOGO_SIZE} />
               <span className="text-lg font-bold tracking-tight">{navbar.logo.text}</span>
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{footer.description}</p>

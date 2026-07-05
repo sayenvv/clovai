@@ -1,6 +1,5 @@
 import { memo } from 'react'
 import { ArrowLeftRight, Copy, RotateCcw, SlidersHorizontal, Trash2 } from 'lucide-react'
-import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/button'
 import { DesignerPanelHeader } from './DesignerPanelHeader'
 import { Input } from '@/components/ui/input'
@@ -8,7 +7,6 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import {
-  COLOR_OPTIONS,
   getNodeSize,
   MIN_NODE_HEIGHT,
   MIN_NODE_WIDTH,
@@ -16,22 +14,17 @@ import {
   resolveNodeStyle,
   SHAPE_OPTIONS,
   type Diagram,
+  PORT_SIDES,
   type DiagramEdge,
   type DiagramNode,
   type EdgeRouting,
+  type PortSide,
 } from './diagram-types'
+import { ColorPaletteField } from './ColorPaletteField'
+import { defaultEdgeColors, defaultNodeColors } from './diagram-colors'
+import { useTheme } from '@/hooks/use-theme'
 import type { Selection } from './DesignerCanvas'
-import type { PaletteColor, PaletteItem, PaletteShape } from '@/types/config'
-
-const SWATCH_CLASSES: Record<PaletteColor, string> = {
-  emerald: 'bg-emerald-400 dark:bg-emerald-500',
-  blue: 'bg-blue-400 dark:bg-blue-500',
-  amber: 'bg-amber-400 dark:bg-amber-500',
-  violet: 'bg-violet-400 dark:bg-violet-500',
-  cyan: 'bg-cyan-400 dark:bg-cyan-500',
-  rose: 'bg-rose-400 dark:bg-rose-500',
-  slate: 'bg-slate-400 dark:bg-slate-500',
-}
+import type { PaletteItem, PaletteShape } from '@/types/config'
 
 interface PropertiesPanelProps {
   diagram: Diagram
@@ -61,7 +54,9 @@ const NodeProperties = memo(function NodeProperties({
   item: PaletteItem
   onChange: PropertiesPanelProps['onChange']
 }) {
-  const { shape, color } = resolveNodeStyle(node, item)
+  const { isDark } = useTheme()
+  const { shape } = resolveNodeStyle(node, item)
+  const nodeDefaults = defaultNodeColors(isDark)
   const { width, height } = getNodeSize(node, shape)
   const aspect = resizeAspect(shape)
   const sizeRatio = width / height
@@ -101,7 +96,8 @@ const NodeProperties = memo(function NodeProperties({
 
   const hasOverrides =
     node.shape !== undefined ||
-    node.color !== undefined ||
+    node.fillColor !== undefined ||
+    node.borderColor !== undefined ||
     node.width !== undefined ||
     node.height !== undefined
 
@@ -131,23 +127,18 @@ const NodeProperties = memo(function NodeProperties({
         </Select>
       </Field>
 
-      <Field label="Color">
-        <div className="flex flex-wrap gap-1.5">
-          {COLOR_OPTIONS.map((option) => (
-            <button
-              key={option}
-              onClick={() => updateNode({ color: option })}
-              aria-label={`Set color ${option}`}
-              title={option}
-              className={cn(
-                'h-6 w-6 rounded-full border-2 border-background shadow-sm transition-transform hover:scale-110',
-                SWATCH_CLASSES[option],
-                color === option && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
-              )}
-            />
-          ))}
-        </div>
-      </Field>
+      <ColorPaletteField
+        label="Background"
+        value={node.fillColor}
+        defaultValue={nodeDefaults.fill}
+        onChange={(fillColor) => updateNode({ fillColor })}
+      />
+      <ColorPaletteField
+        label="Border"
+        value={node.borderColor}
+        defaultValue={nodeDefaults.border}
+        onChange={(borderColor) => updateNode({ borderColor })}
+      />
 
       <div className="grid grid-cols-2 gap-2">
         <Field label="X">
@@ -196,7 +187,13 @@ const NodeProperties = memo(function NodeProperties({
           size="sm"
           className="h-7 justify-start text-xs text-muted-foreground"
           onClick={() =>
-            updateNode({ shape: undefined, color: undefined, width: undefined, height: undefined })
+            updateNode({
+              shape: undefined,
+              fillColor: undefined,
+              borderColor: undefined,
+              width: undefined,
+              height: undefined,
+            })
           }
         >
           <RotateCcw className="h-3.5 w-3.5" /> Reset to palette style
@@ -215,7 +212,9 @@ const EdgeProperties = memo(function EdgeProperties({
   nodeLabel: (id: string) => string
   onChange: PropertiesPanelProps['onChange']
 }) {
-  const routing = edge.routing ?? 'curved'
+  const { isDark } = useTheme()
+  const edgeDefaults = defaultEdgeColors(isDark)
+  const routing = edge.routing ?? 'orthogonal'
 
   const updateEdge = (patch: Partial<DiagramEdge>) => {
     onChange((previous) => ({
@@ -252,9 +251,37 @@ const EdgeProperties = memo(function EdgeProperties({
       <Field label="Connection">
         <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs">
           <p className="truncate font-medium">{nodeLabel(edge.from)}</p>
-          <p className="my-0.5 text-muted-foreground">↓ {edge.fromSide} → {edge.toSide}</p>
-          <p className="truncate font-medium">{nodeLabel(edge.to)}</p>
+          <p className="my-0.5 text-center text-muted-foreground">↓</p>
+          <p className="truncate text-right font-medium">{nodeLabel(edge.to)}</p>
         </div>
+      </Field>
+      <Field label={`From — ${nodeLabel(edge.from)}`}>
+        <Select
+          value={edge.fromSide}
+          onChange={(event) => updateEdge({ fromSide: event.target.value as PortSide })}
+          className="h-8 text-xs"
+          aria-label="From connection side"
+        >
+          {PORT_SIDES.map((side) => (
+            <option key={side} value={side}>
+              {side.charAt(0).toUpperCase() + side.slice(1)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label={`To — ${nodeLabel(edge.to)}`}>
+        <Select
+          value={edge.toSide}
+          onChange={(event) => updateEdge({ toSide: event.target.value as PortSide })}
+          className="h-8 text-xs"
+          aria-label="To connection side"
+        >
+          {PORT_SIDES.map((side) => (
+            <option key={side} value={side}>
+              {side.charAt(0).toUpperCase() + side.slice(1)}
+            </option>
+          ))}
+        </Select>
       </Field>
       <Field label="Label">
         <Input
@@ -270,6 +297,18 @@ const EdgeProperties = memo(function EdgeProperties({
           className="h-8 text-xs"
         />
       </Field>
+      <ColorPaletteField
+        label="Label background"
+        value={edge.fillColor}
+        defaultValue={edgeDefaults.fill}
+        onChange={(fillColor) => updateEdge({ fillColor })}
+      />
+      <ColorPaletteField
+        label="Line color"
+        value={edge.borderColor}
+        defaultValue={edgeDefaults.border}
+        onChange={(borderColor) => updateEdge({ borderColor })}
+      />
       <Field label="Routing">
         <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
           <div>

@@ -2,6 +2,7 @@
   "logo": {
     "text": "Clovai",
     "icon": "workflow",
+    "image": "/logo.png",
     "href": "/"
   },
   "sticky": true,

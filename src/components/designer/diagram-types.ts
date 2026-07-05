@@ -1,6 +1,9 @@
 import type { PaletteColor, PaletteItem, PaletteShape } from '@/types/config'
+import type { DiagramColorOverrides } from './diagram-colors'
 
 export type PortSide = 'top' | 'right' | 'bottom' | 'left'
+
+export const PORT_SIDES: PortSide[] = ['top', 'right', 'bottom', 'left']
 
 export interface DiagramNode {
   id: string
@@ -14,17 +17,26 @@ export interface DiagramNode {
   height?: number
   /** Per-node style overrides set from the properties panel. */
   shape?: PaletteShape
+  /** Custom fill (background) — hex color. */
+  fillColor?: string
+  /** Custom border — hex color. */
+  borderColor?: string
+  /** @deprecated Legacy palette token; ignored when fill/border are set. */
   color?: PaletteColor
 }
 
-/** Effective shape/color for a node: its own overrides win over the
- *  palette item it was created from. */
+/** Effective shape for a node; colors resolved at render time via resolveNodeColors. */
 export function resolveNodeStyle(
   node: DiagramNode,
   item: PaletteItem,
-): { shape: PaletteShape; color: PaletteColor } {
-  return { shape: node.shape ?? item.shape, color: node.color ?? item.color }
+): { shape: PaletteShape; colorOverrides: DiagramColorOverrides } {
+  return {
+    shape: node.shape ?? item.shape,
+    colorOverrides: { fillColor: node.fillColor, borderColor: node.borderColor },
+  }
 }
+
+export const DEFAULT_SHAPE_COLOR: PaletteColor = 'slate'
 
 export const COLOR_OPTIONS: PaletteColor[] = [
   'emerald',
@@ -82,6 +94,10 @@ export interface DiagramEdge {
   routing?: EdgeRouting
   /** Optional label shown on the connector line (e.g. "Yes", "No"). */
   label?: string
+  /** Label / chip background — hex color. */
+  fillColor?: string
+  /** Connector stroke — hex color. */
+  borderColor?: string
 }
 
 export interface Diagram {
@@ -127,7 +143,7 @@ export function normalizeDiagram(parsed: StoredDiagram): Diagram {
     ...edge,
     fromSide: edge.fromSide ?? 'right',
     toSide: edge.toSide ?? 'left',
-    routing: edge.routing ?? 'curved',
+    routing: edge.routing ?? 'orthogonal',
   }))
   return { nodes: parsed.nodes ?? [], edges }
 }
@@ -278,10 +294,60 @@ export const SIDE_DIRECTION: Record<PortSide, { x: number; y: number }> = {
   left: { x: -1, y: 0 },
 }
 
-const ORTHOGONAL_STUB = 24
+const CONNECTOR_STUB = 20
+const CHANNEL_PAD = 20
+const CORNER_RADIUS = 10
+const TURN_PENALTY = 18
+/** @deprecated Used only for legacy references; routing uses CONNECTOR_STUB. */
+export const EDGE_PORT_INSET = CONNECTOR_STUB
+const ROUTE_PAD = 6
 
-function isHorizontalSide(side: PortSide): boolean {
-  return side === 'left' || side === 'right'
+type RoutePoint = { x: number; y: number }
+
+/** Axis-aligned node bounds used to keep connectors out of shapes. */
+export interface RouteObstacle {
+  id: string
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+export interface EdgeRouteContext {
+  obstacles: RouteObstacle[]
+  fromNodeId: string
+  toNodeId: string
+}
+
+export function nodeRouteObstacle(
+  node: DiagramNode,
+  shape: PaletteShape,
+  padding = ROUTE_PAD,
+): RouteObstacle {
+  const { width, height } = getNodeSize(node, shape)
+  return {
+    id: node.id,
+    left: node.x - padding,
+    top: node.y - padding,
+    right: node.x + width + padding,
+    bottom: node.y + height + padding,
+  }
+}
+
+const ELLIPSE_PORT_SHAPES = new Set<PaletteShape>([
+  'ellipse',
+  'circle',
+  'terminator',
+  'connector',
+  'or-gate',
+  'event',
+])
+
+function segmentLength(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): number {
+  return Math.hypot(b.x - a.x, b.y - a.y)
 }
 
 function stubPoint(
@@ -293,8 +359,283 @@ function stubPoint(
   return { x: point.x + direction.x * distance, y: point.y + direction.y * distance }
 }
 
-function pointsToPath(points: Array<{ x: number; y: number }>): string {
-  return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
+function simplifyPolyline(points: Array<{ x: number; y: number }>): Array<{ x: number; y: number }> {
+  if (points.length <= 1) return points
+  const result = [points[0]]
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = result[result.length - 1]
+    const current = points[index]
+    if (segmentLength(previous, current) < 0.5) continue
+    result.push(current)
+  }
+  return result
+}
+
+function segmentIntersectsObstacle(
+  a: RoutePoint,
+  b: RoutePoint,
+  obstacle: RouteObstacle,
+): boolean {
+  const xMin = Math.min(a.x, b.x)
+  const xMax = Math.max(a.x, b.x)
+  const yMin = Math.min(a.y, b.y)
+  const yMax = Math.max(a.y, b.y)
+
+  if (Math.abs(a.x - b.x) < 0.01) {
+    const x = a.x
+    return x >= obstacle.left && x <= obstacle.right && yMax >= obstacle.top && yMin <= obstacle.bottom
+  }
+
+  if (Math.abs(a.y - b.y) < 0.01) {
+    const y = a.y
+    return y >= obstacle.top && y <= obstacle.bottom && xMax >= obstacle.left && xMin <= obstacle.right
+  }
+
+  return false
+}
+
+function polylineHitsObstacles(points: RoutePoint[], obstacles: RouteObstacle[]): boolean {
+  if (points.length < 2) return false
+  for (let index = 0; index < points.length - 1; index += 1) {
+    for (const obstacle of obstacles) {
+      if (segmentIntersectsObstacle(points[index], points[index + 1], obstacle)) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+function pathCost(points: RoutePoint[]): number {
+  let length = 0
+  for (let index = 0; index < points.length - 1; index += 1) {
+    length += segmentLength(points[index], points[index + 1])
+  }
+  return length + Math.max(0, points.length - 2) * TURN_PENALTY
+}
+
+function pointKey(point: RoutePoint): string {
+  return `${point.x.toFixed(1)},${point.y.toFixed(1)}`
+}
+
+function pointInsideObstacle(point: RoutePoint, obstacles: RouteObstacle[]): boolean {
+  return obstacles.some(
+    (obstacle) =>
+      point.x > obstacle.left &&
+      point.x < obstacle.right &&
+      point.y > obstacle.top &&
+      point.y < obstacle.bottom,
+  )
+}
+
+function collectAxisValues(
+  seeds: number[],
+  obstacles: RouteObstacle[],
+  axis: 'x' | 'y',
+): number[] {
+  const values = new Set<number>(seeds)
+  for (const obstacle of obstacles) {
+    if (axis === 'x') {
+      values.add(obstacle.left - CHANNEL_PAD)
+      values.add(obstacle.right + CHANNEL_PAD)
+      values.add((obstacle.left + obstacle.right) / 2)
+    } else {
+      values.add(obstacle.top - CHANNEL_PAD)
+      values.add(obstacle.bottom + CHANNEL_PAD)
+      values.add((obstacle.top + obstacle.bottom) / 2)
+    }
+  }
+  return [...values].sort((a, b) => a - b)
+}
+
+function axisIndex(values: number[], target: number): number {
+  const exact = values.findIndex((value) => Math.abs(value - target) < 0.01)
+  return exact >= 0 ? exact : 0
+}
+
+function segmentBlocked(
+  a: RoutePoint,
+  b: RoutePoint,
+  obstacles: RouteObstacle[],
+): boolean {
+  return polylineHitsObstacles([a, b], obstacles)
+}
+
+function fallbackChannel(fromStub: RoutePoint, toStub: RoutePoint): RoutePoint[] {
+  const elbowA = { x: toStub.x, y: fromStub.y }
+  const elbowB = { x: fromStub.x, y: toStub.y }
+  const pathA = [fromStub, elbowA, toStub]
+  const pathB = [fromStub, elbowB, toStub]
+  return pathCost(pathA) <= pathCost(pathB) ? pathA : pathB
+}
+
+/** Visio-style orthogonal grid routing between port stubs. */
+function orthogonalGridRoute(
+  fromStub: RoutePoint,
+  toStub: RoutePoint,
+  blockers: RouteObstacle[],
+  channelHints: RouteObstacle[],
+): RoutePoint[] {
+  if (Math.abs(fromStub.x - toStub.x) < 0.01 && Math.abs(fromStub.y - toStub.y) < 0.01) {
+    return [fromStub, toStub]
+  }
+
+  const xs = collectAxisValues([fromStub.x, toStub.x], channelHints, 'x')
+  const ys = collectAxisValues([fromStub.y, toStub.y], channelHints, 'y')
+  const valid: boolean[][] = []
+  const grid: RoutePoint[][] = []
+  const pointsByKey = new Map<string, RoutePoint>()
+
+  for (let row = 0; row < ys.length; row += 1) {
+    valid[row] = []
+    grid[row] = []
+    for (let column = 0; column < xs.length; column += 1) {
+      const point = { x: xs[column], y: ys[row] }
+      grid[row][column] = point
+      const isStub =
+        (Math.abs(point.x - fromStub.x) < 0.01 && Math.abs(point.y - fromStub.y) < 0.01) ||
+        (Math.abs(point.x - toStub.x) < 0.01 && Math.abs(point.y - toStub.y) < 0.01)
+      valid[row][column] = isStub || !pointInsideObstacle(point, blockers)
+      if (valid[row][column]) pointsByKey.set(pointKey(point), point)
+    }
+  }
+
+  pointsByKey.set(pointKey(fromStub), fromStub)
+  pointsByKey.set(pointKey(toStub), toStub)
+
+  const startKey = pointKey(fromStub)
+  const goalKey = pointKey(toStub)
+  const open = new Set<string>([startKey])
+  const gScore = new Map<string, number>([[startKey, 0]])
+  const fScore = new Map<string, number>([[startKey, segmentLength(fromStub, toStub)]])
+  const cameFrom = new Map<string, string>()
+  const moveDir = new Map<string, 'h' | 'v'>()
+
+  while (open.size > 0) {
+    let currentKey = startKey
+    let lowest = Number.POSITIVE_INFINITY
+    for (const key of open) {
+      const score = fScore.get(key) ?? Number.POSITIVE_INFINITY
+      if (score < lowest) {
+        lowest = score
+        currentKey = key
+      }
+    }
+
+    if (currentKey === goalKey) {
+      const path: RoutePoint[] = []
+      let walk: string | undefined = goalKey
+      while (walk) {
+        path.unshift(pointsByKey.get(walk)!)
+        walk = cameFrom.get(walk)
+      }
+      return simplifyPolyline(path)
+    }
+
+    open.delete(currentKey)
+    const current = pointsByKey.get(currentKey)!
+    const column = axisIndex(xs, current.x)
+    const row = axisIndex(ys, current.y)
+
+    const neighbors: Array<{ point: RoutePoint; dir: 'h' | 'v' }> = []
+    if (column > 0 && valid[row][column - 1]) {
+      neighbors.push({ point: grid[row][column - 1], dir: 'h' })
+    }
+    if (column < xs.length - 1 && valid[row][column + 1]) {
+      neighbors.push({ point: grid[row][column + 1], dir: 'h' })
+    }
+    if (row > 0 && valid[row - 1][column]) {
+      neighbors.push({ point: grid[row - 1][column], dir: 'v' })
+    }
+    if (row < ys.length - 1 && valid[row + 1][column]) {
+      neighbors.push({ point: grid[row + 1][column], dir: 'v' })
+    }
+
+    for (const { point, dir } of neighbors) {
+      if (segmentBlocked(current, point, blockers)) continue
+      const neighborKey = pointKey(point)
+      const turn =
+        moveDir.has(currentKey) && moveDir.get(currentKey) !== dir ? TURN_PENALTY : 0
+      const tentative = (gScore.get(currentKey) ?? Number.POSITIVE_INFINITY) + segmentLength(current, point) + turn
+
+      if (tentative < (gScore.get(neighborKey) ?? Number.POSITIVE_INFINITY)) {
+        cameFrom.set(neighborKey, currentKey)
+        moveDir.set(neighborKey, dir)
+        gScore.set(neighborKey, tentative)
+        fScore.set(neighborKey, tentative + segmentLength(point, toStub))
+        open.add(neighborKey)
+      }
+    }
+  }
+
+  const fallback = fallbackChannel(fromStub, toStub)
+  if (!polylineHitsObstacles(fallback, blockers)) return simplifyPolyline(fallback)
+  return simplifyPolyline([fromStub, toStub])
+}
+
+function pickBestChannel(
+  fromPort: RoutePoint,
+  fromStub: RoutePoint,
+  toStub: RoutePoint,
+  toPort: RoutePoint,
+  blockers: RouteObstacle[],
+  channelHints: RouteObstacle[],
+): RoutePoint[] {
+  const channel = orthogonalGridRoute(fromStub, toStub, blockers, channelHints)
+  return simplifyPolyline([fromPort, ...channel, toPort])
+}
+
+/** Orthogonal path points — Visio-style grid routing with dynamic bends. */
+function orthogonalEdgePoints(
+  from: { x: number; y: number },
+  fromSide: PortSide,
+  to: { x: number; y: number },
+  toSide: PortSide,
+  context?: EdgeRouteContext,
+): Array<{ x: number; y: number }> {
+  const fromStub = stubPoint(from, fromSide, CONNECTOR_STUB)
+  const toStub = stubPoint(to, toSide, CONNECTOR_STUB)
+  const allObstacles = context?.obstacles ?? []
+  const blockers = allObstacles.filter(
+    (obstacle) =>
+      obstacle.id !== context?.fromNodeId && obstacle.id !== context?.toNodeId,
+  )
+  return pickBestChannel(from, fromStub, toStub, to, blockers, allObstacles)
+}
+
+function pointsToRoundedPath(points: Array<{ x: number; y: number }>, radius = CORNER_RADIUS): string {
+  if (points.length < 2) return ''
+  if (points.length === 2) {
+    return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`
+  }
+
+  let path = `M ${points[0].x} ${points[0].y}`
+
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = points[index - 1]
+    const current = points[index]
+    const next = points[index + 1]
+    const inVector = { x: current.x - previous.x, y: current.y - previous.y }
+    const outVector = { x: next.x - current.x, y: next.y - current.y }
+    const inLength = Math.hypot(inVector.x, inVector.y)
+    const outLength = Math.hypot(outVector.x, outVector.y)
+    if (inLength < 0.01 || outLength < 0.01) continue
+
+    const cornerRadius = Math.min(radius, inLength / 2, outLength / 2)
+    const entry = {
+      x: current.x - (inVector.x / inLength) * cornerRadius,
+      y: current.y - (inVector.y / inLength) * cornerRadius,
+    }
+    const exit = {
+      x: current.x + (outVector.x / outLength) * cornerRadius,
+      y: current.y + (outVector.y / outLength) * cornerRadius,
+    }
+    path += ` L ${entry.x} ${entry.y} Q ${current.x} ${current.y} ${exit.x} ${exit.y}`
+  }
+
+  const last = points[points.length - 1]
+  path += ` L ${last.x} ${last.y}`
+  return path
 }
 
 function cubicBezierPoint(
@@ -323,10 +664,7 @@ function polylineMidpoint(points: Array<{ x: number; y: number }>): { x: number;
   let total = 0
   const lengths: number[] = []
   for (let index = 0; index < points.length - 1; index += 1) {
-    const length = Math.hypot(
-      points[index + 1].x - points[index].x,
-      points[index + 1].y - points[index].y,
-    )
+    const length = segmentLength(points[index], points[index + 1])
     lengths.push(length)
     total += length
   }
@@ -336,64 +674,36 @@ function polylineMidpoint(points: Array<{ x: number; y: number }>): { x: number;
   let traveled = 0
 
   for (let index = 0; index < lengths.length; index += 1) {
-    const segmentLength = lengths[index]
-    if (traveled + segmentLength >= target) {
-      const ratio = segmentLength === 0 ? 0 : (target - traveled) / segmentLength
+    const len = lengths[index]
+    if (traveled + len >= target) {
+      const ratio = len === 0 ? 0 : (target - traveled) / len
       return {
         x: points[index].x + (points[index + 1].x - points[index].x) * ratio,
         y: points[index].y + (points[index + 1].y - points[index].y) * ratio,
       }
     }
-    traveled += segmentLength
+    traveled += len
   }
 
   return points[points.length - 1]
 }
 
-function orthogonalEdgePoints(
-  from: { x: number; y: number },
-  fromSide: PortSide,
-  to: { x: number; y: number },
-  toSide: PortSide,
-  stub = ORTHOGONAL_STUB,
-): Array<{ x: number; y: number }> {
-  const exit = stubPoint(from, fromSide, stub)
-  const entry = stubPoint(to, toSide, stub)
-  const points: Array<{ x: number; y: number }> = [from, exit]
-
-  const fromHorizontal = isHorizontalSide(fromSide)
-  const toHorizontal = isHorizontalSide(toSide)
-
-  if (fromHorizontal && toHorizontal) {
-    const midX = (exit.x + entry.x) / 2
-    points.push({ x: midX, y: exit.y }, { x: midX, y: entry.y })
-  } else if (!fromHorizontal && !toHorizontal) {
-    const midY = (exit.y + entry.y) / 2
-    points.push({ x: exit.x, y: midY }, { x: entry.x, y: midY })
-  } else if (fromHorizontal) {
-    points.push({ x: entry.x, y: exit.y })
-  } else {
-    points.push({ x: exit.x, y: entry.y })
-  }
-
-  points.push(entry, to)
-  return points
-}
-
-/** Smooth Bézier connector (default). */
+/** Smooth Bézier connector. */
 export function curvedEdgePath(
   from: { x: number; y: number },
   fromSide: PortSide,
   to: { x: number; y: number },
   toSide: PortSide,
 ): string {
-  const distance = Math.hypot(to.x - from.x, to.y - from.y)
+  const fromStub = stubPoint(from, fromSide, CONNECTOR_STUB)
+  const toStub = stubPoint(to, toSide, CONNECTOR_STUB)
+  const distance = Math.hypot(toStub.x - fromStub.x, toStub.y - fromStub.y)
   const bend = Math.min(140, Math.max(36, distance / 2))
   const d1 = SIDE_DIRECTION[fromSide]
   const d2 = SIDE_DIRECTION[toSide]
-  const c1 = { x: from.x + d1.x * bend, y: from.y + d1.y * bend }
-  const c2 = { x: to.x + d2.x * bend, y: to.y + d2.y * bend }
-  return `M ${from.x} ${from.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${to.x} ${to.y}`
+  const c1 = { x: fromStub.x + d1.x * bend, y: fromStub.y + d1.y * bend }
+  const c2 = { x: toStub.x + d2.x * bend, y: toStub.y + d2.y * bend }
+  return `M ${from.x} ${from.y} L ${fromStub.x} ${fromStub.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${toStub.x} ${toStub.y} L ${to.x} ${to.y}`
 }
 
 /** Orthogonal connector — straight segments with 90° corners only. */
@@ -402,9 +712,10 @@ export function orthogonalEdgePath(
   fromSide: PortSide,
   to: { x: number; y: number },
   toSide: PortSide,
-  stub = ORTHOGONAL_STUB,
+  context?: EdgeRouteContext,
 ): string {
-  return pointsToPath(orthogonalEdgePoints(from, fromSide, to, toSide, stub))
+  const points = orthogonalEdgePoints(from, fromSide, to, toSide, context)
+  return pointsToRoundedPath(points)
 }
 
 export function buildEdgePath(
@@ -413,9 +724,10 @@ export function buildEdgePath(
   to: { x: number; y: number },
   toSide: PortSide,
   routing: EdgeRouting = 'curved',
+  context?: EdgeRouteContext,
 ): string {
   return routing === 'orthogonal'
-    ? orthogonalEdgePath(from, fromSide, to, toSide)
+    ? orthogonalEdgePath(from, fromSide, to, toSide, context)
     : curvedEdgePath(from, fromSide, to, toSide)
 }
 
@@ -426,17 +738,20 @@ export function edgeLabelPosition(
   to: { x: number; y: number },
   toSide: PortSide,
   routing: EdgeRouting = 'curved',
+  context?: EdgeRouteContext,
 ): { x: number; y: number } {
   if (routing === 'orthogonal') {
-    return polylineMidpoint(orthogonalEdgePoints(from, fromSide, to, toSide))
+    return polylineMidpoint(orthogonalEdgePoints(from, fromSide, to, toSide, context))
   }
 
-  const distance = Math.hypot(to.x - from.x, to.y - from.y)
+  const fromStub = stubPoint(from, fromSide, CONNECTOR_STUB)
+  const toStub = stubPoint(to, toSide, CONNECTOR_STUB)
+  const distance = Math.hypot(toStub.x - fromStub.x, toStub.y - fromStub.y)
   const bend = Math.min(140, Math.max(36, distance / 2))
   const d1 = SIDE_DIRECTION[fromSide]
   const d2 = SIDE_DIRECTION[toSide]
-  const c1 = { x: from.x + d1.x * bend, y: from.y + d1.y * bend }
-  const c2 = { x: to.x + d2.x * bend, y: to.y + d2.y * bend }
+  const c1 = { x: fromStub.x + d1.x * bend, y: fromStub.y + d1.y * bend }
+  const c2 = { x: toStub.x + d2.x * bend, y: toStub.y + d2.y * bend }
   return cubicBezierPoint(from, c1, c2, to, 0.5)
 }
 
@@ -482,6 +797,24 @@ export function portPoint(
   side: PortSide,
 ): { x: number; y: number } {
   const { width, height } = getNodeSize(node, shape)
+
+  if (ELLIPSE_PORT_SHAPES.has(shape)) {
+    const cx = node.x + width / 2
+    const cy = node.y + height / 2
+    const rx = width / 2
+    const ry = height / 2
+    switch (side) {
+      case 'top':
+        return { x: cx, y: cy - ry }
+      case 'bottom':
+        return { x: cx, y: cy + ry }
+      case 'left':
+        return { x: cx - rx, y: cy }
+      case 'right':
+        return { x: cx + rx, y: cy }
+    }
+  }
+
   const anchor = portAnchor(shape, side)
   return { x: node.x + width * anchor.x, y: node.y + height * anchor.y }
 }
@@ -499,13 +832,88 @@ export function nearestSide(
   return dy > 0 ? 'bottom' : 'top'
 }
 
+/** Side of a point that faces toward another point (for preview endpoints). */
+export function portSideFacing(
+  at: { x: number; y: number },
+  toward: { x: number; y: number },
+): PortSide {
+  const dx = toward.x - at.x
+  const dy = toward.y - at.y
+  if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 'left' : 'right'
+  return dy > 0 ? 'top' : 'bottom'
+}
+
+/** Best facing port pair for two nodes — updates as shapes move. */
+export function facingPortSides(
+  fromNode: DiagramNode,
+  fromShape: PaletteShape,
+  toNode: DiagramNode,
+  toShape: PaletteShape,
+): { fromSide: PortSide; toSide: PortSide } {
+  const fromSize = getNodeSize(fromNode, fromShape)
+  const toSize = getNodeSize(toNode, toShape)
+  const fromCenter = {
+    x: fromNode.x + fromSize.width / 2,
+    y: fromNode.y + fromSize.height / 2,
+  }
+  const toCenter = {
+    x: toNode.x + toSize.width / 2,
+    y: toNode.y + toSize.height / 2,
+  }
+  const dx = toCenter.x - fromCenter.x
+  const dy = toCenter.y - fromCenter.y
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx > 0
+      ? { fromSide: 'right', toSide: 'left' }
+      : { fromSide: 'left', toSide: 'right' }
+  }
+
+  return dy > 0
+    ? { fromSide: 'bottom', toSide: 'top' }
+    : { fromSide: 'top', toSide: 'bottom' }
+}
+
+/** Picks port sides that produce the shortest clean orthogonal route (Visio-style). */
+export function bestPortSidesForConnection(
+  fromNode: DiagramNode,
+  fromShape: PaletteShape,
+  toNode: DiagramNode,
+  toShape: PaletteShape,
+  context?: EdgeRouteContext,
+  fixedFromSide?: PortSide,
+): { fromSide: PortSide; toSide: PortSide } {
+  const preferred = facingPortSides(fromNode, fromShape, toNode, toShape)
+  const fromSides = fixedFromSide ? [fixedFromSide] : PORT_SIDES
+  let bestFrom = preferred.fromSide
+  let bestTo = preferred.toSide
+  let bestCost = Number.POSITIVE_INFINITY
+
+  for (const fromSide of fromSides) {
+    for (const toSide of PORT_SIDES) {
+      const from = portPoint(fromNode, fromShape, fromSide)
+      const to = portPoint(toNode, toShape, toSide)
+      const points = orthogonalEdgePoints(from, fromSide, to, toSide, context)
+      let cost = pathCost(points)
+      if (fromSide === preferred.fromSide && toSide === preferred.toSide) cost -= 16
+      if (cost < bestCost) {
+        bestCost = cost
+        bestFrom = fromSide
+        bestTo = toSide
+      }
+    }
+  }
+
+  return { fromSide: bestFrom, toSide: bestTo }
+}
+
 /** Palette used when a tool has no designer configuration yet. */
 export const FALLBACK_PALETTE: PaletteItem[] = [
-  { id: 'generic-box', label: 'Box', shape: 'rectangle', color: 'blue', group: 'Basic', order: 1 },
-  { id: 'generic-ellipse', label: 'Ellipse', shape: 'ellipse', color: 'violet', group: 'Basic', order: 2 },
-  { id: 'generic-circle', label: 'Circle', shape: 'circle', color: 'emerald', group: 'Basic', order: 3 },
-  { id: 'generic-diamond', label: 'Diamond', shape: 'decision', color: 'amber', group: 'Basic', order: 4 },
-  { id: 'generic-note', label: 'Note', shape: 'note', color: 'amber', group: 'Annotate', order: 5 },
+  { id: 'generic-box', label: 'Box', shape: 'rectangle', color: 'slate', group: 'Basic', order: 1 },
+  { id: 'generic-ellipse', label: 'Ellipse', shape: 'ellipse', color: 'slate', group: 'Basic', order: 2 },
+  { id: 'generic-circle', label: 'Circle', shape: 'circle', color: 'slate', group: 'Basic', order: 3 },
+  { id: 'generic-diamond', label: 'Diamond', shape: 'decision', color: 'slate', group: 'Basic', order: 4 },
+  { id: 'generic-note', label: 'Note', shape: 'note', color: 'slate', group: 'Annotate', order: 5 },
   { id: 'generic-text', label: 'Text', shape: 'text', color: 'slate', group: 'Annotate', order: 6 },
 ]
 

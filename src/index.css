@@ -10,8 +10,9 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 356 65% 46%;
+    --primary: 8 58% 38%;
     --primary-foreground: 0 0% 100%;
+    --primary-deep: 8 62% 28%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
@@ -22,7 +23,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 356 65% 46%;
+    --ring: 8 58% 38%;
     --radius: 0.625rem;
     --canvas: 0 0% 100%;
     --canvas-grid: 240 5% 84%;
@@ -35,8 +36,9 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 8% 6%;
     --popover-foreground: 0 0% 98%;
-    --primary: 356 68% 54%;
+    --primary: 8 55% 46%;
     --primary-foreground: 0 0% 100%;
+    --primary-deep: 8 58% 36%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
@@ -47,7 +49,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 356 68% 54%;
+    --ring: 8 55% 46%;
   }
 
   .dark {
@@ -101,13 +103,25 @@
 
 @layer utilities {
   .text-gradient {
-    @apply bg-gradient-to-r from-red-800 via-primary to-rose-600 bg-clip-text text-transparent;
+    background-image: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary-deep)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   .bg-brand-gradient {
-    @apply bg-gradient-to-br from-primary to-red-900;
+    background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-deep)));
   }
   .bg-brand-gradient-soft {
-    @apply bg-gradient-to-r from-primary/20 via-red-500/10 to-rose-500/10;
+    background-color: hsl(var(--primary) / 0.08);
+  }
+  .bg-brand-gradient-cta {
+    background-image: linear-gradient(135deg, hsl(var(--primary-deep)), hsl(var(--primary)));
+  }
+  .shadow-brand {
+    --tw-shadow-color: hsl(var(--primary) / 0.18);
+    box-shadow:
+      var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+      0 10px 30px -8px var(--tw-shadow-color);
   }
   .glass {
     @apply bg-background/70 backdrop-blur-xl;
