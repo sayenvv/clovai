@@ -6,10 +6,14 @@ import {
   Download,
   Eraser,
   ExternalLink,
+  GitBranch,
   FilePlus2,
   Keyboard,
+  Layers,
   Maximize,
   Moon,
+  PanelRight,
+  Plus,
   Scan,
   Sparkles,
   Sun,
@@ -37,7 +41,8 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { Selection } from './DesignerCanvas'
+import type { Selection } from '@/components/designer/selection-utils'
+import { selectionNodeCount } from '@/components/designer/selection-utils'
 import { WorkspaceMembersTrigger } from './WorkspaceMembersTrigger'
 
 const SHORTCUTS: Array<{ keys: string; action: string }> = [
@@ -74,6 +79,17 @@ interface DesignerMenubarProps {
   onShare: () => void
   toolId: string
   onManageAccess: () => void
+  /** Hide facepile when the workspace header already shows members. */
+  showWorkspaceMembers?: boolean
+  /** Right-side properties / inspector panel (agent workflow). */
+  propertiesPanelOpen?: boolean
+  onTogglePropertiesPanel?: () => void
+  /** Agent workflow — group selection into a nested workflow. */
+  onConvertToSubWorkflow?: () => void
+  canConvertToSubWorkflow?: boolean
+  onInsertWorkflow?: () => void
+  onInsertImport?: () => void
+  onCreateWorkflowTab?: () => void
 }
 
 function MenuTrigger({ label }: { label: string }) {
@@ -114,6 +130,14 @@ export const DesignerMenubar = memo(function DesignerMenubar({
   onShare,
   toolId,
   onManageAccess,
+  showWorkspaceMembers = true,
+  propertiesPanelOpen,
+  onTogglePropertiesPanel,
+  onConvertToSubWorkflow,
+  canConvertToSubWorkflow = false,
+  onInsertWorkflow,
+  onInsertImport,
+  onCreateWorkflowTab,
 }: DesignerMenubarProps) {
   const { theme, toggleTheme } = useTheme()
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
@@ -151,12 +175,47 @@ export const DesignerMenubar = memo(function DesignerMenubar({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {onInsertWorkflow && (
+        <DropdownMenu>
+          <MenuTrigger label="Insert" />
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onSelect={onInsertWorkflow}>
+              <Layers /> Workflow…
+            </DropdownMenuItem>
+            {onCreateWorkflowTab && (
+              <DropdownMenuItem onSelect={onCreateWorkflowTab}>
+                <Plus /> New workflow tab
+              </DropdownMenuItem>
+            )}
+            {onInsertImport && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={onInsertImport}>
+                  <Upload /> Import from file…
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
       <DropdownMenu>
         <MenuTrigger label="Edit" />
         <DropdownMenuContent align="start">
           <DropdownMenuItem onSelect={onDuplicate} disabled={selection?.kind !== 'node'}>
             <Copy /> Duplicate shape
           </DropdownMenuItem>
+          {onConvertToSubWorkflow && (
+            <DropdownMenuItem
+              onSelect={onConvertToSubWorkflow}
+              disabled={!canConvertToSubWorkflow}
+            >
+              <GitBranch /> Convert to sub-workflow
+              {selectionNodeCount(selection) > 1 && (
+                <DropdownMenuShortcut>{selectionNodeCount(selection)} agents</DropdownMenuShortcut>
+              )}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={onDeleteSelection} disabled={!selection}>
             <Trash2 /> Delete selection
             <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
@@ -188,6 +247,21 @@ export const DesignerMenubar = memo(function DesignerMenubar({
           <DropdownMenuCheckboxItem checked={showGrid} onCheckedChange={onShowGridChange}>
             Show grid
           </DropdownMenuCheckboxItem>
+          {onTogglePropertiesPanel && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={propertiesPanelOpen ?? true}
+                onCheckedChange={(checked) => {
+                  if (checked !== (propertiesPanelOpen ?? true)) {
+                    onTogglePropertiesPanel()
+                  }
+                }}
+              >
+                Properties panel
+              </DropdownMenuCheckboxItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -258,9 +332,25 @@ export const DesignerMenubar = memo(function DesignerMenubar({
         </DialogContent>
       </Dialog>
 
-      <div className="ml-auto flex items-center">
-        <WorkspaceMembersTrigger toolId={toolId} onManageAccess={onManageAccess} />
-      </div>
+      {(onTogglePropertiesPanel || showWorkspaceMembers) && (
+        <div className="ml-auto flex items-center gap-0.5">
+          {onTogglePropertiesPanel && (
+            <Button
+              variant={propertiesPanelOpen ? 'secondary' : 'ghost'}
+              size="icon"
+              className="h-7 w-7"
+              onClick={onTogglePropertiesPanel}
+              aria-label={propertiesPanelOpen ? 'Hide properties panel' : 'Show properties panel'}
+              title={propertiesPanelOpen ? 'Hide properties panel' : 'Show properties panel'}
+            >
+              <PanelRight className="h-4 w-4" />
+            </Button>
+          )}
+          {showWorkspaceMembers && (
+            <WorkspaceMembersTrigger toolId={toolId} onManageAccess={onManageAccess} />
+          )}
+        </div>
+      )}
     </div>
   )
 })

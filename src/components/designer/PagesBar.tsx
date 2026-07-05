@@ -97,7 +97,7 @@ export const PagesBar = memo(function PagesBar({
     <div
       className="flex items-center gap-1 overflow-x-auto border-t bg-background px-2 py-1"
       role="tablist"
-      aria-label="Diagram pages"
+      aria-label="Workflow tabs"
     >
       {pages.map((page) => (
         <PageTab
@@ -116,14 +116,14 @@ export const PagesBar = memo(function PagesBar({
         size="icon"
         className="h-6 w-6 shrink-0"
         onClick={onAdd}
-        aria-label="Add page"
-        title="Add page"
+        aria-label="Add workflow tab"
+        title="New workflow tab"
       >
         <Plus className="h-3.5 w-3.5" />
       </Button>
 
       <span className="ml-auto shrink-0 pr-1 text-[11px] text-muted-foreground">
-        {pages.length} {pages.length === 1 ? 'page' : 'pages'}
+        {pages.length} {pages.length === 1 ? 'workflow' : 'workflows'}
       </span>
     </div>
   )

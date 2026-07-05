@@ -46,5 +46,5 @@ export function useHorizontalResize({
     [invert, maxWidth, minWidth],
   )
 
-  return { width, onResizePointerDown }
+  return { width, setWidth, onResizePointerDown }
 }

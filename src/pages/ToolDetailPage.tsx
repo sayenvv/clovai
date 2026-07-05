@@ -228,6 +228,15 @@ export default function ToolDetailPage() {
       if (selection.kind === 'edge') {
         return { ...previous, edges: previous.edges.filter((edge) => edge.id !== selection.id) }
       }
+      if (selection.kind === 'nodes') {
+        const removeIds = new Set(selection.ids)
+        return {
+          nodes: previous.nodes.filter((node) => !removeIds.has(node.id)),
+          edges: previous.edges.filter(
+            (edge) => !removeIds.has(edge.from) && !removeIds.has(edge.to),
+          ),
+        }
+      }
       return {
         nodes: previous.nodes.filter((node) => node.id !== selection.id),
         edges: previous.edges.filter(

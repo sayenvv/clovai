@@ -351,8 +351,26 @@
       "isEnabled": true,
       "order": 2,
       "designer": {
-        "paletteVersion": 1,
+        "paletteVersion": 4,
         "palette": [
+          {
+            "id": "aw-agent",
+            "label": "Agent",
+            "description": "AI agent node",
+            "shape": "process",
+            "color": "slate",
+            "group": "Agents",
+            "order": 1
+          },
+          {
+            "id": "aw-tool",
+            "label": "Tool",
+            "description": "Tool execution node",
+            "shape": "process",
+            "color": "slate",
+            "group": "Agents",
+            "order": 2
+          },
           {
             "id": "aw-start",
             "label": "Start",
@@ -417,13 +435,22 @@
             "order": 13
           },
           {
+            "id": "aw-sub-workflow",
+            "label": "Sub-workflow",
+            "description": "Nested workflow mounted as a single agent",
+            "shape": "subprocess",
+            "color": "violet",
+            "group": "Agents",
+            "order": 14
+          },
+          {
             "id": "aw-reviewer",
             "label": "Human Review",
             "description": "Pause for human approval",
             "shape": "manual-input",
             "color": "slate",
             "group": "Agents",
-            "order": 14
+            "order": 15
           },
           {
             "id": "aw-router",
@@ -505,6 +532,114 @@
             "color": "slate",
             "group": "Annotate",
             "order": 41
+          },
+          {
+            "id": "aw-ext-langgraph",
+            "label": "LangGraph Agent",
+            "description": "LangChain graph agent with tool routing",
+            "shape": "hexagon",
+            "color": "emerald",
+            "group": "External Agents",
+            "order": 50
+          },
+          {
+            "id": "aw-ext-crewai",
+            "label": "CrewAI Agent",
+            "description": "CrewAI role-based agent",
+            "shape": "hexagon",
+            "color": "emerald",
+            "group": "External Agents",
+            "order": 51
+          },
+          {
+            "id": "aw-ext-autogen",
+            "label": "AutoGen Agent",
+            "description": "Microsoft AutoGen conversational agent",
+            "shape": "process",
+            "color": "blue",
+            "group": "External Agents",
+            "order": 52
+          },
+          {
+            "id": "aw-ext-bedrock",
+            "label": "Bedrock Agent",
+            "description": "Amazon Bedrock managed agent",
+            "shape": "hexagon",
+            "color": "amber",
+            "group": "External Agents",
+            "order": 53
+          },
+          {
+            "id": "aw-ext-vertex",
+            "label": "Vertex AI Agent",
+            "description": "Google Vertex AI agent",
+            "shape": "process",
+            "color": "blue",
+            "group": "External Agents",
+            "order": 54
+          },
+          {
+            "id": "aw-ext-copilot",
+            "label": "Copilot Studio Agent",
+            "description": "Microsoft Copilot Studio agent",
+            "shape": "hexagon",
+            "color": "blue",
+            "group": "External Agents",
+            "order": 55
+          },
+          {
+            "id": "aw-ext-databricks",
+            "label": "Databricks Agent",
+            "description": "Databricks lakehouse agent",
+            "shape": "hexagon",
+            "color": "rose",
+            "group": "External Agents",
+            "order": 56
+          },
+          {
+            "id": "aw-ext-agentforce",
+            "label": "Agentforce Agent",
+            "description": "Salesforce Agentforce CRM agent",
+            "shape": "hexagon",
+            "color": "cyan",
+            "group": "External Agents",
+            "order": 57
+          },
+          {
+            "id": "aw-ext-openai",
+            "label": "OpenAI Assistants",
+            "description": "OpenAI Assistants API agent",
+            "shape": "process",
+            "color": "slate",
+            "group": "External Agents",
+            "order": 58
+          },
+          {
+            "id": "aw-ext-anthropic",
+            "label": "Claude Agent",
+            "description": "Anthropic Claude agent",
+            "shape": "process",
+            "color": "rose",
+            "group": "External Agents",
+            "order": 59
+          },
+          {
+            "id": "aw-ext-llamaindex",
+            "label": "LlamaIndex Agent",
+            "description": "LlamaIndex RAG agent",
+            "shape": "hexagon",
+            "color": "violet",
+            "group": "External Agents",
+            "order": 60
+          },
+          {
+            "id": "aw-ext-huggingface",
+            "label": "HF Agents",
+            "description": "Hugging Face agents agent",
+            "shape": "process",
+            "color": "amber",
+            "group": "External Agents",
+            "order": 61
           }
         ]
       },

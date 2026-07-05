@@ -12,6 +12,21 @@ import { MousePointerClick } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { useTheme } from '@/hooks/use-theme'
 import { NodeShape } from './NodeShape'
+import { AgentNodeCard } from '@/components/agent-workflow/AgentNodeCard'
+import {
+  AGENT_NODE_HEIGHT,
+  AGENT_NODE_WIDTH,
+  TOOL_NODE_HEIGHT,
+  TOOL_NODE_WIDTH,
+  TOOL_PALETTE_ID,
+} from '@/components/agent-workflow/agent-workflow-defaults'
+import { edgeNeedsApprovalStyle } from '@/components/agent-workflow/validate-workflow'
+import {
+  agentLabel,
+  agentNodeSize,
+  isToolNode,
+  toolNodeSize,
+} from '@/components/agent-workflow/tool-agent-mapping'
 import { resolveEdgeColors } from './diagram-colors'
 import {
   buildEdgePath,
@@ -42,17 +57,40 @@ import { ConnectionPopup } from './ConnectionPopup'
 import { CanvasZoomControls } from './CanvasZoomControls'
 import { NodeSelectionOverlay, type FullResizeHandle } from './NodeSelectionOverlay'
 import { zoomViewportAt } from './viewport-utils'
-import type { PaletteItem } from '@/types/config'
+import type { PaletteItem, PaletteShape } from '@/types/config'
+import {
+  isNodeInSelection,
+  selectedNodeIds,
+  toggleNodeInSelection,
+  type Selection,
+} from '@/components/designer/selection-utils'
 
 const GRID_STEP = 12
 
-export type Selection = { kind: 'node' | 'edge'; id: string } | null
+export type { Selection } from '@/components/designer/selection-utils'
 
 type ReconnectEnd = 'from' | 'to'
 
+/** Agent cards are always rectangular — use process ports for routing and hit targets. */
+function resolvePortShape(
+  node: DiagramNode,
+  item: PaletteItem,
+  agentMode: boolean,
+): PaletteShape {
+  if (agentMode && node.paletteId.startsWith('aw-')) return 'process'
+  return resolveNodeStyle(node, item).shape
+}
+
 type DragSession =
   | { type: 'pan'; startX: number; startY: number; originX: number; originY: number }
-  | { type: 'node'; id: string; offsetX: number; offsetY: number }
+  | {
+      type: 'node'
+      id: string
+      offsetX: number
+      offsetY: number
+      groupIds?: string[]
+      groupStarts?: Record<string, { x: number; y: number }>
+    }
   | {
       type: 'resize'
       id: string
@@ -74,13 +112,14 @@ function findPortAtWorld(
   nodes: DiagramNode[],
   paletteById: Map<string, PaletteItem>,
   threshold: number,
+  agentMode: boolean,
 ): { nodeId: string; side: PortSide } | null {
   let best: { nodeId: string; side: PortSide; dist: number } | null = null
 
   for (const node of nodes) {
     const item = paletteById.get(node.paletteId)
     if (!item) continue
-    const shape = resolveNodeStyle(node, item).shape
+    const shape = resolvePortShape(node, item, agentMode)
     for (const side of PORT_SIDES) {
       const point = portPoint(node, shape, side)
       const dist = Math.hypot(world.x - point.x, world.y - point.y)
@@ -119,6 +158,15 @@ interface DesignerCanvasProps {
   showGrid: boolean
   onZoomIn: () => void
   onZoomOut: () => void
+  /** Agent workflow builder — rich agent cards and approval edge styling. */
+  agentMode?: boolean
+  transformDroppedNode?: (node: DiagramNode, item: PaletteItem) => DiagramNode
+  /** Return null to cancel drop (e.g. tool with no agent on canvas). */
+  finalizeDroppedNode?: (
+    node: DiagramNode,
+    diagram: Diagram,
+    world: { x: number; y: number },
+  ) => DiagramNode | null
 }
 
 let idCounter = 0
@@ -193,6 +241,9 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   showGrid,
   onZoomIn,
   onZoomOut,
+  agentMode = false,
+  transformDroppedNode,
+  finalizeDroppedNode,
 }: DesignerCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const { isDark } = useTheme()
@@ -228,9 +279,9 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       nodes.flatMap((node) => {
         const item = paletteById.get(node.paletteId)
         if (!item) return []
-        return [nodeRouteObstacle(node, resolveNodeStyle(node, item).shape)]
+        return [nodeRouteObstacle(node, resolvePortShape(node, item, agentMode))]
       }),
-    [paletteById],
+    [paletteById, agentMode],
   )
 
   const resolveConnectionSides = useCallback(
@@ -256,9 +307,9 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       }
       return bestPortSidesForConnection(
         from,
-        resolveNodeStyle(from, fromItem).shape,
+        resolvePortShape(from, fromItem, agentMode),
         to,
-        resolveNodeStyle(to, toItem).shape,
+        resolvePortShape(to, toItem, agentMode),
         {
           obstacles: buildRouteObstacles(nodes),
           fromNodeId: fromNodeId,
@@ -267,7 +318,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         fixedFromSide,
       )
     },
-    [paletteById, buildRouteObstacles],
+    [paletteById, buildRouteObstacles, agentMode],
   )
 
   const addEdge = useCallback(
@@ -369,10 +420,18 @@ export const DesignerCanvas = memo(function DesignerCanvas({
           if (selection.kind === 'edge') {
             return { ...previous, edges: previous.edges.filter((edge) => edge.id !== selection.id) }
           }
+          const nodeIds = selectedNodeIds(selection)
+          if (nodeIds.length === 0) return previous
+          const removeIds = new Set(nodeIds)
+          for (const node of previous.nodes) {
+            if (node.mappedAgentId && removeIds.has(node.mappedAgentId)) {
+              removeIds.add(node.id)
+            }
+          }
           return {
-            nodes: previous.nodes.filter((node) => node.id !== selection.id),
+            nodes: previous.nodes.filter((node) => !removeIds.has(node.id)),
             edges: previous.edges.filter(
-              (edge) => edge.from !== selection.id && edge.to !== selection.id,
+              (edge) => !removeIds.has(edge.from) && !removeIds.has(edge.to),
             ),
           }
         })
@@ -408,19 +467,45 @@ export const DesignerCanvas = memo(function DesignerCanvas({
 
     // Completing a pending connection — snap to the best facing port on the target.
     if (connectFrom && connectFrom.nodeId !== node.id) {
+      if (agentMode && isToolNode(node)) return
       addEdge(connectFrom, node.id)
+      return
+    }
+
+    const additive = event.shiftKey || event.metaKey || event.ctrlKey
+    if (additive) {
+      onSelectionChange(toggleNodeInSelection(selection, node.id))
       return
     }
 
     containerRef.current?.setPointerCapture(event.pointerId)
     const world = toWorld(event.clientX, event.clientY)
+    const currentIds = selectedNodeIds(selection)
+    const groupIds =
+      currentIds.length > 1 && currentIds.includes(node.id) ? currentIds : undefined
+    const groupStarts = groupIds
+      ? Object.fromEntries(
+          diagram.nodes
+            .filter((candidate) => groupIds.includes(candidate.id))
+            .map((candidate) => [candidate.id, { x: candidate.x, y: candidate.y }]),
+        )
+      : undefined
+
     sessionRef.current = {
       type: 'node',
       id: node.id,
       offsetX: world.x - node.x,
       offsetY: world.y - node.y,
+      groupIds,
+      groupStarts,
     }
     setIsGrabbing(true)
+
+    if (groupIds) {
+      onSelectionChange({ kind: 'nodes', ids: groupIds })
+      return
+    }
+
     onSelectionChange({ kind: 'node', id: node.id })
   }
 
@@ -517,13 +602,28 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     const world = toWorld(event.clientX, event.clientY)
 
     if (session.type === 'node') {
-      const { id, offsetX, offsetY } = session
+      const { id, offsetX, offsetY, groupIds, groupStarts } = session
       const x = snap(world.x - offsetX)
       const y = snap(world.y - offsetY)
+      const dragged = diagram.nodes.find((node) => node.id === id)
+      const dx = dragged ? x - dragged.x : 0
+      const dy = dragged ? y - dragged.y : 0
       onChange((previous) => {
-        const nodes = previous.nodes.map((node) => (node.id === id ? { ...node, x, y } : node))
+        const moveIds =
+          groupIds && groupStarts
+            ? new Set(groupIds)
+            : new Set([id])
+        const nodes = previous.nodes.map((node) => {
+          if (node.id === id) return { ...node, x, y }
+          if (groupIds && groupStarts && moveIds.has(node.id)) {
+            const start = groupStarts[node.id]
+            if (!start) return node
+            return { ...node, x: snap(start.x + dx), y: snap(start.y + dy) }
+          }
+          return node
+        })
         const edges = previous.edges.map((edge) => {
-          if (edge.from !== id && edge.to !== id) return edge
+          if (!moveIds.has(edge.from) && !moveIds.has(edge.to)) return edge
           const sides = resolveConnectionSides(nodes, edge.from, edge.to)
           return { ...edge, fromSide: sides.fromSide, toSide: sides.toSide }
         })
@@ -556,7 +656,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
 
     if (session?.type === 'reconnect') {
       const world = toWorld(event.clientX, event.clientY)
-      const portHit = findPortAtWorld(world, diagram.nodes, paletteById, 24 / viewport.scale)
+      const portHit = findPortAtWorld(world, diagram.nodes, paletteById, 24 / viewport.scale, agentMode)
 
       if (portHit) {
         applyReconnect(session.edgeId, session.end, portHit.nodeId, portHit.side)
@@ -564,7 +664,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         for (const node of diagram.nodes) {
           const item = paletteById.get(node.paletteId)
           if (!item) continue
-          const shape = resolveNodeStyle(node, item).shape
+          const shape = resolvePortShape(node, item, agentMode)
           if (!nodeContainsPoint(node, shape, world)) continue
           applyReconnect(
             session.edgeId,
@@ -594,13 +694,34 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     const item = paletteById.get(paletteId)
     if (!item) return
     const world = toWorld(event.clientX, event.clientY)
-    const { width, height } = nodeSize(item.shape)
-    const node: DiagramNode = {
-      id: nextId('node'),
-      paletteId,
-      label: item.label,
-      x: snap(world.x - width / 2),
-      y: snap(world.y - height / 2),
+    const { width, height } =
+      agentMode && paletteId.startsWith('aw-')
+        ? paletteId === TOOL_PALETTE_ID
+          ? { width: TOOL_NODE_WIDTH, height: TOOL_NODE_HEIGHT }
+          : { width: AGENT_NODE_WIDTH, height: AGENT_NODE_HEIGHT }
+        : nodeSize(item.shape)
+    let node: DiagramNode = transformDroppedNode
+      ? transformDroppedNode(
+          {
+            id: nextId('node'),
+            paletteId,
+            label: item.label,
+            x: snap(world.x - width / 2),
+            y: snap(world.y - height / 2),
+          },
+          item,
+        )
+      : {
+          id: nextId('node'),
+          paletteId,
+          label: item.label,
+          x: snap(world.x - width / 2),
+          y: snap(world.y - height / 2),
+        }
+    if (finalizeDroppedNode) {
+      const finalized = finalizeDroppedNode(node, diagram, world)
+      if (!finalized) return
+      node = finalized
     }
     onChange((previous) => ({ ...previous, nodes: [...previous.nodes, node] }))
     onSelectionChange({ kind: 'node', id: node.id })
@@ -639,10 +760,30 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       diagram.nodes.flatMap((node) => {
         const item = paletteById.get(node.paletteId)
         if (!item) return []
-        return [nodeRouteObstacle(node, resolveNodeStyle(node, item).shape)]
+        return [nodeRouteObstacle(node, resolvePortShape(node, item, agentMode))]
       }),
-    [diagram.nodes, paletteById],
+    [diagram.nodes, paletteById, agentMode],
   )
+
+  const mappingLines = useMemo(() => {
+    if (!agentMode) return []
+    return diagram.nodes.flatMap((node) => {
+      if (!isToolNode(node) || !node.mappedAgentId) return []
+      const agent = nodesById.get(node.mappedAgentId)
+      if (!agent) return []
+      const agentSize = agentNodeSize(agent)
+      const toolSize = toolNodeSize(node)
+      return [
+        {
+          id: `map-${node.id}`,
+          x1: agent.x + agentSize.width / 2,
+          y1: agent.y + agentSize.height,
+          x2: node.x + toolSize.width / 2,
+          y2: node.y,
+        },
+      ]
+    })
+  }, [agentMode, diagram.nodes, nodesById])
 
   const renderedEdges = useMemo(
     () =>
@@ -653,8 +794,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         const toItem = to && paletteById.get(to.paletteId)
         if (!from || !to || !fromItem || !toItem) return []
         const routing = edge.routing ?? 'orthogonal'
-        const fromPoint = portPoint(from, resolveNodeStyle(from, fromItem).shape, edge.fromSide)
-        const toPoint = portPoint(to, resolveNodeStyle(to, toItem).shape, edge.toSide)
+        const fromPoint = portPoint(from, resolvePortShape(from, fromItem, agentMode), edge.fromSide)
+        const toPoint = portPoint(to, resolvePortShape(to, toItem, agentMode), edge.toSide)
         const routeContext = {
           obstacles: routeObstacles,
           fromNodeId: edge.from,
@@ -685,7 +826,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
           },
         ]
       }),
-    [diagram.edges, nodesById, paletteById, routeObstacles],
+    [diagram.edges, nodesById, paletteById, routeObstacles, agentMode],
   )
 
   const selectedEdgePopup = useMemo(() => {
@@ -771,7 +912,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     if (!connectSourceNode || !connectSourceItem || !connectFrom || !connectCursor) return null
     const fromPoint = portPoint(
       connectSourceNode,
-      resolveNodeStyle(connectSourceNode, connectSourceItem).shape,
+      resolvePortShape(connectSourceNode, connectSourceItem, agentMode),
       connectFrom.side,
     )
     const toSide = portSideFacing(connectCursor, fromPoint)
@@ -787,7 +928,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         toNodeId: '__preview__',
       },
     )
-  }, [connectSourceNode, connectSourceItem, connectFrom, connectCursor, routeObstacles])
+  }, [connectSourceNode, connectSourceItem, connectFrom, connectCursor, routeObstacles, agentMode])
 
   const gridSize = 24 * viewport.scale
 
@@ -826,8 +967,9 @@ export const DesignerCanvas = memo(function DesignerCanvas({
           const item = paletteById.get(node.paletteId)
           if (!item) return null
           const { shape, colorOverrides } = resolveNodeStyle(node, item)
-          const { width, height } = getNodeSize(node, shape)
-          const isSelected = selection?.kind === 'node' && selection.id === node.id
+          const portShape = resolvePortShape(node, item, agentMode)
+          const { width, height } = getNodeSize(node, portShape)
+          const isSelected = isNodeInSelection(selection, node.id)
           const isEditing = editingNodeId === node.id
           const isConnectSource = connectFrom?.nodeId === node.id
           const isConnectTarget = Boolean(connectFrom) && !isConnectSource
@@ -839,11 +981,16 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               ? selectedEdge.fromSide
               : selectedEdge.toSide
             : null
+          const toolNode = agentMode && isToolNode(node)
+          const mappedUnderLabel =
+            toolNode && node.mappedAgentId
+              ? agentLabel(diagram, node.mappedAgentId)
+              : undefined
 
           return (
             <div
               key={node.id}
-              className="group/node absolute cursor-inherit select-none"
+              className="group/node absolute z-[1] cursor-inherit select-none"
               style={{ left: node.x, top: node.y, width, height }}
               onPointerDown={(event) => handleNodePointerDown(event, node)}
               onDoubleClick={(event) => {
@@ -851,14 +998,25 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 setEditingNodeId(node.id)
               }}
             >
-              <NodeShape
-                shape={shape}
-                fillColor={colorOverrides.fillColor}
-                borderColor={colorOverrides.borderColor}
-                isDark={isDark}
-                label={isEditing ? '' : node.label}
-                className="cursor-inherit"
-              />
+              {agentMode && node.agent ? (
+                <AgentNodeCard
+                  node={node}
+                  item={item}
+                  isSelected={isSelected}
+                  isDark={isDark}
+                  mappedUnderLabel={mappedUnderLabel}
+                  className="cursor-inherit h-full w-full"
+                />
+              ) : (
+                <NodeShape
+                  shape={shape}
+                  fillColor={colorOverrides.fillColor}
+                  borderColor={colorOverrides.borderColor}
+                  isDark={isDark}
+                  label={isEditing ? '' : node.label}
+                  className="cursor-inherit"
+                />
+              )}
 
               {isEditing && (
                 <input
@@ -876,9 +1034,9 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               )}
 
               {/* Connection ports when not selected — discover on hover */}
-              {!isSelected && !isEdgeEndpoint &&
+              {!toolNode && !isSelected && !isEdgeEndpoint &&
                 PORT_SIDES.map((side) => {
-                  const anchor = portAnchor(shape, side)
+                  const anchor = portAnchor(portShape, side)
                   return (
                     <button
                       key={side}
@@ -897,9 +1055,9 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 })}
 
               {/* Endpoint ports when a connector is selected */}
-              {!isSelected && isEdgeEndpoint &&
+              {!toolNode && !isSelected && isEdgeEndpoint &&
                 PORT_SIDES.map((side) => {
-                  const anchor = portAnchor(shape, side)
+                  const anchor = portAnchor(portShape, side)
                   const isConnected = connectedPortSide === side
                   return (
                     <button
@@ -923,9 +1081,9 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   )
                 })}
 
-              {isSelected && !isEditing && (
+              {isSelected && !isEditing && !toolNode && (
                 <NodeSelectionOverlay
-                  shape={shape}
+                  shape={portShape}
                   onResizePointerDown={(event, handle) =>
                     handleResizePointerDown(event, node, item, handle)
                   }
@@ -943,7 +1101,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         <svg
           width={1}
           height={1}
-          className="pointer-events-none absolute left-0 top-0 z-10 overflow-visible"
+          className="absolute left-0 top-0 z-20 overflow-visible"
         >
           <defs>
             <marker
@@ -958,6 +1116,20 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               <path d="M 0 0 L 10 5 L 0 10 Z" fill="currentColor" />
             </marker>
           </defs>
+          {mappingLines.map((line) => (
+            <line
+              key={line.id}
+              x1={line.x1}
+              y1={line.y1}
+              x2={line.x2}
+              y2={line.y2}
+              stroke="#3b82f6"
+              strokeWidth={1.5 / viewport.scale}
+              strokeDasharray={`${6 / viewport.scale} ${4 / viewport.scale}`}
+              strokeOpacity={0.45}
+              className="pointer-events-none"
+            />
+          ))}
           {renderedEdges.map(({ edge, path, midpoint: labelPoint, fromPoint, toPoint }) => {
             const isSelected = selection?.kind === 'edge' && selection.id === edge.id
             const text = edge.label?.trim()
@@ -969,10 +1141,16 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               { fillColor: edge.fillColor, borderColor: edge.borderColor },
               isDark,
             )
-            const strokeClass = cn(isSelected && 'text-foreground stroke-foreground')
+            const approvalEdge = agentMode && edgeNeedsApprovalStyle(edge)
+            const strokeClass = cn(
+              isSelected && 'text-foreground stroke-foreground',
+              approvalEdge && !isSelected && 'text-violet-500 stroke-violet-500',
+            )
             const strokeStyle = isSelected
               ? { stroke: edgeColors.border, color: edgeColors.border }
-              : { stroke: edgeColors.border, color: edgeColors.border }
+              : approvalEdge
+                ? { stroke: '#8b5cf6', color: '#8b5cf6' }
+                : { stroke: edgeColors.border, color: edgeColors.border }
 
             return (
             <g key={edge.id} className={strokeClass} style={strokeStyle}>
@@ -980,10 +1158,16 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 d={path}
                 fill="none"
                 stroke="transparent"
-                strokeWidth={14 / viewport.scale}
+                strokeWidth={Math.max(24 / viewport.scale, 14)}
                 className="pointer-events-auto cursor-pointer"
                 onPointerDown={(event) => {
                   event.stopPropagation()
+                  event.preventDefault()
+                  if (containerRef.current?.hasPointerCapture(event.pointerId)) {
+                    containerRef.current.releasePointerCapture(event.pointerId)
+                  }
+                  sessionRef.current = null
+                  setIsGrabbing(false)
                   onSelectionChange({ kind: 'edge', id: edge.id })
                 }}
                 onDoubleClick={(event) => {
@@ -1000,6 +1184,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 strokeLinecap="round"
                 className={cn('pointer-events-none', strokeClass)}
                 strokeWidth={isSelected ? 2 : 1.75}
+                strokeDasharray={approvalEdge ? '6 4' : undefined}
               />
               <circle cx={fromPoint.x} cy={fromPoint.y} r={3} className="fill-current" />
               <circle cx={toPoint.x} cy={toPoint.y} r={3} className="fill-current" />

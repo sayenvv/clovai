@@ -1,0 +1,145 @@
+{
+  "blocks": [
+    {
+      "id": "agent",
+      "paletteId": "aw-agent",
+      "label": "Agent",
+      "description": "AI agent that reasons, plans, and generates output.",
+      "agentType": "llm",
+      "toolCount": 0
+    },
+    {
+      "id": "tool",
+      "paletteId": "aw-tool",
+      "label": "Tool",
+      "description": "Runs tools, APIs, and external integrations.",
+      "agentType": "tool",
+      "toolCount": 1
+    }
+  ],
+  "externalAgents": [
+    {
+      "id": "langgraph",
+      "paletteId": "aw-ext-langgraph",
+      "label": "LangGraph Agent",
+      "provider": "LangChain",
+      "logo": "/agent-providers/langchain.svg",
+      "description": "Stateful graph agent with tool routing and memory checkpoints.",
+      "agentType": "specialist",
+      "toolCount": 2,
+      "featured": true
+    },
+    {
+      "id": "bedrock",
+      "paletteId": "aw-ext-bedrock",
+      "label": "Bedrock Agent",
+      "provider": "AWS",
+      "logo": "/agent-providers/aws.svg",
+      "description": "Managed agent on Amazon Bedrock with knowledge bases and action groups.",
+      "agentType": "specialist",
+      "toolCount": 3,
+      "featured": true
+    },
+    {
+      "id": "vertex",
+      "paletteId": "aw-ext-vertex",
+      "label": "Vertex AI Agent",
+      "provider": "Google",
+      "logo": "/agent-providers/google.svg",
+      "description": "Gemini-powered agent with grounding and enterprise search.",
+      "agentType": "llm",
+      "toolCount": 2,
+      "featured": true
+    },
+    {
+      "id": "crewai",
+      "paletteId": "aw-ext-crewai",
+      "label": "CrewAI Agent",
+      "provider": "CrewAI",
+      "logo": "/agent-providers/crewai.svg",
+      "description": "Role-based multi-agent crew member with delegated tasks.",
+      "agentType": "specialist",
+      "toolCount": 2
+    },
+    {
+      "id": "autogen",
+      "paletteId": "aw-ext-autogen",
+      "label": "AutoGen Agent",
+      "provider": "Microsoft",
+      "logo": "/agent-providers/microsoft.svg",
+      "description": "Conversational agent from the AutoGen multi-agent framework.",
+      "agentType": "llm",
+      "toolCount": 1
+    },
+    {
+      "id": "copilot",
+      "paletteId": "aw-ext-copilot",
+      "label": "Copilot Studio Agent",
+      "provider": "Microsoft",
+      "logo": "/agent-providers/microsoft.svg",
+      "description": "Low-code agent from Microsoft Copilot Studio with M365 connectors.",
+      "agentType": "specialist",
+      "toolCount": 2
+    },
+    {
+      "id": "databricks",
+      "paletteId": "aw-ext-databricks",
+      "label": "Databricks Agent",
+      "provider": "Databricks",
+      "logo": "/agent-providers/databricks.svg",
+      "description": "Lakehouse-native agent with SQL, ML, and Unity Catalog tools.",
+      "agentType": "specialist",
+      "toolCount": 2
+    },
+    {
+      "id": "agentforce",
+      "paletteId": "aw-ext-agentforce",
+      "label": "Agentforce Agent",
+      "provider": "Salesforce",
+      "logo": "/agent-providers/salesforce.svg",
+      "description": "CRM-aware agent with Einstein trust layer and Data Cloud context.",
+      "agentType": "specialist",
+      "toolCount": 2
+    },
+    {
+      "id": "openai-assistants",
+      "paletteId": "aw-ext-openai",
+      "label": "Assistants API Agent",
+      "provider": "OpenAI",
+      "logo": "/agent-providers/openai.svg",
+      "description": "OpenAI Assistants with code interpreter, file search, and function calling.",
+      "agentType": "llm",
+      "toolCount": 3
+    },
+    {
+      "id": "claude-agent",
+      "paletteId": "aw-ext-anthropic",
+      "label": "Claude Agent",
+      "provider": "Anthropic",
+      "logo": "/agent-providers/anthropic.svg",
+      "description": "Anthropic Claude agent with extended context and tool use.",
+      "agentType": "llm",
+      "toolCount": 2
+    },
+    {
+      "id": "llamaindex",
+      "paletteId": "aw-ext-llamaindex",
+      "label": "LlamaIndex Agent",
+      "provider": "LlamaIndex",
+      "logo": "/agent-providers/llamaindex.svg",
+      "description": "RAG-first agent with document indexes and query engines.",
+      "agentType": "specialist",
+      "toolCount": 2
+    },
+    {
+      "id": "huggingface",
+      "paletteId": "aw-ext-huggingface",
+      "label": "HF Agents Agent",
+      "provider": "Hugging Face",
+      "logo": "/agent-providers/huggingface.svg",
+      "description": "Open-model agent hub with transformers and inference endpoints.",
+      "agentType": "llm",
+      "toolCount": 2
+    }
+  ]
+}

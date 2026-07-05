@@ -1,5 +1,6 @@
 import type { PaletteColor, PaletteItem, PaletteShape } from '@/types/config'
 import type { DiagramColorOverrides } from './diagram-colors'
+import type { AgentNodeConfig, AgentWorkflowMeta, ConnectorConfig } from '@/types/agent-workflow'
 
 export type PortSide = 'top' | 'right' | 'bottom' | 'left'
 
@@ -23,6 +24,12 @@ export interface DiagramNode {
   borderColor?: string
   /** @deprecated Legacy palette token; ignored when fill/border are set. */
   color?: PaletteColor
+  /** Agent workflow configuration (agent-workflow tool only). */
+  agent?: AgentNodeConfig
+  /** Tool nodes only — the agent this tool is mapped under. */
+  mappedAgentId?: string
+  /** Sub-workflow agent — references a page in the same document. */
+  subWorkflowPageId?: string
 }
 
 /** Effective shape for a node; colors resolved at render time via resolveNodeColors. */
@@ -98,6 +105,8 @@ export interface DiagramEdge {
   fillColor?: string
   /** Connector stroke — hex color. */
   borderColor?: string
+  /** Agent workflow connector configuration. */
+  connector?: ConnectorConfig
 }
 
 export interface Diagram {
@@ -115,6 +124,8 @@ export interface DiagramPage {
 export interface DiagramDocument {
   pages: DiagramPage[]
   activePageId: string
+  /** Agent workflow metadata (agent-workflow tool only). */
+  workflow?: AgentWorkflowMeta
 }
 
 /* ---- stored/legacy formats + normalization ---- */
@@ -135,6 +146,7 @@ interface StoredPage {
 interface StoredDocument {
   pages?: StoredPage[]
   activePageId?: string
+  workflow?: AgentWorkflowMeta
 }
 
 /** Migrates diagrams saved before edges carried port sides. */
@@ -176,7 +188,7 @@ export function normalizeDocument(parsed: unknown): DiagramDocument {
       const activePageId = pages.some((page) => page.id === asDocument.activePageId)
         ? (asDocument.activePageId as string)
         : pages[0].id
-      return { pages, activePageId }
+      return { pages, activePageId, workflow: asDocument.workflow }
     }
     // Legacy format: a bare diagram.
     if (Array.isArray((parsed as StoredDiagram).nodes)) {
