@@ -65,6 +65,10 @@ import {
 import { useWorkflowEditorPanels } from '@/components/agent-workflow/hooks/use-workflow-editor-panels'
 import { useWorkflowDocument } from '@/components/agent-workflow/hooks/use-workflow-document'
 import { useSubWorkflowActions } from '@/components/agent-workflow/hooks/use-sub-workflow-actions'
+import {
+  EXECUTE_LAUNCH_DELAY_MS,
+  ExecuteLaunchOverlay,
+} from '@/components/agent-workflow/ExecuteLaunchOverlay'
 import { DevProfiler } from '@/utils/render-profiler'
 
 const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
@@ -126,6 +130,8 @@ export default function AgentWorkflowPage() {
   const [testInput, setTestInput] = useState('{\n  "query": "Summarize the quarterly report"\n}')
   const [agentPickOpen, setAgentPickOpen] = useState(false)
   const [rightPanelTab, setRightPanelTab] = useState<'details' | 'collaborators'>('details')
+  const [isExecuteTransition, setIsExecuteTransition] = useState(false)
+  const executeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { left, right, bottom } = useWorkflowEditorPanels()
 
@@ -169,6 +175,12 @@ export default function AgentWorkflowPage() {
   useEffect(() => {
     if (tool) document.title = `${tool.title} — Clovai`
   }, [tool])
+
+  useEffect(() => {
+    return () => {
+      if (executeTimerRef.current) clearTimeout(executeTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (selection?.kind === 'node' || selection?.kind === 'edge') {
@@ -348,6 +360,8 @@ export default function AgentWorkflowPage() {
   }, [isValidated, workflowMeta, testInput, setDoc])
 
   const handleExecute = useCallback(() => {
+    if (isExecuteTransition) return
+
     if (listAgentNodes(diagram).length === 0) {
       toast.error('Add at least one Agent block before executing.')
       return
@@ -369,16 +383,19 @@ export default function AgentWorkflowPage() {
       input: testInput,
     })
 
-    navigate('/tools/agent-workflow/execute', {
-      state: {
-        pageId: page.id,
-        pageName: page.name,
-        diagram: diagramSnapshot,
-        input: testInput,
-        autoStart: true,
-      },
-    })
-  }, [doc, diagram, navigate, testInput])
+    const navState = {
+      pageId: page.id,
+      pageName: page.name,
+      diagram: diagramSnapshot,
+      input: testInput,
+      autoStart: true,
+    }
+
+    setIsExecuteTransition(true)
+    executeTimerRef.current = setTimeout(() => {
+      navigate('/tools/agent-workflow/execute', { state: navState })
+    }, EXECUTE_LAUNCH_DELAY_MS)
+  }, [doc, diagram, navigate, testInput, isExecuteTransition])
 
   const handleWorkflowNameChange = useCallback(
     (name: string) => {
@@ -433,6 +450,7 @@ export default function AgentWorkflowPage() {
         onDeploy={handleDeploy}
         onExecute={handleExecute}
         isValidated={isValidated}
+        isExecuting={isExecuteTransition}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -603,6 +621,8 @@ export default function AgentWorkflowPage() {
         onImportDocument={subWorkflow.importDocument}
         onCreateWorkflowTab={createWorkflowTab}
       />
+
+      {isExecuteTransition && <ExecuteLaunchOverlay workflowName={workflowName} />}
     </div>
     </DevProfiler>
   )

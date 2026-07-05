@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Play, Rocket, Save, ShieldCheck, TestTube2 } from 'lucide-react'
+import { Loader2, Play, Rocket, Save, ShieldCheck, TestTube2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,7 @@ interface AgentWorkflowHeaderProps {
   onDeploy: () => void
   onExecute: () => void
   isValidated: boolean
+  isExecuting?: boolean
 }
 
 export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
@@ -34,6 +35,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
   onDeploy,
   onExecute,
   isValidated,
+  isExecuting = false,
 }: AgentWorkflowHeaderProps) {
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card/80 px-3 backdrop-blur-sm">
@@ -82,10 +84,15 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
         <Button
           size="sm"
           onClick={onExecute}
-          className="bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-emerald-500"
+          disabled={isExecuting}
+          className="bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-emerald-500 disabled:opacity-80"
         >
-          <Play className="h-3.5 w-3.5" />
-          Execute
+          {isExecuting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Play className="h-3.5 w-3.5" />
+          )}
+          {isExecuting ? 'Preparing…' : 'Execute'}
         </Button>
         <Button size="sm" disabled={!isValidated} onClick={onDeploy} className="bg-violet-600 hover:bg-violet-700">
           <Rocket className="h-3.5 w-3.5" />
