@@ -1,0 +1,64 @@
+{
+  "description": "Clovai is the AI-powered diagramming platform for modern teams. Describe what you need — we draw it.",
+  "columns": [
+    {
+      "id": "footer-product",
+      "title": "Product",
+      "order": 1,
+      "links": [
+        { "id": "f-tools", "label": "All tools", "href": "/tools", "isExternal": false },
+        { "id": "f-features", "label": "Features", "href": "/#features", "isExternal": false },
+        { "id": "f-templates", "label": "Templates", "href": "/#templates", "isExternal": false },
+        { "id": "f-pricing", "label": "Pricing", "href": "/#pricing", "isExternal": false },
+        { "id": "f-changelog", "label": "Changelog", "href": "/#", "badge": { "label": "New", "variant": "success" }, "isExternal": false }
+      ]
+    },
+    {
+      "id": "footer-tools",
+      "title": "Popular tools",
+      "order": 2,
+      "links": [
+        { "id": "f-flowchart", "label": "AI Flowchart Generator", "href": "/tools/ai-flowchart", "isExternal": false },
+        { "id": "f-architecture", "label": "Architecture Diagram", "href": "/tools/architecture-diagram", "isExternal": false },
+        { "id": "f-er", "label": "ER Diagram Generator", "href": "/tools/er-diagram", "isExternal": false },
+        { "id": "f-uml", "label": "UML Designer", "href": "/tools/uml-designer", "isExternal": false },
+        { "id": "f-mindmap", "label": "Mind Map Creator", "href": "/tools/mind-map", "isExternal": false }
+      ]
+    },
+    {
+      "id": "footer-company",
+      "title": "Company",
+      "order": 3,
+      "links": [
+        { "id": "f-about", "label": "About", "href": "/#", "isExternal": false },
+        { "id": "f-blog", "label": "Blog", "href": "/#", "isExternal": false },
+        { "id": "f-careers", "label": "Careers", "href": "/#", "badge": { "label": "Hiring", "variant": "gradient" }, "isExternal": false },
+        { "id": "f-contact", "label": "Contact", "href": "/#contact", "isExternal": false }
+      ]
+    },
+    {
+      "id": "footer-resources",
+      "title": "Resources",
+      "order": 4,
+      "links": [
+        { "id": "f-docs", "label": "Documentation", "href": "/#", "isExternal": false },
+        { "id": "f-api", "label": "API Reference", "href": "/#", "isExternal": false },
+        { "id": "f-community", "label": "Community", "href": "/#", "isExternal": false },
+        { "id": "f-status", "label": "Status", "href": "/#", "isExternal": false },
+        { "id": "f-admin", "label": "Admin Console", "href": "/admin/config", "isExternal": false }
+      ]
+    }
+  ],
+  "socials": [
+    { "id": "s-twitter", "label": "Twitter", "href": "https://twitter.com", "icon": "twitter", "isExternal": true },
+    { "id": "s-github", "label": "GitHub", "href": "https://github.com", "icon": "github", "isExternal": true },
+    { "id": "s-linkedin", "label": "LinkedIn", "href": "https://linkedin.com", "icon": "linkedin", "isExternal": true },
+    { "id": "s-youtube", "label": "YouTube", "href": "https://youtube.com", "icon": "youtube", "isExternal": true }
+  ],
+  "legalLinks": [
+    { "id": "l-privacy", "label": "Privacy Policy", "href": "/#", "isExternal": false },
+    { "id": "l-terms", "label": "Terms of Service", "href": "/#", "isExternal": false },
+    { "id": "l-security", "label": "Security", "href": "/#", "isExternal": false }
+  ],
+  "copyright": "© 2026 Clovai, Inc. All rights reserved."
+}

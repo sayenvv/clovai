@@ -1,0 +1,34 @@
+{
+  "logo": {
+    "text": "Clovai",
+    "icon": "workflow",
+    "href": "/"
+  },
+  "sticky": true,
+  "items": [
+    { "id": "nav-tools", "label": "Tools", "type": "megaMenu", "order": 1, "isVisible": true },
+    { "id": "nav-features", "label": "Features", "href": "/#features", "type": "link", "order": 2, "isVisible": true },
+    { "id": "nav-templates", "label": "Templates", "href": "/#templates", "type": "link", "order": 3, "isVisible": true },
+    { "id": "nav-pricing", "label": "Pricing", "href": "/#pricing", "type": "link", "order": 4, "isVisible": true },
+    { "id": "nav-enterprise", "label": "Enterprise", "href": "/#enterprise", "type": "link", "order": 5, "isVisible": true }
+  ],
+  "actions": [
+    {
+      "id": "nav-signin",
+      "label": "Sign in",
+      "href": "/admin/config",
+      "variant": "ghost",
+      "iconPosition": "right",
+      "isExternal": false
+    },
+    {
+      "id": "nav-get-started",
+      "label": "Get started",
+      "href": "/#pricing",
+      "variant": "gradient",
+      "icon": "arrow-right",
+      "iconPosition": "right",
+      "isExternal": false
+    }
+  ]
+}

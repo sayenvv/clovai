@@ -1,0 +1,182 @@
+{
+  "categories": [
+    { "id": "ai-generators", "title": "Flow & Ideation", "description": "Flowcharts, mind maps and decisions", "icon": "git-branch", "order": 1, "isVisible": true },
+    { "id": "software-design", "title": "Software Design", "description": "Model systems and code", "icon": "code-2", "order": 2, "isVisible": true },
+    { "id": "business-planning", "title": "Business & Planning", "description": "Processes, teams and ideas", "icon": "briefcase", "order": 3, "isVisible": true },
+    { "id": "data-infrastructure", "title": "Data & Infrastructure", "description": "Databases and networks", "icon": "database", "order": 4, "isVisible": true }
+  ],
+  "tools": [
+    {
+      "id": "ai-flowchart",
+      "title": "Flowchart Generator",
+      "description": "Design flowcharts on a drag-and-drop canvas. AI generation via Clovai Engine coming soon.",
+      "icon": "git-branch",
+      "route": "/tools/ai-flowchart",
+      "category": "ai-generators",
+      "badge": { "label": "Popular", "variant": "gradient" },
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 1,
+      "designer": {
+        "palette": [
+          { "id": "fc-start-end", "label": "Start / End", "description": "Terminator", "shape": "terminator", "color": "emerald", "group": "Flow", "order": 1 },
+          { "id": "fc-process", "label": "Process", "description": "An action or step", "shape": "process", "color": "blue", "group": "Flow", "order": 2 },
+          { "id": "fc-decision", "label": "Decision", "description": "Yes / No branch", "shape": "decision", "color": "amber", "group": "Flow", "order": 3 },
+          { "id": "fc-connector", "label": "Connector", "description": "Jump point", "shape": "connector", "color": "rose", "group": "Flow", "order": 4 },
+          { "id": "fc-off-page", "label": "Off-page", "description": "Continues elsewhere", "shape": "off-page", "color": "slate", "group": "Flow", "order": 5 },
+          { "id": "fc-delay", "label": "Delay", "description": "Wait step", "shape": "delay", "color": "cyan", "group": "Flow", "order": 6 },
+          { "id": "fc-input-output", "label": "Input / Output", "description": "Data in or out", "shape": "input-output", "color": "violet", "group": "Data", "order": 7 },
+          { "id": "fc-database", "label": "Database", "description": "Stored data", "shape": "database", "color": "cyan", "group": "Data", "order": 8 },
+          { "id": "fc-document", "label": "Document", "description": "Report or file", "shape": "document", "color": "slate", "group": "Data", "order": 9 },
+          { "id": "fc-manual-input", "label": "Manual input", "description": "Typed by a person", "shape": "manual-input", "color": "blue", "group": "Data", "order": 10 },
+          { "id": "fc-preparation", "label": "Preparation", "description": "Setup step", "shape": "hexagon", "color": "violet", "group": "Logic", "order": 11 },
+          { "id": "fc-manual-op", "label": "Manual operation", "description": "Human-performed step", "shape": "trapezoid", "color": "amber", "group": "Logic", "order": 12 },
+          { "id": "fc-merge", "label": "Merge", "description": "Combine branches", "shape": "triangle", "color": "rose", "group": "Logic", "order": 13 },
+          { "id": "fc-note", "label": "Note", "description": "Annotation", "shape": "note", "color": "amber", "group": "Annotate", "order": 14 },
+          { "id": "fc-text", "label": "Text", "description": "Free-standing label", "shape": "text", "color": "slate", "group": "Annotate", "order": 15 }
+        ]
+      },
+      "metadata": { "aiGeneration": "coming-soon" }
+    },
+    {
+      "id": "mind-map",
+      "title": "Mind Map Creator",
+      "description": "Brainstorm and expand ideas on a freeform branching canvas.",
+      "icon": "brain",
+      "route": "/tools/mind-map",
+      "category": "ai-generators",
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 2
+    },
+    {
+      "id": "decision-tree",
+      "title": "Decision Tree",
+      "description": "Map choices and outcomes into clear decision paths.",
+      "icon": "split",
+      "route": "/tools/decision-tree",
+      "category": "ai-generators",
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 3
+    },
+    {
+      "id": "architecture-diagram",
+      "title": "Architecture Diagram",
+      "description": "Design cloud and system architecture with smart components.",
+      "icon": "layers",
+      "route": "/tools/architecture-diagram",
+      "category": "software-design",
+      "badge": { "label": "New", "variant": "success" },
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 1
+    },
+    {
+      "id": "sequence-diagram",
+      "title": "Sequence Diagram",
+      "description": "Visualize interactions between services and actors over time.",
+      "icon": "arrow-left-right",
+      "route": "/tools/sequence-diagram",
+      "category": "software-design",
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 2
+    },
+    {
+      "id": "uml-designer",
+      "title": "UML Designer",
+      "description": "Full UML suite — class, state, activity and use-case diagrams.",
+      "icon": "boxes",
+      "route": "/tools/uml-designer",
+      "category": "software-design",
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 3
+    },
+    {
+      "id": "bpmn-builder",
+      "title": "BPMN Builder",
+      "description": "Standards-compliant BPMN 2.0 process modeling.",
+      "icon": "workflow",
+      "route": "/tools/bpmn-builder",
+      "category": "business-planning",
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 1
+    },
+    {
+      "id": "org-chart",
+      "title": "Organization Chart",
+      "description": "Build and share living org charts synced with your HR data.",
+      "icon": "users",
+      "route": "/tools/org-chart",
+      "category": "business-planning",
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 2
+    },
+    {
+      "id": "gantt-planner",
+      "title": "Gantt Planner",
+      "description": "Plan timelines and dependencies on a visual scheduling board.",
+      "icon": "calendar-range",
+      "route": "/tools/gantt-planner",
+      "category": "business-planning",
+      "badge": { "label": "Beta", "variant": "warning" },
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 3
+    },
+    {
+      "id": "er-diagram",
+      "title": "ER Diagram Generator",
+      "description": "Model entities and relationships visually. SQL import coming soon.",
+      "icon": "table-2",
+      "route": "/tools/er-diagram",
+      "category": "data-infrastructure",
+      "badge": { "label": "Popular", "variant": "gradient" },
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 1,
+      "metadata": { "imports": ["sql", "prisma", "dbml"] }
+    },
+    {
+      "id": "network-diagram",
+      "title": "Network Diagram",
+      "description": "Document network topology with auto-discovered layouts.",
+      "icon": "network",
+      "route": "/tools/network-diagram",
+      "category": "data-infrastructure",
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 2
+    },
+    {
+      "id": "data-flow",
+      "title": "Data Flow Diagram",
+      "description": "Trace how data moves across your pipelines and services.",
+      "icon": "git-merge",
+      "route": "/tools/data-flow",
+      "category": "data-infrastructure",
+      "isVisible": true,
+      "isEnabled": false,
+      "order": 3,
+      "badge": { "label": "Coming soon", "variant": "outline" }
+    }
+  ],
+  "featured": {
+    "title": "Clovai Engine — coming soon",
+    "description": "A multi-agent AI orchestration engine that will turn plain language into complete diagrams. Until then, enjoy the fastest manual canvas around.",
+    "icon": "sparkles",
+    "cta": {
+      "id": "mega-featured-cta",
+      "label": "Open Flowchart Designer",
+      "href": "/tools/ai-flowchart",
+      "variant": "gradient",
+      "icon": "arrow-right",
+      "iconPosition": "right",
+      "isExternal": true
+    }
+  }
+}

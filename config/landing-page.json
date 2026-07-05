@@ -1,0 +1,521 @@
+{
+  "id": "landing",
+  "slug": "",
+  "title": "Clovai — AI Diagram Tools Platform",
+  "description": "Generate flowcharts, architecture diagrams, UML, BPMN, ER diagrams and more with AI.",
+  "isVisible": true,
+  "sections": [
+    {
+      "id": "hero",
+      "type": "hero",
+      "order": 1,
+      "isVisible": true,
+      "announcement": {
+        "label": "Clovai Engine — multi-agent AI generation, coming soon",
+        "href": "/tools/ai-flowchart",
+        "icon": "sparkles"
+      },
+      "title": "Ship diagrams at the",
+      "highlight": "speed of thought",
+      "subtitle": "Design flowcharts, architecture diagrams, UML, ER models and more on a fast drag-and-drop canvas. AI generation, powered by the multi-agent Clovai Engine, is on the way.",
+      "ctas": [
+        {
+          "id": "hero-primary",
+          "label": "Start diagramming free",
+          "href": "/tools",
+          "variant": "gradient",
+          "icon": "arrow-right",
+          "iconPosition": "right",
+          "isExternal": false
+        },
+        {
+          "id": "hero-secondary",
+          "label": "Watch demo",
+          "href": "/#features",
+          "variant": "outline",
+          "icon": "play",
+          "iconPosition": "left",
+          "isExternal": false
+        }
+      ],
+      "stats": [
+        { "id": "stat-diagrams", "value": "4M+", "label": "Diagrams designed" },
+        { "id": "stat-teams", "value": "28k", "label": "Teams onboard" },
+        { "id": "stat-shapes", "value": "500+", "label": "Shapes & templates" },
+        { "id": "stat-uptime", "value": "99.99%", "label": "Uptime SLA" }
+      ],
+      "showVisual": true
+    },
+    {
+      "id": "popular-tools",
+      "type": "toolGrid",
+      "order": 2,
+      "isVisible": true,
+      "heading": {
+        "eyebrow": "Tools",
+        "title": "Every diagram your team needs,",
+        "highlight": "on one canvas",
+        "subtitle": "From quick flowcharts to enterprise architecture — each tool opens a purpose-built designer workspace.",
+        "align": "center"
+      },
+      "source": "megaMenu",
+      "limit": 8,
+      "tools": [],
+      "cta": {
+        "id": "tools-view-all",
+        "label": "Explore all tools",
+        "href": "/tools",
+        "variant": "outline",
+        "icon": "arrow-right",
+        "iconPosition": "right",
+        "isExternal": false
+      }
+    },
+    {
+      "id": "features",
+      "type": "cardsGrid",
+      "order": 3,
+      "isVisible": true,
+      "heading": {
+        "eyebrow": "Features",
+        "title": "Built for how modern teams",
+        "highlight": "actually work",
+        "subtitle": "Fast, collaborative and deeply integrated with your existing stack.",
+        "align": "center"
+      },
+      "columns": 3,
+      "cards": [
+        {
+          "id": "feat-canvas",
+          "title": "n8n-style canvas designer",
+          "description": "A fast infinite canvas with drag-and-drop shapes, smart connectors, pan, zoom and inline editing — built for flow.",
+          "icon": "layout-grid",
+          "order": 1,
+          "isVisible": true
+        },
+        {
+          "id": "feat-collab",
+          "title": "Real-time collaboration",
+          "description": "Multiplayer cursors, comments and suggestions — everyone edits the same canvas without version chaos.",
+          "icon": "users",
+          "order": 2,
+          "isVisible": true
+        },
+        {
+          "id": "feat-code",
+          "title": "Diagrams as code",
+          "description": "Import Mermaid, PlantUML, SQL or Terraform. Export back to code so diagrams never drift from reality.",
+          "icon": "code-2",
+          "order": 3,
+          "isVisible": true
+        },
+        {
+          "id": "feat-brand",
+          "title": "Brand-perfect theming",
+          "description": "Company-wide themes keep every diagram on brand. One click restyles an entire workspace.",
+          "icon": "palette",
+          "order": 4,
+          "isVisible": true
+        },
+        {
+          "id": "feat-integrations",
+          "title": "50+ integrations",
+          "description": "Embed live diagrams in Notion, Confluence, Jira, Slack and GitHub — always up to date, never a stale screenshot.",
+          "icon": "plug",
+          "order": 5,
+          "isVisible": true
+        },
+        {
+          "id": "feat-engine",
+          "title": "Clovai Engine",
+          "description": "Our upcoming multi-agent AI orchestration engine will turn plain language into complete, well-laid-out diagrams.",
+          "icon": "sparkles",
+          "badge": { "label": "Coming soon", "variant": "gradient" },
+          "order": 6,
+          "isVisible": true
+        }
+      ]
+    },
+    {
+      "id": "workflow",
+      "type": "steps",
+      "order": 4,
+      "isVisible": true,
+      "heading": {
+        "eyebrow": "Workflow",
+        "title": "From idea to shareable diagram in",
+        "highlight": "three steps",
+        "align": "center"
+      },
+      "steps": [
+        {
+          "id": "step-pick",
+          "title": "Pick a tool",
+          "description": "Choose from flowcharts, architecture, UML, ER, BPMN and more — each opens a purpose-built canvas workspace.",
+          "icon": "mouse-pointer-click",
+          "order": 1
+        },
+        {
+          "id": "step-design",
+          "title": "Design on canvas",
+          "description": "Drag shapes from the palette, connect them with smart arrows, and rename anything inline — as fluid as n8n.",
+          "icon": "pencil-ruler",
+          "order": 2
+        },
+        {
+          "id": "step-share",
+          "title": "Share & export",
+          "description": "Export your diagram as JSON today; live embeds and one-click sharing are next. AI generation joins with the Clovai Engine.",
+          "icon": "share-2",
+          "order": 3
+        }
+      ]
+    },
+    {
+      "id": "templates",
+      "type": "tabs",
+      "order": 5,
+      "isVisible": true,
+      "heading": {
+        "eyebrow": "Templates",
+        "title": "Start from a",
+        "highlight": "proven blueprint",
+        "subtitle": "Hundreds of templates crafted by industry experts, organized by use case.",
+        "align": "center"
+      },
+      "tabs": [
+        {
+          "id": "tpl-engineering",
+          "label": "Engineering",
+          "icon": "code-2",
+          "title": "System design, done right",
+          "description": "Microservices maps, CI/CD pipelines, API sequence flows and cloud architecture references for AWS, GCP and Azure.",
+          "bullets": [
+            "AWS / GCP / Azure reference architectures",
+            "Kubernetes and service-mesh topologies",
+            "API sequence and data-flow starters"
+          ],
+          "order": 1
+        },
+        {
+          "id": "tpl-product",
+          "label": "Product",
+          "icon": "lightbulb",
+          "title": "Ship features with clarity",
+          "description": "User journeys, feature flows, story maps and release timelines that keep product and engineering in sync.",
+          "bullets": [
+            "User journey and onboarding flows",
+            "Feature prioritization trees",
+            "Release timeline Gantt boards"
+          ],
+          "order": 2
+        },
+        {
+          "id": "tpl-operations",
+          "label": "Operations",
+          "icon": "settings",
+          "title": "Processes people actually follow",
+          "description": "BPMN process libraries, approval workflows, incident runbooks and compliance-ready documentation.",
+          "bullets": [
+            "BPMN 2.0 process libraries",
+            "Incident response runbooks",
+            "SOC 2 / ISO audit flows"
+          ],
+          "order": 3
+        },
+        {
+          "id": "tpl-data",
+          "label": "Data",
+          "icon": "database",
+          "title": "Model data with confidence",
+          "description": "ER diagrams from live schemas, warehouse lineage maps and pipeline DAGs generated from your actual stack.",
+          "bullets": [
+            "Schema-to-ERD generation from SQL",
+            "dbt and Airflow lineage maps",
+            "Streaming pipeline topologies"
+          ],
+          "order": 4
+        }
+      ]
+    },
+    {
+      "id": "enterprise",
+      "type": "split",
+      "order": 6,
+      "isVisible": true,
+      "heading": {
+        "eyebrow": "Enterprise",
+        "title": "Security and control,",
+        "highlight": "built in from day one",
+        "align": "left"
+      },
+      "title": "Enterprise-grade by default",
+      "description": "Clovai meets the bar of the most demanding security and compliance teams, so yours can say yes faster.",
+      "bullets": [
+        {
+          "id": "ent-sso",
+          "icon": "key-round",
+          "title": "SSO & SCIM",
+          "description": "SAML, OIDC and automated user provisioning with role-based access control."
+        },
+        {
+          "id": "ent-compliance",
+          "icon": "shield-check",
+          "title": "SOC 2 Type II & GDPR",
+          "description": "Independently audited controls, EU data residency and DPA on every plan."
+        },
+        {
+          "id": "ent-audit",
+          "icon": "scroll-text",
+          "title": "Audit logs & retention",
+          "description": "Full event trails, custom retention policies and export APIs for your SIEM."
+        }
+      ],
+      "cta": {
+        "id": "enterprise-cta",
+        "label": "Talk to sales",
+        "href": "/#contact",
+        "variant": "default",
+        "icon": "arrow-right",
+        "iconPosition": "right",
+        "isExternal": false
+      },
+      "imagePosition": "right",
+      "visual": "security"
+    },
+    {
+      "id": "pricing",
+      "type": "pricing",
+      "order": 7,
+      "isVisible": true,
+      "heading": {
+        "eyebrow": "Pricing",
+        "title": "Simple pricing that",
+        "highlight": "scales with you",
+        "subtitle": "Start free. Upgrade when your team is ready. No surprises.",
+        "align": "center"
+      },
+      "plans": [
+        {
+          "id": "plan-free",
+          "name": "Free",
+          "description": "For individuals exploring AI diagramming.",
+          "price": { "monthly": "$0", "suffix": "forever" },
+          "features": [
+            "Unlimited manual diagrams",
+            "Core diagram tools & shapes",
+            "JSON export",
+            "Clovai Engine waitlist access",
+            "Community support"
+          ],
+          "cta": {
+            "id": "plan-free-cta",
+            "label": "Start free",
+            "href": "/tools",
+            "variant": "outline",
+            "iconPosition": "right",
+            "isExternal": false
+          },
+          "isFeatured": false,
+          "order": 1
+        },
+        {
+          "id": "plan-pro",
+          "name": "Pro",
+          "description": "For professionals and small teams shipping fast.",
+          "price": { "monthly": "$16", "yearly": "$12", "suffix": "per user / month" },
+          "features": [
+            "All 12+ diagram tools",
+            "Full shape libraries",
+            "Real-time collaboration",
+            "Version history & branching",
+            "Priority Clovai Engine access at launch",
+            "Priority support"
+          ],
+          "cta": {
+            "id": "plan-pro-cta",
+            "label": "Start 14-day trial",
+            "href": "/tools",
+            "variant": "gradient",
+            "icon": "arrow-right",
+            "iconPosition": "right",
+            "isExternal": false
+          },
+          "isFeatured": true,
+          "badge": { "label": "Most popular", "variant": "gradient" },
+          "order": 2
+        },
+        {
+          "id": "plan-enterprise",
+          "name": "Enterprise",
+          "description": "For organizations with security and scale needs.",
+          "price": { "monthly": "Custom", "suffix": "annual billing" },
+          "features": [
+            "Everything in Pro",
+            "SSO / SAML & SCIM",
+            "Audit logs & data residency",
+            "Custom AI model tuning",
+            "Dedicated success manager",
+            "99.99% uptime SLA"
+          ],
+          "cta": {
+            "id": "plan-ent-cta",
+            "label": "Contact sales",
+            "href": "/#contact",
+            "variant": "outline",
+            "iconPosition": "right",
+            "isExternal": false
+          },
+          "isFeatured": false,
+          "order": 3
+        }
+      ]
+    },
+    {
+      "id": "testimonials",
+      "type": "testimonials",
+      "order": 8,
+      "isVisible": true,
+      "heading": {
+        "eyebrow": "Testimonials",
+        "title": "Loved by teams who",
+        "highlight": "hate drawing boxes",
+        "align": "center"
+      },
+      "items": [
+        {
+          "id": "t-1",
+          "quote": "Clovai replaced three tools for us. The canvas is so fast that our architecture reviews moved from whiteboard photos to living diagrams.",
+          "author": "Priya Sharma",
+          "role": "Staff Engineer",
+          "company": "Northwind Labs",
+          "rating": 5,
+          "order": 1
+        },
+        {
+          "id": "t-2",
+          "quote": "The ER designer produces diagrams our auditors actually compliment. That has never happened before — and I hear AI generation is coming next.",
+          "author": "Marcus Chen",
+          "role": "Head of Data Platform",
+          "company": "Finlark",
+          "rating": 5,
+          "order": 2
+        },
+        {
+          "id": "t-3",
+          "quote": "We rolled Clovai out to 400 people in a week. SSO, SCIM and audit logs worked out of the box — our security team had nothing to add.",
+          "author": "Elena Kovács",
+          "role": "VP of Engineering",
+          "company": "Meridian Systems",
+          "rating": 5,
+          "order": 3
+        }
+      ]
+    },
+    {
+      "id": "faq",
+      "type": "accordion",
+      "order": 9,
+      "isVisible": true,
+      "heading": {
+        "eyebrow": "FAQ",
+        "title": "Frequently asked",
+        "highlight": "questions",
+        "align": "center"
+      },
+      "items": [
+        {
+          "id": "faq-engine",
+          "question": "What is the Clovai Engine and when does it launch?",
+          "answer": "The Clovai Engine is our upcoming multi-agent AI orchestration system: specialized agents plan, draw and lay out complete diagrams from plain language. It is in active development — join the waitlist from any plan and you'll get access the moment it ships.",
+          "order": 1
+        },
+        {
+          "id": "faq-data",
+          "question": "Will my data be used to train AI models?",
+          "answer": "No. Your diagrams and prompts will never be used for model training. Enterprise plans can additionally opt into EU-only data residency and zero-retention inference when the Clovai Engine launches.",
+          "order": 2
+        },
+        {
+          "id": "faq-import",
+          "question": "Can I import existing diagrams?",
+          "answer": "Import for Mermaid, PlantUML, draw.io, Lucidchart and Visio files is on the roadmap, alongside live schemas from SQL, Prisma and DBML for ER diagrams.",
+          "order": 3
+        },
+        {
+          "id": "faq-offline",
+          "question": "Does Clovai work offline?",
+          "answer": "Yes — the canvas designer runs in your browser and your drafts autosave locally, so you can keep designing without a connection.",
+          "order": 4
+        },
+        {
+          "id": "faq-cancel",
+          "question": "Can I cancel anytime?",
+          "answer": "Yes. Downgrade or cancel from your billing page anytime — your diagrams stay accessible on the Free plan forever.",
+          "order": 5
+        }
+      ]
+    },
+    {
+      "id": "final-cta",
+      "type": "cta",
+      "order": 10,
+      "isVisible": true,
+      "title": "Start turning ideas into diagrams today",
+      "subtitle": "Free forever for individuals. No credit card required.",
+      "ctas": [
+        {
+          "id": "cta-start",
+          "label": "Get started free",
+          "href": "/tools",
+          "variant": "gradient",
+          "icon": "arrow-right",
+          "iconPosition": "right",
+          "isExternal": false
+        },
+        {
+          "id": "cta-sales",
+          "label": "Book a demo",
+          "href": "/#contact",
+          "variant": "outline",
+          "iconPosition": "right",
+          "isExternal": false
+        }
+      ]
+    },
+    {
+      "id": "contact",
+      "type": "form",
+      "order": 11,
+      "isVisible": true,
+      "heading": {
+        "eyebrow": "Contact",
+        "title": "Talk to our",
+        "highlight": "sales team",
+        "subtitle": "Tell us about your team and we'll get back within one business day.",
+        "align": "center"
+      },
+      "fields": [
+        { "id": "field-name", "name": "name", "label": "Full name", "type": "text", "placeholder": "Ada Lovelace", "required": true, "order": 1 },
+        { "id": "field-email", "name": "email", "label": "Work email", "type": "email", "placeholder": "ada@company.com", "required": true, "order": 2 },
+        {
+          "id": "field-size",
+          "name": "teamSize",
+          "label": "Team size",
+          "type": "select",
+          "required": true,
+          "order": 3,
+          "options": [
+            { "value": "1-10", "label": "1 – 10 people" },
+            { "value": "11-50", "label": "11 – 50 people" },
+            { "value": "51-200", "label": "51 – 200 people" },
+            { "value": "200+", "label": "200+ people" }
+          ]
+        },
+        { "id": "field-message", "name": "message", "label": "How can we help?", "type": "textarea", "placeholder": "Tell us about your use case...", "required": false, "order": 4 }
+      ],
+      "submitLabel": "Send message",
+      "successMessage": "Thanks! Our team will reach out within one business day."
+    }
+  ]
+}
