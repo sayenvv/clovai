@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Wrench } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Badge } from '@/components/ui/badge'
@@ -40,7 +41,7 @@ interface AgentNodeCardProps {
   mappedUnderLabel?: string
 }
 
-export function AgentNodeCard({
+export const AgentNodeCard = memo(function AgentNodeCard({
   node,
   item,
   isSelected,
@@ -144,4 +145,4 @@ export function AgentNodeCard({
       </div>
     </div>
   )
-}
+})

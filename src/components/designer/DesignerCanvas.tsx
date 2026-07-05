@@ -22,7 +22,6 @@ import {
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { edgeNeedsApprovalStyle } from '@/components/agent-workflow/validate-workflow'
 import {
-  agentLabel,
   agentNodeSize,
   isToolNode,
   toolNodeSize,
@@ -765,6 +764,14 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     [diagram.nodes, paletteById, agentMode],
   )
 
+  const agentLabelsById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const node of diagram.nodes) {
+      if (node.agent) map.set(node.id, node.label)
+    }
+    return map
+  }, [diagram.nodes])
+
   const mappingLines = useMemo(() => {
     if (!agentMode) return []
     return diagram.nodes.flatMap((node) => {
@@ -984,7 +991,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
           const toolNode = agentMode && isToolNode(node)
           const mappedUnderLabel =
             toolNode && node.mappedAgentId
-              ? agentLabel(diagram, node.mappedAgentId)
+              ? agentLabelsById.get(node.mappedAgentId)
               : undefined
 
           return (

@@ -1,28 +1,22 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { LayoutGrid, Maximize2 } from 'lucide-react'
 import { useAppConfig } from '@/hooks/use-app-config'
-import { Button } from '@/components/ui/button'
-import { DesignerCanvas } from '@/components/designer/DesignerCanvas'
 import { selectedNodeIds, type Selection } from '@/components/designer/selection-utils'
 import { DesignerMenubar } from '@/components/designer/DesignerMenubar'
 import { ShareDialog } from '@/components/designer/ShareDialog'
 import { PagesBar } from '@/components/designer/PagesBar'
-import { computeCenteredViewport, zoomViewportAt } from '@/components/designer/viewport-utils'
 import { resolveDesignerPalette } from '@/utils/resolve-designer-palette'
 import {
   createNodeId,
   type Diagram,
   type DiagramNode,
-  type Viewport,
 } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import type {
@@ -35,6 +29,10 @@ import { AgentWorkflowHeader } from '@/components/agent-workflow/AgentWorkflowHe
 import { AgentLibrarySidebar } from '@/components/agent-workflow/AgentLibrarySidebar'
 import { AgentPropertiesShell } from '@/components/agent-workflow/AgentPropertiesShell'
 import { BottomInspectorPanel } from '@/components/agent-workflow/BottomInspectorPanel'
+import {
+  AgentWorkflowCanvas,
+  type AgentWorkflowCanvasHandle,
+} from '@/components/agent-workflow/AgentWorkflowCanvas'
 import {
   AGENT_NODE_HEIGHT,
   AGENT_NODE_WIDTH,
@@ -49,6 +47,7 @@ import {
   ConvertSubWorkflowDialog,
   InsertWorkflowDialog,
 } from '@/components/agent-workflow/InsertWorkflowDialog'
+import { diagramContentCenter } from '@/components/agent-workflow/sub-workflow-ops'
 import {
   attachToolToAgent,
   isAgentNode,
@@ -65,13 +64,10 @@ import {
 } from '@/components/agent-workflow/workflow-storage'
 import { useWorkflowEditorPanels } from '@/components/agent-workflow/hooks/use-workflow-editor-panels'
 import { useWorkflowDocument } from '@/components/agent-workflow/hooks/use-workflow-document'
-import {
-  canvasInsertAnchor,
-  useSubWorkflowActions,
-} from '@/components/agent-workflow/hooks/use-sub-workflow-actions'
+import { useSubWorkflowActions } from '@/components/agent-workflow/hooks/use-sub-workflow-actions'
+import { DevProfiler } from '@/utils/render-profiler'
 
 const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
-const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, scale: 1 }
 
 function defaultWorkflowMeta(): AgentWorkflowMeta {
   return {
@@ -119,7 +115,6 @@ export default function AgentWorkflowPage() {
     return map
   }, [palette])
 
-  const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT)
   const [selection, setSelection] = useState<Selection>(null)
   const [snapToGrid, setSnapToGrid] = useState(true)
   const [showGrid, setShowGrid] = useState(true)
@@ -150,13 +145,11 @@ export default function AgentWorkflowPage() {
     deletePage,
   } = useWorkflowDocument(paletteById, invalidateValidation)
 
-  const canvasAreaRef = useRef<HTMLDivElement>(null)
-  const diagramRef = useRef<Diagram>({ nodes: [], edges: [] })
-  diagramRef.current = diagram
+  const canvasRef = useRef<AgentWorkflowCanvasHandle>(null)
 
   const getCanvasInsertAnchor = useCallback(
-    () => canvasInsertAnchor(diagram, canvasAreaRef, viewport),
-    [diagram, viewport],
+    () => canvasRef.current?.getInsertAnchor() ?? diagramContentCenter(diagram),
+    [diagram],
   )
 
   const subWorkflow = useSubWorkflowActions({
@@ -185,25 +178,6 @@ export default function AgentWorkflowPage() {
 
   const handleSelectionChange = useCallback((next: Selection) => {
     setSelection(next)
-  }, [])
-
-  const applyCenteredViewport = useCallback(
-    (targetDiagram: Diagram) => {
-      const rect = canvasAreaRef.current?.getBoundingClientRect()
-      if (!rect?.width || !rect?.height) return
-      setViewport(computeCenteredViewport(targetDiagram, paletteById, rect.width, rect.height))
-    },
-    [paletteById],
-  )
-
-  useLayoutEffect(() => {
-    applyCenteredViewport(diagramRef.current)
-    const frame = requestAnimationFrame(() => applyCenteredViewport(diagramRef.current))
-    return () => cancelAnimationFrame(frame)
-  }, [TOOL_ID, activePage.id, applyCenteredViewport])
-
-  const handleViewportChange = useCallback((updater: (previous: Viewport) => Viewport) => {
-    setViewport(updater)
   }, [])
 
   const handleSelectPage = useCallback(
@@ -286,22 +260,14 @@ export default function AgentWorkflowPage() {
   )
 
   const zoomBy = useCallback((factor: number) => {
-    setViewport((previous) => {
-      const rect = canvasAreaRef.current?.getBoundingClientRect()
-      return zoomViewportAt(
-        previous,
-        factor,
-        rect ? rect.width / 2 : 0,
-        rect ? rect.height / 2 : 0,
-      )
-    })
+    canvasRef.current?.zoomBy(factor)
   }, [])
 
   const runAutoLayout = useCallback(() => {
     handleChange((previous) => ({ ...previous, nodes: autoLayoutNodes(previous.nodes) }))
-    requestAnimationFrame(() => applyCenteredViewport(diagramRef.current))
+    requestAnimationFrame(() => canvasRef.current?.fitView())
     toast.success('Auto-layout applied')
-  }, [handleChange, applyCenteredViewport])
+  }, [handleChange])
 
   const handleSave = useCallback(() => {
     setDoc((previous) => ({
@@ -453,6 +419,7 @@ export default function AgentWorkflowPage() {
   if (!tool) return <Navigate to="/404" replace />
 
   return (
+    <DevProfiler id="AgentWorkflowPage">
     <div className="workspace-surface flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <AgentWorkflowHeader
         workflowName={workflowName}
@@ -522,8 +489,8 @@ export default function AgentWorkflowPage() {
             onCreateWorkflowTab={createWorkflowTab}
             onZoomIn={() => zoomBy(1.2)}
             onZoomOut={() => zoomBy(1 / 1.2)}
-            onResetView={() => applyCenteredViewport(diagram)}
-            onFitToContent={() => applyCenteredViewport(diagram)}
+            onResetView={() => canvasRef.current?.fitView()}
+            onFitToContent={() => canvasRef.current?.fitView()}
             onSnapToGridChange={setSnapToGrid}
             onShowGridChange={setShowGrid}
             onShare={() => setShareOpen(true)}
@@ -546,52 +513,20 @@ export default function AgentWorkflowPage() {
             />
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <div ref={canvasAreaRef} className="relative min-h-0 flex-1 bg-canvas">
-                {diagram.nodes.length === 0 && (
-                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-                    <div className="max-w-sm rounded-xl border border-dashed border-violet-500/30 bg-card/80 px-6 py-5 text-center shadow-sm backdrop-blur-sm">
-                      <p className="text-sm font-medium text-foreground">Build your agent workflow</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Add an agent, then map tools under it. Connect agents to define execution order
-                        and approval gates.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="absolute bottom-3 left-3 z-20 flex gap-1.5">
-                  <Button variant="secondary" size="sm" className="h-8 shadow-md" onClick={runAutoLayout}>
-                    <LayoutGrid className="h-3.5 w-3.5" />
-                    Auto-layout
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-8 shadow-md"
-                    onClick={() => applyCenteredViewport(diagram)}
-                  >
-                    <Maximize2 className="h-3.5 w-3.5" />
-                    Fit
-                  </Button>
-                </div>
-
-                <DesignerCanvas
-                  diagram={diagram}
-                  onChange={handleChange}
-                  paletteById={paletteById}
-                  viewport={viewport}
-                  onViewportChange={handleViewportChange}
-                  selection={selection}
-                  onSelectionChange={handleSelectionChange}
-                  snapToGrid={snapToGrid}
-                  showGrid={showGrid}
-                  onZoomIn={() => zoomBy(1.2)}
-                  onZoomOut={() => zoomBy(1 / 1.2)}
-                  agentMode
-                  transformDroppedNode={transformDroppedNode}
-                  finalizeDroppedNode={finalizeDroppedNode}
-                />
-              </div>
+              <AgentWorkflowCanvas
+                ref={canvasRef}
+                diagram={diagram}
+                paletteById={paletteById}
+                onChange={handleChange}
+                selection={selection}
+                onSelectionChange={handleSelectionChange}
+                snapToGrid={snapToGrid}
+                showGrid={showGrid}
+                activePageId={activePage.id}
+                onAutoLayout={runAutoLayout}
+                transformDroppedNode={transformDroppedNode}
+                finalizeDroppedNode={finalizeDroppedNode}
+              />
 
               <PagesBar
                 pages={doc.pages}
@@ -669,5 +604,6 @@ export default function AgentWorkflowPage() {
         onCreateWorkflowTab={createWorkflowTab}
       />
     </div>
+    </DevProfiler>
   )
 }

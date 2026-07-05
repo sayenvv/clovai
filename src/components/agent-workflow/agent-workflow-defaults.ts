@@ -156,26 +156,38 @@ export function enrichAgentNode(node: DiagramNode, item: PaletteItem): DiagramNo
 }
 
 export function enrichDiagram(diagram: Diagram, paletteById: Map<string, PaletteItem>): Diagram {
+  let nodesChanged = false
+  const nodes = diagram.nodes.map((node) => {
+    if (!node.paletteId?.startsWith('aw-')) return node
+    const isTool = node.paletteId === TOOL_PALETTE_ID
+    const minW = isTool ? TOOL_NODE_WIDTH : AGENT_NODE_WIDTH
+    const minH = isTool ? TOOL_NODE_HEIGHT : AGENT_NODE_HEIGHT
+    if (node.agent) {
+      const width = !node.width || (!isTool && node.width < minW) ? minW : node.width
+      const height = !node.height || (!isTool && node.height < minH) ? minH : node.height
+      if (width === node.width && height === node.height) return node
+      nodesChanged = true
+      return { ...node, width, height }
+    }
+    const item = paletteById.get(node.paletteId)
+    if (!item) return node
+    const next = enrichAgentNode({ ...node, width: minW, height: minH }, item)
+    if (next === node) return node
+    nodesChanged = true
+    return next
+  })
+
+  let edgesChanged = false
+  const edges = diagram.edges.map((edge) => {
+    if (edge.connector) return edge
+    edgesChanged = true
+    return { ...edge, connector: defaultConnectorConfig() }
+  })
+
+  if (!nodesChanged && !edgesChanged) return diagram
   return {
-    nodes: diagram.nodes.map((node) => {
-      if (!node.paletteId?.startsWith('aw-')) return node
-      const isTool = node.paletteId === TOOL_PALETTE_ID
-      const minW = isTool ? TOOL_NODE_WIDTH : AGENT_NODE_WIDTH
-      const minH = isTool ? TOOL_NODE_HEIGHT : AGENT_NODE_HEIGHT
-      if (node.agent) {
-        return {
-          ...node,
-          width: !node.width || (!isTool && node.width < minW) ? minW : node.width,
-          height: !node.height || (!isTool && node.height < minH) ? minH : node.height,
-        }
-      }
-      const item = paletteById.get(node.paletteId)
-      if (!item) return node
-      return enrichAgentNode({ ...node, width: minW, height: minH }, item)
-    }),
-    edges: diagram.edges.map((edge) =>
-      edge.connector ? edge : { ...edge, connector: defaultConnectorConfig() },
-    ),
+    nodes: nodesChanged ? nodes : diagram.nodes,
+    edges: edgesChanged ? edges : diagram.edges,
   }
 }
 
