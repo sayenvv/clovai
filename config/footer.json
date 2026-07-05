@@ -19,6 +19,7 @@
       "order": 2,
       "links": [
         { "id": "f-flowchart", "label": "AI Flowchart Generator", "href": "/tools/ai-flowchart", "isExternal": false },
+        { "id": "f-agent-workflow", "label": "Agent Workflow Automation", "href": "/tools/agent-workflow", "isExternal": false },
         { "id": "f-architecture", "label": "Architecture Diagram", "href": "/tools/architecture-diagram", "isExternal": false },
         { "id": "f-er", "label": "ER Diagram Generator", "href": "/tools/er-diagram", "isExternal": false },
         { "id": "f-uml", "label": "UML Designer", "href": "/tools/uml-designer", "isExternal": false },

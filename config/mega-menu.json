@@ -3,7 +3,7 @@
     {
       "id": "ai-generators",
       "title": "Flow & Ideation",
-      "description": "Flowcharts, mind maps and decisions",
+      "description": "Flowcharts, agent workflows, mind maps and decisions",
       "icon": "git-branch",
       "order": 1,
       "isVisible": true
@@ -337,6 +337,182 @@
       }
     },
     {
+      "id": "agent-workflow",
+      "title": "Agent Workflow Automation",
+      "description": "Design multi-agent orchestration workflows visually — each node is an agent you connect, configure, and automate.",
+      "icon": "bot",
+      "route": "/tools/agent-workflow",
+      "category": "ai-generators",
+      "badge": {
+        "label": "New",
+        "variant": "gradient"
+      },
+      "isVisible": true,
+      "isEnabled": true,
+      "order": 2,
+      "designer": {
+        "paletteVersion": 1,
+        "palette": [
+          {
+            "id": "aw-start",
+            "label": "Start",
+            "description": "Workflow entry point",
+            "shape": "terminator",
+            "color": "slate",
+            "group": "Triggers",
+            "order": 1
+          },
+          {
+            "id": "aw-event",
+            "label": "Event Trigger",
+            "description": "Kick off on an event or webhook",
+            "shape": "event",
+            "color": "slate",
+            "group": "Triggers",
+            "order": 2
+          },
+          {
+            "id": "aw-schedule",
+            "label": "Schedule",
+            "description": "Run on a timer or cron",
+            "shape": "delay",
+            "color": "slate",
+            "group": "Triggers",
+            "order": 3
+          },
+          {
+            "id": "aw-llm-agent",
+            "label": "LLM Agent",
+            "description": "General-purpose reasoning agent",
+            "shape": "process",
+            "color": "slate",
+            "group": "Agents",
+            "order": 10
+          },
+          {
+            "id": "aw-specialist",
+            "label": "Specialist Agent",
+            "description": "Focused domain expert agent",
+            "shape": "hexagon",
+            "color": "slate",
+            "group": "Agents",
+            "order": 11
+          },
+          {
+            "id": "aw-tool-agent",
+            "label": "Tool Agent",
+            "description": "Agent that calls tools and APIs",
+            "shape": "input-output",
+            "color": "slate",
+            "group": "Agents",
+            "order": 12
+          },
+          {
+            "id": "aw-planner",
+            "label": "Planner Agent",
+            "description": "Decomposes goals into sub-tasks",
+            "shape": "subprocess",
+            "color": "slate",
+            "group": "Agents",
+            "order": 13
+          },
+          {
+            "id": "aw-reviewer",
+            "label": "Human Review",
+            "description": "Pause for human approval",
+            "shape": "manual-input",
+            "color": "slate",
+            "group": "Agents",
+            "order": 14
+          },
+          {
+            "id": "aw-router",
+            "label": "Router",
+            "description": "Branch to the next agent by condition",
+            "shape": "decision",
+            "color": "slate",
+            "group": "Control",
+            "order": 20
+          },
+          {
+            "id": "aw-parallel",
+            "label": "Parallel Run",
+            "description": "Execute agents concurrently",
+            "shape": "parallel-gateway",
+            "color": "slate",
+            "group": "Control",
+            "order": 21
+          },
+          {
+            "id": "aw-merge",
+            "label": "Merge",
+            "description": "Join parallel branches",
+            "shape": "or-gate",
+            "color": "slate",
+            "group": "Control",
+            "order": 22
+          },
+          {
+            "id": "aw-memory",
+            "label": "Context Memory",
+            "description": "Shared state between agents",
+            "shape": "database",
+            "color": "slate",
+            "group": "Memory & Data",
+            "order": 30
+          },
+          {
+            "id": "aw-vector",
+            "label": "Vector Store",
+            "description": "Retrieval-augmented knowledge",
+            "shape": "data-store",
+            "color": "slate",
+            "group": "Memory & Data",
+            "order": 31
+          },
+          {
+            "id": "aw-output",
+            "label": "Output",
+            "description": "Workflow result or response",
+            "shape": "display",
+            "color": "slate",
+            "group": "Memory & Data",
+            "order": 32
+          },
+          {
+            "id": "aw-end",
+            "label": "End",
+            "description": "Workflow completion",
+            "shape": "terminator",
+            "color": "slate",
+            "group": "Memory & Data",
+            "order": 33
+          },
+          {
+            "id": "aw-note",
+            "label": "Note",
+            "description": "Document agent behavior",
+            "shape": "note",
+            "color": "slate",
+            "group": "Annotate",
+            "order": 40
+          },
+          {
+            "id": "aw-label",
+            "label": "Label",
+            "description": "Free-standing text",
+            "shape": "text",
+            "color": "slate",
+            "group": "Annotate",
+            "order": 41
+          }
+        ]
+      },
+      "metadata": {
+        "orchestration": "multi-agent"
+      }
+    },
+    {
       "id": "mind-map",
       "title": "Mind Map Creator",
       "description": "Brainstorm and expand ideas on a freeform branching canvas.",
@@ -345,7 +521,7 @@
       "category": "ai-generators",
       "isVisible": true,
       "isEnabled": true,
-      "order": 2
+      "order": 3
     },
     {
       "id": "decision-tree",
@@ -356,7 +532,7 @@
       "category": "ai-generators",
       "isVisible": true,
       "isEnabled": true,
-      "order": 3
+      "order": 4
     },
     {
       "id": "architecture-diagram",

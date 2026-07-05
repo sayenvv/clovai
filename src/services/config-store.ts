@@ -1,12 +1,64 @@
 import { STORAGE_KEYS } from '@/constants'
 import { defaultAppConfig } from '@/config/default-config'
-import type { AppConfig, ConfigRecord } from '@/types/config'
+import type { AppConfig, ConfigRecord, MegaMenuConfig, Tool } from '@/types/config'
 
 /**
  * Local persistence layer that stands in for the database.
  * The service layer (config-api.ts) is the only consumer, so swapping
  * this for real HTTP calls requires no changes anywhere in the UI.
  */
+
+function mergeToolFromDefault(defaultTool: Tool, stored?: Tool): Tool {
+  if (!stored) return defaultTool
+
+  const merged: Tool = { ...defaultTool, ...stored }
+
+  if (!defaultTool.designer) return merged
+
+  const defaultVersion = defaultTool.designer.paletteVersion ?? 0
+  const storedVersion = stored.designer?.paletteVersion ?? 0
+  const storedCount = stored.designer?.palette.length ?? 0
+  const defaultCount = defaultTool.designer.palette.length
+
+  if (storedVersion >= defaultVersion && storedCount >= defaultCount) {
+    return { ...merged, designer: stored.designer }
+  }
+
+  return { ...merged, designer: defaultTool.designer }
+}
+
+/** Merge bundled mega menu changes: new tools, palette updates, category copy. */
+function migrateMegaMenu(stored: MegaMenuConfig): MegaMenuConfig {
+  const storedCategoriesById = new Map(stored.categories.map((category) => [category.id, category]))
+  const storedToolsById = new Map(stored.tools.map((tool) => [tool.id, tool]))
+
+  const categories = defaultAppConfig.megaMenu.categories.map((defaultCategory) => {
+    const storedCategory = storedCategoriesById.get(defaultCategory.id)
+    return storedCategory
+      ? { ...defaultCategory, ...storedCategory, description: defaultCategory.description }
+      : defaultCategory
+  })
+
+  const tools = defaultAppConfig.megaMenu.tools.map((defaultTool) =>
+    mergeToolFromDefault(defaultTool, storedToolsById.get(defaultTool.id)),
+  )
+
+  return {
+    ...stored,
+    categories,
+    tools,
+    featured: defaultAppConfig.megaMenu.featured,
+  }
+}
+
+/** True when localStorage is missing bundled tools or is on an older bundle version. */
+function configNeedsSync(record: ConfigRecord, targetVersion: number): boolean {
+  const storedVersion = record.config.meta.configBundleVersion ?? 0
+  if (storedVersion < targetVersion) return true
+
+  const storedToolIds = new Set(record.config.megaMenu.tools.map((tool) => tool.id))
+  return defaultAppConfig.megaMenu.tools.some((tool) => !storedToolIds.has(tool.id))
+}
 
 function readStore(): ConfigRecord[] {
   try {
@@ -18,37 +70,23 @@ function readStore(): ConfigRecord[] {
   return seedStore()
 }
 
-/** Sync designer palettes (and bundle version) from the bundled default when
- *  localStorage still holds an older copy — e.g. the 8-shape flowchart list. */
+/** Sync bundled tools, palettes, and bundle version from default config. */
 function migrateRecords(records: ConfigRecord[]): ConfigRecord[] {
   const targetVersion = defaultAppConfig.meta.configBundleVersion ?? 0
   let dirty = false
 
   const next = records.map((record) => {
-    const storedVersion = record.config.meta.configBundleVersion ?? 0
-    if (storedVersion >= targetVersion) return record
+    if (!configNeedsSync(record, targetVersion)) return record
 
     dirty = true
-    const tools = record.config.megaMenu.tools.map((tool) => {
-      const defaultTool = defaultAppConfig.megaMenu.tools.find((candidate) => candidate.id === tool.id)
-      if (!defaultTool?.designer) return tool
-
-      const defaultVersion = defaultTool.designer.paletteVersion ?? 0
-      const storedVersion = tool.designer?.paletteVersion ?? 0
-      const storedCount = tool.designer?.palette.length ?? 0
-      const defaultCount = defaultTool.designer.palette.length
-
-      if (storedVersion >= defaultVersion && storedCount >= defaultCount) return tool
-      return { ...tool, designer: defaultTool.designer }
-    })
-
     return {
       ...record,
       updatedAt: new Date().toISOString(),
       config: {
         ...record.config,
         meta: { ...record.config.meta, configBundleVersion: targetVersion },
-        megaMenu: { ...record.config.megaMenu, tools },
+        megaMenu: migrateMegaMenu(record.config.megaMenu),
+        footer: defaultAppConfig.footer,
       },
     }
   })
