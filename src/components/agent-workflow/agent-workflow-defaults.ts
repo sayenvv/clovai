@@ -51,8 +51,24 @@ export interface ExternalAgentBlock extends SidebarBlock {
   featured?: boolean
 }
 
+export interface AgentImportSource {
+  id: string
+  label: string
+  provider: string
+  logo?: string
+  enabled: boolean
+  description?: string
+}
+
 export const SIDEBAR_BLOCKS = agentLibrary.blocks as SidebarBlock[]
 export const EXTERNAL_AGENT_BLOCKS = (agentLibrary.externalAgents ?? []) as ExternalAgentBlock[]
+export const AGENT_IMPORT_SOURCES = (agentLibrary.importSources ?? []) as AgentImportSource[]
+export const SIDEBAR_PREVIEW_LIMIT =
+  (agentLibrary as { defaults?: { sidebarPreviewLimit?: number } }).defaults?.sidebarPreviewLimit ?? 3
+
+export function primaryImportSource(): AgentImportSource | undefined {
+  return AGENT_IMPORT_SOURCES.find((source) => source.enabled)
+}
 
 export function isExternalAgentPalette(paletteId: string): boolean {
   return paletteId.startsWith('aw-ext-')

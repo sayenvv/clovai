@@ -18,12 +18,9 @@ import { ShareDialog } from '@/components/designer/ShareDialog'
 import { PagesBar } from '@/components/designer/PagesBar'
 import { computeCenteredViewport, zoomViewportAt } from '@/components/designer/viewport-utils'
 import { resolveDesignerPalette } from '@/utils/resolve-designer-palette'
-import { STORAGE_KEYS } from '@/constants'
 import {
   createNodeId,
-  createPage,
   type Diagram,
-  type DiagramDocument,
   type DiagramNode,
   type Viewport,
 } from '@/components/designer/diagram-types'
@@ -43,7 +40,6 @@ import {
   AGENT_NODE_WIDTH,
   createWorkflowId,
   enrichAgentNode,
-  enrichDiagram,
   TOOL_NODE_HEIGHT,
   TOOL_NODE_WIDTH,
   TOOL_PALETTE_ID,
@@ -52,117 +48,30 @@ import { SelectAgentDialog } from '@/components/agent-workflow/SelectAgentDialog
 import {
   ConvertSubWorkflowDialog,
   InsertWorkflowDialog,
-  type InsertDialogTab,
-  type InsertWorkflowMode,
 } from '@/components/agent-workflow/InsertWorkflowDialog'
-import {
-  convertAgentsToSubWorkflow,
-  diagramContentCenter,
-  insertDiagramAt,
-  isSubWorkflowNode,
-  mergeImportedDocument,
-  mountPageAsSubWorkflow,
-  offsetToPlaceDiagram,
-} from '@/components/agent-workflow/sub-workflow-ops'
 import {
   attachToolToAgent,
   isAgentNode,
   listAgentNodes,
   pickAgentForToolPlacement,
   removeToolsMappedToAgent,
-  shouldSyncToolLayout,
-  syncMappedToolLayout,
 } from '@/components/agent-workflow/tool-agent-mapping'
 import { autoLayoutNodes, inferWorkflowType, validateWorkflow } from '@/components/agent-workflow/validate-workflow'
 import {
   AGENT_WORKFLOW_TOOL_ID,
-  loadWorkflowDocument,
   mergeDiagramIntoDocument,
   saveExecutionSnapshot,
   saveWorkflowDocument,
 } from '@/components/agent-workflow/workflow-storage'
-import { useVerticalResize } from '@/hooks/use-vertical-resize'
-import { useHorizontalResize } from '@/hooks/use-horizontal-resize'
+import { useWorkflowEditorPanels } from '@/components/agent-workflow/hooks/use-workflow-editor-panels'
+import { useWorkflowDocument } from '@/components/agent-workflow/hooks/use-workflow-document'
+import {
+  canvasInsertAnchor,
+  useSubWorkflowActions,
+} from '@/components/agent-workflow/hooks/use-sub-workflow-actions'
 
 const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, scale: 1 }
-const BOTTOM_PANEL_STORAGE_KEY = 'clovai-agent-workflow-panel-height'
-const BOTTOM_PANEL_COLLAPSED_KEY = 'clovai-agent-workflow-panel-collapsed'
-const BOTTOM_PANEL_DEFAULT = 180
-const BOTTOM_PANEL_MIN = 100
-const LEFT_PANEL_STORAGE_KEY = 'clovai-agent-workflow-left-panel-width'
-const LEFT_PANEL_COLLAPSED_KEY = 'clovai-agent-workflow-left-panel-collapsed'
-const LEFT_PANEL_DEFAULT = 260
-const LEFT_PANEL_MIN = 220
-const LEFT_PANEL_MAX = 420
-const RIGHT_PANEL_STORAGE_KEY = 'clovai-agent-workflow-right-panel-width'
-const RIGHT_PANEL_COLLAPSED_KEY = 'clovai-agent-workflow-right-panel-collapsed'
-const RIGHT_PANEL_DEFAULT = 340
-const RIGHT_PANEL_MIN = 280
-const RIGHT_PANEL_MAX = 560
-
-function loadPanelHeight(): number {
-  try {
-    const stored = localStorage.getItem(BOTTOM_PANEL_STORAGE_KEY)
-    if (stored) {
-      const parsed = Number.parseInt(stored, 10)
-      if (!Number.isNaN(parsed) && parsed >= BOTTOM_PANEL_MIN) return parsed
-    }
-  } catch {
-    // ignore
-  }
-  return BOTTOM_PANEL_DEFAULT
-}
-
-function loadRightPanelWidth(): number {
-  try {
-    const stored = localStorage.getItem(RIGHT_PANEL_STORAGE_KEY)
-    if (stored) {
-      const parsed = Number.parseInt(stored, 10)
-      if (!Number.isNaN(parsed) && parsed >= RIGHT_PANEL_MIN) return parsed
-    }
-  } catch {
-    // ignore
-  }
-  return RIGHT_PANEL_DEFAULT
-}
-
-function loadRightPanelCollapsed(): boolean {
-  try {
-    return localStorage.getItem(RIGHT_PANEL_COLLAPSED_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-
-function loadLeftPanelWidth(): number {
-  try {
-    const stored = localStorage.getItem(LEFT_PANEL_STORAGE_KEY)
-    if (stored) {
-      const parsed = Number.parseInt(stored, 10)
-      if (!Number.isNaN(parsed) && parsed >= LEFT_PANEL_MIN) return parsed
-    }
-  } catch {
-    // ignore
-  }
-  return LEFT_PANEL_DEFAULT
-}
-
-function loadLeftPanelCollapsed(): boolean {
-  try {
-    return localStorage.getItem(LEFT_PANEL_COLLAPSED_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-
-function loadBottomPanelCollapsed(): boolean {
-  try {
-    return localStorage.getItem(BOTTOM_PANEL_COLLAPSED_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
 
 function defaultWorkflowMeta(): AgentWorkflowMeta {
   return {
@@ -171,10 +80,6 @@ function defaultWorkflowMeta(): AgentWorkflowMeta {
     status: 'draft',
     executionType: 'sequential',
   }
-}
-
-function loadDocument(): DiagramDocument {
-  return loadWorkflowDocument()
 }
 
 function simulateTrace(diagram: Diagram): ExecutionTraceStep[] {
@@ -214,7 +119,6 @@ export default function AgentWorkflowPage() {
     return map
   }, [palette])
 
-  const [doc, setDoc] = useState<DiagramDocument>(() => loadDocument())
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT)
   const [selection, setSelection] = useState<Selection>(null)
   const [snapToGrid, setSnapToGrid] = useState(true)
@@ -225,60 +129,46 @@ export default function AgentWorkflowPage() {
   const [trace, setTrace] = useState<ExecutionTraceStep[]>([])
   const [logs, setLogs] = useState<string[]>([])
   const [testInput, setTestInput] = useState('{\n  "query": "Summarize the quarterly report"\n}')
-  const [workflowName, setWorkflowName] = useState(() => doc.pages[0]?.name ?? 'Untitled workflow')
   const [agentPickOpen, setAgentPickOpen] = useState(false)
-  const [convertSubWorkflowOpen, setConvertSubWorkflowOpen] = useState(false)
-  const [insertWorkflowOpen, setInsertWorkflowOpen] = useState(false)
-  const [insertDialogTab, setInsertDialogTab] = useState<InsertDialogTab>('workflow')
   const [rightPanelTab, setRightPanelTab] = useState<'details' | 'collaborators'>('details')
 
-  const { height: bottomPanelHeight, setHeight: setBottomPanelHeight, onResizePointerDown } =
-    useVerticalResize({
-      initialHeight: loadPanelHeight(),
-      minHeight: BOTTOM_PANEL_MIN,
-    })
+  const { left, right, bottom } = useWorkflowEditorPanels()
+
+  const invalidateValidation = useCallback(() => setIsValidated(false), [])
 
   const {
-    width: leftPanelWidth,
-    setWidth: setLeftPanelWidth,
-    onResizePointerDown: onLeftPanelResize,
-  } = useHorizontalResize({
-    initialWidth: loadLeftPanelWidth(),
-    minWidth: LEFT_PANEL_MIN,
-    maxWidth: LEFT_PANEL_MAX,
-    invert: false,
-  })
-
-  const {
-    width: rightPanelWidth,
-    setWidth: setRightPanelWidth,
-    onResizePointerDown: onRightPanelResize,
-  } = useHorizontalResize({
-    initialWidth: loadRightPanelWidth(),
-    minWidth: RIGHT_PANEL_MIN,
-    maxWidth: RIGHT_PANEL_MAX,
-    invert: true,
-  })
-
-  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(loadLeftPanelCollapsed)
-  const [bottomPanelCollapsed, setBottomPanelCollapsed] = useState(loadBottomPanelCollapsed)
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(loadRightPanelCollapsed)
-  const leftPanelWidthRef = useRef(leftPanelWidth)
-  const bottomPanelHeightRef = useRef(bottomPanelHeight)
-  const rightPanelWidthRef = useRef(rightPanelWidth)
-  leftPanelWidthRef.current = leftPanelWidth
-  bottomPanelHeightRef.current = bottomPanelHeight
-  rightPanelWidthRef.current = rightPanelWidth
+    doc,
+    setDoc,
+    activePage,
+    diagram,
+    workflowName,
+    handleChange,
+    selectPage,
+    addPage,
+    createWorkflowTab,
+    renamePage,
+    deletePage,
+  } = useWorkflowDocument(paletteById, invalidateValidation)
 
   const canvasAreaRef = useRef<HTMLDivElement>(null)
   const diagramRef = useRef<Diagram>({ nodes: [], edges: [] })
-
-  const activePage = doc.pages.find((page) => page.id === doc.activePageId) ?? doc.pages[0]
-  const diagram = useMemo(
-    () => enrichDiagram(activePage.diagram, paletteById),
-    [activePage.diagram, paletteById],
-  )
   diagramRef.current = diagram
+
+  const getCanvasInsertAnchor = useCallback(
+    () => canvasInsertAnchor(diagram, canvasAreaRef, viewport),
+    [diagram, viewport],
+  )
+
+  const subWorkflow = useSubWorkflowActions({
+    doc,
+    diagram,
+    selection,
+    setDoc,
+    setSelection,
+    setIsValidated,
+    handleChange,
+    getCanvasInsertAnchor,
+  })
 
   const workflowMeta = doc.workflow ?? defaultWorkflowMeta()
   const inferredType = useMemo(() => inferWorkflowType(diagram), [diagram])
@@ -286,77 +176,6 @@ export default function AgentWorkflowPage() {
   useEffect(() => {
     if (tool) document.title = `${tool.title} — Clovai`
   }, [tool])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.diagram(TOOL_ID), JSON.stringify(doc))
-  }, [doc])
-
-  useEffect(() => {
-    if (!bottomPanelCollapsed) {
-      localStorage.setItem(BOTTOM_PANEL_STORAGE_KEY, String(bottomPanelHeight))
-    }
-  }, [bottomPanelHeight, bottomPanelCollapsed])
-
-  useEffect(() => {
-    localStorage.setItem(BOTTOM_PANEL_COLLAPSED_KEY, String(bottomPanelCollapsed))
-  }, [bottomPanelCollapsed])
-
-  useEffect(() => {
-    if (!leftPanelCollapsed) {
-      localStorage.setItem(LEFT_PANEL_STORAGE_KEY, String(leftPanelWidth))
-    }
-  }, [leftPanelWidth, leftPanelCollapsed])
-
-  useEffect(() => {
-    localStorage.setItem(LEFT_PANEL_COLLAPSED_KEY, String(leftPanelCollapsed))
-  }, [leftPanelCollapsed])
-
-  useEffect(() => {
-    if (!rightPanelCollapsed) {
-      localStorage.setItem(RIGHT_PANEL_STORAGE_KEY, String(rightPanelWidth))
-    }
-  }, [rightPanelWidth, rightPanelCollapsed])
-
-  useEffect(() => {
-    localStorage.setItem(RIGHT_PANEL_COLLAPSED_KEY, String(rightPanelCollapsed))
-  }, [rightPanelCollapsed])
-
-  const toggleLeftPanel = useCallback(() => {
-    setLeftPanelCollapsed((previous) => {
-      if (previous) {
-        setLeftPanelWidth(leftPanelWidthRef.current)
-      } else {
-        leftPanelWidthRef.current = leftPanelWidth
-      }
-      return !previous
-    })
-  }, [leftPanelWidth, setLeftPanelWidth])
-
-  const toggleBottomPanel = useCallback(() => {
-    setBottomPanelCollapsed((previous) => {
-      if (previous) {
-        setBottomPanelHeight(bottomPanelHeightRef.current)
-      } else {
-        bottomPanelHeightRef.current = bottomPanelHeight
-      }
-      return !previous
-    })
-  }, [bottomPanelHeight, setBottomPanelHeight])
-
-  const toggleRightPanel = useCallback(() => {
-    setRightPanelCollapsed((previous) => {
-      if (previous) {
-        setRightPanelWidth(rightPanelWidthRef.current)
-      } else {
-        rightPanelWidthRef.current = rightPanelWidth
-      }
-      return !previous
-    })
-  }, [rightPanelWidth, setRightPanelWidth])
-
-  useEffect(() => {
-    setWorkflowName(activePage.name)
-  }, [activePage.id, activePage.name])
 
   useEffect(() => {
     if (selection?.kind === 'node' || selection?.kind === 'edge') {
@@ -383,73 +202,30 @@ export default function AgentWorkflowPage() {
     return () => cancelAnimationFrame(frame)
   }, [TOOL_ID, activePage.id, applyCenteredViewport])
 
-  const handleChange = useCallback(
-    (updater: (previous: Diagram) => Diagram) => {
-      setIsValidated(false)
-      setDoc((previous) => ({
-        ...previous,
-        pages: previous.pages.map((page) => {
-          if (page.id !== previous.activePageId) return page
-          const before = page.diagram
-          const enriched = enrichDiagram(updater(before), paletteById)
-          const diagram = shouldSyncToolLayout(before, enriched)
-            ? syncMappedToolLayout(enriched)
-            : enriched
-          return { ...page, diagram }
-        }),
-      }))
-    },
-    [paletteById],
-  )
-
   const handleViewportChange = useCallback((updater: (previous: Viewport) => Viewport) => {
     setViewport(updater)
   }, [])
 
-  const selectPage = useCallback((pageId: string) => {
-    setDoc((previous) => ({ ...previous, activePageId: pageId }))
-    setSelection(null)
-  }, [])
+  const handleSelectPage = useCallback(
+    (pageId: string) => {
+      selectPage(pageId)
+      setSelection(null)
+    },
+    [selectPage],
+  )
 
-  const addPage = useCallback(() => {
-    setDoc((previous) => {
-      const page = createPage(`Workflow ${previous.pages.length + 1}`)
-      return { pages: [...previous.pages, page], activePageId: page.id, workflow: previous.workflow }
-    })
-    setSelection(null)
-  }, [])
-
-  const handleCreateWorkflowTab = useCallback(() => {
+  const handleAddPage = useCallback(() => {
     addPage()
-    toast.success('New workflow tab created. Build it here, then attach it with Insert → Workflow.')
+    setSelection(null)
   }, [addPage])
 
-  const openInsertDialog = useCallback((tab: InsertDialogTab) => {
-    setInsertDialogTab(tab)
-    setInsertWorkflowOpen(true)
-  }, [])
-
-  const renamePage = useCallback((pageId: string, name: string) => {
-    setDoc((previous) => ({
-      ...previous,
-      pages: previous.pages.map((page) => (page.id === pageId ? { ...page, name } : page)),
-    }))
-    if (pageId === doc.activePageId) setWorkflowName(name)
-  }, [doc.activePageId])
-
-  const deletePage = useCallback((pageId: string) => {
-    setDoc((previous) => {
-      if (previous.pages.length <= 1) return previous
-      const pages = previous.pages.filter((page) => page.id !== pageId)
-      return {
-        ...previous,
-        pages,
-        activePageId:
-          previous.activePageId === pageId ? pages[pages.length - 1].id : previous.activePageId,
-      }
-    })
-    setSelection(null)
-  }, [])
+  const handleDeletePage = useCallback(
+    (pageId: string) => {
+      deletePage(pageId)
+      setSelection(null)
+    },
+    [deletePage],
+  )
 
   const addToolForAgent = useCallback(
     (agentId: string, paletteId: string = TOOL_PALETTE_ID) => {
@@ -491,19 +267,14 @@ export default function AgentWorkflowPage() {
         return
       }
 
-      const rect = canvasAreaRef.current?.getBoundingClientRect()
-      const visibleWidth = rect?.width ?? window.innerWidth
-      const visibleHeight = rect?.height ?? window.innerHeight
-      const centerX = (visibleWidth / 2 - viewport.x) / viewport.scale
-      const centerY = (visibleHeight / 2 - viewport.y) / viewport.scale
+      const anchor = getCanvasInsertAnchor()
       const offset = (diagram.nodes.length % 5) * 20
-
       const base: DiagramNode = {
         id: createNodeId(),
         paletteId,
         label: item.label,
-        x: centerX - AGENT_NODE_WIDTH / 2 + offset,
-        y: centerY - AGENT_NODE_HEIGHT / 2 + offset,
+        x: anchor.x - AGENT_NODE_WIDTH / 2 + offset,
+        y: anchor.y - AGENT_NODE_HEIGHT / 2 + offset,
         width: AGENT_NODE_WIDTH,
         height: AGENT_NODE_HEIGHT,
       }
@@ -511,7 +282,7 @@ export default function AgentWorkflowPage() {
       handleChange((previous) => ({ ...previous, nodes: [...previous.nodes, node] }))
       setSelection({ kind: 'node', id: node.id })
     },
-    [paletteById, viewport, diagram, handleChange, addToolForAgent],
+    [paletteById, diagram, handleChange, addToolForAgent, getCanvasInsertAnchor],
   )
 
   const zoomBy = useCallback((factor: number) => {
@@ -542,7 +313,7 @@ export default function AgentWorkflowPage() {
       },
     }))
     toast.success('Draft saved')
-  }, [])
+  }, [setDoc])
 
   const handleValidate = useCallback(() => {
     const issues = validateWorkflow(diagram, paletteById)
@@ -562,7 +333,7 @@ export default function AgentWorkflowPage() {
     } else {
       toast.success('Workflow validated successfully')
     }
-  }, [diagram, paletteById, inferredType])
+  }, [diagram, paletteById, inferredType, setDoc])
 
   const handleTest = useCallback(() => {
     const stamp = new Date().toISOString()
@@ -608,7 +379,7 @@ export default function AgentWorkflowPage() {
       `[${deployment.deployedAt}] Deployed v${deployment.version} → ${deployment.endpointUrl}`,
     ])
     toast.success('Workflow deployed')
-  }, [isValidated, workflowMeta, testInput])
+  }, [isValidated, workflowMeta, testInput, setDoc])
 
   const handleExecute = useCallback(() => {
     if (listAgentNodes(diagram).length === 0) {
@@ -645,7 +416,6 @@ export default function AgentWorkflowPage() {
 
   const handleWorkflowNameChange = useCallback(
     (name: string) => {
-      setWorkflowName(name)
       renamePage(activePage.id, name)
     },
     [activePage.id, renamePage],
@@ -677,131 +447,7 @@ export default function AgentWorkflowPage() {
     [],
   )
 
-  const getCanvasInsertAnchor = useCallback((): { x: number; y: number } => {
-    const rect = canvasAreaRef.current?.getBoundingClientRect()
-    if (!rect?.width || !rect?.height) return diagramContentCenter(diagram)
-    return {
-      x: (rect.width / 2 - viewport.x) / viewport.scale,
-      y: (rect.height / 2 - viewport.y) / viewport.scale,
-    }
-  }, [diagram, viewport])
-
-  const selectedAgentIds = useMemo(
-    () =>
-      selectedNodeIds(selection).filter((id) => {
-        const node = diagram.nodes.find((candidate) => candidate.id === id)
-        return node && isAgentNode(node) && !isSubWorkflowNode(node)
-      }),
-    [selection, diagram.nodes],
-  )
-
-  const canConvertToSubWorkflow = selectedAgentIds.length >= 2
-
-  const convertSubWorkflowDefaultName = useMemo(() => {
-    if (selectedAgentIds.length === 0) return `Sub-workflow ${doc.pages.length + 1}`
-    const labels = selectedAgentIds
-      .map((id) => diagram.nodes.find((node) => node.id === id)?.label)
-      .filter(Boolean)
-      .slice(0, 2)
-    return labels.length > 0 ? labels.join(' + ') : `Sub-workflow ${doc.pages.length + 1}`
-  }, [selectedAgentIds, diagram.nodes, doc.pages.length])
-
-  const handleConvertToSubWorkflow = useCallback(() => {
-    if (!canConvertToSubWorkflow) {
-      toast.error('Select at least two agents to convert.')
-      return
-    }
-    setConvertSubWorkflowOpen(true)
-  }, [canConvertToSubWorkflow])
-
-  const confirmConvertToSubWorkflow = useCallback(
-    (name: string) => {
-      const result = convertAgentsToSubWorkflow(doc, doc.activePageId, selectedAgentIds, name)
-      if ('error' in result) {
-        toast.error(result.error)
-        return
-      }
-      setIsValidated(false)
-      setDoc(result.doc)
-      setSelection({ kind: 'node', id: result.subWorkflowNodeId })
-      toast.success('Converted selection into a sub-workflow agent.')
-    },
-    [doc, selectedAgentIds],
-  )
-
-  const handleInsertFromPage = useCallback(
-    (pageId: string, mode: InsertWorkflowMode) => {
-      const sourcePage = doc.pages.find((page) => page.id === pageId)
-      if (!sourcePage) {
-        toast.error('Workflow page not found.')
-        return
-      }
-
-      const anchor = getCanvasInsertAnchor()
-
-      if (mode === 'mount') {
-        const result = mountPageAsSubWorkflow(doc, doc.activePageId, pageId, anchor)
-        if ('error' in result) {
-          toast.error(result.error)
-          return
-        }
-        setIsValidated(false)
-        setDoc(result.doc)
-        setSelection({ kind: 'node', id: result.subWorkflowNodeId })
-        toast.success(`Mounted "${sourcePage.name}" as a sub-workflow agent.`)
-        return
-      }
-
-      const offset = offsetToPlaceDiagram(diagram, sourcePage.diagram, anchor)
-      handleChange((previous) => insertDiagramAt(previous, sourcePage.diagram, offset))
-      toast.success(`Inserted nodes from "${sourcePage.name}".`)
-    },
-    [doc, diagram, getCanvasInsertAnchor, handleChange],
-  )
-
-  const handleImportWorkflowDocument = useCallback(
-    (imported: DiagramDocument, mode: InsertWorkflowMode) => {
-      if (imported.pages.length === 0) {
-        toast.error('No workflow pages found in the file.')
-        return
-      }
-
-      const anchor = getCanvasInsertAnchor()
-
-      if (mode === 'mount') {
-        const merged = mergeImportedDocument(doc, imported)
-        if (!merged.firstPageId) {
-          toast.error('Could not import workflow.')
-          return
-        }
-        const result = mountPageAsSubWorkflow(merged.doc, doc.activePageId, merged.firstPageId, anchor)
-        if ('error' in result) {
-          toast.error(result.error)
-          return
-        }
-        setIsValidated(false)
-        setDoc(result.doc)
-        setSelection({ kind: 'node', id: result.subWorkflowNodeId })
-        toast.success('Imported and mounted workflow as a sub-workflow agent.')
-        return
-      }
-
-      const sourcePage =
-        imported.pages.find((page) => page.id === imported.activePageId) ?? imported.pages[0]
-      const offset = offsetToPlaceDiagram(diagram, sourcePage.diagram, anchor)
-      handleChange((previous) => insertDiagramAt(previous, sourcePage.diagram, offset))
-      toast.success(`Inserted nodes from "${sourcePage.name}".`)
-    },
-    [doc, diagram, getCanvasInsertAnchor, handleChange],
-  )
-
-  const handleMountWorkflow = useCallback(
-    (pageId: string) => handleInsertFromPage(pageId, 'mount'),
-    [handleInsertFromPage],
-  )
-
   const agentNodes = useMemo(() => listAgentNodes(diagram), [diagram])
-
   const errorCount = validationIssues.filter((issue) => issue.severity === 'error').length
 
   if (!tool) return <Navigate to="/404" replace />
@@ -833,7 +479,7 @@ export default function AgentWorkflowPage() {
               handleChange(() => ({ nodes: [], edges: [] }))
               setSelection(null)
             }}
-            onImport={() => openInsertDialog('import')}
+            onImport={() => subWorkflow.openInsert('import')}
             onExportJson={() => toast.info('Export coming soon')}
             onExportSvg={() => toast.info('Export coming soon')}
             onExportPng={() => toast.info('Export coming soon')}
@@ -869,11 +515,11 @@ export default function AgentWorkflowPage() {
               })
               setSelection(null)
             }}
-            onConvertToSubWorkflow={handleConvertToSubWorkflow}
-            canConvertToSubWorkflow={canConvertToSubWorkflow}
-            onInsertWorkflow={() => openInsertDialog('workflow')}
-            onInsertImport={() => openInsertDialog('import')}
-            onCreateWorkflowTab={handleCreateWorkflowTab}
+            onConvertToSubWorkflow={subWorkflow.requestConvert}
+            canConvertToSubWorkflow={subWorkflow.canConvert}
+            onInsertWorkflow={() => subWorkflow.openInsert('workflow')}
+            onInsertImport={() => subWorkflow.openInsert('import')}
+            onCreateWorkflowTab={createWorkflowTab}
             onZoomIn={() => zoomBy(1.2)}
             onZoomOut={() => zoomBy(1 / 1.2)}
             onResetView={() => applyCenteredViewport(diagram)}
@@ -891,83 +537,82 @@ export default function AgentWorkflowPage() {
               onAddAgent={addBlock}
               doc={doc}
               activePageId={doc.activePageId}
-              onMountWorkflow={handleMountWorkflow}
-              onCreateWorkflowTab={handleCreateWorkflowTab}
-              width={leftPanelWidth}
-              collapsed={leftPanelCollapsed}
-              onResizePointerDown={onLeftPanelResize}
-              onToggleCollapse={toggleLeftPanel}
+              onMountWorkflow={subWorkflow.mountWorkflow}
+              onCreateWorkflowTab={createWorkflowTab}
+              width={left.size}
+              collapsed={left.collapsed}
+              onResizePointerDown={left.onResizePointerDown}
+              onToggleCollapse={left.toggle}
             />
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               <div ref={canvasAreaRef} className="relative min-h-0 flex-1 bg-canvas">
-            {diagram.nodes.length === 0 && (
-              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-                <div className="max-w-sm rounded-xl border border-dashed border-violet-500/30 bg-card/80 px-6 py-5 text-center shadow-sm backdrop-blur-sm">
-                  <p className="text-sm font-medium text-foreground">Build your agent workflow</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Add an agent, then map tools under it. Connect agents to define execution order
-                    and approval gates.
-                  </p>
+                {diagram.nodes.length === 0 && (
+                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+                    <div className="max-w-sm rounded-xl border border-dashed border-violet-500/30 bg-card/80 px-6 py-5 text-center shadow-sm backdrop-blur-sm">
+                      <p className="text-sm font-medium text-foreground">Build your agent workflow</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Add an agent, then map tools under it. Connect agents to define execution order
+                        and approval gates.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="absolute bottom-3 left-3 z-20 flex gap-1.5">
+                  <Button variant="secondary" size="sm" className="h-8 shadow-md" onClick={runAutoLayout}>
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                    Auto-layout
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-8 shadow-md"
+                    onClick={() => applyCenteredViewport(diagram)}
+                  >
+                    <Maximize2 className="h-3.5 w-3.5" />
+                    Fit
+                  </Button>
                 </div>
+
+                <DesignerCanvas
+                  diagram={diagram}
+                  onChange={handleChange}
+                  paletteById={paletteById}
+                  viewport={viewport}
+                  onViewportChange={handleViewportChange}
+                  selection={selection}
+                  onSelectionChange={handleSelectionChange}
+                  snapToGrid={snapToGrid}
+                  showGrid={showGrid}
+                  onZoomIn={() => zoomBy(1.2)}
+                  onZoomOut={() => zoomBy(1 / 1.2)}
+                  agentMode
+                  transformDroppedNode={transformDroppedNode}
+                  finalizeDroppedNode={finalizeDroppedNode}
+                />
               </div>
-            )}
 
+              <PagesBar
+                pages={doc.pages}
+                activePageId={doc.activePageId}
+                onSelect={handleSelectPage}
+                onAdd={handleAddPage}
+                onRename={renamePage}
+                onDelete={handleDeletePage}
+              />
 
-            <div className="absolute bottom-3 left-3 z-20 flex gap-1.5">
-              <Button variant="secondary" size="sm" className="h-8 shadow-md" onClick={runAutoLayout}>
-                <LayoutGrid className="h-3.5 w-3.5" />
-                Auto-layout
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="h-8 shadow-md"
-                onClick={() => applyCenteredViewport(diagram)}
-              >
-                <Maximize2 className="h-3.5 w-3.5" />
-                Fit
-              </Button>
-            </div>
-
-            <DesignerCanvas
-              diagram={diagram}
-              onChange={handleChange}
-              paletteById={paletteById}
-              viewport={viewport}
-              onViewportChange={handleViewportChange}
-              selection={selection}
-              onSelectionChange={handleSelectionChange}
-              snapToGrid={snapToGrid}
-              showGrid={showGrid}
-              onZoomIn={() => zoomBy(1.2)}
-              onZoomOut={() => zoomBy(1 / 1.2)}
-              agentMode
-              transformDroppedNode={transformDroppedNode}
-              finalizeDroppedNode={finalizeDroppedNode}
-            />
-          </div>
-
-          <PagesBar
-            pages={doc.pages}
-            activePageId={doc.activePageId}
-            onSelect={selectPage}
-            onAdd={addPage}
-            onRename={renamePage}
-            onDelete={deletePage}
-          />
-
-          <BottomInspectorPanel
-            validationIssues={validationIssues}
-            trace={trace}
-            logs={logs}
-            testInput={testInput}
-            onTestInputChange={setTestInput}
-            height={bottomPanelHeight}
-            collapsed={bottomPanelCollapsed}
-            onResizePointerDown={onResizePointerDown}
-            onToggleCollapse={toggleBottomPanel}
-          />
+              <BottomInspectorPanel
+                validationIssues={validationIssues}
+                trace={trace}
+                logs={logs}
+                testInput={testInput}
+                onTestInputChange={setTestInput}
+                height={bottom.size}
+                collapsed={bottom.collapsed}
+                onResizePointerDown={bottom.onResizePointerDown}
+                onToggleCollapse={bottom.toggle}
+              />
             </div>
           </div>
         </div>
@@ -977,17 +622,17 @@ export default function AgentWorkflowPage() {
           doc={doc}
           selection={selection}
           onChange={handleChange}
-          width={rightPanelWidth}
-          collapsed={rightPanelCollapsed}
-          onResizePointerDown={onRightPanelResize}
-          onToggleCollapse={toggleRightPanel}
+          width={right.size}
+          collapsed={right.collapsed}
+          onResizePointerDown={right.onResizePointerDown}
+          onToggleCollapse={right.toggle}
           toolId={TOOL_ID}
           activeTab={rightPanelTab}
           onTabChange={setRightPanelTab}
           onManageAccess={() => setShareOpen(true)}
-          onOpenSubWorkflow={selectPage}
-          onConvertToSubWorkflow={handleConvertToSubWorkflow}
-          canConvertToSubWorkflow={canConvertToSubWorkflow}
+          onOpenSubWorkflow={handleSelectPage}
+          onConvertToSubWorkflow={subWorkflow.requestConvert}
+          canConvertToSubWorkflow={subWorkflow.canConvert}
         />
       </div>
 
@@ -1006,22 +651,22 @@ export default function AgentWorkflowPage() {
       />
 
       <ConvertSubWorkflowDialog
-        open={convertSubWorkflowOpen}
-        onOpenChange={setConvertSubWorkflowOpen}
-        agentCount={selectedAgentIds.length}
-        defaultName={convertSubWorkflowDefaultName}
-        onConfirm={confirmConvertToSubWorkflow}
+        open={subWorkflow.convertOpen}
+        onOpenChange={subWorkflow.setConvertOpen}
+        agentCount={subWorkflow.selectedAgentCount}
+        defaultName={subWorkflow.convertDefaultName}
+        onConfirm={subWorkflow.confirmConvert}
       />
 
       <InsertWorkflowDialog
-        open={insertWorkflowOpen}
-        onOpenChange={setInsertWorkflowOpen}
+        open={subWorkflow.insertOpen}
+        onOpenChange={subWorkflow.setInsertOpen}
         doc={doc}
         activePageId={doc.activePageId}
-        defaultTab={insertDialogTab}
-        onInsertFromPage={handleInsertFromPage}
-        onImportDocument={handleImportWorkflowDocument}
-        onCreateWorkflowTab={handleCreateWorkflowTab}
+        defaultTab={subWorkflow.insertTab}
+        onInsertFromPage={subWorkflow.insertFromPage}
+        onImportDocument={subWorkflow.importDocument}
+        onCreateWorkflowTab={createWorkflowTab}
       />
     </div>
   )

@@ -1,4 +1,41 @@
 {
+  "defaults": {
+    "sidebarPreviewLimit": 3
+  },
+  "importSources": [
+    {
+      "id": "azure-foundry",
+      "label": "Azure AI Foundry",
+      "provider": "Microsoft",
+      "logo": "/agent-providers/microsoft.svg",
+      "enabled": true,
+      "description": "Import agents from your project"
+    },
+    {
+      "id": "langsmith",
+      "label": "LangSmith",
+      "provider": "LangChain",
+      "enabled": false
+    },
+    {
+      "id": "bedrock",
+      "label": "Bedrock Agents",
+      "provider": "AWS",
+      "enabled": false
+    },
+    {
+      "id": "vertex",
+      "label": "Vertex Agent Builder",
+      "provider": "Google",
+      "enabled": false
+    },
+    {
+      "id": "agentforce",
+      "label": "Agentforce",
+      "provider": "Salesforce",
+      "enabled": false
+    }
+  ],
   "blocks": [
     {
       "id": "agent",

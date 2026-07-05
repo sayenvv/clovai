@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { CloudDownload, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -14,23 +14,27 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/utils/cn'
-
-const MICROSOFT_LOGO = '/agent-providers/microsoft.svg'
-
-const COMING_SOON_SOURCES = [
-  { label: 'LangSmith', provider: 'LangChain' },
-  { label: 'Bedrock Agents', provider: 'AWS' },
-  { label: 'Vertex Agent Builder', provider: 'Google' },
-  { label: 'Agentforce', provider: 'Salesforce' },
-] as const
+import {
+  AGENT_IMPORT_SOURCES,
+  primaryImportSource,
+  type AgentImportSource,
+} from '@/components/agent-workflow/agent-workflow-defaults'
 
 interface ExternalAgentImportSectionProps {
-  onOpenFoundryImport: () => void
+  onOpenImport: (sourceId: string) => void
 }
 
 export const ExternalAgentImportSection = memo(function ExternalAgentImportSection({
-  onOpenFoundryImport,
+  onOpenImport,
 }: ExternalAgentImportSectionProps) {
+  const primary = primaryImportSource()
+  const comingSoon = useMemo(
+    () => AGENT_IMPORT_SOURCES.filter((source) => !source.enabled),
+    [],
+  )
+
+  if (!primary && comingSoon.length === 0) return null
+
   return (
     <section className="mt-6 border-t border-border pt-4">
       <div className="mb-3">
@@ -40,54 +44,80 @@ export const ExternalAgentImportSection = memo(function ExternalAgentImportSecti
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={onOpenFoundryImport}
-        className={cn(
-          'flex w-full items-center gap-2.5 rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-2.5 text-left transition-colors',
-          'hover:border-sky-500/50 hover:bg-sky-500/10',
-        )}
-      >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-background p-1">
-          <img src={MICROSOFT_LOGO} alt="" className="h-full w-full object-contain" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-foreground">Azure AI Foundry</p>
-          <p className="truncate text-[10px] text-muted-foreground">Import agents from your project</p>
-        </div>
-        <CloudDownload className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
-      </button>
+      {primary && (
+        <ImportSourceButton source={primary} onClick={() => onOpenImport(primary.id)} />
+      )}
 
-      <div className="mt-2 space-y-1">
-        {COMING_SOON_SOURCES.map((source) => (
-          <div
-            key={source.label}
-            className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[11px] text-muted-foreground"
-          >
-            <span className="truncate">
-              {source.label}
-              <span className="text-muted-foreground/70"> · {source.provider}</span>
-            </span>
-            <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[9px] font-normal">
-              Soon
-            </Badge>
-          </div>
-        ))}
-      </div>
+      {comingSoon.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {comingSoon.map((source) => (
+            <div
+              key={source.id}
+              className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[11px] text-muted-foreground"
+            >
+              <span className="truncate">
+                {source.label}
+                <span className="text-muted-foreground/70"> · {source.provider}</span>
+              </span>
+              <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[9px] font-normal">
+                Soon
+              </Badge>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   )
 })
 
-interface AzureFoundryImportDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onImportAgents?: (agentIds: string[]) => void
+function ImportSourceButton({
+  source,
+  onClick,
+}: {
+  source: AgentImportSource
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2.5 rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-2.5 text-left transition-colors',
+        'hover:border-sky-500/50 hover:bg-sky-500/10',
+      )}
+    >
+      {source.logo ? (
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-background p-1">
+          <img src={source.logo} alt="" className="h-full w-full object-contain" />
+        </div>
+      ) : (
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600">
+          <CloudDownload className="h-4 w-4" />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold text-foreground">{source.label}</p>
+        <p className="truncate text-[10px] text-muted-foreground">
+          {source.description ?? `Import from ${source.provider}`}
+        </p>
+      </div>
+      <CloudDownload className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
+    </button>
+  )
 }
 
-export const AzureFoundryImportDialog = memo(function AzureFoundryImportDialog({
+interface AgentImportDialogProps {
+  sourceId: string | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+export const AgentImportDialog = memo(function AgentImportDialog({
+  sourceId,
   open,
   onOpenChange,
-}: AzureFoundryImportDialogProps) {
+}: AgentImportDialogProps) {
+  const source = AGENT_IMPORT_SOURCES.find((item) => item.id === sourceId)
   const [endpoint, setEndpoint] = useState('')
   const [project, setProject] = useState('')
   const [loading, setLoading] = useState(false)
@@ -105,23 +135,31 @@ export const AzureFoundryImportDialog = memo(function AzureFoundryImportDialog({
     setLoading(true)
     window.setTimeout(() => {
       setLoading(false)
-      toast.info('Azure AI Foundry connection is not configured yet. Agent import will be available soon.')
+      toast.info(`${source?.label ?? 'Import'} connection is not configured yet. Agent import will be available soon.`)
       handleOpenChange(false)
     }, 600)
   }
+
+  if (!source) return null
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <div className="mb-1 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-background p-1.5">
-              <img src={MICROSOFT_LOGO} alt="" className="h-full w-full object-contain" />
-            </div>
+            {source.logo ? (
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-background p-1.5">
+                <img src={source.logo} alt="" className="h-full w-full object-contain" />
+              </div>
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600">
+                <CloudDownload className="h-5 w-5" />
+              </div>
+            )}
             <div>
-              <DialogTitle>Import from Azure AI Foundry</DialogTitle>
+              <DialogTitle>Import from {source.label}</DialogTitle>
               <DialogDescription className="mt-0.5">
-                Browse agents in your Foundry project and add them to the canvas.
+                Browse agents in your {source.provider} project and add them to the canvas.
               </DialogDescription>
             </div>
           </div>
@@ -129,11 +167,11 @@ export const AzureFoundryImportDialog = memo(function AzureFoundryImportDialog({
 
         <div className="space-y-3 py-1">
           <div className="space-y-1.5">
-            <Label htmlFor="foundry-endpoint" className="text-xs">
-              Foundry endpoint
+            <Label htmlFor="import-endpoint" className="text-xs">
+              Endpoint
             </Label>
             <Input
-              id="foundry-endpoint"
+              id="import-endpoint"
               value={endpoint}
               onChange={(event) => setEndpoint(event.target.value)}
               placeholder="https://your-resource.services.ai.azure.com"
@@ -141,11 +179,11 @@ export const AzureFoundryImportDialog = memo(function AzureFoundryImportDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="foundry-project" className="text-xs">
+            <Label htmlFor="import-project" className="text-xs">
               Project name
             </Label>
             <Input
-              id="foundry-project"
+              id="import-project"
               value={project}
               onChange={(event) => setProject(event.target.value)}
               placeholder="my-agent-project"
@@ -153,8 +191,8 @@ export const AzureFoundryImportDialog = memo(function AzureFoundryImportDialog({
             />
           </div>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Sign in with your Azure account to list agents, prompts, and tool-enabled assistants from
-            AI Foundry. Additional import sources are coming soon.
+            Sign in to list agents, prompts, and tool-enabled assistants. Additional import sources
+            are coming soon.
           </p>
         </div>
 
@@ -171,3 +209,6 @@ export const AzureFoundryImportDialog = memo(function AzureFoundryImportDialog({
     </Dialog>
   )
 })
+
+/** @deprecated Use AgentImportDialog */
+export const AzureFoundryImportDialog = AgentImportDialog

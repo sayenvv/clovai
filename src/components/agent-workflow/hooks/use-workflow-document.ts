@@ -1,0 +1,112 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
+import { createPage, type Diagram, type DiagramDocument } from '@/components/designer/diagram-types'
+import type { PaletteItem } from '@/types/config'
+import { enrichDiagram } from '@/components/agent-workflow/agent-workflow-defaults'
+import {
+  AGENT_WORKFLOW_TOOL_ID,
+  loadWorkflowDocument,
+} from '@/components/agent-workflow/workflow-storage'
+import {
+  shouldSyncToolLayout,
+  syncMappedToolLayout,
+} from '@/components/agent-workflow/tool-agent-mapping'
+import { STORAGE_KEYS } from '@/constants'
+
+const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
+
+export function useWorkflowDocument(
+  paletteById: Map<string, PaletteItem>,
+  onInvalidate?: () => void,
+) {
+  const [doc, setDoc] = useState<DiagramDocument>(() => loadWorkflowDocument())
+  const [workflowName, setWorkflowName] = useState(() => doc.pages[0]?.name ?? 'Untitled workflow')
+
+  const activePage = doc.pages.find((page) => page.id === doc.activePageId) ?? doc.pages[0]
+  const diagram = useMemo(
+    () => enrichDiagram(activePage.diagram, paletteById),
+    [activePage.diagram, paletteById],
+  )
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.diagram(TOOL_ID), JSON.stringify(doc))
+  }, [doc])
+
+  useEffect(() => {
+    setWorkflowName(activePage.name)
+  }, [activePage.id, activePage.name])
+
+  const handleChange = useCallback(
+    (updater: (previous: Diagram) => Diagram) => {
+      onInvalidate?.()
+      setDoc((previous) => ({
+        ...previous,
+        pages: previous.pages.map((page) => {
+          if (page.id !== previous.activePageId) return page
+          const before = page.diagram
+          const enriched = enrichDiagram(updater(before), paletteById)
+          const next = shouldSyncToolLayout(before, enriched)
+            ? syncMappedToolLayout(enriched)
+            : enriched
+          return { ...page, diagram: next }
+        }),
+      }))
+    },
+    [paletteById, onInvalidate],
+  )
+
+  const selectPage = useCallback((pageId: string) => {
+    setDoc((previous) => ({ ...previous, activePageId: pageId }))
+  }, [])
+
+  const addPage = useCallback(() => {
+    setDoc((previous) => {
+      const page = createPage(`Workflow ${previous.pages.length + 1}`)
+      return { pages: [...previous.pages, page], activePageId: page.id, workflow: previous.workflow }
+    })
+  }, [])
+
+  const createWorkflowTab = useCallback(() => {
+    addPage()
+    toast.success('New workflow tab created. Build it here, then attach it with Insert → Workflow.')
+  }, [addPage])
+
+  const renamePage = useCallback(
+    (pageId: string, name: string) => {
+      setDoc((previous) => ({
+        ...previous,
+        pages: previous.pages.map((page) => (page.id === pageId ? { ...page, name } : page)),
+      }))
+      if (pageId === doc.activePageId) setWorkflowName(name)
+    },
+    [doc.activePageId],
+  )
+
+  const deletePage = useCallback((pageId: string) => {
+    setDoc((previous) => {
+      if (previous.pages.length <= 1) return previous
+      const pages = previous.pages.filter((page) => page.id !== pageId)
+      return {
+        ...previous,
+        pages,
+        activePageId:
+          previous.activePageId === pageId ? pages[pages.length - 1].id : previous.activePageId,
+      }
+    })
+  }, [])
+
+  return {
+    doc,
+    setDoc,
+    activePage,
+    diagram,
+    workflowName,
+    setWorkflowName,
+    handleChange,
+    selectPage,
+    addPage,
+    createWorkflowTab,
+    renamePage,
+    deletePage,
+  }
+}
