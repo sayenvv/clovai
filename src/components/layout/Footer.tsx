@@ -46,7 +46,7 @@ export const Footer = memo(function Footer() {
         <div className="grid gap-10 lg:grid-cols-[1.4fr_repeat(4,1fr)]">
           <div className="max-w-xs">
             <Link to={navbar.logo.href} className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-fuchsia-500 text-white">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white">
                 <Icon name={navbar.logo.icon} className="h-[18px] w-[18px]" aria-hidden />
               </span>
               <span className="text-lg font-bold tracking-tight">{navbar.logo.text}</span>

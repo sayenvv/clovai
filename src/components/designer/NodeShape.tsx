@@ -128,7 +128,7 @@ export const NodeShape = memo(function NodeShape({
   const clipPath = CLIP_PATHS[shape]
   if (clipPath) {
     return (
-      <div className={className}>
+      <div className={cn('h-full w-full', className)}>
         <ClippedShape
           clipPath={clipPath}
           colors={colors}
@@ -220,6 +220,264 @@ export const NodeShape = memo(function NodeShape({
           )}
         >
           {label}
+        </div>
+      )
+
+    case 'swimlane-pool':
+      return (
+        <div
+          className={cn(
+            'relative flex h-full w-full flex-col overflow-hidden rounded-lg border-2 shadow-sm',
+            colors.border,
+            selectedRing,
+            className,
+          )}
+        >
+          <div
+            className={cn(
+              'flex min-h-9 shrink-0 items-center border-b-2 px-3 py-1.5 text-xs font-semibold leading-snug',
+              colors.border,
+              colors.surface,
+              colors.text,
+            )}
+          >
+            <span className="break-words">{label}</span>
+          </div>
+          <div className={cn('min-h-0 flex-1', colors.surface, 'opacity-35')} />
+        </div>
+      )
+
+    case 'swimlane-lane':
+      return (
+        <div
+          className={cn(
+            'flex h-full w-full overflow-hidden rounded-md border-2 shadow-sm',
+            colors.border,
+            selectedRing,
+            className,
+          )}
+        >
+          <div
+            className={cn(
+              'flex w-10 shrink-0 items-center justify-center border-r-2 px-1',
+              colors.border,
+              colors.surface,
+              colors.text,
+            )}
+          >
+            <span className="whitespace-nowrap text-xs font-semibold -rotate-90">{label}</span>
+          </div>
+          <div className={cn('min-w-0 flex-1', colors.surface, 'opacity-30')} />
+        </div>
+      )
+
+    case 'swimlane-vertical':
+      return (
+        <div
+          className={cn(
+            'flex h-full w-full flex-col overflow-hidden rounded-md border-2 shadow-sm',
+            colors.border,
+            selectedRing,
+            className,
+          )}
+        >
+          <div
+            className={cn(
+              'flex min-h-9 shrink-0 items-center justify-center border-b-2 px-2 py-1.5 text-center text-xs font-semibold leading-snug',
+              colors.border,
+              colors.surface,
+              colors.text,
+            )}
+          >
+            <span className="break-words">{label}</span>
+          </div>
+          <div className={cn('min-h-0 flex-1', colors.surface, 'opacity-30')} />
+        </div>
+      )
+
+    case 'subprocess':
+      return (
+        <div className={cn('relative h-full w-full', className)}>
+          <div className={cn('absolute inset-0 rounded-lg border-2 shadow-sm', colors.surface, colors.border, selectedRing)} />
+          <div className={cn('absolute inset-[5px] rounded-md border-2', colors.border)} />
+          <span
+            className={cn(
+              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium',
+              colors.text,
+            )}
+          >
+            {label}
+          </span>
+        </div>
+      )
+
+    case 'parallel-gateway':
+      return (
+        <div className={cn('h-full w-full', className)}>
+          <ClippedShape
+            clipPath={CLIP_PATHS.decision!}
+            colors={colors}
+            label={label || '+'}
+            selected={selected}
+            labelClassName="text-base font-bold"
+          />
+        </div>
+      )
+
+    case 'or-gate':
+      return (
+        <div className={cn(base, 'rounded-full px-1 text-base font-bold', className)}>
+          {label || '+'}
+        </div>
+      )
+
+    case 'event':
+      return (
+        <div className={cn('relative h-full w-full', className)}>
+          <div className={cn('absolute inset-0 rounded-full border-2', colors.surface, colors.border, selectedRing)} />
+          <div className={cn('absolute inset-[4px] rounded-full border', colors.border)} />
+          {label && (
+            <span
+              className={cn(
+                'absolute inset-0 flex items-center justify-center px-1 text-center text-[9px] font-medium',
+                colors.text,
+              )}
+            >
+              {label}
+            </span>
+          )}
+        </div>
+      )
+
+    case 'data-store':
+      return (
+        <div className={cn('relative h-full w-full', className)}>
+          <div
+            className={cn(
+              'absolute inset-x-0 top-0 bottom-2 rounded-t-lg border-2 border-b-0 shadow-sm',
+              colors.surface,
+              colors.border,
+              selectedRing,
+            )}
+          />
+          <div
+            className={cn(
+              'absolute inset-x-2 bottom-0 h-2 rounded-b-[50%] border-2 border-t-0',
+              colors.border,
+              colors.surface,
+            )}
+          />
+          <span
+            className={cn(
+              'absolute inset-x-0 top-0 bottom-2 flex items-center justify-center px-3 text-center text-xs font-medium',
+              colors.text,
+            )}
+          >
+            {label}
+          </span>
+        </div>
+      )
+
+    case 'display':
+      return (
+        <div className={cn('relative h-full w-full', className)}>
+          <div
+            className={cn('absolute inset-0 skew-x-12 rounded-md border-2 shadow-sm', colors.surface, colors.border, selectedRing)}
+          />
+          <span
+            className={cn(
+              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium',
+              colors.text,
+            )}
+          >
+            {label}
+          </span>
+        </div>
+      )
+
+    case 'annotation':
+      return (
+        <div className={cn('relative flex h-full w-full items-center', className)}>
+          <div className={cn('h-full w-1.5 shrink-0 rounded-l-sm', colors.clipBorder)} />
+          <div
+            className={cn(
+              'flex h-[calc(100%-8px)] flex-1 items-center border border-l-0 px-2 text-left text-[11px] font-medium',
+              colors.border,
+              colors.surface,
+              colors.text,
+              selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
+            )}
+          >
+            {label}
+          </div>
+        </div>
+      )
+
+    case 'multi-document':
+      return (
+        <div className={cn('relative h-full w-full', className)}>
+          <div
+            className={cn(
+              'absolute inset-x-2 top-0 h-[calc(100%-6px)] rounded-md rounded-br-[40%_55%] border-2 opacity-60',
+              colors.surface,
+              colors.border,
+            )}
+          />
+          <div
+            className={cn(
+              'absolute inset-x-0 bottom-0 h-[calc(100%-6px)] rounded-md rounded-br-[40%_55%] border-2 shadow-sm',
+              colors.surface,
+              colors.border,
+              selectedRing,
+            )}
+          />
+          <span
+            className={cn(
+              'absolute inset-x-0 bottom-0 flex h-[calc(100%-6px)] items-center justify-center px-3 text-center text-xs font-medium',
+              colors.text,
+            )}
+          >
+            {label}
+          </span>
+        </div>
+      )
+
+    case 'card':
+      return (
+        <div className={cn('relative h-full w-full', className)}>
+          <div className={cn('absolute inset-0 rounded-lg border-2 shadow-sm', colors.surface, colors.border, selectedRing)} />
+          <div
+            className={cn(
+              'absolute right-0 top-0 h-5 w-5 border-b-2 border-l-2 bg-background',
+              colors.border,
+            )}
+            style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
+          />
+          <span
+            className={cn(
+              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium',
+              colors.text,
+            )}
+          >
+            {label}
+          </span>
+        </div>
+      )
+
+    case 'internal-storage':
+      return (
+        <div className={cn('relative h-full w-full', className)}>
+          <div className={cn('absolute inset-0 rounded-lg border-2 shadow-sm', colors.surface, colors.border, selectedRing)} />
+          <div className={cn('absolute left-2 top-2 h-4 w-4 border-b-2 border-r-2', colors.border)} />
+          <div className={cn('absolute left-2 top-2 h-7 w-7 border-l-2 border-t-2', colors.border)} />
+          <span
+            className={cn(
+              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium',
+              colors.text,
+            )}
+          >
+            {label}
+          </span>
         </div>
       )
 

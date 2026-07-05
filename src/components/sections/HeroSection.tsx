@@ -14,7 +14,7 @@ const HeroVisual = memo(function HeroVisual() {
 
   return (
     <div className="relative mx-auto mt-16 w-full max-w-4xl" aria-hidden>
-      <div className="absolute -inset-x-8 -top-16 h-64 bg-gradient-to-r from-primary/20 via-fuchsia-500/15 to-cyan-500/20 blur-3xl" />
+      <div className="absolute -inset-x-8 -top-16 h-64 bg-brand-gradient-soft blur-3xl" />
       <div className="relative rounded-2xl border bg-card/80 p-6 shadow-2xl shadow-primary/10 backdrop-blur-sm">
         <div className="flex items-center gap-1.5 border-b pb-4">
           <span className="h-3 w-3 rounded-full bg-red-400/80" />
@@ -34,8 +34,8 @@ const HeroVisual = memo(function HeroVisual() {
 
           {[
             { icon: GitBranch, label: 'Checkout UI', tone: 'from-primary/15 to-primary/5 text-primary' },
-            { icon: Boxes, label: 'Payments API', tone: 'from-fuchsia-500/15 to-fuchsia-500/5 text-fuchsia-500' },
-            { icon: Database, label: 'Ledger DB', tone: 'from-cyan-500/15 to-cyan-500/5 text-cyan-500' },
+            { icon: Boxes, label: 'Payments API', tone: 'from-rose-600/15 to-rose-600/5 text-rose-600' },
+            { icon: Database, label: 'Ledger DB', tone: 'from-red-600/15 to-red-600/5 text-red-600' },
           ].map(({ icon: NodeIcon, label, tone }, index) => (
             <motion.div
               key={label}

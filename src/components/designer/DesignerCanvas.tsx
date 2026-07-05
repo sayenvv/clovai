@@ -12,28 +12,50 @@ import { MousePointerClick } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { NodeShape } from './NodeShape'
 import {
+  buildEdgePath,
   DND_MIME,
+  edgeLabelPosition,
+  getNodeSize,
+  MIN_NODE_HEIGHT,
+  MIN_NODE_WIDTH,
   nearestSide,
   nodeSize,
+  portAnchor,
   portPoint,
-  SIDE_DIRECTION,
+  resizeAspect,
+  resolveNodeStyle,
   type Diagram,
   type DiagramEdge,
   type DiagramNode,
+  type EdgeRouting,
   type PortSide,
+  type ResizeAspect,
   type Viewport,
 } from './diagram-types'
+import { ConnectionPopup } from './ConnectionPopup'
+import { clampViewportScale } from '@/constants/designer'
 import type { PaletteItem } from '@/types/config'
 
-const MIN_SCALE = 0.4
-const MAX_SCALE = 2.5
+const GRID_STEP = 12
 const PORT_SIDES: PortSide[] = ['top', 'right', 'bottom', 'left']
 
-type Selection = { kind: 'node' | 'edge'; id: string } | null
+export type Selection = { kind: 'node' | 'edge'; id: string } | null
+
+type ResizeCorner = 'nw' | 'ne' | 'sw' | 'se'
+type ResizeEdge = 'n' | 's' | 'e' | 'w'
+type ResizeHandle = ResizeCorner | ResizeEdge
 
 type DragSession =
   | { type: 'pan'; startX: number; startY: number; originX: number; originY: number }
   | { type: 'node'; id: string; offsetX: number; offsetY: number }
+  | {
+      type: 'resize'
+      id: string
+      handle: ResizeHandle
+      aspect: ResizeAspect
+      startWorld: { x: number; y: number }
+      origin: { x: number; y: number; width: number; height: number }
+    }
   | null
 
 interface PendingConnection {
@@ -47,31 +69,84 @@ interface DesignerCanvasProps {
   paletteById: Map<string, PaletteItem>
   viewport: Viewport
   onViewportChange: (updater: (previous: Viewport) => Viewport) => void
+  selection: Selection
+  onSelectionChange: (selection: Selection) => void
+  snapToGrid: boolean
+  showGrid: boolean
 }
 
 let idCounter = 0
 const nextId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${idCounter++}`
 
-function edgePath(
-  from: { x: number; y: number },
-  fromSide: PortSide,
-  to: { x: number; y: number },
-  toSide: PortSide,
-): string {
-  const distance = Math.hypot(to.x - from.x, to.y - from.y)
-  const bend = Math.min(140, Math.max(36, distance / 2))
-  const d1 = SIDE_DIRECTION[fromSide]
-  const d2 = SIDE_DIRECTION[toSide]
-  const c1 = { x: from.x + d1.x * bend, y: from.y + d1.y * bend }
-  const c2 = { x: to.x + d2.x * bend, y: to.y + d2.y * bend }
-  return `M ${from.x} ${from.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${to.x} ${to.y}`
-}
+const RESIZE_CORNERS: Array<{ handle: ResizeCorner; className: string }> = [
+  { handle: 'nw', className: '-left-1.5 -top-1.5 cursor-nwse-resize' },
+  { handle: 'ne', className: '-right-1.5 -top-1.5 cursor-nesw-resize' },
+  { handle: 'sw', className: '-left-1.5 -bottom-1.5 cursor-nesw-resize' },
+  { handle: 'se', className: '-right-1.5 -bottom-1.5 cursor-nwse-resize' },
+]
 
-const PORT_POSITION_CLASSES: Record<PortSide, string> = {
-  top: '-top-1.5 left-1/2 -translate-x-1/2',
-  right: '-right-1.5 top-1/2 -translate-y-1/2',
-  bottom: '-bottom-1.5 left-1/2 -translate-x-1/2',
-  left: '-left-1.5 top-1/2 -translate-y-1/2',
+const RESIZE_EDGES: Array<{ handle: ResizeEdge; className: string }> = [
+  { handle: 'n', className: 'left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize' },
+  { handle: 's', className: 'left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 cursor-ns-resize' },
+  { handle: 'e', className: 'right-0 top-1/2 translate-x-1/2 -translate-y-1/2 cursor-ew-resize' },
+  { handle: 'w', className: 'left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize' },
+]
+
+function applyResize(
+  handle: ResizeHandle,
+  origin: { x: number; y: number; width: number; height: number },
+  dx: number,
+  dy: number,
+  snap: (value: number) => number,
+  aspect: ResizeAspect,
+): { x: number; y: number; width: number; height: number } {
+  let width = origin.width
+  let height = origin.height
+
+  if (handle === 'e' || handle === 'ne' || handle === 'se') {
+    width = snap(origin.width + dx)
+  }
+  if (handle === 'w' || handle === 'nw' || handle === 'sw') {
+    width = snap(origin.width - dx)
+  }
+  if (handle === 's' || handle === 'se' || handle === 'sw') {
+    height = snap(origin.height + dy)
+  }
+  if (handle === 'n' || handle === 'ne' || handle === 'nw') {
+    height = snap(origin.height - dy)
+  }
+
+  width = Math.max(MIN_NODE_WIDTH, width)
+  height = Math.max(MIN_NODE_HEIGHT, height)
+
+  if (aspect === 'square') {
+    const size = Math.max(width, height)
+    width = size
+    height = size
+  } else if (aspect === 'preserve') {
+    const ratio = origin.width / origin.height
+    const verticalHandle = handle === 'n' || handle === 's'
+    if (verticalHandle) {
+      width = Math.max(MIN_NODE_WIDTH, height * ratio)
+      height = width / ratio
+    } else {
+      height = Math.max(MIN_NODE_HEIGHT, width / ratio)
+      width = height * ratio
+    }
+    width = Math.max(MIN_NODE_WIDTH, width)
+    height = Math.max(MIN_NODE_HEIGHT, height)
+  }
+
+  let x = origin.x
+  let y = origin.y
+  if (handle === 'w' || handle === 'nw' || handle === 'sw') {
+    x = origin.x + origin.width - width
+  }
+  if (handle === 'n' || handle === 'ne' || handle === 'nw') {
+    y = origin.y + origin.height - height
+  }
+
+  return { x, y, width, height }
 }
 
 export const DesignerCanvas = memo(function DesignerCanvas({
@@ -80,13 +155,22 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   paletteById,
   viewport,
   onViewportChange,
+  selection,
+  onSelectionChange,
+  snapToGrid,
+  showGrid,
 }: DesignerCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const sessionRef = useRef<DragSession>(null)
-  const [selection, setSelection] = useState<Selection>(null)
   const [connectFrom, setConnectFrom] = useState<PendingConnection | null>(null)
   const [connectCursor, setConnectCursor] = useState<{ x: number; y: number } | null>(null)
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
+  const [editingEdgeId, setEditingEdgeId] = useState<string | null>(null)
+
+  const snap = useCallback(
+    (value: number) => (snapToGrid ? Math.round(value / GRID_STEP) * GRID_STEP : value),
+    [snapToGrid],
+  )
 
   const toWorld = useCallback(
     (clientX: number, clientY: number) => {
@@ -109,6 +193,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         to: toNodeId,
         fromSide: from.side,
         toSide,
+        routing: 'curved',
       }
       onChange((previous) => {
         const exists = previous.edges.some(
@@ -133,7 +218,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       const cursorY = event.clientY - rect.top
       onViewportChange((previous) => {
         const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08
-        const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, previous.scale * factor))
+        const scale = clampViewportScale(previous.scale * factor)
         const ratio = scale / previous.scale
         return {
           scale,
@@ -154,7 +239,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
 
       if (event.key === 'Escape') {
         setConnectFrom(null)
-        setSelection(null)
+        onSelectionChange(null)
         return
       }
       if ((event.key === 'Delete' || event.key === 'Backspace') && selection) {
@@ -170,12 +255,12 @@ export const DesignerCanvas = memo(function DesignerCanvas({
             ),
           }
         })
-        setSelection(null)
+        onSelectionChange(null)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selection, onChange])
+  }, [selection, onChange, onSelectionChange])
 
   /* ---- pointer interactions ---- */
   const handleBackgroundPointerDown = (event: ReactPointerEvent) => {
@@ -188,7 +273,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       originX: viewport.x,
       originY: viewport.y,
     }
-    setSelection(null)
+    onSelectionChange(null)
     setConnectFrom(null)
     setEditingNodeId(null)
   }
@@ -200,7 +285,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     // Completing a pending connection: attach to the side nearest the cursor.
     if (connectFrom && connectFrom.nodeId !== node.id) {
       const world = toWorld(event.clientX, event.clientY)
-      addEdge(connectFrom, node.id, nearestSide(node, item.shape, world))
+      addEdge(connectFrom, node.id, nearestSide(node, resolveNodeStyle(node, item).shape, world))
       return
     }
 
@@ -212,7 +297,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       offsetX: world.x - node.x,
       offsetY: world.y - node.y,
     }
-    setSelection({ kind: 'node', id: node.id })
+    onSelectionChange({ kind: 'node', id: node.id })
   }
 
   const handlePortPointerDown = (event: ReactPointerEvent, node: DiagramNode, side: PortSide) => {
@@ -226,11 +311,33 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     setConnectCursor(toWorld(event.clientX, event.clientY))
   }
 
+  const handleResizePointerDown = (
+    event: ReactPointerEvent,
+    node: DiagramNode,
+    item: PaletteItem,
+    handle: ResizeHandle,
+  ) => {
+    if (event.button !== 0) return
+    event.stopPropagation()
+    containerRef.current?.setPointerCapture(event.pointerId)
+    const { width, height } = getNodeSize(node, resolveNodeStyle(node, item).shape)
+    const shape = resolveNodeStyle(node, item).shape
+    sessionRef.current = {
+      type: 'resize',
+      id: node.id,
+      handle,
+      aspect: resizeAspect(shape),
+      startWorld: toWorld(event.clientX, event.clientY),
+      origin: { x: node.x, y: node.y, width, height },
+    }
+  }
+
   const handlePointerMove = (event: ReactPointerEvent) => {
     if (connectFrom) setConnectCursor(toWorld(event.clientX, event.clientY))
 
     const session = sessionRef.current
     if (!session) return
+
     if (session.type === 'pan') {
       const dx = event.clientX - session.startX
       const dy = event.clientY - session.startY
@@ -239,16 +346,34 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         x: session.originX + dx,
         y: session.originY + dy,
       }))
-    } else {
-      const world = toWorld(event.clientX, event.clientY)
+      return
+    }
+
+    const world = toWorld(event.clientX, event.clientY)
+
+    if (session.type === 'node') {
       const { id, offsetX, offsetY } = session
+      const x = snap(world.x - offsetX)
+      const y = snap(world.y - offsetY)
       onChange((previous) => ({
         ...previous,
-        nodes: previous.nodes.map((node) =>
-          node.id === id ? { ...node, x: world.x - offsetX, y: world.y - offsetY } : node,
-        ),
+        nodes: previous.nodes.map((node) => (node.id === id ? { ...node, x, y } : node)),
       }))
+      return
     }
+
+    // Resize: adjust the dragged handle, keeping the opposite edge anchored.
+    const { id, handle, aspect, startWorld, origin } = session
+    const dx = world.x - startWorld.x
+    const dy = world.y - startWorld.y
+    const next = applyResize(handle, origin, dx, dy, snap, aspect)
+
+    onChange((previous) => ({
+      ...previous,
+      nodes: previous.nodes.map((node) =>
+        node.id === id ? { ...node, ...next } : node,
+      ),
+    }))
   }
 
   const handlePointerUp = () => {
@@ -267,11 +392,11 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       id: nextId('node'),
       paletteId,
       label: item.label,
-      x: world.x - width / 2,
-      y: world.y - height / 2,
+      x: snap(world.x - width / 2),
+      y: snap(world.y - height / 2),
     }
     onChange((previous) => ({ ...previous, nodes: [...previous.nodes, node] }))
-    setSelection({ kind: 'node', id: node.id })
+    onSelectionChange({ kind: 'node', id: node.id })
   }
 
   const commitLabel = (nodeId: string, label: string) => {
@@ -282,6 +407,17 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       ),
     }))
     setEditingNodeId(null)
+  }
+
+  const commitEdgeLabel = (edgeId: string, label: string) => {
+    const trimmed = label.trim()
+    onChange((previous) => ({
+      ...previous,
+      edges: previous.edges.map((edge) =>
+        edge.id === edgeId ? { ...edge, label: trimmed || undefined } : edge,
+      ),
+    }))
+    setEditingEdgeId(null)
   }
 
   /* ---- derived render data ---- */
@@ -299,19 +435,72 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         const fromItem = from && paletteById.get(from.paletteId)
         const toItem = to && paletteById.get(to.paletteId)
         if (!from || !to || !fromItem || !toItem) return []
+        const routing = edge.routing ?? 'curved'
+        const fromPoint = portPoint(from, resolveNodeStyle(from, fromItem).shape, edge.fromSide)
+        const toPoint = portPoint(to, resolveNodeStyle(to, toItem).shape, edge.toSide)
         return [
           {
             edge,
-            path: edgePath(
-              portPoint(from, fromItem.shape, edge.fromSide),
-              edge.fromSide,
-              portPoint(to, toItem.shape, edge.toSide),
-              edge.toSide,
-            ),
+            routing,
+            fromPoint,
+            toPoint,
+            midpoint: edgeLabelPosition(fromPoint, edge.fromSide, toPoint, edge.toSide, routing),
+            path: buildEdgePath(fromPoint, edge.fromSide, toPoint, edge.toSide, routing),
           },
         ]
       }),
     [diagram.edges, nodesById, paletteById],
+  )
+
+  const selectedEdgePopup = useMemo(() => {
+    if (selection?.kind !== 'edge') return null
+    const rendered = renderedEdges.find(({ edge }) => edge.id === selection.id)
+    if (!rendered) return null
+    const mid = rendered.midpoint
+    return {
+      edge: rendered.edge,
+      routing: rendered.routing,
+      label: rendered.edge.label ?? '',
+      screenPosition: {
+        x: mid.x * viewport.scale + viewport.x,
+        y: mid.y * viewport.scale + viewport.y,
+      },
+    }
+  }, [selection, renderedEdges, viewport])
+
+  const updateEdgeRouting = useCallback(
+    (edgeId: string, routing: EdgeRouting) => {
+      onChange((previous) => ({
+        ...previous,
+        edges: previous.edges.map((edge) => (edge.id === edgeId ? { ...edge, routing } : edge)),
+      }))
+    },
+    [onChange],
+  )
+
+  const updateEdgeLabel = useCallback(
+    (edgeId: string, label: string) => {
+      onChange((previous) => ({
+        ...previous,
+        edges: previous.edges.map((edge) =>
+          edge.id === edgeId ? { ...edge, label: label.length > 0 ? label : undefined } : edge,
+        ),
+      }))
+    },
+    [onChange],
+  )
+
+  const commitEdgeLabelValue = useCallback(
+    (edgeId: string, label: string) => {
+      const trimmed = label.trim()
+      onChange((previous) => ({
+        ...previous,
+        edges: previous.edges.map((edge) =>
+          edge.id === edgeId ? { ...edge, label: trimmed.length > 0 ? trimmed : undefined } : edge,
+        ),
+      }))
+    },
+    [onChange],
   )
 
   const connectSourceNode = connectFrom ? nodesById.get(connectFrom.nodeId) : undefined
@@ -324,9 +513,11 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   return (
     <div
       ref={containerRef}
-      className="relative h-full flex-1 touch-none overflow-hidden bg-background"
+      className="relative h-full flex-1 touch-none overflow-hidden bg-[hsl(var(--canvas))]"
       style={{
-        backgroundImage: 'radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px)',
+        backgroundImage: showGrid
+          ? 'radial-gradient(circle, hsl(var(--canvas-grid)) 1px, transparent 1px)'
+          : undefined,
         backgroundSize: `${gridSize}px ${gridSize}px`,
         backgroundPosition: `${viewport.x}px ${viewport.y}px`,
         cursor: connectFrom ? 'crosshair' : undefined,
@@ -364,7 +555,12 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               <path d="M 0 0 L 10 5 L 0 10 z" className="fill-muted-foreground" />
             </marker>
           </defs>
-          {renderedEdges.map(({ edge, path }) => (
+          {renderedEdges.map(({ edge, path, midpoint: labelPoint }) => {
+            const isSelected = selection?.kind === 'edge' && selection.id === edge.id
+            const text = edge.label?.trim()
+            const isEditing = editingEdgeId === edge.id
+
+            return (
             <g key={edge.id}>
               {/* Fat invisible hit area for easy selection */}
               <path
@@ -375,7 +571,12 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 className="cursor-pointer"
                 onPointerDown={(event) => {
                   event.stopPropagation()
-                  setSelection({ kind: 'edge', id: edge.id })
+                  onSelectionChange({ kind: 'edge', id: edge.id })
+                }}
+                onDoubleClick={(event) => {
+                  event.stopPropagation()
+                  onSelectionChange({ kind: 'edge', id: edge.id })
+                  setEditingEdgeId(edge.id)
                 }}
               />
               <path
@@ -384,19 +585,67 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 markerEnd="url(#edge-arrow)"
                 className={cn(
                   'pointer-events-none stroke-muted-foreground',
-                  selection?.kind === 'edge' && selection.id === edge.id && 'stroke-primary',
+                  isSelected && 'stroke-primary',
                 )}
-                strokeWidth={selection?.kind === 'edge' && selection.id === edge.id ? 2.5 : 1.75}
+                strokeWidth={isSelected ? 2.5 : 1.75}
               />
+              {(text || isEditing) && (
+                <foreignObject
+                  x={labelPoint.x}
+                  y={labelPoint.y}
+                  width={1}
+                  height={1}
+                  className="pointer-events-auto overflow-visible"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation()
+                    onSelectionChange({ kind: 'edge', id: edge.id })
+                    setEditingEdgeId(edge.id)
+                  }}
+                >
+                  <div className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2">
+                    {isEditing ? (
+                      <input
+                        autoFocus
+                        defaultValue={edge.label ?? ''}
+                        onBlur={(event) => commitEdgeLabel(edge.id, event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            commitEdgeLabel(edge.id, event.currentTarget.value)
+                          }
+                          if (event.key === 'Escape') setEditingEdgeId(null)
+                        }}
+                        className="min-w-[4rem] max-w-40 rounded border bg-background px-1.5 py-0.5 text-center text-[11px] shadow focus:outline-none focus:ring-1 focus:ring-primary"
+                        aria-label="Connector label"
+                      />
+                    ) : (
+                      <span
+                        className={cn(
+                          'inline-block whitespace-nowrap rounded border bg-background px-1.5 py-0.5 text-[11px] font-medium leading-tight shadow-sm',
+                          isSelected && 'border-primary ring-1 ring-primary/30',
+                        )}
+                      >
+                        {text}
+                      </span>
+                    )}
+                  </div>
+                </foreignObject>
+              )}
             </g>
-          ))}
+            )
+          })}
           {connectSourceNode && connectSourceItem && connectFrom && connectCursor && (
             <path
-              d={edgePath(
-                portPoint(connectSourceNode, connectSourceItem.shape, connectFrom.side),
+              d={buildEdgePath(
+                portPoint(
+                  connectSourceNode,
+                  resolveNodeStyle(connectSourceNode, connectSourceItem).shape,
+                  connectFrom.side,
+                ),
                 connectFrom.side,
                 connectCursor,
                 'left',
+                'curved',
               )}
               fill="none"
               strokeDasharray="6 4"
@@ -410,7 +659,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         {diagram.nodes.map((node) => {
           const item = paletteById.get(node.paletteId)
           if (!item) return null
-          const { width, height } = nodeSize(item.shape)
+          const { shape, color } = resolveNodeStyle(node, item)
+          const { width, height } = getNodeSize(node, shape)
           const isSelected = selection?.kind === 'node' && selection.id === node.id
           const isEditing = editingNodeId === node.id
           const isConnectSource = connectFrom?.nodeId === node.id
@@ -428,8 +678,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               }}
             >
               <NodeShape
-                shape={item.shape}
-                color={item.color}
+                shape={shape}
+                color={color}
                 label={isEditing ? '' : node.label}
                 selected={isSelected}
               />
@@ -449,27 +699,75 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 />
               )}
 
-              {/* Connection ports on all four sides */}
-              {PORT_SIDES.map((side) => (
-                <button
-                  key={side}
-                  title={isConnectTarget ? 'Connect here' : 'Draw connection'}
-                  aria-label={`${isConnectTarget ? 'Connect to' : 'Connect from'} ${node.label} (${side})`}
-                  onPointerDown={(event) => handlePortPointerDown(event, node, side)}
-                  className={cn(
-                    'absolute z-10 h-3 w-3 rounded-full border-2 border-background bg-muted-foreground/60 opacity-0 transition-all hover:!scale-125 hover:!bg-primary',
-                    PORT_POSITION_CLASSES[side],
-                    'group-hover/node:opacity-100',
-                    (isSelected || isConnectTarget) && 'opacity-100',
-                    isConnectSource && connectFrom?.side === side && 'scale-125 bg-primary opacity-100',
-                    isConnectTarget && 'bg-primary/50',
-                  )}
-                />
-              ))}
+              {/* Connection ports, anchored to the actual shape outline */}
+              {PORT_SIDES.map((side) => {
+                const anchor = portAnchor(shape, side)
+                return (
+                  <button
+                    key={side}
+                    title={isConnectTarget ? 'Connect here' : 'Draw connection'}
+                    aria-label={`${isConnectTarget ? 'Connect to' : 'Connect from'} ${node.label} (${side})`}
+                    onPointerDown={(event) => handlePortPointerDown(event, node, side)}
+                    style={{ left: `${anchor.x * 100}%`, top: `${anchor.y * 100}%` }}
+                    className={cn(
+                      'absolute z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-muted-foreground/60 opacity-0 transition-opacity hover:!bg-primary',
+                      'group-hover/node:opacity-100',
+                      (isSelected || isConnectTarget) && 'opacity-100',
+                      isConnectSource && connectFrom?.side === side && 'bg-primary opacity-100',
+                      isConnectTarget && 'bg-primary/50',
+                    )}
+                  />
+                )
+              })}
+
+              {/* Resize handles: corners + edge midpoints */}
+              {isSelected &&
+                !isEditing && (
+                  <>
+                    {RESIZE_EDGES.map(({ handle, className }) => (
+                      <div
+                        key={handle}
+                        role="presentation"
+                        aria-hidden
+                        onPointerDown={(event) => handleResizePointerDown(event, node, item, handle)}
+                        className={cn(
+                          'absolute z-20 rounded-sm border border-primary bg-background shadow-sm',
+                          handle === 'n' || handle === 's' ? 'h-2 w-7' : 'h-7 w-2',
+                          className,
+                        )}
+                      />
+                    ))}
+                    {RESIZE_CORNERS.map(({ handle, className }) => (
+                      <div
+                        key={handle}
+                        role="presentation"
+                        aria-hidden
+                        onPointerDown={(event) => handleResizePointerDown(event, node, item, handle)}
+                        className={cn(
+                          'absolute z-20 h-2.5 w-2.5 rounded-[3px] border border-primary bg-background shadow-sm',
+                          className,
+                        )}
+                      />
+                    ))}
+                  </>
+                )}
             </div>
           )
         })}
       </div>
+
+      {/* Connector options popup */}
+      {selectedEdgePopup && (
+        <ConnectionPopup
+          screenPosition={selectedEdgePopup.screenPosition}
+          routing={selectedEdgePopup.routing}
+          label={selectedEdgePopup.label}
+          onRoutingChange={(routing) => updateEdgeRouting(selectedEdgePopup.edge.id, routing)}
+          onLabelChange={(label) => updateEdgeLabel(selectedEdgePopup.edge.id, label)}
+          onLabelCommit={(label) => commitEdgeLabelValue(selectedEdgePopup.edge.id, label)}
+          onClose={() => onSelectionChange(null)}
+        />
+      )}
 
       {/* Empty state hint */}
       {diagram.nodes.length === 0 && (

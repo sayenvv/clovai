@@ -19,6 +19,7 @@ export default defineConfig({
           // config; isolate it so it caches independently of app code.
           if (id.includes('lucide-react')) return 'vendor-icons'
           if (id.includes('@tanstack') || id.includes('zod')) return 'vendor-query'
+          if (id.includes('react-syntax-highlighter')) return 'vendor-syntax'
           if (id.includes('react-router') || id.includes('react-dom') || id.includes('/react/')) {
             return 'vendor-react'
           }

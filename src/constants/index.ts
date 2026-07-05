@@ -2,7 +2,8 @@ export const APP_NAME = 'Clovai'
 
 export const STORAGE_KEYS = {
   theme: 'clovai-theme',
-  configStore: 'clovai-config-store-v2',
+  configStore: 'clovai-config-store-v4',
+  diagram: (toolId: string) => `clovai-diagram-${toolId}`,
 } as const
 
 export const QUERY_KEYS = {

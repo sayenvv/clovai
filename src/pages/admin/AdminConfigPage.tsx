@@ -13,6 +13,7 @@ import { validateAppConfig, type ValidationResult } from '@/schemas/config.schem
 import { defaultAppConfig } from '@/config/default-config'
 import { useConfigById, useSaveConfig, useUpdateConfig } from '@/hooks/use-config'
 import type { AppConfig } from '@/types/config'
+import { downloadJson } from '@/utils/download'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -130,13 +131,7 @@ export default function AdminConfigPage() {
   }
 
   const downloadSample = () => {
-    const blob = new Blob([JSON.stringify(defaultAppConfig, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = 'clovai-sample-config.json'
-    anchor.click()
-    URL.revokeObjectURL(url)
+    downloadJson(defaultAppConfig, 'clovai-sample-config.json')
   }
 
   const isSaving = saveMutation.isPending || updateMutation.isPending

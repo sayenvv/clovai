@@ -56,6 +56,19 @@ export const paletteItemSchema = z.object({
     'off-page',
     'manual-input',
     'text',
+    'swimlane-pool',
+    'swimlane-lane',
+    'swimlane-vertical',
+    'subprocess',
+    'parallel-gateway',
+    'or-gate',
+    'event',
+    'data-store',
+    'display',
+    'annotation',
+    'multi-document',
+    'card',
+    'internal-storage',
   ]),
   color: z.enum(['emerald', 'blue', 'amber', 'violet', 'cyan', 'rose', 'slate']).default('blue'),
   /** Optional group name used to cluster shapes in the palette. */
@@ -65,6 +78,8 @@ export const paletteItemSchema = z.object({
 
 export const toolDesignerSchema = z.object({
   palette: z.array(paletteItemSchema),
+  /** Bump when the bundled palette changes so cached configs can migrate. */
+  paletteVersion: z.number().int().default(1),
 })
 
 export const toolSchema = z.object({
@@ -368,6 +383,8 @@ export const appConfigSchema = z.object({
     name: z.string(),
     version: z.string(),
     description: z.string().optional(),
+    /** Increment when bundled JSON modules change; triggers store migration. */
+    configBundleVersion: z.number().int().optional(),
   }),
   theme: themeSchema,
   navbar: navbarSchema,

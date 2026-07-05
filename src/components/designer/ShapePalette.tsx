@@ -65,7 +65,7 @@ export const ShapePalette = memo(function ShapePalette({
   }, [palette])
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r bg-muted/20" aria-label="Shape palette">
+    <aside className="flex w-64 shrink-0 flex-col border-r bg-background" aria-label="Shape palette">
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <Shapes className="h-4 w-4 text-primary" aria-hidden />
         <span className="text-sm font-semibold">Shapes</span>

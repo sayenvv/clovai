@@ -15,6 +15,7 @@ export const defaultAppConfig: AppConfig = appConfigSchema.parse({
   meta: {
     name: 'Clovai Default',
     version: '1.0.0',
+    configBundleVersion: 4,
     description: 'Default Clovai platform configuration assembled from JSON modules.',
   },
   theme,

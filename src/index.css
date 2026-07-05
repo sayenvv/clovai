@@ -10,7 +10,7 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 250 84% 60%;
+    --primary: 356 65% 46%;
     --primary-foreground: 0 0% 100%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
@@ -22,8 +22,10 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 250 84% 60%;
+    --ring: 356 65% 46%;
     --radius: 0.625rem;
+    --canvas: 0 0% 100%;
+    --canvas-grid: 240 5% 84%;
   }
 
   .dark {
@@ -33,7 +35,7 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 8% 6%;
     --popover-foreground: 0 0% 98%;
-    --primary: 250 90% 66%;
+    --primary: 356 68% 54%;
     --primary-foreground: 0 0% 100%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
@@ -45,7 +47,42 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 250 90% 66%;
+    --ring: 356 68% 54%;
+  }
+
+  .dark {
+    --canvas: 240 10% 3%;
+    --canvas-grid: 0 0% 22%;
+  }
+
+  /* Tool workspace — light mode: white canvas, light grey chrome (Figma /
+     VS Code style). Marketing site and other pages are unchanged. */
+  .workspace-surface {
+    --background: 0 0% 97%;
+    --canvas: 40 12% 98.5%;
+    --card: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --muted: 0 0% 94%;
+    --accent: 0 0% 92%;
+    --secondary: 0 0% 94%;
+    --border: 0 0% 88%;
+    --input: 0 0% 100%;
+    --canvas-grid: 40 6% 72%;
+  }
+
+  /* Tool workspace — dark mode: grey chrome, darker recessed canvas. */
+  .dark .workspace-surface {
+    --background: 0 0% 14%;
+    --canvas: 228 7% 9%;
+    --card: 0 0% 17%;
+    --popover: 0 0% 17%;
+    --muted: 0 0% 20%;
+    --accent: 0 0% 23%;
+    --secondary: 0 0% 20%;
+    --border: 0 0% 27%;
+    --input: 0 0% 27%;
+    --muted-foreground: 0 0% 66%;
+    --canvas-grid: 228 5% 24%;
   }
 }
 
@@ -64,7 +101,13 @@
 
 @layer utilities {
   .text-gradient {
-    @apply bg-gradient-to-r from-primary via-violet-500 to-fuchsia-500 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-red-800 via-primary to-rose-600 bg-clip-text text-transparent;
+  }
+  .bg-brand-gradient {
+    @apply bg-gradient-to-br from-primary to-red-900;
+  }
+  .bg-brand-gradient-soft {
+    @apply bg-gradient-to-r from-primary/20 via-red-500/10 to-rose-500/10;
   }
   .glass {
     @apply bg-background/70 backdrop-blur-xl;

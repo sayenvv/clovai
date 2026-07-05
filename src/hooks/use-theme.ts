@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react'
 import { STORAGE_KEYS } from '@/constants'
 
 type ThemeMode = 'light' | 'dark'
@@ -9,7 +17,15 @@ function getInitialTheme(): ThemeMode {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
-export function useTheme() {
+interface ThemeContextValue {
+  theme: ThemeMode
+  isDark: boolean
+  toggleTheme: () => void
+}
+
+const ThemeContext = createContext<ThemeContextValue | null>(null)
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme)
 
   useEffect(() => {
@@ -21,5 +37,18 @@ export function useTheme() {
     setTheme((current) => (current === 'dark' ? 'light' : 'dark'))
   }, [])
 
-  return { theme, toggleTheme }
+  return createElement(ThemeContext.Provider, {
+    value: { theme, isDark: theme === 'dark', toggleTheme },
+  }, children)
 }
+
+export function useTheme() {
+  const context = useContext(ThemeContext)
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeProvider')
+  }
+  return context
+}
+
+// Match the class before React mounts to avoid a flash of the wrong theme.
+document.documentElement.classList.toggle('dark', getInitialTheme() === 'dark')

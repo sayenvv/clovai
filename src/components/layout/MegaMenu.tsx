@@ -96,9 +96,9 @@ export const MegaMenu = memo(function MegaMenu({ config, onNavigate }: MegaMenuP
         </div>
 
         {config.featured && (
-          <aside className="flex flex-col justify-between border-l bg-gradient-to-b from-primary/5 via-fuchsia-500/5 to-transparent p-6">
+          <aside className="flex flex-col justify-between border-l bg-gradient-to-b from-primary/5 via-red-500/5 to-transparent p-6">
             <div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-fuchsia-500 text-white shadow-md shadow-primary/25">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-md shadow-primary/25">
                 <Icon name={config.featured.icon} className="h-5 w-5" aria-hidden />
               </div>
               <h4 className="mt-4 text-sm font-semibold">{config.featured.title}</h4>

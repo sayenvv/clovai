@@ -11,11 +11,50 @@ import type { AppConfig, ConfigRecord } from '@/types/config'
 function readStore(): ConfigRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.configStore)
-    if (raw) return JSON.parse(raw) as ConfigRecord[]
+    if (raw) return migrateRecords(JSON.parse(raw) as ConfigRecord[])
   } catch {
     // corrupted store — fall through and reseed
   }
   return seedStore()
+}
+
+/** Sync designer palettes (and bundle version) from the bundled default when
+ *  localStorage still holds an older copy — e.g. the 8-shape flowchart list. */
+function migrateRecords(records: ConfigRecord[]): ConfigRecord[] {
+  const targetVersion = defaultAppConfig.meta.configBundleVersion ?? 0
+  let dirty = false
+
+  const next = records.map((record) => {
+    const storedVersion = record.config.meta.configBundleVersion ?? 0
+    if (storedVersion >= targetVersion) return record
+
+    dirty = true
+    const tools = record.config.megaMenu.tools.map((tool) => {
+      const defaultTool = defaultAppConfig.megaMenu.tools.find((candidate) => candidate.id === tool.id)
+      if (!defaultTool?.designer) return tool
+
+      const defaultVersion = defaultTool.designer.paletteVersion ?? 0
+      const storedVersion = tool.designer?.paletteVersion ?? 0
+      const storedCount = tool.designer?.palette.length ?? 0
+      const defaultCount = defaultTool.designer.palette.length
+
+      if (storedVersion >= defaultVersion && storedCount >= defaultCount) return tool
+      return { ...tool, designer: defaultTool.designer }
+    })
+
+    return {
+      ...record,
+      updatedAt: new Date().toISOString(),
+      config: {
+        ...record.config,
+        meta: { ...record.config.meta, configBundleVersion: targetVersion },
+        megaMenu: { ...record.config.megaMenu, tools },
+      },
+    }
+  })
+
+  if (dirty) writeStore(next)
+  return next
 }
 
 function writeStore(records: ConfigRecord[]): void {

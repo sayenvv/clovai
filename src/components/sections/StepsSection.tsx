@@ -26,7 +26,7 @@ function StepsSectionComponent({ section }: { section: StepsSectionConfig }) {
                   ) : (
                     <span className="text-lg font-bold text-primary">{index + 1}</span>
                   )}
-                  <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-primary to-fuchsia-500 text-[10px] font-bold text-white">
+                  <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-gradient text-[10px] font-bold text-white">
                     {index + 1}
                   </span>
                 </div>
