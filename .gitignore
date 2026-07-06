@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +30,55 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+
+# Test and coverage output
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+
+# Packaging and build output
+build/
+dist/
+*.egg-info/
+*.egg
+wheels/
+
+# Local databases and worker state
+*.db
+*.sqlite
+*.sqlite3
+celerybeat-schedule*
+
+# Logs and runtime files
+*.log
+*.pid
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo

@@ -1,0 +1,17 @@
+app/core
+app/database
+app/integrations/connectors
+app/integrations/llm
+app/integrations/tools
+app/modules/agents
+app/modules/configs
+app/modules/executions
+app/modules/workflows
+app/modules/workspaces
+app/shared
+app/workers
+migrations
+scripts
+tests/e2e
+tests/fixtures
+tests/unit
