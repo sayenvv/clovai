@@ -36,7 +36,9 @@ export const ExecutionInspectorPanel = memo(function ExecutionInspectorPanel({
   const displayCount = runState.events.filter((event) => event.kind !== 'tool-invoke').length
 
   return (
-    <Accordion type="multiple" defaultValue={[]} className="flex h-full min-h-0 flex-col px-2 py-2">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
+        <Accordion type="multiple" defaultValue={['events', 'traces']} className="w-full">
       <AccordionItem value="events" className="border-border/60">
         <AccordionTrigger className="gap-2 py-2.5 text-[11px] font-semibold hover:no-underline">
           <span className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -53,7 +55,7 @@ export const ExecutionInspectorPanel = memo(function ExecutionInspectorPanel({
           {runState.events.length === 0 ? (
             <EmptyHint message="Runtime events will stream here during execution." />
           ) : (
-            <ul className="space-y-0.5">
+            <ul className="max-h-64 space-y-0.5 overflow-y-auto overscroll-contain pr-0.5">
               {runState.events.map((event) => (
                 <EventRow key={event.id} event={event} />
               ))}
@@ -78,7 +80,7 @@ export const ExecutionInspectorPanel = memo(function ExecutionInspectorPanel({
           {runState.trace.length === 0 ? (
             <EmptyHint message="Step traces appear here as agents run." />
           ) : (
-            <ol className="space-y-2">
+            <ol className="max-h-64 space-y-2 overflow-y-auto overscroll-contain pr-0.5">
               {runState.trace.map((step, index) => (
                 <li
                   key={step.id}
@@ -127,10 +129,14 @@ export const ExecutionInspectorPanel = memo(function ExecutionInspectorPanel({
           </span>
         </AccordionTrigger>
         <AccordionContent className="pb-2 pt-0">
-          <ToolList diagram={diagram} runState={runState} />
+          <div className="max-h-64 overflow-y-auto overscroll-contain pr-0.5">
+            <ToolList diagram={diagram} runState={runState} />
+          </div>
         </AccordionContent>
       </AccordionItem>
-    </Accordion>
+        </Accordion>
+      </div>
+    </div>
   )
 })
 

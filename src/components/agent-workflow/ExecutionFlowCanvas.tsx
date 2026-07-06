@@ -1,5 +1,6 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { motion } from 'framer-motion'
+import { cn } from '@/utils/cn'
 import { ExecutionAgentNode } from '@/components/agent-workflow/ExecutionAgentNode'
 import { getExecutablePlan, getOrderedExecutionAgents } from '@/components/agent-workflow/build-execution-plan'
 import {
@@ -24,6 +25,8 @@ import {
 } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import type { WorkflowRunState } from '@/types/agent-workflow'
+import { zoomViewportAt } from '@/components/designer/viewport-utils'
+import type { Viewport } from '@/components/designer/diagram-types'
 
 interface ExecutionFlowCanvasProps {
   diagram: Diagram
@@ -31,6 +34,38 @@ interface ExecutionFlowCanvasProps {
   runState: WorkflowRunState
   workflowName: string
   workflowDescription?: string
+  onDiagramChange?: (updater: (diagram: Diagram) => Diagram) => void
+}
+
+type NodeDragSession = {
+  type: 'node'
+  nodeId: string
+  startClientX: number
+  startClientY: number
+  originX: number
+  originY: number
+}
+
+type PanSession = {
+  type: 'pan'
+  startX: number
+  startY: number
+  originX: number
+  originY: number
+}
+
+type CanvasSession = NodeDragSession | PanSession
+
+function centerViewport(
+  bounds: { width: number; height: number },
+  canvasWidth: number,
+  canvasHeight: number,
+  scale: number,
+): Pick<Viewport, 'x' | 'y'> {
+  return {
+    x: (canvasWidth - bounds.width * scale) / 2,
+    y: (canvasHeight - bounds.height * scale) / 2,
+  }
 }
 
 const AGENT_SHAPE = 'process' as const
@@ -52,16 +87,6 @@ type EdgeRenderStyle = {
   dash?: string
   opacity: number
   marker: 'default' | 'active' | 'done'
-}
-
-function agentBounds(node: Diagram['nodes'][number]) {
-  const size = agentNodeSize(node)
-  return {
-    x: node.x,
-    y: node.y,
-    width: size.width,
-    height: size.height,
-  }
 }
 
 function resolveDisplayEdges(diagram: Diagram): DisplayEdge[] {
@@ -119,8 +144,127 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
   runState,
   workflowName,
   workflowDescription,
+  onDiagramChange,
 }: ExecutionFlowCanvasProps) {
-  const [scale, setScale] = useState(1)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const sessionRef = useRef<CanvasSession | null>(null)
+  const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
+  const [dragPositions, setDragPositions] = useState<Map<string, { x: number; y: number }> | null>(
+    null,
+  )
+  const [isPanning, setIsPanning] = useState(false)
+  const [isDraggingNode, setIsDraggingNode] = useState(false)
+
+  const scale = viewport.scale
+
+  const commitNodePosition = useCallback(
+    (nodeId: string, x: number, y: number) => {
+      onDiagramChange?.((previous) => ({
+        ...previous,
+        nodes: previous.nodes.map((node) => (node.id === nodeId ? { ...node, x, y } : node)),
+      }))
+    },
+    [onDiagramChange],
+  )
+
+  const handleBackgroundPointerDown = useCallback((event: ReactPointerEvent) => {
+    if (event.button !== 0) return
+    containerRef.current?.setPointerCapture(event.pointerId)
+    sessionRef.current = {
+      type: 'pan',
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: viewport.x,
+      originY: viewport.y,
+    }
+    setIsPanning(true)
+    document.body.style.userSelect = 'none'
+  }, [viewport.x, viewport.y])
+
+  const handleNodePointerDown = useCallback(
+    (event: ReactPointerEvent, node: Diagram['nodes'][number]) => {
+      if (event.button !== 0 || !onDiagramChange) return
+      event.stopPropagation()
+      containerRef.current?.setPointerCapture(event.pointerId)
+      sessionRef.current = {
+        type: 'node',
+        nodeId: node.id,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        originX: node.x,
+        originY: node.y,
+      }
+      setIsDraggingNode(true)
+      document.body.style.userSelect = 'none'
+    },
+    [onDiagramChange],
+  )
+
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent) => {
+      const session = sessionRef.current
+      if (!session) return
+
+      if (session.type === 'pan') {
+        const dx = event.clientX - session.startX
+        const dy = event.clientY - session.startY
+        setViewport((previous) => ({
+          ...previous,
+          x: session.originX + dx,
+          y: session.originY + dy,
+        }))
+        return
+      }
+
+      const dx = (event.clientX - session.startClientX) / scale
+      const dy = (event.clientY - session.startClientY) / scale
+      setDragPositions(
+        new Map([[session.nodeId, { x: session.originX + dx, y: session.originY + dy }]]),
+      )
+    },
+    [scale],
+  )
+
+  const handlePointerUp = useCallback(
+    (event: ReactPointerEvent) => {
+      const session = sessionRef.current
+      if (!session) return
+
+      if (session.type === 'node') {
+        const dx = (event.clientX - session.startClientX) / scale
+        const dy = (event.clientY - session.startClientY) / scale
+        commitNodePosition(session.nodeId, session.originX + dx, session.originY + dy)
+        setIsDraggingNode(false)
+      } else {
+        setIsPanning(false)
+      }
+
+      sessionRef.current = null
+      setDragPositions(null)
+      document.body.style.userSelect = ''
+    },
+    [commitNodePosition, scale],
+  )
+
+  const zoomBy = useCallback((factor: number) => {
+    setViewport((previous) => {
+      const rect = containerRef.current?.getBoundingClientRect()
+      return zoomViewportAt(
+        previous,
+        factor,
+        rect ? rect.width / 2 : 0,
+        rect ? rect.height / 2 : 0,
+      )
+    })
+  }, [])
+
+  const nodePosition = useCallback(
+    (node: Diagram['nodes'][number]) => {
+      const override = dragPositions?.get(node.id)
+      return override ?? { x: node.x, y: node.y }
+    },
+    [dragPositions],
+  )
 
   const executionPlan = useMemo(() => getExecutablePlan(diagram), [diagram])
   const planByNodeId = useMemo(() => {
@@ -153,7 +297,8 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
     let maxX = Number.NEGATIVE_INFINITY
     let maxY = Number.NEGATIVE_INFINITY
     for (const node of agentNodes) {
-      const box = agentBounds(node)
+      const pos = nodePosition(node)
+      const box = { x: pos.x, y: pos.y, ...agentNodeSize(node) }
       minX = Math.min(minX, box.x)
       minY = Math.min(minY, box.y)
       maxX = Math.max(maxX, box.x + box.width)
@@ -166,7 +311,21 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
       width: maxX - minX + pad * 2,
       height: maxY - minY + pad * 2,
     }
-  }, [agentNodes])
+  }, [agentNodes, nodePosition])
+
+  const layoutResetKey = useMemo(
+    () => orderedAgents.map((node) => node.id).join(','),
+    [orderedAgents],
+  )
+
+  useLayoutEffect(() => {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    setViewport((previous) => ({
+      ...previous,
+      ...centerViewport(bounds, rect.width, rect.height, previous.scale),
+    }))
+  }, [layoutResetKey, bounds.width, bounds.height])
 
   const renderedEdges = useMemo(() => {
     return displayEdges.flatMap((edge) => {
@@ -174,17 +333,22 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
       const toNode = diagram.nodes.find((node) => node.id === edge.to)
       if (!fromNode || !toNode) return []
 
+      const fromPos = nodePosition(fromNode)
+      const toPos = nodePosition(toNode)
+      const fromWithPos = { ...fromNode, x: fromPos.x, y: fromPos.y }
+      const toWithPos = { ...toNode, x: toPos.x, y: toPos.y }
+
       const sides =
         edge.fromSide && edge.toSide
           ? { fromSide: edge.fromSide as PortSide, toSide: edge.toSide as PortSide }
-          : bestPortSidesForConnection(fromNode, AGENT_SHAPE, toNode, AGENT_SHAPE, {
+          : bestPortSidesForConnection(fromWithPos, AGENT_SHAPE, toWithPos, AGENT_SHAPE, {
               obstacles: routeObstacles,
               fromNodeId: edge.from,
               toNodeId: edge.to,
             })
 
-      const fromPoint = portPoint(fromNode, AGENT_SHAPE, sides.fromSide)
-      const toPoint = portPoint(toNode, AGENT_SHAPE, sides.toSide)
+      const fromPoint = portPoint(fromWithPos, AGENT_SHAPE, sides.fromSide)
+      const toPoint = portPoint(toWithPos, AGENT_SHAPE, sides.toSide)
       const routing = edge.routing ?? 'orthogonal'
       const path = buildEdgePath(
         fromPoint,
@@ -203,42 +367,54 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
         isActive: runState.activeEdgeId === edge.id,
       }]
     })
-  }, [diagram.nodes, displayEdges, routeObstacles, runState])
+  }, [diagram.nodes, displayEdges, routeObstacles, runState, nodePosition])
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[hsl(var(--canvas))]">
       <div
-        className="pointer-events-none absolute inset-0"
+        ref={containerRef}
+        className={cn(
+          'relative min-h-0 flex-1 touch-none overflow-hidden',
+          isPanning ? 'cursor-grabbing' : 'cursor-grab',
+        )}
         style={{
           backgroundImage:
             'radial-gradient(circle, hsl(var(--canvas-grid)) 1px, transparent 1px)',
-          backgroundSize: '20px 20px',
+          backgroundSize: `${24 * viewport.scale}px ${24 * viewport.scale}px`,
+          backgroundPosition: `${viewport.x}px ${viewport.y}px`,
         }}
-      />
+        onPointerDown={handleBackgroundPointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        role="application"
+        aria-label="Execution flow canvas"
+      >
+        <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-md">
+          <p className="text-sm font-semibold text-foreground">{workflowName}</p>
+          {workflowDescription && (
+            <p className="mt-0.5 text-xs text-muted-foreground">{workflowDescription}</p>
+          )}
+        </div>
 
-      <div className="pointer-events-none absolute left-4 top-4 z-10 max-w-md">
-        <p className="text-sm font-semibold text-foreground">{workflowName}</p>
-        {workflowDescription && (
-          <p className="mt-0.5 text-xs text-muted-foreground">{workflowDescription}</p>
-        )}
-      </div>
-
-      <div className="absolute bottom-4 left-4 z-10">
-        <CanvasZoomControls
-          scale={scale}
-          onZoomIn={() => setScale((previous) => Math.min(1.6, previous + 0.1))}
-          onZoomOut={() => setScale((previous) => Math.max(0.5, previous - 0.1))}
-        />
-      </div>
-
-      <div className="relative flex flex-1 items-center justify-center overflow-auto p-10">
         <div
-          className="relative origin-center transition-transform duration-200"
+          className="absolute bottom-4 left-4 z-10"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <CanvasZoomControls
+            scale={scale}
+            onZoomIn={() => zoomBy(1.2)}
+            onZoomOut={() => zoomBy(1 / 1.2)}
+          />
+        </div>
+
+        <div
+          className="absolute left-0 top-0"
           style={{
+            transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
+            transformOrigin: '0 0',
             width: bounds.width,
             height: bounds.height,
-            minWidth: bounds.width,
-            transform: `scale(${scale})`,
           }}
         >
           <svg
@@ -313,7 +489,8 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
           </svg>
 
           {agentNodes.map((node) => {
-            const box = agentBounds(node)
+            const pos = nodePosition(node)
+            const box = { x: pos.x, y: pos.y, ...agentNodeSize(node) }
             const stepIndex = stepIndexByNodeId.get(node.id) ?? 1
             const planStep = planByNodeId.get(node.id)
             const toolCount = planStep?.tools.length ?? listToolsForAgent(diagram, node.id).length
@@ -330,13 +507,17 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
             return (
               <div
                 key={node.id}
-                className="absolute z-10"
+                className={cn(
+                  'absolute z-10 select-none',
+                  onDiagramChange && !isPanning && 'cursor-grab active:cursor-grabbing',
+                )}
                 style={{
                   left: box.x - bounds.minX,
                   top: box.y - bounds.minY,
                   width: AGENT_NODE_WIDTH,
                   minHeight: AGENT_NODE_HEIGHT,
                 }}
+                onPointerDown={(event) => handleNodePointerDown(event, node)}
               >
                 <ExecutionAgentNode
                   node={node}
@@ -357,8 +538,11 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
         </div>
       </div>
 
-      {runState.status === 'idle' && agentNodes.length > 0 && (
-        <div className="pointer-events-none absolute inset-0 flex items-end justify-center pb-16">
+      {runState.status === 'idle' && agentNodes.length > 0 && !isDraggingNode && !isPanning && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
+          <p className="rounded-lg border border-border bg-card/90 px-3 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur-sm">
+            Drag canvas to pan · Drag nodes to rearrange
+          </p>
           <p className="rounded-lg border border-border bg-card/90 px-4 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
             Press Execute to run this workflow
           </p>

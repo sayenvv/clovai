@@ -17,6 +17,7 @@ import {
   loadExecutionSnapshot,
   loadWorkflowDocument,
   mergeDiagramIntoDocument,
+  saveWorkflowDocument,
 } from '@/components/agent-workflow/workflow-storage'
 import { useHorizontalResize } from '@/hooks/use-horizontal-resize'
 import type { PaletteItem } from '@/types/config'
@@ -248,6 +249,22 @@ export default function WorkflowExecutePage() {
     [reset],
   )
 
+  const handleDiagramLayoutChange = useCallback(
+    (updater: (diagram: Diagram) => Diagram) => {
+      setDoc((previous) => {
+        const next = {
+          ...previous,
+          pages: previous.pages.map((page) =>
+            page.id !== selectedPageId ? page : { ...page, diagram: updater(page.diagram) },
+          ),
+        }
+        saveWorkflowDocument(next)
+        return next
+      })
+    },
+    [selectedPageId],
+  )
+
   const toggleCenterPanel = useCallback(() => {
     setCenterPanelCollapsed((previous) => {
       if (previous) setCenterPanelWidth(centerPanelWidthRef.current)
@@ -288,13 +305,14 @@ export default function WorkflowExecutePage() {
       />
 
       <div className="flex min-h-0 flex-1">
-        <main className="min-w-0 flex-1">
+        <main className="min-h-0 min-w-0 flex-1">
           <ExecutionFlowCanvas
             diagram={diagram}
             paletteById={paletteById}
             runState={runState}
             workflowName={workflowName}
             workflowDescription={workflowDescription}
+            onDiagramChange={handleDiagramLayoutChange}
           />
         </main>
 
