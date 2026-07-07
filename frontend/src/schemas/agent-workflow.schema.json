@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Workflow Schema",
+  "type": "object",
+  "required": ["meta", "modelConfig", "agents", "tools", "edges", "settings"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "workspaceId",
+        "pageId",
+        "pageName",
+        "workflowId",
+        "workflowName",
+        "workflowVersion",
+        "workflowType",
+        "executionMode",
+        "status",
+        "description",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "schemaVersion": { "type": "string" },
+        "workspaceId": { "type": "string" },
+        "pageId": { "type": "string" },
+        "pageName": { "type": "string" },
+        "workflowId": { "type": "string" },
+        "workflowName": { "type": "string" },
+        "workflowVersion": { "type": "integer" },
+        "workflowType": {
+          "type": "string",
+          "enum": ["sequential", "groupchat", "magnetic", "handoff", "parallel"]
+        },
+        "executionMode": {
+          "type": "string",
+          "enum": ["standard", "human-in-the-loop"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "validated", "deployed", "archived"]
+        },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "modelConfig": {
+      "type": "object",
+      "required": [
+        "provider",
+        "model",
+        "temperature",
+        "topP",
+        "maxTokens",
+        "presencePenalty",
+        "frequencyPenalty",
+        "seed",
+        "stream"
+      ],
+      "properties": {
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "temperature": { "type": "number" },
+        "topP": { "type": "number" },
+        "maxTokens": { "type": "integer" },
+        "presencePenalty": { "type": "number" },
+        "frequencyPenalty": { "type": "number" },
+        "seed": { "type": ["integer", "null"] },
+        "stream": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "displayName",
+          "description",
+          "instructions",
+          "systemPrompt",
+          "userPrompt",
+          "isManager",
+          "isOrchestrator",
+          "toolIds",
+          "responseSchema",
+          "metadata"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "displayName": { "type": "string" },
+          "description": { "type": "string" },
+          "instructions": { "type": "string" },
+          "systemPrompt": { "type": "string" },
+          "userPrompt": { "type": "string" },
+          "isManager": { "type": ["boolean", "null"] },
+          "isOrchestrator": { "type": ["boolean", "null"] },
+          "toolIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "responseSchema": { "$ref": "#/$defs/schemaBlock" },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "agentId",
+          "name",
+          "displayName",
+          "description",
+          "toolType",
+          "configuration",
+          "inputSchema",
+          "metadata"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "agentId": { "type": "string" },
+          "name": { "type": "string" },
+          "displayName": { "type": "string" },
+          "description": { "type": "string" },
+          "toolType": {
+            "type": "string",
+            "enum": ["api", "function", "database", "webhook", "custom"]
+          },
+          "configuration": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "inputSchema": { "$ref": "#/$defs/schemaBlock" },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "fromAgentId",
+          "toAgentId",
+          "label",
+          "humanApproval",
+          "approvalRole",
+          "approvalMessage"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "fromAgentId": { "type": "string" },
+          "toAgentId": { "type": "string" },
+          "label": { "type": "string" },
+          "humanApproval": { "type": "boolean" },
+          "approvalRole": { "type": "string" },
+          "approvalMessage": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "settings": {
+      "type": "object",
+      "required": [
+        "timeoutSeconds",
+        "streamResponse",
+        "retryPolicy",
+        "logging",
+        "metadata"
+      ],
+      "properties": {
+        "timeoutSeconds": { "type": "integer" },
+        "streamResponse": { "type": "boolean" },
+        "retryPolicy": {
+          "type": "object",
+          "required": ["maxRetries", "retryDelaySeconds"],
+          "properties": {
+            "maxRetries": { "type": "integer" },
+            "retryDelaySeconds": { "type": "integer" }
+          },
+          "additionalProperties": false
+        },
+        "logging": {
+          "type": "object",
+          "required": ["enabled", "level"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "level": {
+              "type": "string",
+              "enum": ["debug", "info", "warning", "error"]
+            }
+          },
+          "additionalProperties": false
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "schemaBlock": {
+      "type": "object",
+      "required": ["raw", "parsed"],
+      "properties": {
+        "raw": { "type": "string" },
+        "parsed": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

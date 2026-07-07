@@ -1,0 +1,28 @@
+{
+  "include": [
+    "app",
+    "packages/elevennodes/src",
+    "tests",
+    "packages/elevennodes/tests"
+  ],
+  "extraPaths": [
+    ".",
+    "packages/elevennodes/src"
+  ],
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": [
+        ".",
+        "packages/elevennodes/src"
+      ]
+    },
+    {
+      "root": "packages/elevennodes",
+      "extraPaths": [
+        "src"
+      ]
+    }
+  ],
+  "pythonVersion": "3.11"
+}

@@ -1,5 +1,5 @@
 import { memo, type PointerEvent as ReactPointerEvent } from 'react'
-import { Bot, ChevronLeft, GitBranch, MousePointerClick, PanelRightClose } from 'lucide-react'
+import { ChevronLeft, GitBranch, MousePointerClick, PanelRightClose } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
@@ -9,6 +9,8 @@ import { AgentConfigPanel } from '@/components/agent-workflow/AgentConfigPanel'
 import { ConnectorConfigPanel } from '@/components/agent-workflow/ConnectorConfigPanel'
 import { ToolConfigPanel } from '@/components/agent-workflow/ToolConfigPanel'
 import { SubWorkflowConfigPanel } from '@/components/agent-workflow/SubWorkflowConfigPanel'
+import { WorkflowSettingsPanel } from '@/components/agent-workflow/WorkflowSettingsPanel'
+import { resolveWorkflowModelConfig } from '@/components/agent-workflow/workflow-model-config'
 import {
   agentLabel,
   isToolNode,
@@ -19,6 +21,8 @@ import { useShareSettings, workspaceMemberCount } from '@/components/designer/sh
 import { cn } from '@/utils/cn'
 import type { Selection } from '@/components/designer/selection-utils'
 import type { Diagram, DiagramDocument, DiagramEdge, DiagramNode } from '@/components/designer/diagram-types'
+import type { AgentWorkflowMeta, WorkflowExecutionType } from '@/types/agent-workflow'
+import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 
 export type RightPanelTab = 'details' | 'collaborators'
 
@@ -41,6 +45,8 @@ interface AgentPropertiesShellProps {
   onOpenSubWorkflow?: (pageId: string) => void
   onConvertToSubWorkflow?: () => void
   canConvertToSubWorkflow?: boolean
+  onWorkflowMetaChange?: (patch: Partial<AgentWorkflowMeta>) => void
+  onModelConfigChange?: (patch: Partial<WorkflowModelConfig>) => void
 }
 
 export const AgentPropertiesShell = memo(function AgentPropertiesShell({
@@ -59,7 +65,11 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   onOpenSubWorkflow,
   onConvertToSubWorkflow,
   canConvertToSubWorkflow = false,
+  onWorkflowMetaChange,
+  onModelConfigChange,
 }: AgentPropertiesShellProps) {
+  const workflowMeta = doc.workflow
+  const modelConfig = resolveWorkflowModelConfig(workflowMeta?.modelConfig)
   const { settings } = useShareSettings(toolId)
   const memberTotal = workspaceMemberCount(settings)
 
@@ -81,7 +91,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
         ? selectedNode.label
         : selection?.kind === 'edge'
           ? 'Connector'
-          : 'Details'
+          : 'Workflow'
 
   const panelTitle = activeTab === 'collaborators' ? 'Collaborators' : detailsTitle
 
@@ -235,7 +245,18 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
               onChange={onChange}
             />
           ) : (
-            <SelectionEmptyState />
+            <WorkflowSettingsPanel
+              executionType={workflowMeta?.executionType ?? 'sequential'}
+              onExecutionTypeChange={(type: WorkflowExecutionType) =>
+                onWorkflowMetaChange?.({ executionType: type })
+              }
+              modelConfig={modelConfig}
+              onModelConfigChange={(patch) => onModelConfigChange?.(patch)}
+              workflowId={workflowMeta?.workflowId ?? '—'}
+              pageCount={doc.pages.length}
+              nodeCount={diagram.nodes.length}
+              edgeCount={diagram.edges.length}
+            />
           )}
         </TabsContent>
 
@@ -283,38 +304,6 @@ function MultiSelectState({
           Select at least two agents to group into a sub-workflow.
         </p>
       )}
-    </div>
-  )
-}
-
-function SelectionEmptyState() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-muted/80 text-muted-foreground">
-        <MousePointerClick className="h-5 w-5" />
-      </div>
-      <p className="text-sm font-medium text-foreground">Nothing selected</p>
-      <p className="mt-1.5 max-w-[220px] text-xs leading-relaxed text-muted-foreground">
-        Select an agent, tool, or connector on the canvas to view and edit its properties here.
-      </p>
-      <div className="mt-6 space-y-2 text-left text-[11px] text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <Bot className="h-3.5 w-3.5 shrink-0 text-violet-500" />
-          <span>Click an agent to configure it</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Bot className="h-3.5 w-3.5 shrink-0 text-blue-500" />
-          <span>Click a tool to change its agent mapping</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <GitBranch className="h-3.5 w-3.5 shrink-0 text-violet-500" />
-          <span>Shift-click to multi-select agents</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <GitBranch className="h-3.5 w-3.5 shrink-0 text-violet-500" />
-          <span>Click a connector to set flow rules</span>
-        </div>
-      </div>
     </div>
   )
 }

@@ -29,7 +29,8 @@ __pycache__/
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+# Local workflow build specs (generated at runtime)
+data/workflows/**/*.json
 
 
 # Virtual environments

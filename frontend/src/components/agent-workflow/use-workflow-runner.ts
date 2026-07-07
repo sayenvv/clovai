@@ -1,4 +1,9 @@
 import { useCallback, useRef, useState } from 'react'
+import {
+  WorkflowExecutionApprovalRequiredError,
+  executeWorkflowFromApi,
+  type WorkflowRunResponse,
+} from '@/services/workflow-build-api'
 import type {
   ExecutionPlanStep,
   ExecutionTraceStep,
@@ -6,8 +11,17 @@ import type {
   WorkflowRunState,
 } from '@/types/agent-workflow'
 
-const STEP_DELAY_MS = 1400
-const APPROVAL_SIM_DELAY_MS = 600
+interface BackendExecutionTarget {
+  workspaceId: string
+  pageId: string
+}
+
+interface PendingExecution {
+  plan: ExecutionPlanStep[]
+  input: string
+  target: BackendExecutionTarget
+  approvedEdgeIds: string[]
+}
 
 function createEventId(): string {
   return `evt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -37,31 +51,128 @@ function buildInitialTrace(plan: ExecutionPlanStep[]): ExecutionTraceStep[] {
     nodeId: step.nodeId,
     agentName: step.agentName,
     status: 'pending',
-    message: 'Waiting to start…',
+    message: 'Waiting for backend execution…',
     timestamp: new Date().toISOString(),
   }))
 }
 
-function simulateAgentOutput(step: ExecutionPlanStep, input: string): string {
-  const snippet = input.replace(/\s+/g, ' ').slice(0, 60)
-  return JSON.stringify(
-    {
-      agent: step.agentName,
-      type: step.agentType,
-      toolsUsed: step.tools,
-      summary: `Processed "${snippet || 'workflow input'}" successfully.`,
-      tokens: Math.floor(120 + Math.random() * 280),
-    },
-    null,
-    2,
-  )
+function parseWorkflowInput(input: string): Record<string, unknown> {
+  const trimmed = input.trim()
+  if (!trimmed) return {}
+  try {
+    const parsed = JSON.parse(trimmed) as unknown
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>
+    }
+    return { prompt: parsed }
+  } catch {
+    return { prompt: input }
+  }
+}
+
+function stringifyOutput(value: unknown): string {
+  if (typeof value === 'string') return value
+  return JSON.stringify(value, null, 2)
+}
+
+function durationMs(startedAt: string | null, completedAt: string | null): number | undefined {
+  if (!startedAt || !completedAt) return undefined
+  const duration = Date.parse(completedAt) - Date.parse(startedAt)
+  return Number.isFinite(duration) && duration >= 0 ? duration : undefined
+}
+
+function backendStatusToTraceStatus(
+  status: string,
+): ExecutionTraceStep['status'] {
+  switch (status) {
+    case 'completed':
+      return 'completed'
+    case 'failed':
+      return 'error'
+    case 'skipped':
+      return 'skipped'
+    case 'running':
+      return 'running'
+    default:
+      return 'pending'
+  }
+}
+
+function findApprovalStep(plan: ExecutionPlanStep[], edgeIds: string[]): ExecutionPlanStep | null {
+  const required = new Set(edgeIds)
+  return plan.find((step) => step.outgoingEdgeId && required.has(step.outgoingEdgeId)) ?? null
+}
+
+function responseToStatePatch(
+  plan: ExecutionPlanStep[],
+  response: WorkflowRunResponse,
+): Pick<
+  WorkflowRunState,
+  | 'runId'
+  | 'status'
+  | 'currentStepIndex'
+  | 'activeEdgeId'
+  | 'activeNodeId'
+  | 'completedNodeIds'
+  | 'trace'
+  | 'finalResponse'
+  | 'stepOutputs'
+> {
+  const completedNodeIds: string[] = []
+  const stepOutputs: Record<string, string> = {}
+  const trace = plan.map((step) => {
+    const node = response.nodes[step.nodeId]
+    if (!node) {
+      return {
+        id: `trace-${step.nodeId}`,
+        nodeId: step.nodeId,
+        agentName: step.agentName,
+        status: 'skipped' as const,
+        message: 'Backend did not return a node result.',
+        timestamp: new Date().toISOString(),
+      }
+    }
+
+    const output = node.output == null ? undefined : stringifyOutput(node.output)
+    if (node.status === 'completed') completedNodeIds.push(step.nodeId)
+    if (output) stepOutputs[step.nodeId] = output
+
+    return {
+      id: `trace-${step.nodeId}`,
+      nodeId: step.nodeId,
+      agentName: step.agentName,
+      status: backendStatusToTraceStatus(node.status),
+      message: node.error ?? (node.status === 'completed' ? 'LLM step completed.' : node.status),
+      timestamp: node.completedAt ?? node.startedAt ?? new Date().toISOString(),
+      durationMs: durationMs(node.startedAt, node.completedAt),
+      output,
+    }
+  })
+
+  const failed = response.status === 'failed' || Object.keys(response.failures).length > 0
+  return {
+    runId: response.runId,
+    status: failed ? 'failed' : 'completed',
+    currentStepIndex: plan.length - 1,
+    activeEdgeId: null,
+    activeNodeId: null,
+    completedNodeIds,
+    trace,
+    finalResponse: stringifyOutput({
+      runId: response.runId,
+      workflowId: response.workflowId,
+      status: response.status,
+      outputs: response.outputs,
+      failures: response.failures,
+    }),
+    stepOutputs,
+  }
 }
 
 export function useWorkflowRunner() {
   const [state, setState] = useState<WorkflowRunState>(initialRunState)
   const cancelRef = useRef(false)
-  const approvalResolverRef = useRef<((value: string) => void) | null>(null)
-  const inputRef = useRef('')
+  const pendingExecutionRef = useRef<PendingExecution | null>(null)
 
   const appendEvent = useCallback((event: Omit<WorkflowExecutionEvent, 'id' | 'timestamp'>) => {
     const full: WorkflowExecutionEvent = {
@@ -78,34 +189,108 @@ export function useWorkflowRunner() {
     return full
   }, [])
 
-  const updateTrace = useCallback(
-    (nodeId: string, patch: Partial<ExecutionTraceStep>) => {
-      setState((previous) => ({
-        ...previous,
-        trace: previous.trace.map((step) =>
-          step.nodeId === nodeId ? { ...step, ...patch, timestamp: new Date().toISOString() } : step,
-        ),
-      }))
+  const runBackendExecution = useCallback(
+    async (execution: PendingExecution) => {
+      const { plan, input, target, approvedEdgeIds } = execution
+      try {
+        const response = await executeWorkflowFromApi(target.workspaceId, target.pageId, {
+          inputs: parseWorkflowInput(input),
+          metadata: {
+            source: 'workflow-execute-page',
+          },
+          approvedEdgeIds,
+          raiseOnError: false,
+        })
+        if (cancelRef.current) return
+
+        const patch = responseToStatePatch(plan, response)
+        setState((previous) => ({
+          ...previous,
+          ...patch,
+          approvalPrompt: null,
+        }))
+
+        appendEvent({
+          kind: patch.status === 'failed' ? 'error' : 'workflow-complete',
+          level: patch.status === 'failed' ? 'error' : 'success',
+          message:
+            patch.status === 'failed'
+              ? 'Workflow execution finished with failures.'
+              : 'Workflow execution finished through backend Microsoft Agent Framework.',
+          detail: `Run ${response.runId}`,
+        })
+      } catch (error) {
+        if (cancelRef.current) return
+
+        if (error instanceof WorkflowExecutionApprovalRequiredError) {
+          const approvalStep = findApprovalStep(plan, error.requiredEdgeIds)
+          const edgeId = error.requiredEdgeIds[0] ?? approvalStep?.outgoingEdgeId ?? null
+          const nextAgentName = approvalStep?.nextAgentName ?? 'next agent'
+          pendingExecutionRef.current = {
+            ...execution,
+            approvedEdgeIds: Array.from(
+              new Set([...execution.approvedEdgeIds, ...error.requiredEdgeIds]),
+            ),
+          }
+          setState((previous) => ({
+            ...previous,
+            status: 'waiting-approval',
+            activeEdgeId: edgeId,
+            activeNodeId: approvalStep?.nodeId ?? null,
+            approvalPrompt: edgeId
+              ? {
+                  edgeId,
+                  message: approvalStep?.approvalMessage ?? error.message,
+                  role: approvalStep?.approvalRole ?? 'reviewer',
+                  nextAgentName,
+                }
+              : null,
+            trace: previous.trace.map((step) =>
+              step.nodeId === approvalStep?.nodeId
+                ? {
+                    ...step,
+                    status: 'waiting-approval',
+                    message: `Waiting for ${approvalStep?.approvalRole ?? 'reviewer'} approval`,
+                    timestamp: new Date().toISOString(),
+                  }
+                : step,
+            ),
+          }))
+          appendEvent({
+            kind: 'approval-wait',
+            level: 'warning',
+            message: 'Backend requires approval before real LLM execution.',
+            edgeId: edgeId ?? undefined,
+            agentName: nextAgentName,
+          })
+          return
+        }
+
+        const message = error instanceof Error ? error.message : 'Workflow execution failed.'
+        setState((previous) => ({
+          ...previous,
+          status: 'failed',
+          activeNodeId: null,
+          activeEdgeId: null,
+          approvalPrompt: null,
+        }))
+        appendEvent({
+          kind: 'error',
+          level: 'error',
+          message,
+        })
+      }
     },
-    [],
+    [appendEvent],
   )
-
-  const wait = useCallback((ms: number) => {
-    return new Promise<void>((resolve) => {
-      window.setTimeout(resolve, ms)
-    })
-  }, [])
-
-  const waitForApproval = useCallback(() => {
-    return new Promise<string>((resolve) => {
-      approvalResolverRef.current = resolve
-    })
-  }, [])
 
   const submitApproval = useCallback(
     (response: string) => {
       const trimmed = response.trim()
       if (!trimmed) return
+      const pending = pendingExecutionRef.current
+      if (!pending) return
+
       appendEvent({
         kind: 'approval-received',
         level: 'success',
@@ -116,16 +301,15 @@ export function useWorkflowRunner() {
         status: 'running',
         approvalPrompt: null,
       }))
-      approvalResolverRef.current?.(trimmed)
-      approvalResolverRef.current = null
+      pendingExecutionRef.current = null
+      void runBackendExecution(pending)
     },
-    [appendEvent],
+    [appendEvent, runBackendExecution],
   )
 
   const cancel = useCallback(() => {
     cancelRef.current = true
-    approvalResolverRef.current?.('')
-    approvalResolverRef.current = null
+    pendingExecutionRef.current = null
     setState((previous) => ({
       ...previous,
       status: 'cancelled',
@@ -142,12 +326,12 @@ export function useWorkflowRunner() {
 
   const reset = useCallback(() => {
     cancelRef.current = false
-    approvalResolverRef.current = null
+    pendingExecutionRef.current = null
     setState(initialRunState())
   }, [])
 
   const start = useCallback(
-    async (plan: ExecutionPlanStep[], input: string) => {
+    async (plan: ExecutionPlanStep[], input: string, target: BackendExecutionTarget) => {
       if (plan.length === 0) {
         appendEvent({
           kind: 'error',
@@ -159,16 +343,15 @@ export function useWorkflowRunner() {
       }
 
       cancelRef.current = false
-      inputRef.current = input
-      const runId = `run-${Date.now().toString(36)}`
+      pendingExecutionRef.current = null
       const trace = buildInitialTrace(plan)
 
       setState({
-        runId,
+        runId: null,
         status: 'running',
         currentStepIndex: -1,
         activeEdgeId: null,
-        activeNodeId: null,
+        activeNodeId: plan[0]?.nodeId ?? null,
         completedNodeIds: [],
         events: [],
         trace,
@@ -182,175 +365,18 @@ export function useWorkflowRunner() {
       appendEvent({
         kind: 'workflow-start',
         level: 'info',
-        message: 'workflow_event.started',
-        detail: `Run ${runId} · ${plan.length} agent step(s)`,
+        message: 'Calling backend /execute via Microsoft Agent Framework.',
+        detail: `${target.workspaceId}/${target.pageId} · ${plan.length} agent step(s)`,
       })
 
-      let lastOutput = input
-      const outputs: string[] = []
-
-      for (let index = 0; index < plan.length; index += 1) {
-        if (cancelRef.current) return
-
-        const step = plan[index]
-        setState((previous) => ({
-          ...previous,
-          currentStepIndex: index,
-          activeNodeId: step.nodeId,
-          activeEdgeId: null,
-        }))
-
-        updateTrace(step.nodeId, {
-          status: 'running',
-          message: step.tools.length
-            ? `Running with tools: ${step.tools.join(', ')}`
-            : 'Agent executing…',
-        })
-
-        appendEvent({
-          kind: 'agent-start',
-          level: 'info',
-          message: 'output_item.added',
-          nodeId: step.nodeId,
-          agentName: step.agentName,
-          detail: step.agentName,
-        })
-
-        for (const tool of step.tools) {
-          if (cancelRef.current) return
-          appendEvent({
-            kind: 'tool-invoke',
-            level: 'info',
-            message: `Invoked tool "${tool}" under ${step.agentName}`,
-            nodeId: step.nodeId,
-            agentName: step.agentName,
-          })
-          await wait(320)
-        }
-
-        await wait(STEP_DELAY_MS)
-        if (cancelRef.current) return
-
-        const output = simulateAgentOutput(step, lastOutput)
-        outputs.push(output)
-        lastOutput = output
-
-        updateTrace(step.nodeId, {
-          status: 'completed',
-          message: 'Step completed successfully',
-          durationMs: STEP_DELAY_MS + step.tools.length * 320,
-          output,
-        })
-
-        appendEvent({
-          kind: 'agent-complete',
-          level: 'success',
-          message: 'workflow_event.completed',
-          nodeId: step.nodeId,
-          agentName: step.agentName,
-          detail: `Response complete (${Math.floor(80 + Math.random() * 120)} tokens)`,
-        })
-
-        setState((previous) => ({
-          ...previous,
-          completedNodeIds: [...previous.completedNodeIds, step.nodeId],
-          activeNodeId: null,
-          stepOutputs: { ...previous.stepOutputs, [step.nodeId]: output },
-        }))
-
-        const nextStep = plan[index + 1]
-        if (nextStep && step.humanApproval && step.outgoingEdgeId) {
-          setState((previous) => ({
-            ...previous,
-            status: 'waiting-approval',
-            activeEdgeId: step.outgoingEdgeId ?? null,
-            approvalPrompt: {
-              edgeId: step.outgoingEdgeId!,
-              message: step.approvalMessage ?? 'Human approval required to continue.',
-              role: step.approvalRole ?? 'reviewer',
-              nextAgentName: step.nextAgentName ?? nextStep.agentName,
-            },
-          }))
-
-          updateTrace(nextStep.nodeId, {
-            status: 'waiting-approval',
-            message: `Waiting for ${step.approvalRole ?? 'reviewer'} approval`,
-          })
-
-          appendEvent({
-            kind: 'approval-wait',
-            level: 'warning',
-            message: `Approval required before ${nextStep.agentName}`,
-            edgeId: step.outgoingEdgeId,
-            agentName: step.nextAgentName,
-          })
-
-          const approvalInput = await waitForApproval()
-          if (cancelRef.current || !approvalInput.trim()) return
-
-          await wait(APPROVAL_SIM_DELAY_MS)
-
-          updateTrace(nextStep.nodeId, {
-            status: 'pending',
-            message: 'Approved — ready to execute',
-          })
-
-          appendEvent({
-            kind: 'edge-traverse',
-            level: 'info',
-            message: `Proceeding to ${nextStep.agentName} after approval`,
-            edgeId: step.outgoingEdgeId,
-            agentName: nextStep.agentName,
-          })
-
-          setState((previous) => ({
-            ...previous,
-            status: 'running',
-            activeEdgeId: step.outgoingEdgeId ?? null,
-          }))
-
-          await wait(500)
-          setState((previous) => ({ ...previous, activeEdgeId: null }))
-        } else if (nextStep && step.outgoingEdgeId) {
-          setState((previous) => ({ ...previous, activeEdgeId: step.outgoingEdgeId ?? null }))
-          appendEvent({
-            kind: 'edge-traverse',
-            level: 'info',
-            message: `Flow → ${nextStep.agentName}`,
-            edgeId: step.outgoingEdgeId,
-            agentName: nextStep.agentName,
-          })
-          await wait(450)
-          setState((previous) => ({ ...previous, activeEdgeId: null }))
-        }
-      }
-
-      const finalResponse = JSON.stringify(
-        {
-          runId,
-          status: 'completed',
-          steps: plan.length,
-          output: outputs[outputs.length - 1] ?? lastOutput,
-        },
-        null,
-        2,
-      )
-
-      setState((previous) => ({
-        ...previous,
-        status: 'completed',
-        activeNodeId: null,
-        activeEdgeId: null,
-        finalResponse,
-      }))
-
-      appendEvent({
-        kind: 'workflow-complete',
-        level: 'success',
-        message: 'Workflow execution finished successfully.',
+      await runBackendExecution({
+        plan,
+        input,
+        target,
+        approvedEdgeIds: [],
       })
     },
-    [appendEvent, updateTrace, wait, waitForApproval],
+    [appendEvent, runBackendExecution],
   )
 
   return {

@@ -122,6 +122,8 @@ export interface DiagramPage {
 
 /** A tool draft: multiple pages, one active at a time (like sheet tabs). */
 export interface DiagramDocument {
+  /** Stable workspace namespace for build artifacts and agent deployment. */
+  workspaceId?: string
   pages: DiagramPage[]
   activePageId: string
   /** Agent workflow metadata (agent-workflow tool only). */
@@ -146,6 +148,7 @@ interface StoredPage {
 interface StoredDocument {
   pages?: StoredPage[]
   activePageId?: string
+  workspaceId?: string
   workflow?: AgentWorkflowMeta
 }
 
@@ -188,7 +191,12 @@ export function normalizeDocument(parsed: unknown): DiagramDocument {
       const activePageId = pages.some((page) => page.id === asDocument.activePageId)
         ? (asDocument.activePageId as string)
         : pages[0].id
-      return { pages, activePageId, workflow: asDocument.workflow }
+      return {
+        pages,
+        activePageId,
+        workspaceId: asDocument.workspaceId,
+        workflow: asDocument.workflow,
+      }
     }
     // Legacy format: a bare diagram.
     if (Array.isArray((parsed as StoredDiagram).nodes)) {

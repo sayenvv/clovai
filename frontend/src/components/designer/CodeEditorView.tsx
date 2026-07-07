@@ -7,7 +7,7 @@ import { useTheme } from '@/hooks/use-theme'
 import { cn } from '@/utils/cn'
 import type { CodeLanguage } from './diagram-codegen'
 
-const SYNTAX_LANGUAGE: Record<CodeLanguage, string> = {
+const SYNTAX_LANGUAGE: Record<CodeLanguage | 'json', string> = {
   javascript: 'javascript',
   typescript: 'typescript',
   python: 'python',
@@ -15,11 +15,12 @@ const SYNTAX_LANGUAGE: Record<CodeLanguage, string> = {
   csharp: 'csharp',
   go: 'go',
   pseudocode: 'plaintext',
+  json: 'json',
 }
 
 interface CodeEditorViewProps {
   code: string
-  language: CodeLanguage
+  language: CodeLanguage | 'json'
   fileName: string
   copied: boolean
   onCopy: () => void

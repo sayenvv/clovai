@@ -25,6 +25,7 @@ import type {
   WorkflowDeployment,
   WorkflowValidationIssue,
 } from '@/types/agent-workflow'
+import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 import { AgentWorkflowHeader } from '@/components/agent-workflow/AgentWorkflowHeader'
 import { AgentLibrarySidebar } from '@/components/agent-workflow/AgentLibrarySidebar'
 import { AgentPropertiesShell } from '@/components/agent-workflow/AgentPropertiesShell'
@@ -64,11 +65,18 @@ import {
 } from '@/components/agent-workflow/workflow-storage'
 import { useWorkflowEditorPanels } from '@/components/agent-workflow/hooks/use-workflow-editor-panels'
 import { useWorkflowDocument } from '@/components/agent-workflow/hooks/use-workflow-document'
+import { persistWorkflowBuildSpec } from '@/components/agent-workflow/workflow-build-storage'
+import { resolveWorkflowModelConfig } from '@/components/agent-workflow/workflow-model-config'
 import { useSubWorkflowActions } from '@/components/agent-workflow/hooks/use-sub-workflow-actions'
 import {
   EXECUTE_LAUNCH_DELAY_MS,
   ExecuteLaunchOverlay,
 } from '@/components/agent-workflow/ExecuteLaunchOverlay'
+import {
+  WorkflowEditorViewToggle,
+  type WorkflowEditorViewMode,
+} from '@/components/agent-workflow/WorkflowEditorViewToggle'
+import { WorkflowBuildCodeView } from '@/components/agent-workflow/WorkflowBuildCodeView'
 import { DevProfiler } from '@/utils/render-profiler'
 
 const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
@@ -130,6 +138,7 @@ export default function AgentWorkflowPage() {
   const [testInput, setTestInput] = useState('{\n  "query": "Summarize the quarterly report"\n}')
   const [agentPickOpen, setAgentPickOpen] = useState(false)
   const [rightPanelTab, setRightPanelTab] = useState<'details' | 'collaborators'>('details')
+  const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
   const [isExecuteTransition, setIsExecuteTransition] = useState(false)
   const executeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -150,6 +159,46 @@ export default function AgentWorkflowPage() {
     renamePage,
     deletePage,
   } = useWorkflowDocument(paletteById, invalidateValidation)
+
+  const handleWorkflowMetaChange = useCallback(
+    (patch: Partial<AgentWorkflowMeta>) => {
+      invalidateValidation()
+      setDoc((previous) => ({
+        ...previous,
+        workflow: {
+          ...(previous.workflow ?? defaultWorkflowMeta()),
+          ...patch,
+        },
+      }))
+    },
+    [setDoc, invalidateValidation],
+  )
+
+  const handleModelConfigChange = useCallback(
+    (patch: Partial<WorkflowModelConfig>) => {
+      invalidateValidation()
+      setDoc((previous) => {
+        const workflow = previous.workflow ?? defaultWorkflowMeta()
+        return {
+          ...previous,
+          workflow: {
+            ...workflow,
+            modelConfig: resolveWorkflowModelConfig({
+              ...workflow.modelConfig,
+              ...patch,
+            }),
+          },
+        }
+      })
+    },
+    [setDoc, invalidateValidation],
+  )
+
+  const openWorkflowSettings = useCallback(() => {
+    setSelection(null)
+    setRightPanelTab('details')
+    if (right.collapsed) right.toggle()
+  }, [right])
 
   const canvasRef = useRef<AgentWorkflowCanvasHandle>(null)
 
@@ -198,6 +247,12 @@ export default function AgentWorkflowPage() {
       setSelection(null)
     },
     [selectPage],
+  )
+
+  const openCodeView = useCallback(() => setEditorView('code'), [])
+  const toggleCodeView = useCallback(
+    () => setEditorView((previous) => (previous === 'code' ? 'canvas' : 'code')),
+    [],
   )
 
   const handleAddPage = useCallback(() => {
@@ -281,17 +336,29 @@ export default function AgentWorkflowPage() {
     toast.success('Auto-layout applied')
   }, [handleChange])
 
-  const handleSave = useCallback(() => {
-    setDoc((previous) => ({
-      ...previous,
+  const handleSave = useCallback(async () => {
+    const nextDoc = {
+      ...doc,
       workflow: {
-        ...(previous.workflow ?? defaultWorkflowMeta()),
-        version: (previous.workflow?.version ?? 1) + 1,
-        status: 'draft',
+        ...(doc.workflow ?? defaultWorkflowMeta()),
+        version: (doc.workflow?.version ?? 1) + 1,
+        status: 'draft' as const,
       },
-    }))
-    toast.success('Draft saved')
-  }, [setDoc])
+    }
+    setDoc(nextDoc)
+    const result = await persistWorkflowBuildSpec({
+      doc: nextDoc,
+      pageId: activePage.id,
+      diagram,
+      paletteById,
+      syncToDisk: true,
+    })
+    if (result.filePath) {
+      toast.success(`Draft saved · build spec → ${result.filePath}`)
+    } else {
+      toast.success('Draft saved · build spec cached locally')
+    }
+  }, [doc, setDoc, activePage.id, diagram, paletteById])
 
   const handleValidate = useCallback(() => {
     const issues = validateWorkflow(diagram, paletteById)
@@ -376,6 +443,12 @@ export default function AgentWorkflowPage() {
     const diagramSnapshot = { nodes: diagram.nodes, edges: diagram.edges }
     const docToSave = mergeDiagramIntoDocument(doc, page.id, diagramSnapshot, page.name)
     saveWorkflowDocument(docToSave)
+    void persistWorkflowBuildSpec({
+      doc: docToSave,
+      pageId: page.id,
+      diagram: diagramSnapshot,
+      paletteById,
+    })
     saveExecutionSnapshot({
       pageId: page.id,
       pageName: page.name,
@@ -395,7 +468,7 @@ export default function AgentWorkflowPage() {
     executeTimerRef.current = setTimeout(() => {
       navigate('/tools/agent-workflow/execute', { state: navState })
     }, EXECUTE_LAUNCH_DELAY_MS)
-  }, [doc, diagram, navigate, testInput, isExecuteTransition])
+  }, [doc, diagram, navigate, testInput, isExecuteTransition, paletteById])
 
   const handleWorkflowNameChange = useCallback(
     (name: string) => {
@@ -469,7 +542,10 @@ export default function AgentWorkflowPage() {
             onExportSvg={() => toast.info('Export coming soon')}
             onExportPng={() => toast.info('Export coming soon')}
             onExportPdf={() => toast.info('Export coming soon')}
-            onViewCode={() => toast.info('Code export coming soon')}
+            onViewCode={openCodeView}
+            viewCodeWhenEmpty
+            codeViewActive={editorView === 'code'}
+            onToggleCodeView={toggleCodeView}
             onDuplicate={() => {}}
             onDeleteSelection={() => {
               if (!selection) return
@@ -515,6 +591,7 @@ export default function AgentWorkflowPage() {
             toolId={TOOL_ID}
             showWorkspaceMembers={false}
             onManageAccess={() => setShareOpen(true)}
+            onOpenWorkflowSettings={openWorkflowSettings}
           />
 
           <div className="flex min-h-0 flex-1">
@@ -531,20 +608,32 @@ export default function AgentWorkflowPage() {
             />
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <AgentWorkflowCanvas
-                ref={canvasRef}
-                diagram={diagram}
-                paletteById={paletteById}
-                onChange={handleChange}
-                selection={selection}
-                onSelectionChange={handleSelectionChange}
-                snapToGrid={snapToGrid}
-                showGrid={showGrid}
-                activePageId={activePage.id}
-                onAutoLayout={runAutoLayout}
-                transformDroppedNode={transformDroppedNode}
-                finalizeDroppedNode={finalizeDroppedNode}
-              />
+              <WorkflowEditorViewToggle mode={editorView} onModeChange={setEditorView} />
+
+              {editorView === 'canvas' ? (
+                <AgentWorkflowCanvas
+                  ref={canvasRef}
+                  diagram={diagram}
+                  paletteById={paletteById}
+                  onChange={handleChange}
+                  selection={selection}
+                  onSelectionChange={handleSelectionChange}
+                  snapToGrid={snapToGrid}
+                  showGrid={showGrid}
+                  activePageId={activePage.id}
+                  onAutoLayout={runAutoLayout}
+                  transformDroppedNode={transformDroppedNode}
+                  finalizeDroppedNode={finalizeDroppedNode}
+                />
+              ) : (
+                <WorkflowBuildCodeView
+                  doc={doc}
+                  pageId={activePage.id}
+                  pageName={activePage.name}
+                  diagram={diagram}
+                  paletteById={paletteById}
+                />
+              )}
 
               <PagesBar
                 pages={doc.pages}
@@ -586,6 +675,8 @@ export default function AgentWorkflowPage() {
           onOpenSubWorkflow={handleSelectPage}
           onConvertToSubWorkflow={subWorkflow.requestConvert}
           canConvertToSubWorkflow={subWorkflow.canConvert}
+          onWorkflowMetaChange={handleWorkflowMetaChange}
+          onModelConfigChange={handleModelConfigChange}
         />
       </div>
 

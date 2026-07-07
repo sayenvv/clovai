@@ -5,6 +5,8 @@ export const STORAGE_KEYS = {
   configStore: 'clovai-config-store-v4',
   diagram: (toolId: string) => `clovai-diagram-${toolId}`,
   shareSettings: (toolId: string) => `clovai-share-${toolId}`,
+  workflowBuild: (workspaceId: string, pageId: string) =>
+    `clovai-workflow-build:${workspaceId}:${pageId}`,
 } as const
 
 export const QUERY_KEYS = {

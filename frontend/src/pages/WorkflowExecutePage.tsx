@@ -9,6 +9,7 @@ import { ExecutionFlowCanvas } from '@/components/agent-workflow/ExecutionFlowCa
 import { ExecutionInspectorShell } from '@/components/agent-workflow/ExecutionInspectorShell'
 import { ExecutionPageHeader } from '@/components/agent-workflow/ExecutionPageHeader'
 import { ExecutionTimelineShell } from '@/components/agent-workflow/ExecutionTimelineShell'
+import { persistWorkflowBuildSpec } from '@/components/agent-workflow/workflow-build-storage'
 import { bootstrapExecuteState } from '@/components/agent-workflow/resolve-execution-context'
 import { useWorkflowRunner } from '@/components/agent-workflow/use-workflow-runner'
 import {
@@ -232,9 +233,29 @@ export default function WorkflowExecutePage() {
     }
     clearExecutionSnapshot()
     reset()
-    void start(executionPlan, input)
+    const page = doc.pages.find((candidate) => candidate.id === selectedPageId)
+    if (!page) {
+      toast.error('Select a workflow before executing.')
+      return false
+    }
+    void persistWorkflowBuildSpec({
+      doc,
+      pageId: selectedPageId,
+      diagram: diagramRef.current,
+      paletteById,
+      syncToDisk: true,
+      requireApi: true,
+    })
+      .then((saved) => start(executionPlan, input, {
+        workspaceId: saved.workspaceId,
+        pageId: saved.pageId,
+      }))
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'Failed to save workflow before execution.'
+        toast.error(message)
+      })
     return true
-  }, [input, reset, start])
+  }, [doc, input, paletteById, reset, selectedPageId, start])
 
   const handleExecute = useCallback(() => {
     runExecution()
@@ -259,10 +280,19 @@ export default function WorkflowExecutePage() {
           ),
         }
         saveWorkflowDocument(next)
+        const page = next.pages.find((candidate) => candidate.id === selectedPageId)
+        if (page) {
+          void persistWorkflowBuildSpec({
+            doc: next,
+            pageId: selectedPageId,
+            diagram: page.diagram,
+            paletteById,
+          })
+        }
         return next
       })
     },
-    [selectedPageId],
+    [selectedPageId, paletteById],
   )
 
   const toggleCenterPanel = useCallback(() => {

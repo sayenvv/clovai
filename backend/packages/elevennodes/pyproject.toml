@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "eleven-nodes"
+version = "0.1.0"
+description = "A clean, provider-neutral framework for multi-agent orchestration"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "ElevenNodes contributors" }]
+keywords = ["ai", "agents", "multi-agent", "orchestration", "workflow"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+dependencies = []
+
+[project.optional-dependencies]
+microsoft = [
+  "agent-framework-core>=1.10,<2.0",
+]
+openai = [
+  "agent-framework-openai>=1.10,<2.0",
+]
+foundry = [
+  "agent-framework-foundry>=1.10,<2.0",
+]
+all-microsoft = [
+  "agent-framework>=1.10,<2.0",
+]
+dev = [
+  "build>=1.2,<2.0",
+  "pytest>=8.3,<10.0",
+  "ruff>=0.11,<1.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/eleven_nodes"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

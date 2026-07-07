@@ -1,3 +1,5 @@
+import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
+
 export type AgentStatus = 'active' | 'inactive' | 'draft'
 export type AgentType =
   | 'llm'
@@ -67,6 +69,8 @@ export interface AgentWorkflowMeta {
   version: number
   status: DeploymentStatus
   executionType: WorkflowExecutionType
+  /** Workflow-level default model used in build JSON `modelConfig`. */
+  modelConfig?: WorkflowModelConfig
   deployment?: WorkflowDeployment
 }
 

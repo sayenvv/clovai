@@ -11,6 +11,7 @@ import {
   shouldSyncToolLayout,
   syncMappedToolLayout,
 } from '@/components/agent-workflow/tool-agent-mapping'
+import { persistWorkflowBuildSpec } from '@/components/agent-workflow/workflow-build-storage'
 import { STORAGE_KEYS } from '@/constants'
 
 const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
@@ -35,6 +36,18 @@ export function useWorkflowDocument(
   useEffect(() => {
     setWorkflowName(activePage.name)
   }, [activePage.id, activePage.name])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void persistWorkflowBuildSpec({
+        doc,
+        pageId: activePage.id,
+        diagram,
+        paletteById,
+      })
+    }, 600)
+    return () => window.clearTimeout(timer)
+  }, [doc, activePage.id, diagram, paletteById])
 
   const handleChange = useCallback(
     (updater: (previous: Diagram) => Diagram) => {

@@ -3,6 +3,7 @@ import {
   Link2,
   Copy,
   Code2,
+  Cpu,
   Download,
   Eraser,
   ExternalLink,
@@ -90,6 +91,13 @@ interface DesignerMenubarProps {
   onInsertWorkflow?: () => void
   onInsertImport?: () => void
   onCreateWorkflowTab?: () => void
+  /** Allow opening code view when the canvas is empty (workflow build spec). */
+  viewCodeWhenEmpty?: boolean
+  /** Active code debug view (workflow editor). */
+  codeViewActive?: boolean
+  onToggleCodeView?: () => void
+  /** Open workflow-level settings (model config, execution type). */
+  onOpenWorkflowSettings?: () => void
 }
 
 function MenuTrigger({ label }: { label: string }) {
@@ -138,6 +146,10 @@ export const DesignerMenubar = memo(function DesignerMenubar({
   onInsertWorkflow,
   onInsertImport,
   onCreateWorkflowTab,
+  viewCodeWhenEmpty = false,
+  codeViewActive,
+  onToggleCodeView,
+  onOpenWorkflowSettings,
 }: DesignerMenubarProps) {
   const { theme, toggleTheme } = useTheme()
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
@@ -169,8 +181,11 @@ export const DesignerMenubar = memo(function DesignerMenubar({
             <Download /> PDF (.pdf)
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={onViewCode} disabled={isEmpty}>
-            <Code2 /> Build as code…
+          <DropdownMenuItem
+            onSelect={onViewCode}
+            disabled={!viewCodeWhenEmpty && isEmpty}
+          >
+            <Code2 /> Debug as code…
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -247,6 +262,17 @@ export const DesignerMenubar = memo(function DesignerMenubar({
           <DropdownMenuCheckboxItem checked={showGrid} onCheckedChange={onShowGridChange}>
             Show grid
           </DropdownMenuCheckboxItem>
+          {onToggleCodeView && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={codeViewActive ?? false}
+                onCheckedChange={() => onToggleCodeView()}
+              >
+                Code debug view
+              </DropdownMenuCheckboxItem>
+            </>
+          )}
           {onTogglePropertiesPanel && (
             <>
               <DropdownMenuSeparator />
@@ -277,6 +303,15 @@ export const DesignerMenubar = memo(function DesignerMenubar({
       <DropdownMenu>
         <MenuTrigger label="Settings" />
         <DropdownMenuContent align="start">
+          {onOpenWorkflowSettings && (
+            <>
+              <DropdownMenuLabel>Workflow</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={onOpenWorkflowSettings}>
+                <Cpu /> Model & workflow settings…
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuLabel>Canvas</DropdownMenuLabel>
           <DropdownMenuCheckboxItem checked={snapToGrid} onCheckedChange={onSnapToGridChange}>
             Snap to grid

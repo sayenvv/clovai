@@ -7,6 +7,8 @@ import {
 } from '@/components/designer/diagram-types'
 import type { AgentWorkflowMeta } from '@/types/agent-workflow'
 import { createWorkflowId } from '@/components/agent-workflow/agent-workflow-defaults'
+import { getOrCreateWorkspaceId } from '@/components/agent-workflow/workflow-build-storage'
+import { resolveWorkflowModelConfig } from '@/components/agent-workflow/workflow-model-config'
 
 export const AGENT_WORKFLOW_TOOL_ID = 'agent-workflow'
 
@@ -26,6 +28,7 @@ function defaultWorkflowMeta(): AgentWorkflowMeta {
     version: 1,
     status: 'draft',
     executionType: 'sequential',
+    modelConfig: resolveWorkflowModelConfig(),
   }
 }
 
@@ -34,16 +37,26 @@ export function loadWorkflowDocument(): DiagramDocument {
     const raw = localStorage.getItem(STORAGE_KEYS.diagram(AGENT_WORKFLOW_TOOL_ID))
     if (raw) {
       const doc = normalizeDocument(JSON.parse(raw))
+      const workflow = doc.workflow ?? defaultWorkflowMeta()
       return {
         ...doc,
-        workflow: doc.workflow ?? defaultWorkflowMeta(),
+        workspaceId: doc.workspaceId ?? getOrCreateWorkspaceId(),
+        workflow: {
+          ...workflow,
+          modelConfig: resolveWorkflowModelConfig(workflow.modelConfig),
+        },
       }
     }
   } catch {
     // corrupted draft
   }
   const page = createPage('Main workflow')
-  return { pages: [page], activePageId: page.id, workflow: defaultWorkflowMeta() }
+  return {
+    pages: [page],
+    activePageId: page.id,
+    workspaceId: getOrCreateWorkspaceId(),
+    workflow: defaultWorkflowMeta(),
+  }
 }
 
 export function saveWorkflowDocument(doc: DiagramDocument): void {
