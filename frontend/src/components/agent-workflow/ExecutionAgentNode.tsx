@@ -1,11 +1,5 @@
 import { memo } from 'react'
-import { motion } from 'framer-motion'
-import {
-  ChevronDown,
-  ChevronUp,
-  UserCheck,
-  Wrench,
-} from 'lucide-react'
+import { Wrench } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -27,6 +21,7 @@ const TYPE_LABELS: Record<string, string> = {
   memory: 'Memory',
   output: 'Output',
   control: 'Control',
+  executor: 'Executor',
 }
 
 interface ExecutionAgentNodeProps {
@@ -34,13 +29,10 @@ interface ExecutionAgentNodeProps {
   stepIndex: number
   totalSteps: number
   toolCount: number
-  humanApproval?: boolean
-  approvalRole?: string
   isRunning: boolean
   isCompleted: boolean
   isWaiting: boolean
   isPending: boolean
-  output?: string
 }
 
 export const ExecutionAgentNode = memo(function ExecutionAgentNode({
@@ -48,13 +40,10 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
   stepIndex,
   totalSteps,
   toolCount,
-  humanApproval,
-  approvalRole,
   isRunning,
   isCompleted,
   isWaiting,
   isPending,
-  output,
 }: ExecutionAgentNodeProps) {
   const agent = node.agent
   const externalAgent = resolveExternalAgent(node.paletteId)
@@ -62,12 +51,10 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
   const typeLabel = externalAgent
     ? `${externalAgent.provider} · ${TYPE_LABELS[agent?.agentType ?? resolveAgentType(node.paletteId)] ?? 'Agent'}`
     : (TYPE_LABELS[agent?.agentType ?? resolveAgentType(node.paletteId)] ?? 'Agent')
-  const showOutput = isCompleted && output
-
   const statusLabel = isRunning
     ? 'Running'
     : isWaiting
-      ? 'Awaiting approval'
+      ? 'Paused'
       : isCompleted
         ? 'Completed'
         : 'Ready'
@@ -81,18 +68,15 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
         : 'idle'
 
   return (
-    <motion.div
-      layout
+    <div
       className={cn(
-        'relative flex w-[260px] flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm',
-        isRunning && 'border-primary ring-2 ring-primary/25 shadow-md',
+        'relative flex w-[260px] flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm transition-[border-color,box-shadow] duration-300',
+        isRunning && 'border-violet-600 ring-2 ring-violet-500/35 shadow-lg shadow-violet-500/20',
         isWaiting && 'border-amber-500/50 ring-1 ring-amber-500/25',
         isCompleted && !isRunning && 'border-emerald-500/40 ring-1 ring-emerald-500/15',
         isPending && !isCompleted && !isRunning && !isExternal && 'border-border/80',
         isPending && !isCompleted && !isRunning && isExternal && 'border-amber-500/25',
       )}
-      animate={isRunning ? { scale: [1, 1.008, 1] } : undefined}
-      transition={isRunning ? { duration: 1.8, repeat: Infinity } : undefined}
     >
       <span className="absolute left-0 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-muted" />
       <span className="absolute right-0 top-1/2 h-2 w-2 translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-muted" />
@@ -119,7 +103,7 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
               variant="outline"
               className={cn(
                 'h-4 border-0 px-1.5 text-[9px] font-medium uppercase tracking-wide',
-                isRunning && 'bg-primary/10 text-primary',
+                isRunning && 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
                 isCompleted && !isRunning && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
                 isWaiting && 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
                 isPending && 'bg-muted text-muted-foreground',
@@ -146,44 +130,8 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
             <Wrench className="h-3 w-3" />
             {toolCount} tool{toolCount === 1 ? '' : 's'}
           </span>
-          {humanApproval && (
-            <Badge
-              variant="outline"
-              className="h-5 gap-1 border-border bg-muted/50 px-1.5 text-[9px] font-normal text-muted-foreground"
-            >
-              <UserCheck className="h-3 w-3" />
-              Human{approvalRole ? ` · ${approvalRole}` : ''}
-            </Badge>
-          )}
         </div>
       </div>
-
-      {showOutput && (
-        <div className="border-t border-border/60 px-3 py-2">
-          <details open className="group">
-            <summary className="flex cursor-pointer list-none items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-              <ChevronDown className="h-3 w-3 group-open:hidden" />
-              <ChevronUp className="hidden h-3 w-3 group-open:block" />
-              Output
-            </summary>
-            <pre className="mt-2 max-h-32 overflow-auto rounded-lg border border-border bg-muted/50 p-2.5 font-mono text-[10px] leading-relaxed text-foreground">
-              {output}
-            </pre>
-          </details>
-        </div>
-      )}
-
-      {isRunning && (
-        <div className="h-1 overflow-hidden bg-muted">
-          <motion.div
-            className="h-full bg-brand-gradient"
-            initial={{ x: '-100%' }}
-            animate={{ x: '100%' }}
-            transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
-            style={{ width: '50%' }}
-          />
-        </div>
-      )}
-    </motion.div>
+    </div>
   )
 })

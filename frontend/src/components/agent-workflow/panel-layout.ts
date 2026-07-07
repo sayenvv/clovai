@@ -30,8 +30,9 @@ export const EDITOR_RIGHT_PANEL: PersistedPanelConfig = {
 export const EDITOR_BOTTOM_PANEL: PersistedPanelConfig = {
   sizeKey: 'eleven-nodes-agent-workflow-panel-height',
   collapsedKey: 'eleven-nodes-agent-workflow-panel-collapsed',
-  defaultSize: 180,
-  min: 100,
+  defaultSize: 260,
+  min: 140,
+  max: 560,
 }
 
 export function readStoredSize(config: PersistedPanelConfig): number {

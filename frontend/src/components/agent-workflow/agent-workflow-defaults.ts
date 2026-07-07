@@ -6,6 +6,8 @@ import agentLibrary from '../../../config/agent-workflow-library.json'
 const PALETTE_AGENT_TYPE: Record<string, AgentType> = {
   'aw-agent': 'llm',
   'aw-tool': 'tool',
+  'aw-mcp-tool': 'tool',
+  'aw-executor': 'executor',
   'aw-start': 'trigger',
   'aw-event': 'trigger',
   'aw-schedule': 'trigger',
@@ -91,7 +93,48 @@ export const AGENT_NODE_HEIGHT = 156
 export const TOOL_NODE_WIDTH = 200
 export const TOOL_NODE_HEIGHT = 108
 export const TOOL_PALETTE_ID = 'aw-tool'
+export const MCP_TOOL_PALETTE_ID = 'aw-mcp-tool'
+export const EXECUTOR_PALETTE_ID = 'aw-executor'
 export const AGENT_PALETTE_ID = 'aw-agent'
+
+export function isMappedToolPalette(paletteId: string): boolean {
+  return paletteId === TOOL_PALETTE_ID || paletteId === MCP_TOOL_PALETTE_ID
+}
+
+function slugifyExecutorId(label: string): string {
+  const slug = label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  return slug || 'custom_executor'
+}
+
+export function defaultExecutorSource(kind: 'class' | 'function'): string {
+  return kind === 'function' ? DEFAULT_EXECUTOR_FUNCTION_SOURCE : DEFAULT_EXECUTOR_CLASS_SOURCE
+}
+
+const DEFAULT_EXECUTOR_CLASS_SOURCE = `from elevennodes import Executor, WorkflowContext, handler
+
+
+class CustomExecutor(Executor):
+    """Process typed messages and forward results to connected executors."""
+
+    @handler
+    async def handle(self, message: str, ctx: WorkflowContext[str]) -> None:
+        # Forward transformed message to downstream executors
+        await ctx.send_message(message.strip())
+        # Optionally expose workflow output
+        # await ctx.yield_output(message)
+`
+
+const DEFAULT_EXECUTOR_FUNCTION_SOURCE = `from elevennodes import WorkflowContext, executor
+
+
+@executor(id="custom_executor")
+async def custom_executor(message: str, ctx: WorkflowContext[str]) -> None:
+    await ctx.send_message(message.strip())
+`
 
 function defaultToolsForPalette(paletteId: string): string[] {
   const block = findLibraryBlock(paletteId)
@@ -110,6 +153,58 @@ export function resolveAgentType(paletteId: string): AgentType {
 export function defaultAgentConfig(paletteId: string, label: string): AgentNodeConfig {
   const agentType = resolveAgentType(paletteId)
   const block = findLibraryBlock(paletteId)
+
+  if (isMappedToolPalette(paletteId)) {
+    const isMcp = paletteId === MCP_TOOL_PALETTE_ID
+    return {
+      agentType: 'tool',
+      description: block?.description ?? '',
+      instructions: isMcp
+        ? `Connect to the ${label} MCP server and use its tools during workflow execution.`
+        : `Execute ${label} integrations for the mapped agent.`,
+      model: 'gpt-4.1',
+      temperature: 0.2,
+      tools: isMcp ? [] : defaultToolsForPalette(paletteId),
+      inputSchema: '{\n  "input": "string"\n}',
+      outputSchema: '{\n  "result": "string"\n}',
+      approvalMode: 'never_required',
+      mcpUrl: isMcp ? 'https://' : undefined,
+      memoryEnabled: false,
+      memoryScope: 'workflow',
+      retryCount: 2,
+      timeoutSeconds: 120,
+      status: 'draft',
+    }
+  }
+
+  if (paletteId === EXECUTOR_PALETTE_ID) {
+    return {
+      agentType: 'executor',
+      description:
+        'Eleven Nodes executor — receives typed messages, runs handler logic, and can send_message or yield_output.',
+      instructions:
+        'Use @handler on executor classes or @executor for functions. Import from elevennodes only.',
+      model: '',
+      temperature: 0,
+      tools: [],
+      inputSchema: '{\n  "type": "string",\n  "description": "Handler input message"\n}',
+      outputSchema: '{\n  "type": "string",\n  "description": "Message sent via ctx.send_message"\n}',
+      executorId: slugifyExecutorId(label),
+      executorHandlerKind: 'class',
+      executorInputType: 'str',
+      executorOutputType: 'str',
+      executorWorkflowOutputType: '',
+      executorSource: DEFAULT_EXECUTOR_CLASS_SOURCE,
+      contributesToWorkflowOutput: false,
+      contributesToIntermediateOutput: false,
+      executorResettable: false,
+      memoryEnabled: false,
+      memoryScope: 'workflow',
+      retryCount: 1,
+      timeoutSeconds: 120,
+      status: 'draft',
+    }
+  }
 
   return {
     agentType,
@@ -146,7 +241,7 @@ export function defaultConnectorConfig(): ConnectorConfig {
 export function enrichAgentNode(node: DiagramNode, item: PaletteItem): DiagramNode {
   if (node.agent) return node
   if (!node.paletteId.startsWith('aw-')) return node
-  const isTool = node.paletteId === TOOL_PALETTE_ID
+  const isTool = isMappedToolPalette(node.paletteId)
   return {
     ...node,
     width: node.width ?? (isTool ? TOOL_NODE_WIDTH : AGENT_NODE_WIDTH),
@@ -159,7 +254,7 @@ export function enrichDiagram(diagram: Diagram, paletteById: Map<string, Palette
   let nodesChanged = false
   const nodes = diagram.nodes.map((node) => {
     if (!node.paletteId?.startsWith('aw-')) return node
-    const isTool = node.paletteId === TOOL_PALETTE_ID
+    const isTool = isMappedToolPalette(node.paletteId)
     const minW = isTool ? TOOL_NODE_WIDTH : AGENT_NODE_WIDTH
     const minH = isTool ? TOOL_NODE_HEIGHT : AGENT_NODE_HEIGHT
     if (node.agent) {

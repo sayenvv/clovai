@@ -50,13 +50,6 @@ export const WorkflowSettingsPanel = memo(function WorkflowSettingsPanel({
 }: WorkflowSettingsPanelProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-border px-4 py-3">
-        <h3 className="text-sm font-semibold">Workflow settings</h3>
-        <p className="text-xs text-muted-foreground">
-          Execution pattern, model defaults, and workspace overview
-        </p>
-      </div>
-
       <Tabs defaultValue="general" className="flex min-h-0 flex-1 flex-col px-4 py-3">
         <TabsList className="h-8 w-full shrink-0">
           <TabsTrigger value="general" className={TAB_TRIGGER_CLASS}>

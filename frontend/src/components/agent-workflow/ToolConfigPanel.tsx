@@ -6,10 +6,17 @@ import { Select } from '@/components/ui/select'
 import { Field } from '@/components/agent-workflow/FormField'
 import {
   agentLabel,
+  isMcpToolNode,
   listAgentNodes,
   remapToolToAgent,
 } from '@/components/agent-workflow/tool-agent-mapping'
+import type { ToolApprovalMode } from '@/types/agent-workflow'
 import type { Diagram, DiagramNode } from '@/components/designer/diagram-types'
+
+const APPROVAL_MODES: { value: ToolApprovalMode; label: string }[] = [
+  { value: 'never_required', label: 'Never required' },
+  { value: 'always_required', label: 'Always required' },
+]
 
 interface ToolConfigPanelProps {
   node: DiagramNode
@@ -25,6 +32,8 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({
   const agent = node.agent!
   const agents = listAgentNodes(diagram)
   const toolsText = agent.tools.join(', ')
+  const isMcp = isMcpToolNode(node)
+  const approvalMode = agent.approvalMode ?? 'never_required'
 
   const updateTool = (patch: Partial<typeof agent>, label?: string) => {
     onChange((previous) => ({
@@ -77,17 +86,27 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({
             <span className="font-medium text-foreground">
               {agentLabel(diagram, node.mappedAgentId)}
             </span>
-            . Change the mapping anytime — the tool will reposition in the row under that agent.
+            . Change the mapping anytime — the {isMcp ? 'MCP tool' : 'tool'} will reposition in the
+            row under that agent.
           </p>
         </TabsContent>
 
         <TabsContent value="config" className="mt-3 flex-1 space-y-4 overflow-y-auto pb-4">
-          <Field label="Tool name">
-            <Input
-              value={node.label}
-              onChange={(event) => updateTool({}, event.target.value)}
-            />
+          <Field label={isMcp ? 'MCP server name' : 'Tool name'}>
+            <Input value={node.label} onChange={(event) => updateTool({}, event.target.value)} />
           </Field>
+
+          {isMcp && (
+            <Field label="MCP server URL" hint="HTTP(S) endpoint for the MCP server">
+              <Input
+                type="url"
+                value={agent.mcpUrl ?? ''}
+                onChange={(event) => updateTool({ mcpUrl: event.target.value })}
+                placeholder="https://mcp.example.com/sse"
+              />
+            </Field>
+          )}
+
           <Field label="Description">
             <Textarea
               rows={3}
@@ -95,20 +114,52 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({
               onChange={(event) => updateTool({ description: event.target.value })}
             />
           </Field>
-          <Field label="Tool identifiers" hint="Comma-separated integrations this node can call">
-            <Input
-              value={toolsText}
-              onChange={(event) =>
-                updateTool({
-                  tools: event.target.value
-                    .split(',')
-                    .map((tool) => tool.trim())
-                    .filter(Boolean),
-                })
-              }
-              placeholder="web_search, slack_notify"
+
+          {!isMcp && (
+            <Field label="Tool identifiers" hint="Comma-separated integrations this node can call">
+              <Input
+                value={toolsText}
+                onChange={(event) =>
+                  updateTool({
+                    tools: event.target.value
+                      .split(',')
+                      .map((tool) => tool.trim())
+                      .filter(Boolean),
+                  })
+                }
+                placeholder="web_search, slack_notify"
+              />
+            </Field>
+          )}
+
+          <Field label="Input schema (JSON)" hint="Arguments this tool accepts when invoked">
+            <Textarea
+              rows={6}
+              className="font-mono text-xs"
+              value={agent.inputSchema}
+              onChange={(event) => updateTool({ inputSchema: event.target.value })}
+              placeholder='{\n  "type": "object",\n  "properties": {\n    "query": { "type": "string" }\n  }\n}'
             />
           </Field>
+
+          <Field
+            label="Approval mode"
+            hint="Whether a human must approve before this tool runs"
+          >
+            <Select
+              value={approvalMode}
+              onChange={(event) =>
+                updateTool({ approvalMode: event.target.value as ToolApprovalMode })
+              }
+            >
+              {APPROVAL_MODES.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
           <Field label="Instructions">
             <Textarea
               rows={5}

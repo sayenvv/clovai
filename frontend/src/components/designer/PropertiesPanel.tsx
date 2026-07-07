@@ -12,6 +12,7 @@ import {
   MIN_NODE_WIDTH,
   resizeAspect,
   resolveNodeStyle,
+  resolveEdgeRouting,
   SHAPE_OPTIONS,
   type Diagram,
   PORT_SIDES,
@@ -214,7 +215,7 @@ const EdgeProperties = memo(function EdgeProperties({
 }) {
   const { isDark } = useTheme()
   const edgeDefaults = defaultEdgeColors(isDark)
-  const routing = edge.routing ?? 'orthogonal'
+  const routing = resolveEdgeRouting(edge.routing)
 
   const updateEdge = (patch: Partial<DiagramEdge>) => {
     onChange((previous) => ({

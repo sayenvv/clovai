@@ -18,6 +18,7 @@ export const TYPE_LABELS: Record<AgentType, string> = {
   memory: 'Memory',
   output: 'Output',
   control: 'Control',
+  executor: 'Executor',
 }
 
 const PROVIDER_META: Record<string, { initials: string; avatar: string }> = {

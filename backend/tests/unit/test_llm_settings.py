@@ -1,4 +1,9 @@
-from app.core.llm_settings import get_llm_settings, llm_settings_to_workflow_model_config
+from app.core.llm_settings import (
+    apply_chat_completion_limits,
+    get_llm_settings,
+    llm_settings_to_workflow_model_config,
+    model_supports_sampling_parameters,
+)
 
 
 def test_get_llm_settings_defaults(monkeypatch):
@@ -40,3 +45,21 @@ def test_llm_settings_to_workflow_model_config(monkeypatch):
 
     assert config.model == "gpt-4.1-mini"
     assert config.temperature == 0.2
+
+
+def test_model_supports_sampling_parameters() -> None:
+    assert model_supports_sampling_parameters("gpt-4o") is True
+    assert model_supports_sampling_parameters("gpt-5-mini") is False
+    assert model_supports_sampling_parameters("o1-preview") is False
+    assert model_supports_sampling_parameters("o3-mini") is False
+
+
+def test_apply_chat_completion_limits_for_reasoning_models(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_MODEL", "gpt-5-mini")
+    settings = get_llm_settings()
+    payload: dict = {"messages": []}
+
+    apply_chat_completion_limits(payload, settings, max_tokens=1024)
+
+    assert "temperature" not in payload
+    assert payload["max_completion_tokens"] == 1024

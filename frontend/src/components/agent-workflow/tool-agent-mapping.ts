@@ -6,14 +6,23 @@ import {
   TOOL_NODE_HEIGHT,
   TOOL_NODE_WIDTH,
   TOOL_PALETTE_ID,
+  MCP_TOOL_PALETTE_ID,
+  EXECUTOR_PALETTE_ID,
+  isMappedToolPalette,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 
-export { AGENT_PALETTE_ID, TOOL_PALETTE_ID }
+export {
+  AGENT_PALETTE_ID,
+  TOOL_PALETTE_ID,
+  MCP_TOOL_PALETTE_ID,
+  EXECUTOR_PALETTE_ID,
+  isMappedToolPalette,
+}
 export const TOOL_UNDER_AGENT_GAP = 14
 /** Horizontal gap between tools in a row under an agent. */
 export const TOOL_ROW_GAP = 10
 
-const NON_AGENT_AW_IDS = new Set(['aw-tool', 'aw-note', 'aw-label'])
+const NON_AGENT_AW_IDS = new Set(['aw-tool', 'aw-mcp-tool', 'aw-note', 'aw-label'])
 
 export function isAgentNode(node: DiagramNode): boolean {
   if (node.mappedAgentId) return false
@@ -24,8 +33,19 @@ export function isAgentNode(node: DiagramNode): boolean {
   return false
 }
 
+export function isExecutorNode(node: DiagramNode): boolean {
+  return (
+    node.paletteId === EXECUTOR_PALETTE_ID ||
+    node.agent?.agentType === 'executor'
+  )
+}
+
+export function isMcpToolNode(node: DiagramNode): boolean {
+  return node.paletteId === MCP_TOOL_PALETTE_ID
+}
+
 export function isToolNode(node: DiagramNode): boolean {
-  if (node.paletteId === TOOL_PALETTE_ID) return true
+  if (isMappedToolPalette(node.paletteId ?? '')) return true
   return Boolean(node.mappedAgentId)
 }
 

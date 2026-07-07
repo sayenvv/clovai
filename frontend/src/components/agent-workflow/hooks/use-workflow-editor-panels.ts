@@ -46,6 +46,7 @@ function usePersistedVerticalPanel(config: PersistedPanelConfig) {
   const { height, setHeight, onResizePointerDown } = useVerticalResize({
     initialHeight: readStoredSize(config),
     minHeight: config.min,
+    maxHeight: config.max,
   })
   const [collapsed, setCollapsed] = useState(() => readStoredCollapsed(config))
   const sizeRef = useRef(height)

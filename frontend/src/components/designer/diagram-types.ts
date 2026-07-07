@@ -91,6 +91,13 @@ export const SHAPE_OPTIONS: Array<{ value: PaletteShape; label: string }> = [
 
 export type EdgeRouting = 'curved' | 'orthogonal'
 
+/** Default connector style — smooth curve until the user enables straight routing. */
+export const DEFAULT_EDGE_ROUTING: EdgeRouting = 'curved'
+
+export function resolveEdgeRouting(routing?: EdgeRouting): EdgeRouting {
+  return routing ?? DEFAULT_EDGE_ROUTING
+}
+
 export interface DiagramEdge {
   id: string
   from: string
@@ -158,7 +165,7 @@ export function normalizeDiagram(parsed: StoredDiagram): Diagram {
     ...edge,
     fromSide: edge.fromSide ?? 'right',
     toSide: edge.toSide ?? 'left',
-    routing: edge.routing ?? 'orthogonal',
+    routing: resolveEdgeRouting(edge.routing),
   }))
   return { nodes: parsed.nodes ?? [], edges }
 }

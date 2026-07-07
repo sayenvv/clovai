@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo } from 'react'
 import {
   CheckCircle2,
   Loader2,
@@ -8,7 +8,6 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/utils/cn'
 import type { WorkflowRunState } from '@/types/agent-workflow'
 
@@ -16,7 +15,6 @@ interface ExecutionControlBarProps {
   runState: WorkflowRunState
   onCancel: () => void
   onReset: () => void
-  onSubmitApproval: (value: string) => void
 }
 
 const STATUS_LABELS: Record<WorkflowRunState['status'], string> = {
@@ -32,10 +30,7 @@ export const ExecutionControlBar = memo(function ExecutionControlBar({
   runState,
   onCancel,
   onReset,
-  onSubmitApproval,
 }: ExecutionControlBarProps) {
-  const [approvalInput, setApprovalInput] = useState('')
-
   if (runState.status === 'idle') return null
 
   const isActive = runState.status === 'running' || runState.status === 'waiting-approval'
@@ -93,35 +88,6 @@ export const ExecutionControlBar = memo(function ExecutionControlBar({
           )}
         </div>
       </div>
-
-      {runState.approvalPrompt && (
-        <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-          <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
-            Human approval required before &ldquo;{runState.approvalPrompt.nextAgentName}&rdquo;
-          </p>
-          <p className="mt-1 text-[11px] text-muted-foreground">{runState.approvalPrompt.message}</p>
-          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end">
-            <Textarea
-              value={approvalInput}
-              onChange={(event) => setApprovalInput(event.target.value)}
-              placeholder={`Approval note for ${runState.approvalPrompt.role}…`}
-              className="min-h-[60px] flex-1 resize-none font-mono text-xs"
-            />
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 shrink-0 bg-amber-600 text-white hover:bg-amber-700"
-              disabled={!approvalInput.trim()}
-              onClick={() => {
-                onSubmitApproval(approvalInput)
-                setApprovalInput('')
-              }}
-            >
-              Approve &amp; continue
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   )
 })

@@ -1,32 +1,53 @@
-import { memo, type PointerEvent as ReactPointerEvent } from 'react'
-import { ChevronLeft, GitBranch, MousePointerClick, PanelRightClose } from 'lucide-react'
+import { memo, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { ChevronLeft, GitBranch, Info, PanelRightClose } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
-import { WorkspaceMembersFacepile } from '@/components/designer/WorkspaceMembersFacepile'
-import { WorkspaceMembersPanel } from '@/components/designer/WorkspaceMembersPanel'
 import { AgentConfigPanel } from '@/components/agent-workflow/AgentConfigPanel'
 import { ConnectorConfigPanel } from '@/components/agent-workflow/ConnectorConfigPanel'
+import { ExecutorConfigPanel } from '@/components/agent-workflow/ExecutorConfigPanel'
 import { ToolConfigPanel } from '@/components/agent-workflow/ToolConfigPanel'
 import { SubWorkflowConfigPanel } from '@/components/agent-workflow/SubWorkflowConfigPanel'
 import { WorkflowSettingsPanel } from '@/components/agent-workflow/WorkflowSettingsPanel'
+import { ExecutionSidebarPanel } from '@/components/agent-workflow/ExecutionSidebarPanel'
 import {
   agentLabel,
+  isExecutorNode,
+  isMcpToolNode,
   isToolNode,
 } from '@/components/agent-workflow/tool-agent-mapping'
 import { isSubWorkflowNode } from '@/components/agent-workflow/sub-workflow-ops'
 import { SIDE_PANEL_COLLAPSED_WIDTH } from '@/components/agent-workflow/panel-layout'
-import { useShareSettings, workspaceMemberCount } from '@/components/designer/share-settings'
-import { cn } from '@/utils/cn'
 import type { Selection } from '@/components/designer/selection-utils'
 import type { Diagram, DiagramDocument, DiagramEdge, DiagramNode } from '@/components/designer/diagram-types'
-import type { AgentWorkflowMeta, WorkflowExecutionType } from '@/types/agent-workflow'
+import type {
+  AgentWorkflowMeta,
+  ExecutionTraceStep,
+  WorkflowExecutionType,
+  WorkflowRunState,
+  WorkflowRunStatus,
+} from '@/types/agent-workflow'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 
-export type RightPanelTab = 'details' | 'collaborators'
+interface ExecutionSidebarOptions {
+  testInput: string
+  onTestInputChange: (value: string) => void
+  onSimulate: () => void
+  onExecute: () => void
+  isExecuting?: boolean
+  canExecute?: boolean
+  runStatus: WorkflowRunStatus
+  runId?: string | null
+  onCancel?: () => void
+  approvalPrompt?: WorkflowRunState['approvalPrompt']
+  onSubmitApproval?: (value: string) => void
+  stepOutputs?: Record<string, string>
+  trace?: ExecutionTraceStep[]
+  needsReview?: boolean
+}
 
-const TAB_TRIGGER_CLASS =
-  'h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none'
+const EXECUTION_PANEL_HINT =
+  'Run workflow and approve human-in-the-loop steps'
 
 interface AgentPropertiesShellProps {
   diagram: Diagram
@@ -37,10 +58,6 @@ interface AgentPropertiesShellProps {
   collapsed: boolean
   onResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
   onToggleCollapse: () => void
-  toolId: string
-  activeTab: RightPanelTab
-  onTabChange: (tab: RightPanelTab) => void
-  onManageAccess?: () => void
   onOpenSubWorkflow?: (pageId: string) => void
   onConvertToSubWorkflow?: () => void
   canConvertToSubWorkflow?: boolean
@@ -48,6 +65,8 @@ interface AgentPropertiesShellProps {
   onModelConfigChange?: (patch: Partial<WorkflowModelConfig>) => void
   serverModelConfig: WorkflowModelConfig
   llmConfigured?: boolean
+  executionPanelOpen?: boolean
+  execution?: ExecutionSidebarOptions
 }
 
 export const AgentPropertiesShell = memo(function AgentPropertiesShell({
@@ -59,10 +78,6 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   collapsed,
   onResizePointerDown,
   onToggleCollapse,
-  toolId,
-  activeTab,
-  onTabChange,
-  onManageAccess,
   onOpenSubWorkflow,
   onConvertToSubWorkflow,
   canConvertToSubWorkflow = false,
@@ -70,11 +85,11 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   onModelConfigChange,
   serverModelConfig,
   llmConfigured = false,
+  executionPanelOpen = false,
+  execution,
 }: AgentPropertiesShellProps) {
   const workflowMeta = doc.workflow
   const modelConfig = serverModelConfig
-  const { settings } = useShareSettings(toolId)
-  const memberTotal = workspaceMemberCount(settings)
 
   const selectedNode: DiagramNode | undefined =
     selection?.kind === 'node' ? diagram.nodes.find((node) => node.id === selection.id) : undefined
@@ -96,14 +111,36 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
           ? 'Connector'
           : 'Workflow'
 
-  const panelTitle = activeTab === 'collaborators' ? 'Collaborators' : detailsTitle
-
   const detailsSubtitle =
     selection?.kind === 'edge' && selectedEdge
       ? `${fromLabel ?? 'Source'} → ${toLabel ?? 'Target'}`
       : selection?.kind === 'node' && selectedNode && isToolNode(selectedNode)
-        ? `Under ${agentLabel(diagram, selectedNode.mappedAgentId)}`
+        ? isMcpToolNode(selectedNode)
+          ? `MCP tool · Under ${agentLabel(diagram, selectedNode.mappedAgentId)}`
+          : `Under ${agentLabel(diagram, selectedNode.mappedAgentId)}`
         : null
+
+  const detailsContent = (
+    <DetailsPanelContent
+      multiSelectCount={multiSelectCount}
+      canConvertToSubWorkflow={canConvertToSubWorkflow}
+      onConvertToSubWorkflow={onConvertToSubWorkflow}
+      selection={selection}
+      selectedNode={selectedNode}
+      selectedEdge={selectedEdge}
+      doc={doc}
+      diagram={diagram}
+      onChange={onChange}
+      onOpenSubWorkflow={onOpenSubWorkflow}
+      workflowMeta={workflowMeta}
+      modelConfig={modelConfig}
+      onWorkflowMetaChange={onWorkflowMetaChange}
+      onModelConfigChange={onModelConfigChange}
+      llmConfigured={llmConfigured}
+      fromLabel={fromLabel}
+      toLabel={toLabel}
+    />
+  )
 
   if (collapsed) {
     return (
@@ -123,43 +160,10 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
             <ChevronLeft className="h-4 w-4" />
           </Button>
         </div>
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 py-3">
+        <div className="flex flex-1 items-center justify-center">
           <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground [writing-mode:vertical-rl]">
-            Panel
+            {executionPanelOpen ? 'Run' : 'Panel'}
           </span>
-          <Button
-            variant={activeTab === 'details' ? 'secondary' : 'ghost'}
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => {
-              onTabChange('details')
-              onToggleCollapse()
-            }}
-            aria-label="Details"
-            title="Details"
-          >
-            <MousePointerClick className="h-4 w-4" />
-          </Button>
-          <button
-            type="button"
-            className={cn(
-              'flex flex-col items-center gap-1 rounded-lg p-1 transition-colors',
-              activeTab === 'collaborators' ? 'bg-muted' : 'hover:bg-muted/60',
-            )}
-            onClick={() => {
-              onTabChange('collaborators')
-              onToggleCollapse()
-            }}
-            aria-label="Collaborators"
-            title="Collaborators"
-          >
-            <WorkspaceMembersFacepile
-              toolId={toolId}
-              maxVisible={3}
-              showOverflow={false}
-              orientation="vertical"
-            />
-          </button>
         </div>
       </aside>
     )
@@ -176,22 +180,41 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
         ariaLabel="Resize right panel"
       />
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => onTabChange(value as RightPanelTab)}
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        <div className="flex shrink-0 items-center justify-between border-b border-border pr-2">
-          <TabsList className="h-9 bg-transparent p-0 pl-2">
-            <TabsTrigger value="details" className={TAB_TRIGGER_CLASS}>
-              <MousePointerClick className="mr-1.5 h-3.5 w-3.5" />
-              Details
-            </TabsTrigger>
-            <TabsTrigger value="collaborators" className={cn(TAB_TRIGGER_CLASS, 'gap-2')}>
-              <WorkspaceMembersFacepile toolId={toolId} maxVisible={3} className="mr-0.5" />
-              Collaborators
-            </TabsTrigger>
-          </TabsList>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
+          <div className="min-w-0 flex-1">
+            {executionPanelOpen ? (
+              <TooltipProvider delayDuration={200}>
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate text-sm font-semibold text-foreground">Execution</p>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label="About execution panel"
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" align="start">
+                      {EXECUTION_PANEL_HINT}
+                    </TooltipContent>
+                  </Tooltip>
+                  {execution?.needsReview && (
+                    <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                  )}
+                </div>
+              </TooltipProvider>
+            ) : (
+              <>
+                <p className="truncate text-sm font-semibold text-foreground">{detailsTitle}</p>
+                {detailsSubtitle && (
+                  <p className="truncate text-[11px] text-muted-foreground">{detailsSubtitle}</p>
+                )}
+              </>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -204,81 +227,133 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
           </Button>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2.5 border-b border-border px-3 py-2">
-          {activeTab === 'collaborators' && (
-            <WorkspaceMembersFacepile toolId={toolId} maxVisible={4} className="shrink-0" />
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-foreground">{panelTitle}</p>
-            {activeTab === 'collaborators' ? (
-              <p className="truncate text-[11px] text-muted-foreground">
-                {memberTotal} member{memberTotal === 1 ? '' : 's'} with access
-              </p>
-            ) : detailsSubtitle ? (
-              <p className="truncate text-[11px] text-muted-foreground">{detailsSubtitle}</p>
-            ) : null}
-          </div>
-        </div>
-
-        <TabsContent
-          value="details"
-          className="mt-0 min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
-        >
-          {multiSelectCount > 0 ? (
-            <MultiSelectState
-              count={multiSelectCount}
-              canConvert={canConvertToSubWorkflow}
-              onConvert={onConvertToSubWorkflow}
-            />
-          ) : selection?.kind === 'node' && selectedNode && isSubWorkflowNode(selectedNode) ? (
-            <SubWorkflowConfigPanel
-              node={selectedNode}
-              doc={doc}
-              onOpenSubWorkflow={onOpenSubWorkflow ?? (() => {})}
-            />
-          ) : selection?.kind === 'node' && selectedNode?.agent && isToolNode(selectedNode) ? (
-            <ToolConfigPanel node={selectedNode} diagram={diagram} onChange={onChange} />
-          ) : selection?.kind === 'node' && selectedNode?.agent ? (
-            <AgentConfigPanel node={selectedNode} onChange={onChange} />
-          ) : selection?.kind === 'edge' && selectedEdge ? (
-            <ConnectorConfigPanel
-              edge={selectedEdge}
-              fromLabel={fromLabel ?? 'Source'}
-              toLabel={toLabel ?? 'Target'}
-              onChange={onChange}
-            />
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {executionPanelOpen ? (
+            execution ? (
+              <ExecutionSidebarPanel
+                testInput={execution.testInput}
+                onTestInputChange={execution.onTestInputChange}
+                onSimulate={execution.onSimulate}
+                onExecute={execution.onExecute}
+                isExecuting={execution.isExecuting}
+                canExecute={execution.canExecute}
+                runStatus={execution.runStatus}
+                runId={execution.runId}
+                onCancel={execution.onCancel}
+                approvalPrompt={execution.approvalPrompt}
+                onSubmitApproval={execution.onSubmitApproval}
+                stepOutputs={execution.stepOutputs}
+                trace={execution.trace}
+              />
+            ) : (
+              <div className="p-4 text-xs text-muted-foreground">Execution controls unavailable.</div>
+            )
           ) : (
-            <WorkflowSettingsPanel
-              executionType={workflowMeta?.executionType ?? 'sequential'}
-              onExecutionTypeChange={(type: WorkflowExecutionType) =>
-                onWorkflowMetaChange?.({ executionType: type })
-              }
-              modelConfig={modelConfig}
-              onModelConfigChange={onModelConfigChange}
-              modelConfigReadOnly
-              llmConfigured={llmConfigured}
-              workflowId={workflowMeta?.workflowId ?? '—'}
-              pageCount={doc.pages.length}
-              nodeCount={diagram.nodes.length}
-              edgeCount={diagram.edges.length}
-            />
+            detailsContent
           )}
-        </TabsContent>
-
-        <TabsContent
-          value="collaborators"
-          className="mt-0 min-h-0 flex-1 overflow-hidden data-[state=inactive]:hidden"
-        >
-          <WorkspaceMembersPanel
-            toolId={toolId}
-            onManageAccess={onManageAccess}
-            hideHeader
-          />
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
     </aside>
   )
 })
+
+function DetailsPanelContent({
+  multiSelectCount,
+  canConvertToSubWorkflow,
+  onConvertToSubWorkflow,
+  selection,
+  selectedNode,
+  selectedEdge,
+  doc,
+  diagram,
+  onChange,
+  onOpenSubWorkflow,
+  workflowMeta,
+  modelConfig,
+  onWorkflowMetaChange,
+  onModelConfigChange,
+  llmConfigured,
+  fromLabel,
+  toLabel,
+}: {
+  multiSelectCount: number
+  canConvertToSubWorkflow: boolean
+  onConvertToSubWorkflow?: () => void
+  selection: Selection
+  selectedNode?: DiagramNode
+  selectedEdge?: DiagramEdge
+  doc: DiagramDocument
+  diagram: Diagram
+  onChange: (updater: (previous: Diagram) => Diagram) => void
+  onOpenSubWorkflow?: (pageId: string) => void
+  workflowMeta?: AgentWorkflowMeta
+  modelConfig: WorkflowModelConfig
+  onWorkflowMetaChange?: (patch: Partial<AgentWorkflowMeta>) => void
+  onModelConfigChange?: (patch: Partial<WorkflowModelConfig>) => void
+  llmConfigured: boolean
+  fromLabel?: string
+  toLabel?: string
+}): ReactNode {
+  if (multiSelectCount > 0) {
+    return (
+      <MultiSelectState
+        count={multiSelectCount}
+        canConvert={canConvertToSubWorkflow}
+        onConvert={onConvertToSubWorkflow}
+      />
+    )
+  }
+
+  if (selection?.kind === 'node' && selectedNode && isSubWorkflowNode(selectedNode)) {
+    return (
+      <SubWorkflowConfigPanel
+        node={selectedNode}
+        doc={doc}
+        onOpenSubWorkflow={onOpenSubWorkflow ?? (() => {})}
+      />
+    )
+  }
+
+  if (selection?.kind === 'node' && selectedNode?.agent && isToolNode(selectedNode)) {
+    return <ToolConfigPanel node={selectedNode} diagram={diagram} onChange={onChange} />
+  }
+
+  if (selection?.kind === 'node' && selectedNode?.agent && isExecutorNode(selectedNode)) {
+    return <ExecutorConfigPanel node={selectedNode} onChange={onChange} llmConfigured={llmConfigured} />
+  }
+
+  if (selection?.kind === 'node' && selectedNode?.agent) {
+    return <AgentConfigPanel node={selectedNode} onChange={onChange} />
+  }
+
+  if (selection?.kind === 'edge' && selectedEdge) {
+    return (
+      <ConnectorConfigPanel
+        edge={selectedEdge}
+        fromLabel={fromLabel ?? 'Source'}
+        toLabel={toLabel ?? 'Target'}
+        onChange={onChange}
+      />
+    )
+  }
+
+  return (
+    <WorkflowSettingsPanel
+      executionType={workflowMeta?.executionType ?? 'sequential'}
+      onExecutionTypeChange={(type: WorkflowExecutionType) =>
+        onWorkflowMetaChange?.({ executionType: type })
+      }
+      modelConfig={modelConfig}
+      onModelConfigChange={onModelConfigChange}
+      modelConfigReadOnly
+      llmConfigured={llmConfigured}
+      workflowId={workflowMeta?.workflowId ?? '—'}
+      pageCount={doc.pages.length}
+      nodeCount={diagram.nodes.length}
+      edgeCount={diagram.edges.length}
+    />
+  )
+}
 
 function MultiSelectState({
   count,

@@ -57,6 +57,7 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
   const agent = node.agent!
   const toolsText = agent.tools.join(', ')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [previewToken, setPreviewToken] = useState(0)
 
   const handleGenerateInstructions = useCallback(async () => {
     if (!node.label.trim()) {
@@ -71,6 +72,7 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
         description: agent.description.trim(),
       })
       updateAgent(onChange, node.id, { instructions: result.instructions })
+      setPreviewToken((previous) => previous + 1)
       if (result.source === 'template') {
         toast.success('Instructions drafted from template — check server .env LLM settings')
       } else {
@@ -117,13 +119,14 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
           </Field>
           <Field
             label="Instructions / system prompt"
-            hint="Uses the server LLM configuration from backend .env"
+            hint="Markdown system prompt — uses the server LLM configuration from backend .env"
           >
             <InstructionsEditorField
               value={agent.instructions}
               onChange={(instructions) => updateAgent(onChange, node.id, { instructions })}
               onGenerate={handleGenerateInstructions}
               isGenerating={isGenerating}
+              previewToken={previewToken}
             />
           </Field>
           <Field label="Agent type">

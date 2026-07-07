@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { motion } from 'framer-motion'
+import { RotateCcw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
 import { ExecutionAgentNode } from '@/components/agent-workflow/ExecutionAgentNode'
 import { getExecutablePlan, getOrderedExecutionAgents } from '@/components/agent-workflow/build-execution-plan'
@@ -15,17 +17,21 @@ import {
 import { edgeNeedsApprovalStyle } from '@/components/agent-workflow/validate-workflow'
 import { CanvasZoomControls } from '@/components/designer/CanvasZoomControls'
 import {
-  bestPortSidesForConnection,
   buildEdgePath,
   nodeRouteObstacle,
   portPoint,
+  resolveEdgeRouting,
   type Diagram,
   type DiagramEdge,
   type PortSide,
 } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import type { WorkflowRunState } from '@/types/agent-workflow'
-import { zoomViewportAt } from '@/components/designer/viewport-utils'
+import {
+  fitViewportToBounds,
+  fitViewportToNode,
+  zoomViewportAt,
+} from '@/components/designer/viewport-utils'
 import type { Viewport } from '@/components/designer/diagram-types'
 
 interface ExecutionFlowCanvasProps {
@@ -35,6 +41,7 @@ interface ExecutionFlowCanvasProps {
   workflowName: string
   workflowDescription?: string
   onDiagramChange?: (updater: (diagram: Diagram) => Diagram) => void
+  onBackToDesign?: () => void
 }
 
 type NodeDragSession = {
@@ -55,6 +62,18 @@ type PanSession = {
 }
 
 type CanvasSession = NodeDragSession | PanSession
+
+const EXECUTION_FOLLOW_DURATION_S = 0.8
+const EXECUTION_COMPLETE_FIT_DURATION_S = 1
+
+function resolveFollowNodeId(runState: WorkflowRunState): string | null {
+  if (runState.status === 'idle' || runState.status === 'cancelled') return null
+  if (runState.activeNodeId) return runState.activeNodeId
+  if (runState.status === 'waiting-approval') {
+    return runState.trace.find((step) => step.status === 'waiting-approval')?.nodeId ?? null
+  }
+  return null
+}
 
 function centerViewport(
   bounds: { width: number; height: number },
@@ -145,17 +164,23 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
   workflowName,
   workflowDescription,
   onDiagramChange,
+  onBackToDesign,
 }: ExecutionFlowCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const sessionRef = useRef<CanvasSession | null>(null)
+  const lastFollowKeyRef = useRef<string | null>(null)
+  const completedFitRef = useRef(false)
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
   const [dragPositions, setDragPositions] = useState<Map<string, { x: number; y: number }> | null>(
     null,
   )
   const [isPanning, setIsPanning] = useState(false)
   const [isDraggingNode, setIsDraggingNode] = useState(false)
+  const [cameraAnimating, setCameraAnimating] = useState(false)
 
   const scale = viewport.scale
+  const isActive = runState.status === 'running' || runState.status === 'waiting-approval'
+  const showBackToDesign = Boolean(onBackToDesign) && !isActive
 
   const commitNodePosition = useCallback(
     (nodeId: string, x: number, y: number) => {
@@ -177,6 +202,7 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
       originX: viewport.x,
       originY: viewport.y,
     }
+    setCameraAnimating(false)
     setIsPanning(true)
     document.body.style.userSelect = 'none'
   }, [viewport.x, viewport.y])
@@ -330,19 +356,99 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
     }
   }, [agentNodes, nodePosition])
 
+  const followNodeId = useMemo(() => resolveFollowNodeId(runState), [
+    runState.activeNodeId,
+    runState.status,
+    runState.trace,
+  ])
+
+  const followKey = useMemo(() => {
+    if (!followNodeId) return null
+    return `${followNodeId}:${runState.currentStepIndex}:${runState.status}`
+  }, [followNodeId, runState.currentStepIndex, runState.status])
+
+  const focusNodeInViewport = useCallback(
+    (nodeId: string) => {
+      const container = containerRef.current
+      const node = diagram.nodes.find((candidate) => candidate.id === nodeId)
+      if (!container || !node) return
+
+      const rect = container.getBoundingClientRect()
+      if (rect.width <= 0 || rect.height <= 0) return
+
+      const pos = nodePosition(node)
+      const size = agentNodeSize(node)
+      setViewport(
+        fitViewportToNode(
+          pos.x,
+          pos.y,
+          size.width,
+          size.height,
+          bounds.minX,
+          bounds.minY,
+          rect.width,
+          rect.height,
+          { padding: 0.3, minZoom: 0.8, maxZoom: 1.5 },
+        ),
+      )
+    },
+    [bounds.minX, bounds.minY, diagram.nodes, nodePosition],
+  )
+
+  const focusWorkflowInViewport = useCallback(() => {
+    const container = containerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+    setViewport(
+      fitViewportToBounds(bounds, rect.width, rect.height, { padding: 0.2, maxZoom: 1.5 }),
+    )
+  }, [bounds.height, bounds.width])
+
+  const isExecutionActive =
+    runState.status === 'running' || runState.status === 'waiting-approval'
+
+  useEffect(() => {
+    if (!followKey || isPanning || isDraggingNode || !isExecutionActive) return
+    if (lastFollowKeyRef.current === followKey) return
+    lastFollowKeyRef.current = followKey
+    if (followNodeId) {
+      setCameraAnimating(true)
+      focusNodeInViewport(followNodeId)
+    }
+  }, [focusNodeInViewport, followKey, followNodeId, isDraggingNode, isExecutionActive, isPanning])
+
+  useEffect(() => {
+    if (runState.status === 'idle') {
+      lastFollowKeyRef.current = null
+      completedFitRef.current = false
+      return
+    }
+
+    if (
+      (runState.status === 'completed' || runState.status === 'failed') &&
+      !completedFitRef.current
+    ) {
+      completedFitRef.current = true
+      setCameraAnimating(true)
+      focusWorkflowInViewport()
+    }
+  }, [focusWorkflowInViewport, runState.status])
+
   const layoutResetKey = useMemo(
     () => orderedAgents.map((node) => node.id).join(','),
     [orderedAgents],
   )
 
   useLayoutEffect(() => {
+    if (runState.status !== 'idle') return
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
     setViewport((previous) => ({
       scale: previous.scale,
       ...centerViewport(bounds, rect.width, rect.height, previous.scale),
     }))
-  }, [layoutResetKey, bounds.width, bounds.height])
+  }, [layoutResetKey, bounds.width, bounds.height, runState.status])
 
   const renderedEdges = useMemo(() => {
     return displayEdges.flatMap((edge) => {
@@ -355,18 +461,14 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
       const fromWithPos = { ...fromNode, x: fromPos.x, y: fromPos.y }
       const toWithPos = { ...toNode, x: toPos.x, y: toPos.y }
 
-      const sides =
-        edge.fromSide && edge.toSide
-          ? { fromSide: edge.fromSide as PortSide, toSide: edge.toSide as PortSide }
-          : bestPortSidesForConnection(fromWithPos, AGENT_SHAPE, toWithPos, AGENT_SHAPE, {
-              obstacles: routeObstacles,
-              fromNodeId: edge.from,
-              toNodeId: edge.to,
-            })
+      const sides = {
+        fromSide: (edge.fromSide ?? 'right') as PortSide,
+        toSide: (edge.toSide ?? 'left') as PortSide,
+      }
 
       const fromPoint = portPoint(fromWithPos, AGENT_SHAPE, sides.fromSide)
       const toPoint = portPoint(toWithPos, AGENT_SHAPE, sides.toSide)
-      const routing = edge.routing ?? 'orthogonal'
+      const routing = resolveEdgeRouting(edge.routing)
       const path = buildEdgePath(
         fromPoint,
         sides.fromSide,
@@ -387,7 +489,21 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
   }, [diagram.nodes, displayEdges, routeObstacles, runState, nodePosition])
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[hsl(var(--canvas))]">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[hsl(var(--canvas))]">
+      {showBackToDesign && (
+        <div className="pointer-events-none absolute right-3 top-3 z-30">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="pointer-events-auto h-9 gap-1.5 px-4 text-xs shadow-md"
+            onClick={onBackToDesign}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Back to design
+          </Button>
+        </div>
+      )}
       <div
         ref={containerRef}
         className={cn(
@@ -425,10 +541,22 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
           />
         </div>
 
-        <div
+        <motion.div
           className="absolute left-0 top-0"
+          animate={{ x: viewport.x, y: viewport.y, scale: viewport.scale }}
+          transition={
+            isPanning || isDraggingNode || !cameraAnimating
+              ? { duration: 0 }
+              : {
+                  duration:
+                    runState.status === 'completed' || runState.status === 'failed'
+                      ? EXECUTION_COMPLETE_FIT_DURATION_S
+                      : EXECUTION_FOLLOW_DURATION_S,
+                  ease: [0.25, 0.1, 0.25, 1],
+                }
+          }
+          onAnimationComplete={() => setCameraAnimating(false)}
           style={{
-            transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
             transformOrigin: '0 0',
             width: bounds.width,
             height: bounds.height,
@@ -482,11 +610,12 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
                     fill="none"
                     stroke={style.stroke}
                     strokeWidth={style.width}
-                    strokeDasharray={style.dash}
+                    strokeDasharray={isActive ? '5 5' : style.dash}
                     strokeOpacity={style.opacity}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     markerEnd={`url(#exec-arrow-${style.marker})`}
+                    className={isActive ? 'execution-edge-active' : undefined}
                   />
                   {isActive && (
                     <motion.path
@@ -541,18 +670,25 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
                   stepIndex={stepIndex}
                   totalSteps={totalSteps}
                   toolCount={toolCount}
-                  humanApproval={planStep?.humanApproval}
-                  approvalRole={planStep?.approvalRole}
                   isRunning={isRunning}
                   isCompleted={isCompleted}
                   isWaiting={isWaiting}
                   isPending={isPending}
-                  output={runState.stepOutputs[node.id]}
                 />
               </div>
             )
           })}
-        </div>
+        </motion.div>
+
+        <style>{`
+          .execution-edge-active {
+            animation: execution-edge-dash 1s linear infinite;
+          }
+          @keyframes execution-edge-dash {
+            0% { stroke-dashoffset: 0; }
+            100% { stroke-dashoffset: -10; }
+          }
+        `}</style>
       </div>
 
       {runState.status === 'idle' && agentNodes.length > 0 && !isDraggingNode && !isPanning && (

@@ -12,6 +12,9 @@ export type AgentType =
   | 'memory'
   | 'output'
   | 'control'
+  | 'executor'
+
+export type ExecutorHandlerKind = 'class' | 'function'
 
 export type WorkflowExecutionType =
   | 'sequential'
@@ -23,6 +26,8 @@ export type WorkflowExecutionType =
 
 export type DeploymentStatus = 'draft' | 'validated' | 'deployed' | 'failed'
 
+export type ToolApprovalMode = 'never_required' | 'always_required'
+
 export interface AgentNodeConfig {
   agentType: AgentType
   description: string
@@ -32,6 +37,28 @@ export interface AgentNodeConfig {
   tools: string[]
   inputSchema: string
   outputSchema: string
+  /** Tool nodes: whether invoking this tool requires human approval. */
+  approvalMode?: ToolApprovalMode
+  /** MCP tool nodes: server endpoint URL. */
+  mcpUrl?: string
+  /** Eleven Nodes executor: stable id used in workflow build exports (defaults from node id). */
+  executorId?: string
+  /** Class-based executor subclass or @executor function. */
+  executorHandlerKind?: ExecutorHandlerKind
+  /** Handler input type annotation, e.g. str, int, dict. */
+  executorInputType?: string
+  /** Message type sent to downstream executors via ctx.send_message. */
+  executorOutputType?: string
+  /** Type for ctx.yield_output — leave empty if this handler does not yield workflow output. */
+  executorWorkflowOutputType?: string
+  /** Python handler source (@handler class or @executor function). */
+  executorSource?: string
+  /** Maps to workflow terminal output — yield_output emits final workflow results. */
+  contributesToWorkflowOutput?: boolean
+  /** Maps to intermediate output stream — yield_output emits progress events. */
+  contributesToIntermediateOutput?: boolean
+  /** Clear mutable executor state between workflow runs. */
+  executorResettable?: boolean
   memoryEnabled: boolean
   memoryScope: 'session' | 'workflow' | 'global'
   retryCount: number

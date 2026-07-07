@@ -4,6 +4,7 @@ import {
   getNodeSize,
   nodeRouteObstacle,
   portPoint,
+  resolveEdgeRouting,
   resolveNodeStyle,
   type Diagram,
   type DiagramEdge,
@@ -155,7 +156,7 @@ function renderEdgeSvg(
 
   const fromStyle = resolveNodeStyle(from, fromItem)
   const toStyle = resolveNodeStyle(to, toItem)
-  const routing = edge.routing ?? 'orthogonal'
+  const routing = resolveEdgeRouting(edge.routing)
   const fromPoint = portPoint(from, fromStyle.shape, edge.fromSide)
   const toPoint = portPoint(to, toStyle.shape, edge.toSide)
   const routeContext: EdgeRouteContext = {

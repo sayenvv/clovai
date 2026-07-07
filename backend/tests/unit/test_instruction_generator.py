@@ -69,4 +69,5 @@ def test_generate_instructions_template_fallback(monkeypatch):
     )
 
     assert "Summarizer" in result.instructions
+    assert "##" in result.instructions
     assert result.source == "template"

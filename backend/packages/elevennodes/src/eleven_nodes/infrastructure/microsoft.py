@@ -26,6 +26,16 @@ class MicrosoftAgentConfigurationError(RuntimeError):
     """Raised when a Microsoft Agent Framework dependency or setting is unavailable."""
 
 
+def model_supports_sampling_parameters(model: str) -> bool:
+    """Return False for reasoning models that reject temperature and related sampling knobs."""
+    normalized = model.strip().lower()
+    if normalized.startswith("gpt-5"):
+        return False
+    if re.match(r"^o\d", normalized):
+        return False
+    return True
+
+
 @dataclass(frozen=True, slots=True)
 class MicrosoftModelConfig:
     """Provider-neutral model settings used to build Microsoft Framework clients."""
@@ -430,14 +440,19 @@ class MicrosoftWorkflowAgentFactory:
 
     def _default_options(self, agent: MicrosoftAgentDefinition) -> dict[str, Any]:
         options: dict[str, Any] = {
-            "temperature": self._model_config.temperature,
-            "top_p": self._model_config.top_p,
             "max_tokens": self._model_config.max_tokens,
-            "presence_penalty": self._model_config.presence_penalty,
-            "frequency_penalty": self._model_config.frequency_penalty,
         }
-        if self._model_config.seed is not None:
-            options["seed"] = self._model_config.seed
+        if model_supports_sampling_parameters(self._model_config.model):
+            options.update(
+                {
+                    "temperature": self._model_config.temperature,
+                    "top_p": self._model_config.top_p,
+                    "presence_penalty": self._model_config.presence_penalty,
+                    "frequency_penalty": self._model_config.frequency_penalty,
+                }
+            )
+            if self._model_config.seed is not None:
+                options["seed"] = self._model_config.seed
         response_format = _response_format(agent)
         if response_format is not None:
             options["response_format"] = response_format

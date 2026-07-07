@@ -69,3 +69,90 @@ export function zoomViewportAt(
     y: anchorY - (anchorY - viewport.y) * ratio,
   }
 }
+
+/** Pan so a diagram node sits near the center of the visible canvas area. */
+export function viewportCenteringNode(
+  nodeX: number,
+  nodeY: number,
+  nodeWidth: number,
+  nodeHeight: number,
+  boundsMinX: number,
+  boundsMinY: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  scale: number,
+): Pick<Viewport, 'x' | 'y'> {
+  const centerX = nodeX + nodeWidth / 2
+  const centerY = nodeY + nodeHeight / 2
+  return {
+    x: canvasWidth / 2 - (centerX - boundsMinX) * scale,
+    y: canvasHeight / 2 - (centerY - boundsMinY) * scale,
+  }
+}
+
+export interface FitViewportOptions {
+  padding?: number
+  minZoom?: number
+  maxZoom?: number
+}
+
+/** DevUI-style fitView for a single node (padding ~0.3, zoom clamped 0.8–1.5). */
+export function fitViewportToNode(
+  nodeX: number,
+  nodeY: number,
+  nodeWidth: number,
+  nodeHeight: number,
+  boundsMinX: number,
+  boundsMinY: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  options: FitViewportOptions = {},
+): Viewport {
+  const padding = options.padding ?? 0.3
+  const minZoom = options.minZoom ?? 0.8
+  const maxZoom = options.maxZoom ?? 1.5
+  const padX = canvasWidth * padding
+  const padY = canvasHeight * padding
+  const availableWidth = Math.max(canvasWidth - padX * 2, 1)
+  const availableHeight = Math.max(canvasHeight - padY * 2, 1)
+  const scaleX = availableWidth / Math.max(nodeWidth, 1)
+  const scaleY = availableHeight / Math.max(nodeHeight, 1)
+  const scale = clampViewportScale(Math.max(Math.min(scaleX, scaleY, maxZoom), minZoom))
+  return {
+    ...viewportCenteringNode(
+      nodeX,
+      nodeY,
+      nodeWidth,
+      nodeHeight,
+      boundsMinX,
+      boundsMinY,
+      canvasWidth,
+      canvasHeight,
+      scale,
+    ),
+    scale,
+  }
+}
+
+/** Fit the full workflow bounds in view (DevUI uses padding ~0.2 on completion). */
+export function fitViewportToBounds(
+  bounds: { width: number; height: number },
+  canvasWidth: number,
+  canvasHeight: number,
+  options: FitViewportOptions = {},
+): Viewport {
+  const padding = options.padding ?? 0.2
+  const maxZoom = options.maxZoom ?? 1.5
+  const padX = canvasWidth * padding
+  const padY = canvasHeight * padding
+  const availableWidth = Math.max(canvasWidth - padX * 2, 1)
+  const availableHeight = Math.max(canvasHeight - padY * 2, 1)
+  const scaleX = availableWidth / Math.max(bounds.width, 1)
+  const scaleY = availableHeight / Math.max(bounds.height, 1)
+  const scale = clampViewportScale(Math.min(scaleX, scaleY, maxZoom))
+  return {
+    scale,
+    x: (canvasWidth - bounds.width * scale) / 2,
+    y: (canvasHeight - bounds.height * scale) / 2,
+  }
+}

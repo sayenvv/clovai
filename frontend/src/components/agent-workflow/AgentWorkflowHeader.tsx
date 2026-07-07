@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Rocket, Save, ShieldCheck } from 'lucide-react'
+import { Rocket, Save, ShieldCheck, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,7 @@ interface AgentWorkflowHeaderProps {
   onSave: () => void
   onValidate: () => void
   onDeploy: () => void
+  onGenerate?: () => void
   isValidated: boolean
   onNavigateHome?: () => void
 }
@@ -33,6 +34,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
   onSave,
   onValidate,
   onDeploy,
+  onGenerate,
   isValidated,
   onNavigateHome,
 }: AgentWorkflowHeaderProps) {
@@ -87,6 +89,17 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        {onGenerate ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onGenerate}
+            className="border-violet-500/25 bg-gradient-to-r from-violet-500/[0.08] to-fuchsia-500/[0.06] text-violet-700 hover:from-violet-500/[0.12] hover:to-fuchsia-500/[0.1] dark:text-violet-300"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Generate
+          </Button>
+        ) : null}
         <Button variant="ghost" size="sm" onClick={onSave}>
           <Save className="h-3.5 w-3.5" />
           Save draft

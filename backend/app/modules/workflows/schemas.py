@@ -74,7 +74,7 @@ class WorkflowToolSpec(WorkflowModel):
     name: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
     description: str = ""
-    tool_type: Literal["api", "function", "database", "webhook", "custom"]
+    tool_type: Literal["api", "function", "database", "webhook", "custom", "mcp"]
     configuration: dict[str, Any] = Field(default_factory=dict)
     input_schema: SchemaBlock = Field(default_factory=SchemaBlock)
     metadata: dict[str, Any] = Field(default_factory=dict)

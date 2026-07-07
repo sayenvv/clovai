@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.core.llm_settings import (
     _is_azure_provider,
+    apply_chat_completion_limits,
     chat_completions_headers,
     chat_completions_url,
     get_llm_settings,
@@ -30,9 +31,9 @@ class GenerateInstructionsResponse(BaseModel):
 def _template_instructions(agent_name: str, description: str) -> str:
     role = description.strip() or f"Handle tasks assigned to the {agent_name} agent."
     return (
-        f"You are {agent_name}.\n\n"
-        f"Role:\n{role}\n\n"
-        "Guidelines:\n"
+        f"## {agent_name}\n\n"
+        f"### Role\n{role}\n\n"
+        "### Guidelines\n"
         "- Follow the workflow context and prior agent outputs.\n"
         "- Use connected tools when they improve accuracy or completeness.\n"
         "- Respond in a clear, actionable format aligned with the output schema.\n"
@@ -40,30 +41,50 @@ def _template_instructions(agent_name: str, description: str) -> str:
     )
 
 
+def _normalize_markdown(text: str) -> str:
+    """Strip optional markdown code fences from model output."""
+    cleaned = text.strip()
+    if not cleaned.startswith("```"):
+        return cleaned
+
+    lines = cleaned.splitlines()
+    if lines[0].startswith("```"):
+        lines = lines[1:]
+    if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
 def _build_chat_payload(settings, agent_name: str, description: str) -> dict:
     prompt = (
         "Write a concise system prompt for an AI workflow agent.\n"
         f"Agent name: {agent_name}\n"
         f"Description: {description or 'General-purpose workflow agent'}\n\n"
-        "Return only the system prompt text. No markdown fences."
+        "Format the response as Markdown with clear sections, for example:\n"
+        "- A level-2 heading with the agent name or role\n"
+        "- ## Role — what the agent does\n"
+        "- ## Guidelines — bullet list of behavior rules\n"
+        "- Optional ## Output format or ## Tools sections when useful\n\n"
+        "Return only the Markdown document. No code fences, preamble, or explanation."
     )
     payload: dict = {
         "messages": [
             {
                 "role": "system",
-                "content": "You write precise agent system prompts for multi-agent workflows.",
+                "content": (
+                    "You write precise agent system prompts for multi-agent workflows. "
+                    "Always respond in clean Markdown."
+                ),
             },
             {"role": "user", "content": prompt},
         ],
     }
 
-    model = settings.model.lower()
-    if model.startswith("gpt-5") or model.startswith("o"):
-        payload["max_completion_tokens"] = min(settings.max_tokens, 2048)
-    else:
-        payload["temperature"] = settings.temperature
-        payload["top_p"] = settings.top_p
-        payload["max_tokens"] = min(settings.max_tokens, 2048)
+    apply_chat_completion_limits(
+        payload,
+        settings,
+        max_tokens=min(settings.max_tokens, 2048),
+    )
 
     if not _is_azure_provider(settings.provider):
         payload["model"] = settings.model
@@ -92,7 +113,7 @@ def _llm_instructions(agent_name: str, description: str) -> str | None:
         with urllib.request.urlopen(request, timeout=45) as response:
             body = json.loads(response.read().decode("utf-8"))
         content = body["choices"][0]["message"]["content"]
-        text = str(content).strip()
+        text = _normalize_markdown(str(content))
         return text or None
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")

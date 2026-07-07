@@ -372,6 +372,24 @@
             "order": 2
           },
           {
+            "id": "aw-mcp-tool",
+            "label": "MCP Tool",
+            "description": "Model Context Protocol server connection",
+            "shape": "process",
+            "color": "slate",
+            "group": "Agents",
+            "order": 3
+          },
+          {
+            "id": "aw-executor",
+            "label": "Executor",
+            "description": "Eleven Nodes message-processing executor",
+            "shape": "process",
+            "color": "slate",
+            "group": "Agents",
+            "order": 4
+          },
+          {
             "id": "aw-start",
             "label": "Start",
             "description": "Workflow entry point",

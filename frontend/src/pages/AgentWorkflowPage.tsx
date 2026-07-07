@@ -25,6 +25,7 @@ import type {
   WorkflowDeployment,
   WorkflowValidationIssue,
 } from '@/types/agent-workflow'
+import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 import { AgentWorkflowHeader } from '@/components/agent-workflow/AgentWorkflowHeader'
 import { AgentLibrarySidebar } from '@/components/agent-workflow/AgentLibrarySidebar'
 import { AgentPropertiesShell } from '@/components/agent-workflow/AgentPropertiesShell'
@@ -32,7 +33,6 @@ import {
   BottomInspectorPanel,
   type InspectorTab,
 } from '@/components/agent-workflow/BottomInspectorPanel'
-import { ExecutionControlBar } from '@/components/agent-workflow/ExecutionControlBar'
 import { ExecutionFlowCanvas } from '@/components/agent-workflow/ExecutionFlowCanvas'
 import { getExecutablePlan } from '@/components/agent-workflow/build-execution-plan'
 import { useWorkflowRunner } from '@/components/agent-workflow/use-workflow-runner'
@@ -45,15 +45,19 @@ import {
   AGENT_NODE_WIDTH,
   createWorkflowId,
   enrichAgentNode,
+  enrichDiagram,
   TOOL_NODE_HEIGHT,
   TOOL_NODE_WIDTH,
   TOOL_PALETTE_ID,
+  isMappedToolPalette,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { SelectAgentDialog } from '@/components/agent-workflow/SelectAgentDialog'
 import {
   ConvertSubWorkflowDialog,
   InsertWorkflowDialog,
 } from '@/components/agent-workflow/InsertWorkflowDialog'
+import { GenerateWorkflowDialog } from '@/components/agent-workflow/GenerateWorkflowDialog'
+import { diagramFromGenerationPlanSafe } from '@/components/agent-workflow/workflow-from-generation'
 import { diagramContentCenter } from '@/components/agent-workflow/sub-workflow-ops'
 import {
   attachToolToAgent,
@@ -152,9 +156,10 @@ export default function AgentWorkflowPage() {
   const [logs, setLogs] = useState<string[]>([])
   const [testInput, setTestInput] = useState('{\n  "query": "Summarize the quarterly report"\n}')
   const [agentPickOpen, setAgentPickOpen] = useState(false)
-  const [rightPanelTab, setRightPanelTab] = useState<'details' | 'collaborators'>('details')
+  const [generateWorkflowOpen, setGenerateWorkflowOpen] = useState(false)
+  const [executionPanelOpen, setExecutionPanelOpen] = useState(false)
   const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
-  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('test')
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('trace')
   const [isPersistingExecution, setIsPersistingExecution] = useState(false)
   const { state: runState, start: startExecution, submitApproval, cancel: cancelExecution, reset: resetExecution } =
     useWorkflowRunner()
@@ -209,7 +214,6 @@ export default function AgentWorkflowPage() {
 
   const openWorkflowSettings = useCallback(() => {
     setSelection(null)
-    setRightPanelTab('details')
     if (right.collapsed) right.toggle()
   }, [right])
 
@@ -239,18 +243,14 @@ export default function AgentWorkflowPage() {
   }, [tool])
 
   useEffect(() => {
-    if (selection?.kind === 'node' || selection?.kind === 'edge') {
-      setRightPanelTab('details')
-    }
-  }, [selection])
-
-  useEffect(() => {
     if (runState.status === 'failed' && runState.errors.length > 0) {
       setInspectorTab('errors')
+      if (bottom.collapsed) bottom.toggle()
     } else if (runState.status === 'waiting-approval') {
-      setInspectorTab('trace')
+      setExecutionPanelOpen(true)
+      if (right.collapsed) right.toggle()
     }
-  }, [runState.status, runState.errors.length])
+  }, [runState.status, runState.errors.length, bottom.collapsed, bottom.toggle, right.collapsed, right.toggle])
 
   const handleSelectionChange = useCallback((next: Selection) => {
     setSelection(next)
@@ -317,7 +317,7 @@ export default function AgentWorkflowPage() {
       const item = paletteById.get(paletteId)
       if (!item) return
 
-      if (paletteId === TOOL_PALETTE_ID) {
+      if (isMappedToolPalette(paletteId)) {
         const agents = listAgentNodes(diagram)
         if (agents.length === 0) {
           toast.error('Add an agent before adding tools')
@@ -358,6 +358,30 @@ export default function AgentWorkflowPage() {
     requestAnimationFrame(() => canvasRef.current?.fitView())
     toast.success('Auto-layout applied')
   }, [handleChange])
+
+  const handleWorkflowGenerated = useCallback(
+    (plan: WorkflowGenerationPlan) => {
+      const generated = diagramFromGenerationPlanSafe(plan, paletteById)
+      const enrichedDiagram = enrichDiagram(generated.diagram, paletteById)
+      invalidateValidation()
+      setDoc((previous) => ({
+        ...previous,
+        workflow: {
+          ...(previous.workflow ?? defaultWorkflowMeta()),
+          ...generated.workflowMeta,
+        },
+        pages: previous.pages.map((page) =>
+          page.id === previous.activePageId
+            ? { ...page, name: generated.workflowName, diagram: enrichedDiagram }
+            : page,
+        ),
+      }))
+      setSelection(null)
+      setEditorView('canvas')
+      requestAnimationFrame(() => canvasRef.current?.fitView())
+    },
+    [invalidateValidation, paletteById, setDoc],
+  )
 
   const handleSave = useCallback(async () => {
     const nextDoc = {
@@ -407,7 +431,6 @@ export default function AgentWorkflowPage() {
 
   const handleTest = useCallback(() => {
     const stamp = new Date().toISOString()
-    setInspectorTab('trace')
     setTrace(simulateTrace(diagram))
     setLogs([
       `[${stamp}] Starting workflow ${workflowMeta.workflowId}`,
@@ -417,8 +440,20 @@ export default function AgentWorkflowPage() {
           `[${new Date(Date.now() + index * 500).toISOString()}] Agent "${node.label}" executed`,
       ),
     ])
-    toast.success('Test run completed — see execution trace')
+    toast.success('Simulation complete — see Trace or Logs in the output panel')
   }, [diagram, testInput, workflowMeta.workflowId])
+
+  const openExecutionPanel = useCallback(() => {
+    setSelection(null)
+    setExecutionPanelOpen(true)
+    if (right.collapsed) right.toggle()
+  }, [right])
+
+  const handleBackToDesign = useCallback(() => {
+    resetExecution()
+    setExecutionPanelOpen(false)
+    setSelection(null)
+  }, [resetExecution])
 
   const handleDeploy = useCallback(() => {
     if (!isValidated) {
@@ -457,11 +492,12 @@ export default function AgentWorkflowPage() {
       return
     }
 
-    if (bottom.collapsed) bottom.toggle()
+    if (right.collapsed) right.toggle()
+    setExecutionPanelOpen(true)
     setInspectorTab('trace')
 
     if (!isValidWorkflowInput(testInput)) {
-      toast.error('Add valid JSON workflow input in the Test & run panel before executing.')
+      toast.error('Add valid JSON workflow input in the Execution panel before executing.')
       return
     }
 
@@ -520,16 +556,12 @@ export default function AgentWorkflowPage() {
     paletteById,
     serverModelConfig,
     bottom,
+    right,
     isPersistingExecution,
     runState.status,
     resetExecution,
     startExecution,
   ])
-
-  const handleResetExecution = useCallback(() => {
-    resetExecution()
-    setInspectorTab('test')
-  }, [resetExecution])
 
   useEffect(() => {
     registerSaveHandler(handleSave)
@@ -543,7 +575,7 @@ export default function AgentWorkflowPage() {
   )
 
   const transformDroppedNode = useCallback((node: DiagramNode, item: PaletteItem) => {
-    const isTool = node.paletteId === TOOL_PALETTE_ID
+    const isTool = isMappedToolPalette(node.paletteId)
     return enrichAgentNode(
       {
         ...node,
@@ -556,7 +588,7 @@ export default function AgentWorkflowPage() {
 
   const finalizeDroppedNode = useCallback(
     (node: DiagramNode, currentDiagram: Diagram, world: { x: number; y: number }) => {
-      if (node.paletteId !== TOOL_PALETTE_ID) return node
+      if (!isMappedToolPalette(node.paletteId)) return node
       if (listAgentNodes(currentDiagram).length === 0) {
         toast.error('Add an agent before placing tools')
         return null
@@ -595,6 +627,7 @@ export default function AgentWorkflowPage() {
         onSave={handleSave}
         onValidate={handleValidate}
         onDeploy={handleDeploy}
+        onGenerate={() => setGenerateWorkflowOpen(true)}
         isValidated={isValidated}
         onNavigateHome={handleNavigateHome}
       />
@@ -662,7 +695,6 @@ export default function AgentWorkflowPage() {
             onShowGridChange={setShowGrid}
             onShare={() => setShareOpen(true)}
             toolId={TOOL_ID}
-            showWorkspaceMembers={false}
             onManageAccess={() => setShareOpen(true)}
             onOpenWorkflowSettings={openWorkflowSettings}
             serverModelConfig={serverModelConfig}
@@ -685,21 +717,16 @@ export default function AgentWorkflowPage() {
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               {isExecutionMode ? (
-                <>
-                  <ExecutionControlBar
-                    runState={runState}
-                    onCancel={cancelExecution}
-                    onReset={handleResetExecution}
-                    onSubmitApproval={submitApproval}
-                  />
+                <div className="flex min-h-0 flex-1 flex-col">
                   <ExecutionFlowCanvas
                     diagram={diagram}
                     paletteById={paletteById}
                     runState={runState}
                     workflowName={workflowName}
                     workflowDescription={workflowDescription}
+                    onBackToDesign={handleBackToDesign}
                   />
-                </>
+                </div>
               ) : (
                 <>
                   <WorkflowEditorViewToggle mode={editorView} onModeChange={setEditorView} />
@@ -717,6 +744,9 @@ export default function AgentWorkflowPage() {
                       onAutoLayout={runAutoLayout}
                       transformDroppedNode={transformDroppedNode}
                       finalizeDroppedNode={finalizeDroppedNode}
+                      onOpenExecution={openExecutionPanel}
+                      executionPanelOpen={executionPanelOpen}
+                      onBackToDesign={handleBackToDesign}
                     />
                   ) : (
                     <WorkflowBuildCodeView
@@ -747,14 +777,10 @@ export default function AgentWorkflowPage() {
                 executionEvents={runState.events}
                 executionErrors={runState.errors}
                 executionWarnings={runState.warnings}
-                testInput={testInput}
-                onTestInputChange={setTestInput}
-                onSimulate={handleTest}
-                onExecute={handleExecute}
                 isExecuting={isExecuting}
-                canExecute={agentNodes.length > 0 && !isExecutionMode}
                 activeTab={inspectorTab}
                 onActiveTabChange={setInspectorTab}
+                stepOutputs={runState.stepOutputs}
                 height={bottom.size}
                 collapsed={bottom.collapsed}
                 onResizePointerDown={bottom.onResizePointerDown}
@@ -773,16 +799,29 @@ export default function AgentWorkflowPage() {
           collapsed={right.collapsed}
           onResizePointerDown={right.onResizePointerDown}
           onToggleCollapse={right.toggle}
-          toolId={TOOL_ID}
-          activeTab={rightPanelTab}
-          onTabChange={setRightPanelTab}
-          onManageAccess={() => setShareOpen(true)}
           onOpenSubWorkflow={handleSelectPage}
           onConvertToSubWorkflow={subWorkflow.requestConvert}
           canConvertToSubWorkflow={subWorkflow.canConvert}
           onWorkflowMetaChange={handleWorkflowMetaChange}
           serverModelConfig={serverModelConfig}
           llmConfigured={llmConfigured}
+          executionPanelOpen={executionPanelOpen}
+          execution={{
+            testInput,
+            onTestInputChange: setTestInput,
+            onSimulate: handleTest,
+            onExecute: handleExecute,
+            isExecuting,
+            canExecute: agentNodes.length > 0 && !isExecutionMode,
+            runStatus: runState.status,
+            runId: runState.runId,
+            onCancel: cancelExecution,
+            approvalPrompt: runState.approvalPrompt,
+            onSubmitApproval: submitApproval,
+            stepOutputs: runState.stepOutputs,
+            trace: displayTrace,
+            needsReview: Boolean(runState.approvalPrompt),
+          }}
         />
       </div>
 
@@ -817,6 +856,14 @@ export default function AgentWorkflowPage() {
         onInsertFromPage={subWorkflow.insertFromPage}
         onImportDocument={subWorkflow.importDocument}
         onCreateWorkflowTab={handleCreateWorkflowTab}
+      />
+
+      <GenerateWorkflowDialog
+        open={generateWorkflowOpen}
+        onOpenChange={setGenerateWorkflowOpen}
+        workflowName={workflowName}
+        llmConfigured={llmConfigured}
+        onGenerated={(plan) => handleWorkflowGenerated(plan)}
       />
 
       <UnsavedChangesDialog

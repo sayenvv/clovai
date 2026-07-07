@@ -41,7 +41,7 @@
       "id": "agent",
       "paletteId": "aw-agent",
       "label": "Agent",
-      "description": "AI agent that reasons, plans, and generates output.",
+      "description": "AI agent that reasons, plans, and calls tools mapped beneath it on the canvas.",
       "agentType": "llm",
       "toolCount": 0
     },
@@ -49,9 +49,25 @@
       "id": "tool",
       "paletteId": "aw-tool",
       "label": "Tool",
-      "description": "Runs tools, APIs, and external integrations.",
+      "description": "API or integration node — drag under an agent to map tools it can call.",
       "agentType": "tool",
       "toolCount": 1
+    },
+    {
+      "id": "mcp-tool",
+      "paletteId": "aw-mcp-tool",
+      "label": "MCP Tool",
+      "description": "MCP server connection — set a name and URL, then map under an agent.",
+      "agentType": "tool",
+      "toolCount": 0
+    },
+    {
+      "id": "executor",
+      "paletteId": "aw-executor",
+      "label": "Executor",
+      "description": "Eleven Nodes executor — typed message handler with send_message and yield_output.",
+      "agentType": "executor",
+      "toolCount": 0
     }
   ],
   "externalAgents": [

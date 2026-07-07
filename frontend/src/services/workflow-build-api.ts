@@ -101,7 +101,7 @@ export async function loadWorkflowBuildSpecFromApi(
   return response.json() as Promise<WorkflowBuildSpec>
 }
 
-/** POST execute — calls the backend Microsoft Agent Framework runtime. */
+/** POST execute — calls the Eleven Nodes workflow runtime on the backend. */
 export async function executeWorkflowFromApi(
   workspaceId: string,
   pageId: string,

@@ -11,7 +11,7 @@ export type WorkflowExecutionMode = 'standard' | 'human-in-the-loop'
 
 export type WorkflowSchemaStatus = 'draft' | 'validated' | 'deployed' | 'archived'
 
-export type WorkflowToolType = 'api' | 'function' | 'database' | 'webhook' | 'custom'
+export type WorkflowToolType = 'api' | 'function' | 'database' | 'webhook' | 'custom' | 'mcp'
 
 export type WorkflowLogLevel = 'debug' | 'info' | 'warning' | 'error'
 

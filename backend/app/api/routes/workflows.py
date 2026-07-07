@@ -9,6 +9,16 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
+from app.modules.workflows.workflow_generator import (
+    GenerateWorkflowRequest,
+    GenerateWorkflowResponse,
+    generate_workflow_plan,
+)
+from app.modules.workflows.executor_source_generator import (
+    GenerateExecutorSourceRequest,
+    GenerateExecutorSourceResponse,
+    generate_executor_source,
+)
 from app.modules.workflows.instruction_generator import (
     GenerateInstructionsRequest,
     GenerateInstructionsResponse,
@@ -42,6 +52,32 @@ RUNTIME_SERVICE = WorkflowRuntimeService()
 async def generate_instructions(body: GenerateInstructionsRequest) -> GenerateInstructionsResponse:
     try:
         return generate_agent_instructions(body)
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+
+
+@router.post(
+    "/generate-executor-source",
+    response_model=GenerateExecutorSourceResponse,
+    summary="Generate Eleven Nodes executor handler Python source",
+)
+async def generate_executor_source_route(
+    body: GenerateExecutorSourceRequest,
+) -> GenerateExecutorSourceResponse:
+    try:
+        return generate_executor_source(body)
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+
+
+@router.post(
+    "/generate-workflow",
+    response_model=GenerateWorkflowResponse,
+    summary="Generate a complete workflow plan from a natural-language prompt",
+)
+async def generate_workflow_route(body: GenerateWorkflowRequest) -> GenerateWorkflowResponse:
+    try:
+        return generate_workflow_plan(body)
     except RuntimeError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
 
@@ -163,7 +199,7 @@ async def test_workflow(
 @router.post(
     "/{workspace_id}/pages/{page_id}/execute",
     response_model=WorkflowRunResponse,
-    summary="Execute a workflow with Microsoft Agent Framework",
+    summary="Execute a workflow with the Eleven Nodes runtime",
 )
 async def execute_workflow(
     workspace_id: str,

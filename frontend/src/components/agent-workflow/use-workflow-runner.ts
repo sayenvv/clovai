@@ -158,6 +158,114 @@ function buildVisualProgressState(
   }
 }
 
+function buildAgentRuntimeEvents(
+  plan: ExecutionPlanStep[],
+  response: WorkflowRunResponse,
+): {
+  events: WorkflowExecutionEvent[]
+  errors: WorkflowExecutionEvent[]
+  warnings: WorkflowExecutionEvent[]
+} {
+  const events: WorkflowExecutionEvent[] = []
+  const errors: WorkflowExecutionEvent[] = []
+  const warnings: WorkflowExecutionEvent[] = []
+  const processedFailureNodes = new Set<string>()
+
+  for (const step of plan) {
+    const node = response.nodes[step.nodeId]
+    const failureMessage = response.failures[step.nodeId]
+
+    if (node?.startedAt) {
+      events.push({
+        id: createEventId(),
+        kind: 'agent-start',
+        level: 'info',
+        message: `${step.agentName} started execution`,
+        timestamp: node.startedAt,
+        nodeId: step.nodeId,
+        agentName: step.agentName,
+      })
+    }
+
+    if (failureMessage || node?.error || node?.status === 'failed') {
+      processedFailureNodes.add(step.nodeId)
+      const errorMessage = failureMessage ?? node?.error ?? 'Agent step failed'
+      const errorEvent: WorkflowExecutionEvent = {
+        id: createEventId(),
+        kind: 'error',
+        level: 'error',
+        message: errorMessage,
+        timestamp: node?.completedAt ?? node?.startedAt ?? new Date().toISOString(),
+        nodeId: step.nodeId,
+        agentName: step.agentName,
+        detail:
+          node?.metadata && Object.keys(node.metadata).length > 0
+            ? JSON.stringify(node.metadata, null, 2)
+            : undefined,
+      }
+      errors.push(errorEvent)
+      events.push(errorEvent)
+    } else if (node?.status === 'completed') {
+      const outputPreview = node.output == null ? undefined : stringifyOutput(node.output)
+      events.push({
+        id: createEventId(),
+        kind: 'agent-complete',
+        level: 'success',
+        message: `${step.agentName} completed successfully`,
+        timestamp: node.completedAt ?? new Date().toISOString(),
+        nodeId: step.nodeId,
+        agentName: step.agentName,
+        detail:
+          outputPreview && outputPreview.length > 240
+            ? `${outputPreview.slice(0, 240)}…`
+            : outputPreview,
+      })
+    } else if (node?.status === 'skipped') {
+      const warnEvent: WorkflowExecutionEvent = {
+        id: createEventId(),
+        kind: 'warning',
+        level: 'warning',
+        message: `${step.agentName} was skipped`,
+        timestamp: node.completedAt ?? new Date().toISOString(),
+        nodeId: step.nodeId,
+        agentName: step.agentName,
+      }
+      warnings.push(warnEvent)
+      events.push(warnEvent)
+    } else if (!node) {
+      const warnEvent: WorkflowExecutionEvent = {
+        id: createEventId(),
+        kind: 'warning',
+        level: 'warning',
+        message: `${step.agentName}: no result returned from runtime`,
+        timestamp: new Date().toISOString(),
+        nodeId: step.nodeId,
+        agentName: step.agentName,
+      }
+      warnings.push(warnEvent)
+      events.push(warnEvent)
+    }
+  }
+
+  for (const [nodeId, message] of Object.entries(response.failures)) {
+    if (processedFailureNodes.has(nodeId)) continue
+    const step = plan.find((candidate) => candidate.nodeId === nodeId)
+    const errorEvent: WorkflowExecutionEvent = {
+      id: createEventId(),
+      kind: 'error',
+      level: 'error',
+      message,
+      timestamp: new Date().toISOString(),
+      nodeId,
+      agentName: step?.agentName,
+    }
+    errors.push(errorEvent)
+    events.push(errorEvent)
+  }
+
+  return { events, errors, warnings }
+}
+
 function responseToStatePatch(
   plan: ExecutionPlanStep[],
   response: WorkflowRunResponse,
@@ -189,6 +297,7 @@ function responseToStatePatch(
     }
 
     const output = node.output == null ? undefined : stringifyOutput(node.output)
+    const failureMessage = response.failures[step.nodeId]
     if (node.status === 'completed') completedNodeIds.push(step.nodeId)
     if (output) stepOutputs[step.nodeId] = output
 
@@ -197,7 +306,10 @@ function responseToStatePatch(
       nodeId: step.nodeId,
       agentName: step.agentName,
       status: backendStatusToTraceStatus(node.status),
-      message: node.error ?? (node.status === 'completed' ? 'LLM step completed.' : node.status),
+      message:
+        failureMessage ??
+        node.error ??
+        (node.status === 'completed' ? 'LLM step completed.' : node.status),
       timestamp: node.completedAt ?? node.startedAt ?? new Date().toISOString(),
       durationMs: durationMs(node.startedAt, node.completedAt),
       output,
@@ -225,6 +337,36 @@ function responseToStatePatch(
 }
 
 const VISUAL_PROGRESS_INTERVAL_MS = 1100
+const EXECUTION_REPLAY_STEP_MS = 900
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function replayExecutionProgress(
+  plan: ExecutionPlanStep[],
+  response: WorkflowRunResponse,
+  cancelRef: { current: boolean },
+  applyState: (updater: (previous: WorkflowRunState) => WorkflowRunState) => void,
+): Promise<void> {
+  for (let index = 0; index < plan.length; index++) {
+    if (cancelRef.current) return
+
+    const step = plan[index]
+    applyState((previous) => ({
+      ...previous,
+      status: 'running',
+      ...buildVisualProgressState(plan, index, previous.trace),
+    }))
+
+    await sleep(EXECUTION_REPLAY_STEP_MS)
+    if (cancelRef.current) return
+
+    const node = response.nodes[step.nodeId]
+    const failed = node?.status === 'failed' || Boolean(response.failures[step.nodeId])
+    if (failed) break
+  }
+}
 
 export function useWorkflowRunner() {
   const [state, setState] = useState<WorkflowRunState>(initialRunState)
@@ -330,22 +472,39 @@ export function useWorkflowRunner() {
         clearVisualProgress()
         if (cancelRef.current) return
 
-        const patch = responseToStatePatch(plan, response)
-        setState((previous) => ({
-          ...previous,
-          ...patch,
-          approvalPrompt: null,
-        }))
+        await replayExecutionProgress(plan, response, cancelRef, (updater) => {
+          setState((previous) => updater(previous))
+        })
+        if (cancelRef.current) return
 
-        appendEvent({
+        const patch = responseToStatePatch(plan, response)
+        const agentRuntime = buildAgentRuntimeEvents(plan, response)
+        const workflowEndEvent: WorkflowExecutionEvent = {
+          id: createEventId(),
           kind: patch.status === 'failed' ? 'error' : 'workflow-complete',
           level: patch.status === 'failed' ? 'error' : 'success',
           message:
             patch.status === 'failed'
-              ? 'Workflow execution finished with failures.'
-              : 'Workflow execution finished through backend Microsoft Agent Framework.',
+              ? agentRuntime.errors.length > 0
+                ? `Workflow finished with ${agentRuntime.errors.length} agent error(s).`
+                : 'Workflow execution finished with failures.'
+              : 'Workflow execution finished through the Eleven Nodes runtime.',
+          timestamp: new Date().toISOString(),
           detail: `Run ${response.runId}`,
-        })
+        }
+        const runtimeErrors =
+          patch.status === 'failed' && agentRuntime.errors.length === 0
+            ? [...agentRuntime.errors, workflowEndEvent]
+            : agentRuntime.errors
+
+        setState((previous) => ({
+          ...previous,
+          ...patch,
+          approvalPrompt: null,
+          events: [...previous.events, ...agentRuntime.events, workflowEndEvent],
+          errors: [...previous.errors, ...runtimeErrors],
+          warnings: [...previous.warnings, ...agentRuntime.warnings],
+        }))
       } catch (error) {
         clearVisualProgress()
         if (cancelRef.current) return
@@ -495,7 +654,7 @@ export function useWorkflowRunner() {
       appendEvent({
         kind: 'workflow-start',
         level: 'info',
-        message: 'Calling backend /execute via Microsoft Agent Framework.',
+        message: 'Calling backend /execute via Eleven Nodes runtime.',
         detail: `${target.workspaceId}/${target.pageId} · ${plan.length} agent step(s)`,
       })
 

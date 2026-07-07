@@ -6,7 +6,9 @@ import {
   GitBranch,
   Layers,
   PanelLeftClose,
+  Plug,
   Store,
+  Terminal,
   Wrench,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -16,6 +18,8 @@ import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle
 import { AgentStoreDialog } from '@/components/agent-workflow/AgentStoreDialog'
 import {
   EXTERNAL_AGENT_BLOCKS,
+  EXECUTOR_PALETTE_ID,
+  MCP_TOOL_PALETTE_ID,
   SIDEBAR_BLOCKS,
   SIDEBAR_PREVIEW_LIMIT,
   type SidebarBlock,
@@ -64,6 +68,7 @@ const BLOCK_ICONS: Record<AgentType, LucideIcon> = {
   memory: Bot,
   output: Bot,
   control: Bot,
+  executor: Terminal,
 }
 
 const BLOCK_STYLES: Record<string, { icon: string; hover: string }> = {
@@ -75,6 +80,14 @@ const BLOCK_STYLES: Record<string, { icon: string; hover: string }> = {
     icon: 'bg-blue-500/10 text-blue-600 dark:text-blue-300',
     hover: 'hover:border-blue-400/50 hover:bg-blue-500/5',
   },
+  mcp: {
+    icon: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+    hover: 'hover:border-emerald-400/50 hover:bg-emerald-500/5',
+  },
+  executor: {
+    icon: 'bg-orange-500/10 text-orange-600 dark:text-orange-300',
+    hover: 'hover:border-orange-400/50 hover:bg-orange-500/5',
+  },
 }
 
 function BlockTile({
@@ -84,8 +97,18 @@ function BlockTile({
   block: SidebarBlock
   onAddAgent: (paletteId: string) => void
 }) {
-  const Icon = BLOCK_ICONS[block.agentType] ?? Bot
-  const styles = BLOCK_STYLES[block.id] ?? BLOCK_STYLES.agent
+  const styles =
+    BLOCK_STYLES[
+      block.id === 'mcp-tool' ? 'mcp' : block.id === 'executor' ? 'executor' : block.id
+    ] ?? BLOCK_STYLES.agent
+  const Icon =
+    block.paletteId === MCP_TOOL_PALETTE_ID
+      ? Plug
+      : block.paletteId === EXECUTOR_PALETTE_ID
+        ? Terminal
+        : block.id === 'tool'
+          ? Wrench
+          : (BLOCK_ICONS[block.agentType] ?? Bot)
 
   return (
     <button
@@ -98,15 +121,20 @@ function BlockTile({
       onClick={() => onAddAgent(block.paletteId)}
       title={block.description}
       className={cn(
-        'flex flex-col items-center gap-2.5 rounded-xl border border-border/70 bg-background p-4 text-center transition-all',
+        'flex flex-col items-start gap-2 rounded-xl border border-border/70 bg-background p-3 text-left transition-all',
         'cursor-grab active:cursor-grabbing',
         styles.hover,
       )}
     >
-      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', styles.icon)}>
-        <Icon className="h-5 w-5" />
+      <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', styles.icon)}>
+        <Icon className="h-4 w-4" />
       </div>
-      <span className="text-xs font-semibold text-foreground">{block.label}</span>
+      <div className="min-w-0 w-full">
+        <span className="text-xs font-semibold text-foreground">{block.label}</span>
+        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-muted-foreground">
+          {block.description}
+        </p>
+      </div>
     </button>
   )
 }

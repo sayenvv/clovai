@@ -7,10 +7,11 @@ import {
   useRef,
   useState,
 } from 'react'
-import { LayoutGrid, Maximize2 } from 'lucide-react'
+import { LayoutGrid, Maximize2, Play, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DesignerCanvas } from '@/components/designer/DesignerCanvas'
 import { computeCenteredViewport, zoomViewportAt } from '@/components/designer/viewport-utils'
+import { listAgentNodes } from '@/components/agent-workflow/tool-agent-mapping'
 import type { Diagram, DiagramNode, Viewport } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import type { Selection } from '@/components/designer/selection-utils'
@@ -41,9 +42,10 @@ interface AgentWorkflowCanvasProps {
     currentDiagram: Diagram,
     world: { x: number; y: number },
   ) => DiagramNode | null
+  onOpenExecution?: () => void
+  executionPanelOpen?: boolean
+  onBackToDesign?: () => void
 }
-
-/** Canvas + viewport isolated so pan/zoom does not re-render sidebars or chrome. */
 export const AgentWorkflowCanvas = memo(
   forwardRef<AgentWorkflowCanvasHandle, AgentWorkflowCanvasProps>(function AgentWorkflowCanvas(
     {
@@ -58,6 +60,9 @@ export const AgentWorkflowCanvas = memo(
       onAutoLayout,
       transformDroppedNode,
       finalizeDroppedNode,
+      onOpenExecution,
+      executionPanelOpen = false,
+      onBackToDesign,
     },
     ref,
   ) {
@@ -113,6 +118,8 @@ export const AgentWorkflowCanvas = memo(
       setViewport(updater)
     }, [])
 
+    const hasAgents = listAgentNodes(diagram).length > 0
+
     return (
       <DevProfiler id="AgentWorkflowCanvas">
         <div ref={canvasAreaRef} className="relative min-h-0 flex-1 bg-canvas">
@@ -121,8 +128,7 @@ export const AgentWorkflowCanvas = memo(
               <div className="max-w-sm rounded-xl border border-dashed border-violet-500/30 bg-card/80 px-6 py-5 text-center shadow-sm backdrop-blur-sm">
                 <p className="text-sm font-medium text-foreground">Build your agent workflow</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Add an agent, then map tools under it. Connect agents to define execution order
-                  and approval gates.
+                  Add agents from the sidebar, or use <span className="font-medium text-violet-600 dark:text-violet-300">Generate</span> in the header to draft a full workflow from a prompt.
                 </p>
               </div>
             </div>
@@ -139,6 +145,35 @@ export const AgentWorkflowCanvas = memo(
             </Button>
           </div>
 
+          {hasAgents && executionPanelOpen && onBackToDesign && (
+            <div className="absolute right-3 top-3 z-20">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-9 gap-1.5 px-4 text-xs shadow-md"
+                onClick={onBackToDesign}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Back to design
+              </Button>
+            </div>
+          )}
+
+          {hasAgents && !executionPanelOpen && onOpenExecution && (
+            <div className="absolute right-3 top-3 z-20">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 gap-1.5 bg-emerald-600 px-4 text-xs text-white shadow-md hover:bg-emerald-700"
+                onClick={onOpenExecution}
+              >
+                <Play className="h-3.5 w-3.5" />
+                Execute
+              </Button>
+            </div>
+          )}
+
           <DesignerCanvas
             diagram={diagram}
             onChange={onChange}
@@ -154,6 +189,7 @@ export const AgentWorkflowCanvas = memo(
             agentMode
             transformDroppedNode={transformDroppedNode}
             finalizeDroppedNode={finalizeDroppedNode}
+            selectionDisabled={executionPanelOpen}
           />
         </div>
       </DevProfiler>

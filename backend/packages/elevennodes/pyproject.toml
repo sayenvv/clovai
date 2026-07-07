@@ -42,7 +42,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/eleven_nodes"]
+packages = ["src/eleven_nodes", "src/elevennodes"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

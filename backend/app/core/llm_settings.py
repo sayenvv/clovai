@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -31,6 +32,16 @@ def _read_bool(name: str, default: bool = False) -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
+def model_supports_sampling_parameters(model: str) -> bool:
+    """Return False for reasoning models that reject temperature and related sampling knobs."""
+    normalized = model.strip().lower()
+    if normalized.startswith("gpt-5"):
+        return False
+    if re.match(r"^o\d", normalized):
+        return False
+    return True
+
+
 @dataclass(frozen=True, slots=True)
 class LlmSettings:
     provider: str
@@ -53,6 +64,22 @@ class LlmSettings:
         if provider in {"azure", "azure-openai", "azure_openai"}:
             return bool(self.azure_openai_endpoint and self.azure_openai_api_key)
         return bool(self.openai_api_key)
+
+
+def apply_chat_completion_limits(
+    payload: dict,
+    settings: LlmSettings,
+    *,
+    max_tokens: int,
+    temperature: float | None = None,
+) -> None:
+    """Apply provider-appropriate token and sampling fields to a chat completion payload."""
+    if model_supports_sampling_parameters(settings.model):
+        payload["temperature"] = settings.temperature if temperature is None else temperature
+        payload["top_p"] = settings.top_p
+        payload["max_tokens"] = max_tokens
+    else:
+        payload["max_completion_tokens"] = max_tokens
 
 
 def _first_env(*names: str) -> str:

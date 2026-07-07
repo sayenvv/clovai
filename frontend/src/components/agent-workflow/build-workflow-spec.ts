@@ -1,5 +1,6 @@
 import type { Diagram, DiagramDocument, DiagramNode } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
+import { normalizeExecutorSource } from '@/components/agent-workflow/executor-source'
 import type { AgentNodeConfig, WorkflowExecutionType } from '@/types/agent-workflow'
 import type {
   SchemaBlock,
@@ -22,8 +23,10 @@ import {
 import {
   listAgentNodes,
   listToolsForAgent,
+  isMcpToolNode,
 } from '@/components/agent-workflow/tool-agent-mapping'
 import { isSubWorkflowNode } from '@/components/agent-workflow/sub-workflow-ops'
+import { isExecutorNode } from '@/components/agent-workflow/tool-agent-mapping'
 import {
   DEFAULT_WORKFLOW_MODEL_CONFIG,
   resolveWorkflowModelConfig,
@@ -149,6 +152,20 @@ function agentMetadata(node: DiagramNode): Record<string, unknown> {
     if (external) metadata.externalProvider = external.provider
   }
 
+  if (isExecutorNode(node)) {
+    const executor = node.agent
+    metadata.isExecutor = true
+    metadata.executorId = executor?.executorId ?? node.id
+    metadata.executorHandlerKind = executor?.executorHandlerKind ?? 'class'
+    metadata.executorInputType = executor?.executorInputType ?? 'str'
+    metadata.executorOutputType = executor?.executorOutputType ?? 'str'
+    metadata.executorWorkflowOutputType = executor?.executorWorkflowOutputType ?? ''
+    metadata.executorSource = normalizeExecutorSource(executor?.executorSource ?? '')
+    metadata.contributesToWorkflowOutput = executor?.contributesToWorkflowOutput ?? false
+    metadata.contributesToIntermediateOutput = executor?.contributesToIntermediateOutput ?? false
+    metadata.executorResettable = executor?.executorResettable ?? false
+  }
+
   return metadata
 }
 
@@ -173,7 +190,8 @@ function buildAgentSpec(diagram: Diagram, node: DiagramNode): WorkflowBuildAgent
   }
 }
 
-function inferToolType(config: AgentNodeConfig): WorkflowBuildTool['toolType'] {
+function inferToolType(tool: DiagramNode, config: AgentNodeConfig): WorkflowBuildTool['toolType'] {
+  if (isMcpToolNode(tool)) return 'mcp'
   const integrations = config.tools.map((item) => item.toLowerCase())
   if (integrations.some((item) => item.includes('api'))) return 'api'
   if (integrations.some((item) => item.includes('webhook'))) return 'webhook'
@@ -197,15 +215,18 @@ function buildToolSpecs(diagram: Diagram): WorkflowBuildTool[] {
         name: slug,
         displayName: tool.label,
         description: config.description ?? '',
-        toolType: inferToolType(config),
+        toolType: inferToolType(tool, config),
         configuration: {
           integrations: [...config.tools],
           paletteId: tool.paletteId,
+          approvalMode: config.approvalMode ?? 'never_required',
+          ...(isMcpToolNode(tool) && config.mcpUrl ? { url: config.mcpUrl } : {}),
         },
         inputSchema: toSchemaBlock(config.inputSchema),
         metadata: {
           mappedAgentId: agent.id,
           mappedAgentName: agent.label,
+          isMcp: isMcpToolNode(tool),
         },
       })
     }

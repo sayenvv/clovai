@@ -18,7 +18,7 @@ import {
   AGENT_NODE_WIDTH,
   TOOL_NODE_HEIGHT,
   TOOL_NODE_WIDTH,
-  TOOL_PALETTE_ID,
+  isMappedToolPalette,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { edgeNeedsApprovalStyle } from '@/components/agent-workflow/validate-workflow'
 import {
@@ -30,8 +30,10 @@ import { resolveEdgeColors } from './diagram-colors'
 import {
   buildEdgePath,
   DND_MIME,
+  DEFAULT_EDGE_ROUTING,
   edgeLabelPosition,
   bestPortSidesForConnection,
+  resolveEdgeRouting,
   getNodeSize,
   MIN_NODE_HEIGHT,
   MIN_NODE_WIDTH,
@@ -166,6 +168,8 @@ interface DesignerCanvasProps {
     diagram: Diagram,
     world: { x: number; y: number },
   ) => DiagramNode | null
+  /** When true, nodes and edges cannot be selected or edited. */
+  selectionDisabled?: boolean
 }
 
 let idCounter = 0
@@ -243,6 +247,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   agentMode = false,
   transformDroppedNode,
   finalizeDroppedNode,
+  selectionDisabled = false,
 }: DesignerCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const { isDark } = useTheme()
@@ -341,7 +346,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
           to: toNodeId,
           fromSide: sides.fromSide,
           toSide: sides.toSide,
-          routing: 'orthogonal',
+          routing: DEFAULT_EDGE_ROUTING,
         }
         return { ...previous, edges: [...previous.edges, edge] }
       })
@@ -410,10 +415,10 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         setConnectCursor(null)
         setReconnectEnd(null)
         sessionRef.current = null
-        onSelectionChange(null)
+        if (!selectionDisabled) onSelectionChange(null)
         return
       }
-      if ((event.key === 'Delete' || event.key === 'Backspace') && selection) {
+      if (!selectionDisabled && (event.key === 'Delete' || event.key === 'Backspace') && selection) {
         event.preventDefault()
         onChange((previous) => {
           if (selection.kind === 'edge') {
@@ -439,7 +444,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selection, onChange, onSelectionChange])
+  }, [selection, onChange, onSelectionChange, selectionDisabled])
 
   /* ---- pointer interactions ---- */
   const handleBackgroundPointerDown = (event: ReactPointerEvent) => {
@@ -461,7 +466,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   }
 
   const handleNodePointerDown = (event: ReactPointerEvent, node: DiagramNode) => {
-    if (event.button !== 0) return
+    if (event.button !== 0 || selectionDisabled) return
     event.stopPropagation()
 
     // Completing a pending connection — snap to the best facing port on the target.
@@ -623,6 +628,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         })
         const edges = previous.edges.map((edge) => {
           if (!moveIds.has(edge.from) && !moveIds.has(edge.to)) return edge
+          if (agentMode) return edge
           const sides = resolveConnectionSides(nodes, edge.from, edge.to)
           return { ...edge, fromSide: sides.fromSide, toSide: sides.toSide }
         })
@@ -643,6 +649,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       )
       const edges = previous.edges.map((edge) => {
         if (edge.from !== id && edge.to !== id) return edge
+        if (agentMode) return edge
         const sides = resolveConnectionSides(nodes, edge.from, edge.to)
         return { ...edge, fromSide: sides.fromSide, toSide: sides.toSide }
       })
@@ -689,13 +696,14 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   /* ---- palette drop ---- */
   const handleDrop = (event: ReactDragEvent) => {
     event.preventDefault()
+    if (selectionDisabled) return
     const paletteId = event.dataTransfer.getData(DND_MIME)
     const item = paletteById.get(paletteId)
     if (!item) return
     const world = toWorld(event.clientX, event.clientY)
     const { width, height } =
       agentMode && paletteId.startsWith('aw-')
-        ? paletteId === TOOL_PALETTE_ID
+        ? isMappedToolPalette(paletteId)
           ? { width: TOOL_NODE_WIDTH, height: TOOL_NODE_HEIGHT }
           : { width: AGENT_NODE_WIDTH, height: AGENT_NODE_HEIGHT }
         : nodeSize(item.shape)
@@ -772,6 +780,15 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     return map
   }, [diagram.nodes])
 
+  const mappedToolCountByAgentId = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const node of diagram.nodes) {
+      if (!isToolNode(node) || !node.mappedAgentId) continue
+      counts.set(node.mappedAgentId, (counts.get(node.mappedAgentId) ?? 0) + 1)
+    }
+    return counts
+  }, [diagram.nodes])
+
   const mappingLines = useMemo(() => {
     if (!agentMode) return []
     return diagram.nodes.flatMap((node) => {
@@ -800,7 +817,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         const fromItem = from && paletteById.get(from.paletteId)
         const toItem = to && paletteById.get(to.paletteId)
         if (!from || !to || !fromItem || !toItem) return []
-        const routing = edge.routing ?? 'orthogonal'
+        const routing = resolveEdgeRouting(edge.routing)
         const fromPoint = portPoint(from, resolvePortShape(from, fromItem, agentMode), edge.fromSide)
         const toPoint = portPoint(to, resolvePortShape(to, toItem, agentMode), edge.toSide)
         const routeContext = {
@@ -909,10 +926,10 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     }
     if (reconnectEnd.end === 'from') {
       const fromSide = portSideFacing(connectCursor, toPoint)
-      return buildEdgePath(connectCursor, fromSide, toPoint, edge.toSide, 'orthogonal', routeContext)
+      return buildEdgePath(connectCursor, fromSide, toPoint, edge.toSide, rendered.routing, routeContext)
     }
     const toSide = portSideFacing(connectCursor, fromPoint)
-    return buildEdgePath(fromPoint, edge.fromSide, connectCursor, toSide, 'orthogonal', routeContext)
+    return buildEdgePath(fromPoint, edge.fromSide, connectCursor, toSide, rendered.routing, routeContext)
   }, [reconnectEnd, connectCursor, renderedEdges, routeObstacles])
 
   const connectPreviewPath = useMemo(() => {
@@ -928,7 +945,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       connectFrom.side,
       connectCursor,
       toSide,
-      'orthogonal',
+      DEFAULT_EDGE_ROUTING,
       {
         obstacles: routeObstacles,
         fromNodeId: connectFrom.nodeId,
@@ -997,10 +1014,14 @@ export const DesignerCanvas = memo(function DesignerCanvas({
           return (
             <div
               key={node.id}
-              className="group/node absolute z-[1] cursor-inherit select-none"
+              className={cn(
+                'group/node absolute z-[1] select-none',
+                selectionDisabled ? 'pointer-events-none' : 'cursor-inherit',
+              )}
               style={{ left: node.x, top: node.y, width, height }}
               onPointerDown={(event) => handleNodePointerDown(event, node)}
               onDoubleClick={(event) => {
+                if (selectionDisabled) return
                 event.stopPropagation()
                 setEditingNodeId(node.id)
               }}
@@ -1012,6 +1033,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   isSelected={isSelected}
                   isDark={isDark}
                   mappedUnderLabel={mappedUnderLabel}
+                  mappedToolCount={mappedToolCountByAgentId.get(node.id) ?? 0}
                   className="cursor-inherit h-full w-full"
                 />
               ) : (
@@ -1166,7 +1188,10 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 fill="none"
                 stroke="transparent"
                 strokeWidth={Math.max(24 / viewport.scale, 14)}
-                className="pointer-events-auto cursor-pointer"
+                className={cn(
+                  'pointer-events-auto cursor-pointer',
+                  selectionDisabled && 'pointer-events-none',
+                )}
                 onPointerDown={(event) => {
                   event.stopPropagation()
                   event.preventDefault()
