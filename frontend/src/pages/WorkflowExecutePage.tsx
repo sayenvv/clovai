@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
+import { APP_NAME } from '@/constants'
 import { useAppConfig } from '@/hooks/use-app-config'
 import { resolveDesignerPalette } from '@/utils/resolve-designer-palette'
 import { enrichDiagram } from '@/components/agent-workflow/agent-workflow-defaults'
@@ -206,7 +207,7 @@ export default function WorkflowExecutePage() {
   }, [location.key])
 
   useEffect(() => {
-    if (tool) document.title = `Execute — ${tool.title} — Clovai`
+    if (tool) document.title = `Execute — ${tool.title} — ${APP_NAME}`
   }, [tool])
 
   useEffect(() => {

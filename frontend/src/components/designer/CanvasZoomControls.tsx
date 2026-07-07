@@ -8,7 +8,7 @@ interface CanvasZoomControlsProps {
   onZoomOut: () => void
 }
 
-/** Floating zoom controls anchored inside the canvas. */
+/** Floating zoom controls for canvas overlays. */
 export const CanvasZoomControls = memo(function CanvasZoomControls({
   scale,
   onZoomIn,
@@ -16,7 +16,7 @@ export const CanvasZoomControls = memo(function CanvasZoomControls({
 }: CanvasZoomControlsProps) {
   return (
     <div
-      className="pointer-events-auto absolute bottom-4 right-4 z-20 flex items-center gap-0.5 rounded-lg border bg-background/90 p-0.5 shadow-md backdrop-blur"
+      className="pointer-events-auto flex items-center gap-0.5 rounded-lg border bg-background/90 p-0.5 shadow-md backdrop-blur"
       onPointerDown={(event) => event.stopPropagation()}
     >
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onZoomOut} aria-label="Zoom out">

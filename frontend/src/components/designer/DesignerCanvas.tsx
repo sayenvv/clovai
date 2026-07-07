@@ -1336,11 +1336,13 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         </div>
       )}
 
-      <CanvasZoomControls
-        scale={viewport.scale}
-        onZoomIn={onZoomIn}
-        onZoomOut={onZoomOut}
-      />
+      <div className="pointer-events-auto absolute bottom-4 right-4 z-20">
+        <CanvasZoomControls
+          scale={viewport.scale}
+          onZoomIn={onZoomIn}
+          onZoomOut={onZoomOut}
+        />
+      </div>
     </div>
   )
 })

@@ -10,7 +10,6 @@ import { ConnectorConfigPanel } from '@/components/agent-workflow/ConnectorConfi
 import { ToolConfigPanel } from '@/components/agent-workflow/ToolConfigPanel'
 import { SubWorkflowConfigPanel } from '@/components/agent-workflow/SubWorkflowConfigPanel'
 import { WorkflowSettingsPanel } from '@/components/agent-workflow/WorkflowSettingsPanel'
-import { resolveWorkflowModelConfig } from '@/components/agent-workflow/workflow-model-config'
 import {
   agentLabel,
   isToolNode,
@@ -47,6 +46,8 @@ interface AgentPropertiesShellProps {
   canConvertToSubWorkflow?: boolean
   onWorkflowMetaChange?: (patch: Partial<AgentWorkflowMeta>) => void
   onModelConfigChange?: (patch: Partial<WorkflowModelConfig>) => void
+  serverModelConfig: WorkflowModelConfig
+  llmConfigured?: boolean
 }
 
 export const AgentPropertiesShell = memo(function AgentPropertiesShell({
@@ -67,9 +68,11 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   canConvertToSubWorkflow = false,
   onWorkflowMetaChange,
   onModelConfigChange,
+  serverModelConfig,
+  llmConfigured = false,
 }: AgentPropertiesShellProps) {
   const workflowMeta = doc.workflow
-  const modelConfig = resolveWorkflowModelConfig(workflowMeta?.modelConfig)
+  const modelConfig = serverModelConfig
   const { settings } = useShareSettings(toolId)
   const memberTotal = workspaceMemberCount(settings)
 
@@ -251,7 +254,9 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 onWorkflowMetaChange?.({ executionType: type })
               }
               modelConfig={modelConfig}
-              onModelConfigChange={(patch) => onModelConfigChange?.(patch)}
+              onModelConfigChange={onModelConfigChange}
+              modelConfigReadOnly
+              llmConfigured={llmConfigured}
               workflowId={workflowMeta?.workflowId ?? '—'}
               pageCount={doc.pages.length}
               nodeCount={diagram.nodes.length}

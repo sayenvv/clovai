@@ -22,6 +22,7 @@ from eleven_nodes import (
     WorkflowResult,
 )
 
+from app.core.llm_settings import llm_settings_to_workflow_model_config
 from app.modules.workflows.compiler import (
     CompiledWorkflowDefinition,
     WorkflowAgentFactory,
@@ -203,7 +204,7 @@ class WorkflowRuntimeService:
             raise ApprovalRequiredError(sorted(required_approvals))
         factory = self._with_retries(
             definition,
-            self._execution_factory_builder(spec.model_config_data),
+            self._execution_factory_builder(llm_settings_to_workflow_model_config()),
         )
         return await self._run(definition, factory, request, mode="execute")
 

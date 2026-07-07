@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { Diagram, DiagramDocument } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
+import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 import { buildWorkflowSpec } from '@/components/agent-workflow/build-workflow-spec'
 import {
   generateWorkflowCode,
@@ -28,6 +29,7 @@ interface WorkflowBuildCodeViewProps {
   pageName: string
   diagram: Diagram
   paletteById: Map<string, PaletteItem>
+  serverModelConfig?: WorkflowModelConfig
 }
 
 function syntaxLanguage(format: WorkflowCodeFormat): 'json' | 'python' {
@@ -41,6 +43,7 @@ export const WorkflowBuildCodeView = memo(function WorkflowBuildCodeView({
   pageName,
   diagram,
   paletteById,
+  serverModelConfig,
 }: WorkflowBuildCodeViewProps) {
   const [format, setFormat] = useState<WorkflowCodeFormat>('json')
   const { copied, copy, resetCopied } = useCopyToClipboard()
@@ -53,8 +56,9 @@ export const WorkflowBuildCodeView = memo(function WorkflowBuildCodeView({
       diagram,
       paletteById,
       workspaceId: withWorkspace.workspaceId!,
+      serverModelConfig,
     })
-  }, [doc, pageId, diagram, paletteById])
+  }, [doc, pageId, diagram, paletteById, serverModelConfig])
 
   const activeFormat =
     WORKFLOW_CODE_FORMATS.find((option) => option.id === format) ?? WORKFLOW_CODE_FORMATS[0]

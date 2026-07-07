@@ -1,11 +1,11 @@
 from fastapi import FastAPI
-from dotenv import load_dotenv
 
 from app.api.router import api_router
+from app.core.env import load_project_env
 
 
 def create_app() -> FastAPI:
-    load_dotenv()
+    load_project_env()
     application = FastAPI(
         title="ClovAI API",
         version="0.1.0",

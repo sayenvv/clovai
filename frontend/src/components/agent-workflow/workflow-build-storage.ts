@@ -1,6 +1,6 @@
 import type { Diagram, DiagramDocument } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
-import type { WorkflowBuildSaveResult, WorkflowBuildSpec } from '@/types/workflow-build-spec'
+import type { WorkflowBuildSaveResult, WorkflowBuildSpec, WorkflowModelConfig } from '@/types/workflow-build-spec'
 import { buildWorkflowSpec } from '@/components/agent-workflow/build-workflow-spec'
 import { saveWorkflowBuildSpecToApi } from '@/services/workflow-build-api'
 import { createWorkflowId } from '@/components/agent-workflow/agent-workflow-defaults'
@@ -76,6 +76,7 @@ interface PersistWorkflowBuildOptions {
   paletteById: Map<string, PaletteItem>
   syncToDisk?: boolean
   requireApi?: boolean
+  serverModelConfig?: WorkflowModelConfig
 }
 
 /** Build spec from the canvas and persist to localStorage. API sync only when `syncToDisk` is true (explicit Save). */
@@ -86,6 +87,7 @@ export async function persistWorkflowBuildSpec({
   paletteById,
   syncToDisk = false,
   requireApi = false,
+  serverModelConfig,
 }: PersistWorkflowBuildOptions): Promise<WorkflowBuildSaveResult> {
   const withWorkspace = ensureDocumentWorkspaceId(doc)
   const workspaceId = withWorkspace.workspaceId!
@@ -97,6 +99,7 @@ export async function persistWorkflowBuildSpec({
     diagram,
     paletteById,
     workspaceId,
+    serverModelConfig,
   })
 
   const localStorageKey = buildSpecStorageKey(workspaceId, pageId)

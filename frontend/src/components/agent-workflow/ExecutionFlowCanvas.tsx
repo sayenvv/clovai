@@ -1,4 +1,4 @@
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/utils/cn'
 import { ExecutionAgentNode } from '@/components/agent-workflow/ExecutionAgentNode'
@@ -258,6 +258,23 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
     })
   }, [])
 
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const rect = element.getBoundingClientRect()
+      const cursorX = event.clientX - rect.left
+      const cursorY = event.clientY - rect.top
+      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08
+      setViewport((previous) => zoomViewportAt(previous, factor, cursorX, cursorY))
+    }
+
+    element.addEventListener('wheel', onWheel, { passive: false })
+    return () => element.removeEventListener('wheel', onWheel)
+  }, [])
+
   const nodePosition = useCallback(
     (node: Diagram['nodes'][number]) => {
       const override = dragPositions?.get(node.id)
@@ -322,7 +339,7 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
     const rect = containerRef.current?.getBoundingClientRect()
     if (!rect) return
     setViewport((previous) => ({
-      ...previous,
+      scale: previous.scale,
       ...centerViewport(bounds, rect.width, rect.height, previous.scale),
     }))
   }, [layoutResetKey, bounds.width, bounds.height])
@@ -398,7 +415,7 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
         </div>
 
         <div
-          className="absolute bottom-4 left-4 z-10"
+          className="pointer-events-auto absolute bottom-4 right-4 z-20"
           onPointerDown={(event) => event.stopPropagation()}
         >
           <CanvasZoomControls
@@ -541,7 +558,7 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
       {runState.status === 'idle' && agentNodes.length > 0 && !isDraggingNode && !isPanning && (
         <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
           <p className="rounded-lg border border-border bg-card/90 px-3 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur-sm">
-            Drag canvas to pan · Drag nodes to rearrange
+            Drag canvas to pan · Scroll to zoom · Drag nodes to rearrange
           </p>
           <p className="rounded-lg border border-border bg-card/90 px-4 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
             Press Execute to run this workflow

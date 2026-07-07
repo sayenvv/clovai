@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Loader2, Play, Rocket, Save, ShieldCheck, TestTube2 } from 'lucide-react'
+import { Rocket, Save, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Logo, LOGO_SIZE_WORKSPACE } from '@/components/shared/Logo'
 import { ProfileMenu } from '@/components/shared/ProfileMenu'
 import type { DeploymentStatus } from '@/types/agent-workflow'
+import { APP_NAME } from '@/constants'
 
 interface AgentWorkflowHeaderProps {
   workflowName: string
@@ -14,13 +15,12 @@ interface AgentWorkflowHeaderProps {
   version: number
   status: DeploymentStatus
   validationErrorCount: number
+  isDirty?: boolean
   onSave: () => void
   onValidate: () => void
-  onTest: () => void
   onDeploy: () => void
-  onExecute: () => void
   isValidated: boolean
-  isExecuting?: boolean
+  onNavigateHome?: () => void
 }
 
 export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
@@ -29,19 +29,29 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
   version,
   status,
   validationErrorCount,
+  isDirty = false,
   onSave,
   onValidate,
-  onTest,
   onDeploy,
-  onExecute,
   isValidated,
-  isExecuting = false,
+  onNavigateHome,
 }: AgentWorkflowHeaderProps) {
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card/80 px-3 backdrop-blur-sm">
-      <Link to="/" className="shrink-0" aria-label="Clovai home">
-        <Logo size={LOGO_SIZE_WORKSPACE} />
-      </Link>
+      {onNavigateHome ? (
+        <button
+          type="button"
+          onClick={onNavigateHome}
+          className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+          aria-label={`${APP_NAME} home`}
+        >
+          <Logo size={LOGO_SIZE_WORKSPACE} />
+        </button>
+      ) : (
+        <Link to="/" className="shrink-0" aria-label={`${APP_NAME} home`}>
+          <Logo size={LOGO_SIZE_WORKSPACE} />
+        </Link>
+      )}
 
       <div className="h-5 w-px bg-border" />
 
@@ -61,6 +71,14 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
         >
           {status}
         </Badge>
+        {isDirty && (
+          <Badge
+            variant="outline"
+            className="shrink-0 border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300"
+          >
+            Unsaved
+          </Badge>
+        )}
         {validationErrorCount > 0 && (
           <Badge variant="outline" className="shrink-0 border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300">
             {validationErrorCount} issue{validationErrorCount === 1 ? '' : 's'}
@@ -68,7 +86,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
         )}
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1.5">
         <Button variant="ghost" size="sm" onClick={onSave}>
           <Save className="h-3.5 w-3.5" />
           Save draft
@@ -76,23 +94,6 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
         <Button variant="outline" size="sm" onClick={onValidate}>
           <ShieldCheck className="h-3.5 w-3.5" />
           Validate
-        </Button>
-        <Button variant="outline" size="sm" onClick={onTest}>
-          <TestTube2 className="h-3.5 w-3.5" />
-          Test
-        </Button>
-        <Button
-          size="sm"
-          onClick={onExecute}
-          disabled={isExecuting}
-          className="bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus-visible:ring-emerald-500 disabled:opacity-80"
-        >
-          {isExecuting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Play className="h-3.5 w-3.5" />
-          )}
-          {isExecuting ? 'Preparing…' : 'Execute'}
         </Button>
         <Button size="sm" disabled={!isValidated} onClick={onDeploy} className="bg-violet-600 hover:bg-violet-700">
           <Rocket className="h-3.5 w-3.5" />

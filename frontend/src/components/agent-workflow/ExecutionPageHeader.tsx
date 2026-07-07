@@ -15,6 +15,7 @@ import { Select } from '@/components/ui/select'
 import { Logo, LOGO_SIZE_WORKSPACE } from '@/components/shared/Logo'
 import { ProfileMenu } from '@/components/shared/ProfileMenu'
 import type { WorkflowRunStatus } from '@/types/agent-workflow'
+import { APP_NAME } from '@/constants'
 
 interface WorkflowOption {
   id: string
@@ -55,7 +56,7 @@ export const ExecutionPageHeader = memo(function ExecutionPageHeader({
 }: ExecutionPageHeaderProps) {
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card/80 px-3 backdrop-blur-sm">
-      <Link to="/" className="shrink-0" aria-label="Clovai home">
+      <Link to="/" className="shrink-0" aria-label={`${APP_NAME} home`}>
         <Logo size={LOGO_SIZE_WORKSPACE} />
       </Link>
 

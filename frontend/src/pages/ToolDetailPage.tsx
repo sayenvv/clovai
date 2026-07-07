@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense, lazy } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { APP_NAME } from '@/constants'
 import { useAppConfig } from '@/hooks/use-app-config'
 import { Icon } from '@/components/shared/Icon'
 import { ConfigBadge } from '@/components/shared/ConfigBadge'
@@ -87,7 +88,7 @@ export default function ToolDetailPage() {
   diagramRef.current = diagram
 
   useEffect(() => {
-    if (tool) document.title = `${tool.title} — Clovai`
+    if (tool) document.title = `${tool.title} — ${APP_NAME}`
   }, [tool])
 
   // Autosave the whole document per tool.
@@ -336,7 +337,7 @@ export default function ToolDetailPage() {
           to="/"
           className="flex items-center gap-2"
           aria-label={`${navbar.logo.text} home`}
-          title="Back to Clovai"
+          title={`Back to ${APP_NAME}`}
         >
           <Logo src={navbar.logo.image} size={LOGO_SIZE_WORKSPACE} rounded="md" />
         </Link>

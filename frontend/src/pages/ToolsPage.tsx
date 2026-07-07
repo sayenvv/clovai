@@ -6,6 +6,7 @@ import { useAppConfig } from '@/hooks/use-app-config'
 import { Input } from '@/components/ui/input'
 import { ToolCard } from '@/components/sections/ToolGridSection'
 import { Icon } from '@/components/shared/Icon'
+import { APP_NAME } from '@/constants'
 
 /** Full tools directory with client-side search and category filtering,
  *  driven entirely by the mega menu JSON configuration. */
@@ -15,7 +16,7 @@ export default function ToolsPage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
 
   useEffect(() => {
-    document.title = 'All Tools — Clovai'
+    document.title = `All Tools — ${APP_NAME}`
   }, [])
 
   const categories = useMemo(() => visibleSorted(megaMenu.categories), [megaMenu.categories])

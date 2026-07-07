@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { APP_NAME } from '@/constants'
 import {
   Download,
   Eye,
@@ -52,7 +53,7 @@ export default function AdminConfigPage() {
   const { data: editingRecord } = useConfigById(editingId)
 
   useEffect(() => {
-    document.title = 'Configuration Console — Clovai'
+    document.title = `Configuration Console — ${APP_NAME}`
   }, [])
 
   // When an existing configuration is chosen for editing, load it into the editor.

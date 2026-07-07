@@ -1,5 +1,5 @@
 {
-  "description": "Clovai is the AI-powered diagramming platform for modern teams. Describe what you need — we draw it.",
+  "description": "Eleven Nodes is the AI-powered workflow platform for modern teams.",
   "columns": [
     {
       "id": "footer-product",
@@ -61,5 +61,5 @@
     { "id": "l-terms", "label": "Terms of Service", "href": "/#", "isExternal": false },
     { "id": "l-security", "label": "Security", "href": "/#", "isExternal": false }
   ],
-  "copyright": "© 2026 Clovai, Inc. All rights reserved."
+  "copyright": "© 2026 Eleven Nodes. All rights reserved."
 }

@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { APP_NAME } from '@/constants'
 
 const PROFILE_INITIALS = 'Y'
 
@@ -34,7 +35,7 @@ export const ProfileMenu = memo(function ProfileMenu() {
         <DropdownMenuItem asChild>
           <Link to="/">
             <Home />
-            Back to Clovai
+            Back to {APP_NAME}
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

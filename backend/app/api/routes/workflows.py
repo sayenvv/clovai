@@ -9,6 +9,11 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
+from app.modules.workflows.instruction_generator import (
+    GenerateInstructionsRequest,
+    GenerateInstructionsResponse,
+    generate_agent_instructions,
+)
 from app.modules.workflows import (
     ApprovalRequiredError,
     RuntimeConfigurationError,
@@ -27,6 +32,18 @@ router = APIRouter(prefix="/workflows", tags=["workflows"])
 REPO_ROOT = Path(__file__).resolve().parents[4]
 DATA_ROOT = REPO_ROOT / "data" / "workflows"
 RUNTIME_SERVICE = WorkflowRuntimeService()
+
+
+@router.post(
+    "/generate-instructions",
+    response_model=GenerateInstructionsResponse,
+    summary="Generate agent system instructions from name and description",
+)
+async def generate_instructions(body: GenerateInstructionsRequest) -> GenerateInstructionsResponse:
+    try:
+        return generate_agent_instructions(body)
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 def _spec_path(workspace_id: str, page_id: str) -> Path:

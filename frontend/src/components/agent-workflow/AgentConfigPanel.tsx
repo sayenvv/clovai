@@ -1,10 +1,13 @@
-import { memo } from 'react'
+import { memo, useCallback, useState } from 'react'
+import { toast } from 'sonner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Field, PanelSection } from '@/components/agent-workflow/FormField'
+import { InstructionsEditorField } from '@/components/agent-workflow/InstructionsEditorField'
+import { generateAgentInstructions } from '@/services/generate-agent-instructions-api'
 import type { Diagram, DiagramNode } from '@/components/designer/diagram-types'
 import type { AgentNodeConfig, AgentStatus, AgentType } from '@/types/agent-workflow'
 
@@ -53,6 +56,32 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
 }: AgentConfigPanelProps) {
   const agent = node.agent!
   const toolsText = agent.tools.join(', ')
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  const handleGenerateInstructions = useCallback(async () => {
+    if (!node.label.trim()) {
+      toast.error('Add an agent name before generating instructions')
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const result = await generateAgentInstructions({
+        agentName: node.label.trim(),
+        description: agent.description.trim(),
+      })
+      updateAgent(onChange, node.id, { instructions: result.instructions })
+      if (result.source === 'template') {
+        toast.success('Instructions drafted from template — check server .env LLM settings')
+      } else {
+        toast.success('Instructions generated')
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not generate instructions')
+    } finally {
+      setIsGenerating(false)
+    }
+  }, [agent.description, node.id, node.label, onChange])
 
   return (
     <div className="flex h-full flex-col">
@@ -86,12 +115,15 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
               onChange={(event) => updateAgent(onChange, node.id, { description: event.target.value })}
             />
           </Field>
-          <Field label="Instructions / system prompt">
-            <Textarea
-              rows={6}
-              className="font-mono text-xs"
+          <Field
+            label="Instructions / system prompt"
+            hint="Uses the server LLM configuration from backend .env"
+          >
+            <InstructionsEditorField
               value={agent.instructions}
-              onChange={(event) => updateAgent(onChange, node.id, { instructions: event.target.value })}
+              onChange={(instructions) => updateAgent(onChange, node.id, { instructions })}
+              onGenerate={handleGenerateInstructions}
+              isGenerating={isGenerating}
             />
           </Field>
           <Field label="Agent type">

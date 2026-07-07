@@ -1,4 +1,4 @@
-export const APP_NAME = 'Clovai'
+export const APP_NAME = 'Eleven Nodes'
 
 export const STORAGE_KEYS = {
   theme: 'clovai-theme',

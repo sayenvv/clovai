@@ -11,7 +11,9 @@ interface WorkflowSettingsPanelProps {
   executionType: WorkflowExecutionType
   onExecutionTypeChange: (type: WorkflowExecutionType) => void
   modelConfig: WorkflowModelConfig
-  onModelConfigChange: (patch: Partial<WorkflowModelConfig>) => void
+  onModelConfigChange?: (patch: Partial<WorkflowModelConfig>) => void
+  modelConfigReadOnly?: boolean
+  llmConfigured?: boolean
   workflowId: string
   pageCount: number
   nodeCount: number
@@ -39,6 +41,8 @@ export const WorkflowSettingsPanel = memo(function WorkflowSettingsPanel({
   onExecutionTypeChange,
   modelConfig,
   onModelConfigChange,
+  modelConfigReadOnly = false,
+  llmConfigured = false,
   workflowId,
   pageCount,
   nodeCount,
@@ -103,7 +107,12 @@ export const WorkflowSettingsPanel = memo(function WorkflowSettingsPanel({
         </TabsContent>
 
         <TabsContent value="model" className="mt-3 min-h-0 flex-1 overflow-y-auto pb-4">
-          <WorkflowModelConfigPanel modelConfig={modelConfig} onChange={onModelConfigChange} />
+          <WorkflowModelConfigPanel
+            modelConfig={modelConfig}
+            onChange={modelConfigReadOnly ? undefined : onModelConfigChange}
+            readOnly={modelConfigReadOnly}
+            configured={llmConfigured}
+          />
         </TabsContent>
       </Tabs>
     </div>

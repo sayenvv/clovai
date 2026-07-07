@@ -25,7 +25,6 @@ import type {
   WorkflowDeployment,
   WorkflowValidationIssue,
 } from '@/types/agent-workflow'
-import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 import { AgentWorkflowHeader } from '@/components/agent-workflow/AgentWorkflowHeader'
 import { AgentLibrarySidebar } from '@/components/agent-workflow/AgentLibrarySidebar'
 import { AgentPropertiesShell } from '@/components/agent-workflow/AgentPropertiesShell'
@@ -66,8 +65,10 @@ import {
 import { useWorkflowEditorPanels } from '@/components/agent-workflow/hooks/use-workflow-editor-panels'
 import { useWorkflowDocument } from '@/components/agent-workflow/hooks/use-workflow-document'
 import { persistWorkflowBuildSpec } from '@/components/agent-workflow/workflow-build-storage'
-import { resolveWorkflowModelConfig } from '@/components/agent-workflow/workflow-model-config'
+import { useServerLlmConfig } from '@/hooks/use-server-llm-config'
 import { useSubWorkflowActions } from '@/components/agent-workflow/hooks/use-sub-workflow-actions'
+import { useUnsavedWorkflowGuard } from '@/components/agent-workflow/hooks/use-unsaved-workflow-guard'
+import { UnsavedChangesDialog } from '@/components/agent-workflow/UnsavedChangesDialog'
 import {
   EXECUTE_LAUNCH_DELAY_MS,
   ExecuteLaunchOverlay,
@@ -78,8 +79,19 @@ import {
 } from '@/components/agent-workflow/WorkflowEditorViewToggle'
 import { WorkflowBuildCodeView } from '@/components/agent-workflow/WorkflowBuildCodeView'
 import { DevProfiler } from '@/utils/render-profiler'
+import { APP_NAME } from '@/constants'
 
 const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
+
+function isValidWorkflowInput(raw: string): boolean {
+  if (!raw.trim()) return false
+  try {
+    JSON.parse(raw)
+    return true
+  } catch {
+    return false
+  }
+}
 
 function defaultWorkflowMeta(): AgentWorkflowMeta {
   return {
@@ -141,6 +153,8 @@ export default function AgentWorkflowPage() {
   const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
   const [isExecuteTransition, setIsExecuteTransition] = useState(false)
   const executeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { modelConfig: serverModelConfig, configured: llmConfigured, isLoading: llmConfigLoading } =
+    useServerLlmConfig()
 
   const { left, right, bottom } = useWorkflowEditorPanels()
 
@@ -160,6 +174,20 @@ export default function AgentWorkflowPage() {
     deletePage,
   } = useWorkflowDocument(paletteById, invalidateValidation)
 
+  const unsavedGuard = useUnsavedWorkflowGuard(doc, testInput)
+  const {
+    isDirty,
+    dialogOpen: unsavedDialogOpen,
+    setDialogOpen: setUnsavedDialogOpen,
+    isSaving: isUnsavedSaving,
+    guardAction,
+    closeDialog: closeUnsavedDialog,
+    discardPending,
+    saveAndContinue,
+    markSaved,
+    registerSaveHandler,
+  } = unsavedGuard
+
   const handleWorkflowMetaChange = useCallback(
     (patch: Partial<AgentWorkflowMeta>) => {
       invalidateValidation()
@@ -170,26 +198,6 @@ export default function AgentWorkflowPage() {
           ...patch,
         },
       }))
-    },
-    [setDoc, invalidateValidation],
-  )
-
-  const handleModelConfigChange = useCallback(
-    (patch: Partial<WorkflowModelConfig>) => {
-      invalidateValidation()
-      setDoc((previous) => {
-        const workflow = previous.workflow ?? defaultWorkflowMeta()
-        return {
-          ...previous,
-          workflow: {
-            ...workflow,
-            modelConfig: resolveWorkflowModelConfig({
-              ...workflow.modelConfig,
-              ...patch,
-            }),
-          },
-        }
-      })
     },
     [setDoc, invalidateValidation],
   )
@@ -222,7 +230,7 @@ export default function AgentWorkflowPage() {
   const inferredType = useMemo(() => inferWorkflowType(diagram), [diagram])
 
   useEffect(() => {
-    if (tool) document.title = `${tool.title} — Clovai`
+    if (tool) document.title = `${tool.title} — ${APP_NAME}`
   }, [tool])
 
   useEffect(() => {
@@ -249,11 +257,19 @@ export default function AgentWorkflowPage() {
     [selectPage],
   )
 
+  const handleNavigateHome = useCallback(() => {
+    guardAction(() => navigate('/'))
+  }, [guardAction, navigate])
+
   const openCodeView = useCallback(() => setEditorView('code'), [])
   const toggleCodeView = useCallback(
     () => setEditorView((previous) => (previous === 'code' ? 'canvas' : 'code')),
     [],
   )
+
+  const handleCreateWorkflowTab = useCallback(() => {
+    createWorkflowTab()
+  }, [createWorkflowTab])
 
   const handleAddPage = useCallback(() => {
     addPage()
@@ -352,13 +368,15 @@ export default function AgentWorkflowPage() {
       diagram,
       paletteById,
       syncToDisk: true,
+      serverModelConfig,
     })
     if (result.filePath) {
       toast.success(`Draft saved · build spec → ${result.filePath}`)
     } else {
       toast.success('Draft saved · build spec cached locally')
     }
-  }, [doc, setDoc, activePage.id, diagram, paletteById])
+    markSaved()
+  }, [doc, setDoc, activePage.id, diagram, paletteById, serverModelConfig, markSaved])
 
   const handleValidate = useCallback(() => {
     const issues = validateWorkflow(diagram, paletteById)
@@ -429,6 +447,13 @@ export default function AgentWorkflowPage() {
   const handleExecute = useCallback(() => {
     if (isExecuteTransition) return
 
+    if (bottom.collapsed) bottom.toggle()
+
+    if (!isValidWorkflowInput(testInput)) {
+      toast.error('Add valid JSON workflow input in the Test & run panel before executing.')
+      return
+    }
+
     if (listAgentNodes(diagram).length === 0) {
       toast.error('Add at least one Agent block before executing.')
       return
@@ -448,6 +473,7 @@ export default function AgentWorkflowPage() {
       pageId: page.id,
       diagram: diagramSnapshot,
       paletteById,
+      serverModelConfig,
     })
     saveExecutionSnapshot({
       pageId: page.id,
@@ -468,7 +494,11 @@ export default function AgentWorkflowPage() {
     executeTimerRef.current = setTimeout(() => {
       navigate('/tools/agent-workflow/execute', { state: navState })
     }, EXECUTE_LAUNCH_DELAY_MS)
-  }, [doc, diagram, navigate, testInput, isExecuteTransition, paletteById])
+  }, [doc, diagram, navigate, testInput, isExecuteTransition, paletteById, serverModelConfig, bottom])
+
+  useEffect(() => {
+    registerSaveHandler(handleSave)
+  }, [registerSaveHandler, handleSave])
 
   const handleWorkflowNameChange = useCallback(
     (name: string) => {
@@ -517,13 +547,12 @@ export default function AgentWorkflowPage() {
         version={workflowMeta.version}
         status={workflowMeta.status}
         validationErrorCount={errorCount}
+        isDirty={isDirty}
         onSave={handleSave}
         onValidate={handleValidate}
-        onTest={handleTest}
         onDeploy={handleDeploy}
-        onExecute={handleExecute}
         isValidated={isValidated}
-        isExecuting={isExecuteTransition}
+        onNavigateHome={handleNavigateHome}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -580,7 +609,7 @@ export default function AgentWorkflowPage() {
             canConvertToSubWorkflow={subWorkflow.canConvert}
             onInsertWorkflow={() => subWorkflow.openInsert('workflow')}
             onInsertImport={() => subWorkflow.openInsert('import')}
-            onCreateWorkflowTab={createWorkflowTab}
+            onCreateWorkflowTab={handleCreateWorkflowTab}
             onZoomIn={() => zoomBy(1.2)}
             onZoomOut={() => zoomBy(1 / 1.2)}
             onResetView={() => canvasRef.current?.fitView()}
@@ -592,6 +621,9 @@ export default function AgentWorkflowPage() {
             showWorkspaceMembers={false}
             onManageAccess={() => setShareOpen(true)}
             onOpenWorkflowSettings={openWorkflowSettings}
+            serverModelConfig={serverModelConfig}
+            llmConfigured={llmConfigured}
+            llmConfigLoading={llmConfigLoading}
           />
 
           <div className="flex min-h-0 flex-1">
@@ -600,7 +632,7 @@ export default function AgentWorkflowPage() {
               doc={doc}
               activePageId={doc.activePageId}
               onMountWorkflow={subWorkflow.mountWorkflow}
-              onCreateWorkflowTab={createWorkflowTab}
+              onCreateWorkflowTab={handleCreateWorkflowTab}
               width={left.size}
               collapsed={left.collapsed}
               onResizePointerDown={left.onResizePointerDown}
@@ -632,6 +664,7 @@ export default function AgentWorkflowPage() {
                   pageName={activePage.name}
                   diagram={diagram}
                   paletteById={paletteById}
+                  serverModelConfig={serverModelConfig}
                 />
               )}
 
@@ -650,6 +683,10 @@ export default function AgentWorkflowPage() {
                 logs={logs}
                 testInput={testInput}
                 onTestInputChange={setTestInput}
+                onSimulate={handleTest}
+                onExecute={handleExecute}
+                isExecuting={isExecuteTransition}
+                canExecute={agentNodes.length > 0}
                 height={bottom.size}
                 collapsed={bottom.collapsed}
                 onResizePointerDown={bottom.onResizePointerDown}
@@ -676,7 +713,8 @@ export default function AgentWorkflowPage() {
           onConvertToSubWorkflow={subWorkflow.requestConvert}
           canConvertToSubWorkflow={subWorkflow.canConvert}
           onWorkflowMetaChange={handleWorkflowMetaChange}
-          onModelConfigChange={handleModelConfigChange}
+          serverModelConfig={serverModelConfig}
+          llmConfigured={llmConfigured}
         />
       </div>
 
@@ -710,7 +748,18 @@ export default function AgentWorkflowPage() {
         defaultTab={subWorkflow.insertTab}
         onInsertFromPage={subWorkflow.insertFromPage}
         onImportDocument={subWorkflow.importDocument}
-        onCreateWorkflowTab={createWorkflowTab}
+        onCreateWorkflowTab={handleCreateWorkflowTab}
+      />
+
+      <UnsavedChangesDialog
+        open={unsavedDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) closeUnsavedDialog()
+          else setUnsavedDialogOpen(open)
+        }}
+        onSave={saveAndContinue}
+        onDiscard={discardPending}
+        isSaving={isUnsavedSaving}
       />
 
       {isExecuteTransition && <ExecuteLaunchOverlay workflowName={workflowName} />}

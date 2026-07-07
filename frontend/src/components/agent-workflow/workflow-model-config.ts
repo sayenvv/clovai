@@ -17,6 +17,8 @@ export const MODEL_PROVIDERS = [
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'google', label: 'Google' },
   { value: 'azure', label: 'Azure OpenAI' },
+  { value: 'azure-openai', label: 'Azure OpenAI' },
+  { value: 'azure_openai', label: 'Azure OpenAI' },
   { value: 'bedrock', label: 'AWS Bedrock' },
   { value: 'custom', label: 'Custom' },
 ] as const

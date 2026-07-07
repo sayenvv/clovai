@@ -44,7 +44,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { Selection } from '@/components/designer/selection-utils'
 import { selectionNodeCount } from '@/components/designer/selection-utils'
+import { ServerLlmModelIndicator } from '@/components/agent-workflow/ServerLlmModelIndicator'
 import { WorkspaceMembersTrigger } from './WorkspaceMembersTrigger'
+import { APP_NAME } from '@/constants'
+import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 
 const SHORTCUTS: Array<{ keys: string; action: string }> = [
   { keys: 'Scroll', action: 'Zoom in / out (toward cursor)' },
@@ -98,6 +101,10 @@ interface DesignerMenubarProps {
   onToggleCodeView?: () => void
   /** Open workflow-level settings (model config, execution type). */
   onOpenWorkflowSettings?: () => void
+  /** Server-managed LLM model (read-only display). */
+  serverModelConfig?: WorkflowModelConfig
+  llmConfigured?: boolean
+  llmConfigLoading?: boolean
 }
 
 function MenuTrigger({ label }: { label: string }) {
@@ -150,6 +157,9 @@ export const DesignerMenubar = memo(function DesignerMenubar({
   codeViewActive,
   onToggleCodeView,
   onOpenWorkflowSettings,
+  serverModelConfig,
+  llmConfigured = false,
+  llmConfigLoading = false,
 }: DesignerMenubarProps) {
   const { theme, toggleTheme } = useTheme()
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
@@ -342,7 +352,7 @@ export const DesignerMenubar = memo(function DesignerMenubar({
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <a href="/" target="_blank" rel="noopener">
-              <Sparkles /> About Clovai
+              <Sparkles /> About {APP_NAME}
             </a>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -367,8 +377,16 @@ export const DesignerMenubar = memo(function DesignerMenubar({
         </DialogContent>
       </Dialog>
 
-      {(onTogglePropertiesPanel || showWorkspaceMembers) && (
-        <div className="ml-auto flex items-center gap-0.5">
+      {(serverModelConfig || onTogglePropertiesPanel || showWorkspaceMembers) && (
+        <div className="ml-auto flex items-center gap-1.5 pl-2">
+          {serverModelConfig ? (
+            <ServerLlmModelIndicator
+              modelConfig={serverModelConfig}
+              configured={llmConfigured}
+              isLoading={llmConfigLoading}
+              variant="compact"
+            />
+          ) : null}
           {onTogglePropertiesPanel && (
             <Button
               variant={propertiesPanelOpen ? 'secondary' : 'ghost'}

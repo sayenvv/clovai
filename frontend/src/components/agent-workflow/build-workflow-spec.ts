@@ -81,7 +81,12 @@ function buildModelConfigFromAgents(agents: DiagramNode[]): WorkflowModelConfig 
   }
 }
 
-function resolveModelConfig(doc: DiagramDocument, agents: DiagramNode[]): WorkflowModelConfig {
+function resolveModelConfig(
+  doc: DiagramDocument,
+  agents: DiagramNode[],
+  serverModelConfig?: WorkflowModelConfig,
+): WorkflowModelConfig {
+  if (serverModelConfig) return resolveWorkflowModelConfig(serverModelConfig)
   const stored = doc.workflow?.modelConfig
   if (stored) return resolveWorkflowModelConfig(stored)
   return buildModelConfigFromAgents(agents)
@@ -310,6 +315,7 @@ export interface BuildWorkflowSpecOptions {
   workspaceId: string
   createdAt?: string
   visited?: Set<string>
+  serverModelConfig?: WorkflowModelConfig
 }
 
 /** Serialize the canvas into the agent workflow JSON schema. */
@@ -321,6 +327,7 @@ export function buildWorkflowSpec({
   workspaceId,
   createdAt,
   visited = new Set<string>(),
+  serverModelConfig,
 }: BuildWorkflowSpecOptions): WorkflowBuildSpec {
   const page = doc.pages.find((candidate) => candidate.id === pageId)
   const workflowMeta = doc.workflow
@@ -328,7 +335,7 @@ export function buildWorkflowSpec({
   const agentNodes = listAgentNodes(diagram)
   const body = buildWorkflowBody(doc, pageId, diagram, paletteById, visited)
   const executionType = workflowMeta?.executionType ?? 'sequential'
-  const modelConfig = resolveModelConfig(doc, agentNodes)
+  const modelConfig = resolveModelConfig(doc, agentNodes, serverModelConfig)
   const now = new Date().toISOString()
 
   return {
