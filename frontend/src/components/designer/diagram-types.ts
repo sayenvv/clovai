@@ -937,4 +937,4 @@ export const FALLBACK_PALETTE: PaletteItem[] = [
   { id: 'generic-text', label: 'Text', shape: 'text', color: 'slate', group: 'Annotate', order: 6 },
 ]
 
-export const DND_MIME = 'application/x-clovai-palette-item'
+export const DND_MIME = 'application/x-eleven-nodes-palette-item'

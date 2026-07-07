@@ -22,7 +22,7 @@ const HeroVisual = memo(function HeroVisual() {
           <span className="h-3 w-3 rounded-full bg-emerald-400/80" />
           <div className="ml-4 flex items-center gap-2 rounded-md bg-muted px-3 py-1 text-xs text-muted-foreground">
             <Sparkles className="h-3 w-3 text-primary" />
-            checkout-flow.clov — designed on the Clovai canvas
+            checkout-flow.eleven — designed on the Eleven Nodes canvas
           </div>
         </div>
 

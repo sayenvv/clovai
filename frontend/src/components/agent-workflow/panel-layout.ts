@@ -12,24 +12,24 @@ export interface PersistedPanelConfig {
 }
 
 export const EDITOR_LEFT_PANEL: PersistedPanelConfig = {
-  sizeKey: 'clovai-agent-workflow-left-panel-width',
-  collapsedKey: 'clovai-agent-workflow-left-panel-collapsed',
+  sizeKey: 'eleven-nodes-agent-workflow-left-panel-width',
+  collapsedKey: 'eleven-nodes-agent-workflow-left-panel-collapsed',
   defaultSize: 260,
   min: 220,
   max: 420,
 }
 
 export const EDITOR_RIGHT_PANEL: PersistedPanelConfig = {
-  sizeKey: 'clovai-agent-workflow-right-panel-width',
-  collapsedKey: 'clovai-agent-workflow-right-panel-collapsed',
+  sizeKey: 'eleven-nodes-agent-workflow-right-panel-width',
+  collapsedKey: 'eleven-nodes-agent-workflow-right-panel-collapsed',
   defaultSize: 340,
   min: 280,
   max: 560,
 }
 
 export const EDITOR_BOTTOM_PANEL: PersistedPanelConfig = {
-  sizeKey: 'clovai-agent-workflow-panel-height',
-  collapsedKey: 'clovai-agent-workflow-panel-collapsed',
+  sizeKey: 'eleven-nodes-agent-workflow-panel-height',
+  collapsedKey: 'eleven-nodes-agent-workflow-panel-collapsed',
   defaultSize: 180,
   min: 100,
 }

@@ -1,4 +1,4 @@
-"""ClovAI backend application.
+"""Eleven Nodes backend application.
 
 The source checkout keeps ``eleven_nodes`` as a separately publishable package
 under ``backend/packages``.  Make that source package importable when running

@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "clovai-backend"
+name = "eleven-nodes-backend"
 version = "0.1.0"
-description = "FastAPI backend for ClovAI"
+description = "FastAPI backend for Eleven Nodes"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

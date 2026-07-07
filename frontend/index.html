@@ -19,7 +19,7 @@
     <script>
       // Prevent dark-mode flash before React mounts
       ;(function () {
-        var theme = localStorage.getItem('clovai-theme')
+        var theme = localStorage.getItem('eleven-nodes-theme')
         var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
         if (theme === 'dark' || (theme !== 'light' && prefersDark)) {
           document.documentElement.classList.add('dark')

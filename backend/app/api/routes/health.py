@@ -14,4 +14,4 @@ class HealthResponse(BaseModel):
 
 @router.get("", response_model=HealthResponse, summary="Check API health")
 async def health_check() -> HealthResponse:
-    return HealthResponse(status="healthy", service="clovai-api")
+    return HealthResponse(status="healthy", service="eleven-nodes-api")

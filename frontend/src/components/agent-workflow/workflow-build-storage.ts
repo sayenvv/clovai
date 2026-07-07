@@ -5,11 +5,11 @@ import { buildWorkflowSpec } from '@/components/agent-workflow/build-workflow-sp
 import { saveWorkflowBuildSpecToApi } from '@/services/workflow-build-api'
 import { createWorkflowId } from '@/components/agent-workflow/agent-workflow-defaults'
 
-const WORKSPACE_ID_KEY = 'clovai-workspace-id'
-const BUILD_INDEX_KEY = 'clovai-workflow-build-index'
+const WORKSPACE_ID_KEY = 'eleven-nodes-workspace-id'
+const BUILD_INDEX_KEY = 'eleven-nodes-workflow-build-index'
 
 export function buildSpecStorageKey(workspaceId: string, pageId: string): string {
-  return `clovai-workflow-build:${workspaceId}:${pageId}`
+  return `eleven-nodes-workflow-build:${workspaceId}:${pageId}`
 }
 
 /** Stable workspace id for namespacing build artifacts on this browser. */

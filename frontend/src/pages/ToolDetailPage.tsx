@@ -50,7 +50,7 @@ function loadDocument(toolId: string): DiagramDocument {
 
 /** Standalone tool workspace (opened in its own tab, no site navbar):
  *  an n8n-style canvas designer with multiple pages. The shape palette
- *  comes from the tool's JSON `designer` config; AI generation (Clovai
+ *  comes from the tool's JSON `designer` config; AI generation (Eleven Nodes
  *  Engine) is coming soon. */
 export default function ToolDetailPage() {
   const { toolId = '' } = useParams()

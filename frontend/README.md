@@ -1,6 +1,6 @@
-# Clovai — AI Diagram Tools Platform
+# Eleven Nodes — AI Workflow Platform
 
-A production-grade, **configuration-driven** React application for an AI-powered diagram tools platform (flowcharts, architecture diagrams, UML, BPMN, ER diagrams, mind maps and more).
+A production-grade, **configuration-driven** React application for an AI-powered workflow and diagram tools platform (flowcharts, architecture diagrams, UML, BPMN, ER diagrams, mind maps and more).
 
 The entire UI — navbar, tools mega menu, landing page sections, pricing, footer, forms — is rendered from **versioned JSON configuration**, validated with Zod and managed from a built-in admin console. Adding tools, pages, tabs or sections requires **zero React code changes**.
 
@@ -28,7 +28,7 @@ npm run build      # type-check + production build
 
 - `/` — JSON-driven landing page (hero, tools, features, workflow, templates, enterprise, pricing, testimonials, FAQ, CTA, contact form)
 - `/tools` — searchable, filterable tools directory
-- `/tools/:toolId` — **canvas designer workspace** (n8n-style): drag-and-drop shape palette, pan/zoom canvas, connections, inline renaming, JSON export, local autosave. Shape palettes are defined per tool in JSON (`designer.palette`); the Flowchart Generator ships with a full flowchart palette. AI generation (the multi-agent **Clovai Engine**) is surfaced as coming soon.
+- `/tools/:toolId` — **canvas designer workspace** (n8n-style): drag-and-drop shape palette, pan/zoom canvas, connections, inline renaming, JSON export, local autosave. Shape palettes are defined per tool in JSON (`designer.palette`); the Flowchart Generator ships with a full flowchart palette. AI generation (the multi-agent **Eleven Nodes Engine**) is surfaced as coming soon.
 - `/admin/config` — **Configuration Console**: upload, edit, validate, preview, save, version, activate and delete configurations
 - `/:slug` — any extra page defined purely in JSON config
 

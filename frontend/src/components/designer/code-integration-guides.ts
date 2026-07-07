@@ -120,7 +120,7 @@ export const CODE_INTEGRATION_GUIDES: Record<CodeLanguage, IntegrationGuideConte
     tips: [
       'Not executable — treat START/END and STEP blocks as checklist items.',
       'Decision arrows (-> Yes / -> No) should become explicit conditions in code.',
-      'Full code generation from Clovai API will replace this preview later.',
+      'Full code generation from Eleven Nodes API will replace this preview later.',
     ],
   },
 }

@@ -103,6 +103,61 @@ function findApprovalStep(plan: ExecutionPlanStep[], edgeIds: string[]): Executi
   return plan.find((step) => step.outgoingEdgeId && required.has(step.outgoingEdgeId)) ?? null
 }
 
+function resolveActiveEdgeId(plan: ExecutionPlanStep[], stepIndex: number): string | null {
+  if (stepIndex <= 0) return null
+  const prevStep = plan[stepIndex - 1]
+  if (prevStep?.outgoingEdgeId) return prevStep.outgoingEdgeId
+  const currentStep = plan[stepIndex]
+  if (prevStep && currentStep) {
+    return `inferred-${prevStep.nodeId}-${currentStep.nodeId}`
+  }
+  return null
+}
+
+function buildVisualProgressState(
+  plan: ExecutionPlanStep[],
+  stepIndex: number,
+  trace: ExecutionTraceStep[],
+): Pick<
+  WorkflowRunState,
+  'currentStepIndex' | 'activeEdgeId' | 'activeNodeId' | 'completedNodeIds' | 'trace'
+> {
+  const clampedIndex = Math.max(0, Math.min(stepIndex, plan.length - 1))
+  const step = plan[clampedIndex]
+  const completedNodeIds = plan.slice(0, clampedIndex).map((candidate) => candidate.nodeId)
+  const nextTrace = trace.map((entry, index) => {
+    if (index < clampedIndex) {
+      return {
+        ...entry,
+        status: 'completed' as const,
+        message: 'Agent step completed.',
+        timestamp: new Date().toISOString(),
+      }
+    }
+    if (index === clampedIndex) {
+      return {
+        ...entry,
+        status: 'running' as const,
+        message: 'Executing agent…',
+        timestamp: new Date().toISOString(),
+      }
+    }
+    return {
+      ...entry,
+      status: 'pending' as const,
+      message: 'Waiting for upstream agents…',
+    }
+  })
+
+  return {
+    currentStepIndex: clampedIndex,
+    activeNodeId: step?.nodeId ?? null,
+    activeEdgeId: resolveActiveEdgeId(plan, clampedIndex),
+    completedNodeIds,
+    trace: nextTrace,
+  }
+}
+
 function responseToStatePatch(
   plan: ExecutionPlanStep[],
   response: WorkflowRunResponse,
@@ -169,10 +224,80 @@ function responseToStatePatch(
   }
 }
 
+const VISUAL_PROGRESS_INTERVAL_MS = 1100
+
 export function useWorkflowRunner() {
   const [state, setState] = useState<WorkflowRunState>(initialRunState)
   const cancelRef = useRef(false)
   const pendingExecutionRef = useRef<PendingExecution | null>(null)
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const visualStepRef = useRef(0)
+  const lastTraversedEdgeRef = useRef<string | null>(null)
+
+  const clearVisualProgress = useCallback(() => {
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current)
+      progressTimerRef.current = null
+    }
+  }, [])
+
+  const startVisualProgress = useCallback(
+    (plan: ExecutionPlanStep[]) => {
+      clearVisualProgress()
+      visualStepRef.current = 0
+      lastTraversedEdgeRef.current = null
+
+      if (plan.length === 0) return
+
+      setState((previous) => ({
+        ...previous,
+        ...buildVisualProgressState(plan, 0, previous.trace),
+      }))
+
+      progressTimerRef.current = setInterval(() => {
+        if (cancelRef.current) {
+          clearVisualProgress()
+          return
+        }
+
+        setState((previous) => {
+          if (previous.status !== 'running') return previous
+
+          const maxIndex = plan.length - 1
+          if (visualStepRef.current >= maxIndex) return previous
+
+          visualStepRef.current = Math.min(visualStepRef.current + 1, maxIndex)
+          const patch = buildVisualProgressState(plan, visualStepRef.current, previous.trace)
+          const traversedEdge = patch.activeEdgeId
+
+          if (traversedEdge && traversedEdge !== lastTraversedEdgeRef.current) {
+            lastTraversedEdgeRef.current = traversedEdge
+            const fromStep = plan[visualStepRef.current - 1]
+            const toStep = plan[visualStepRef.current]
+            return {
+              ...previous,
+              ...patch,
+              events: [
+                ...previous.events,
+                {
+                  id: createEventId(),
+                  kind: 'edge-traverse',
+                  level: 'info',
+                  message: `Flow moved to ${toStep?.agentName ?? 'next agent'}`,
+                  timestamp: new Date().toISOString(),
+                  edgeId: traversedEdge,
+                  agentName: fromStep?.agentName,
+                },
+              ],
+            }
+          }
+
+          return { ...previous, ...patch }
+        })
+      }, VISUAL_PROGRESS_INTERVAL_MS)
+    },
+    [clearVisualProgress],
+  )
 
   const appendEvent = useCallback((event: Omit<WorkflowExecutionEvent, 'id' | 'timestamp'>) => {
     const full: WorkflowExecutionEvent = {
@@ -192,15 +317,17 @@ export function useWorkflowRunner() {
   const runBackendExecution = useCallback(
     async (execution: PendingExecution) => {
       const { plan, input, target, approvedEdgeIds } = execution
+      startVisualProgress(plan)
       try {
         const response = await executeWorkflowFromApi(target.workspaceId, target.pageId, {
           inputs: parseWorkflowInput(input),
           metadata: {
-            source: 'workflow-execute-page',
+            source: 'workflow-editor',
           },
           approvedEdgeIds,
           raiseOnError: false,
         })
+        clearVisualProgress()
         if (cancelRef.current) return
 
         const patch = responseToStatePatch(plan, response)
@@ -220,6 +347,7 @@ export function useWorkflowRunner() {
           detail: `Run ${response.runId}`,
         })
       } catch (error) {
+        clearVisualProgress()
         if (cancelRef.current) return
 
         if (error instanceof WorkflowExecutionApprovalRequiredError) {
@@ -281,7 +409,7 @@ export function useWorkflowRunner() {
         })
       }
     },
-    [appendEvent],
+    [appendEvent, clearVisualProgress, startVisualProgress],
   )
 
   const submitApproval = useCallback(
@@ -309,6 +437,7 @@ export function useWorkflowRunner() {
 
   const cancel = useCallback(() => {
     cancelRef.current = true
+    clearVisualProgress()
     pendingExecutionRef.current = null
     setState((previous) => ({
       ...previous,
@@ -322,13 +451,14 @@ export function useWorkflowRunner() {
       level: 'warning',
       message: 'Execution cancelled by user.',
     })
-  }, [appendEvent])
+  }, [appendEvent, clearVisualProgress])
 
   const reset = useCallback(() => {
     cancelRef.current = false
+    clearVisualProgress()
     pendingExecutionRef.current = null
     setState(initialRunState())
-  }, [])
+  }, [clearVisualProgress])
 
   const start = useCallback(
     async (plan: ExecutionPlanStep[], input: string, target: BackendExecutionTarget) => {

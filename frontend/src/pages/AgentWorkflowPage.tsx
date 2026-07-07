@@ -28,7 +28,14 @@ import type {
 import { AgentWorkflowHeader } from '@/components/agent-workflow/AgentWorkflowHeader'
 import { AgentLibrarySidebar } from '@/components/agent-workflow/AgentLibrarySidebar'
 import { AgentPropertiesShell } from '@/components/agent-workflow/AgentPropertiesShell'
-import { BottomInspectorPanel } from '@/components/agent-workflow/BottomInspectorPanel'
+import {
+  BottomInspectorPanel,
+  type InspectorTab,
+} from '@/components/agent-workflow/BottomInspectorPanel'
+import { ExecutionControlBar } from '@/components/agent-workflow/ExecutionControlBar'
+import { ExecutionFlowCanvas } from '@/components/agent-workflow/ExecutionFlowCanvas'
+import { getExecutablePlan } from '@/components/agent-workflow/build-execution-plan'
+import { useWorkflowRunner } from '@/components/agent-workflow/use-workflow-runner'
 import {
   AgentWorkflowCanvas,
   type AgentWorkflowCanvasHandle,
@@ -58,8 +65,8 @@ import {
 import { autoLayoutNodes, inferWorkflowType, validateWorkflow } from '@/components/agent-workflow/validate-workflow'
 import {
   AGENT_WORKFLOW_TOOL_ID,
+  clearExecutionSnapshot,
   mergeDiagramIntoDocument,
-  saveExecutionSnapshot,
   saveWorkflowDocument,
 } from '@/components/agent-workflow/workflow-storage'
 import { useWorkflowEditorPanels } from '@/components/agent-workflow/hooks/use-workflow-editor-panels'
@@ -69,10 +76,6 @@ import { useServerLlmConfig } from '@/hooks/use-server-llm-config'
 import { useSubWorkflowActions } from '@/components/agent-workflow/hooks/use-sub-workflow-actions'
 import { useUnsavedWorkflowGuard } from '@/components/agent-workflow/hooks/use-unsaved-workflow-guard'
 import { UnsavedChangesDialog } from '@/components/agent-workflow/UnsavedChangesDialog'
-import {
-  EXECUTE_LAUNCH_DELAY_MS,
-  ExecuteLaunchOverlay,
-} from '@/components/agent-workflow/ExecuteLaunchOverlay'
 import {
   WorkflowEditorViewToggle,
   type WorkflowEditorViewMode,
@@ -151,8 +154,10 @@ export default function AgentWorkflowPage() {
   const [agentPickOpen, setAgentPickOpen] = useState(false)
   const [rightPanelTab, setRightPanelTab] = useState<'details' | 'collaborators'>('details')
   const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
-  const [isExecuteTransition, setIsExecuteTransition] = useState(false)
-  const executeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('test')
+  const [isPersistingExecution, setIsPersistingExecution] = useState(false)
+  const { state: runState, start: startExecution, submitApproval, cancel: cancelExecution, reset: resetExecution } =
+    useWorkflowRunner()
   const { modelConfig: serverModelConfig, configured: llmConfigured, isLoading: llmConfigLoading } =
     useServerLlmConfig()
 
@@ -234,16 +239,18 @@ export default function AgentWorkflowPage() {
   }, [tool])
 
   useEffect(() => {
-    return () => {
-      if (executeTimerRef.current) clearTimeout(executeTimerRef.current)
-    }
-  }, [])
-
-  useEffect(() => {
     if (selection?.kind === 'node' || selection?.kind === 'edge') {
       setRightPanelTab('details')
     }
   }, [selection])
+
+  useEffect(() => {
+    if (runState.status === 'failed' && runState.errors.length > 0) {
+      setInspectorTab('errors')
+    } else if (runState.status === 'waiting-approval') {
+      setInspectorTab('trace')
+    }
+  }, [runState.status, runState.errors.length])
 
   const handleSelectionChange = useCallback((next: Selection) => {
     setSelection(next)
@@ -400,6 +407,7 @@ export default function AgentWorkflowPage() {
 
   const handleTest = useCallback(() => {
     const stamp = new Date().toISOString()
+    setInspectorTab('trace')
     setTrace(simulateTrace(diagram))
     setLogs([
       `[${stamp}] Starting workflow ${workflowMeta.workflowId}`,
@@ -419,7 +427,7 @@ export default function AgentWorkflowPage() {
     }
     const deployment: WorkflowDeployment = {
       workflowId: workflowMeta.workflowId,
-      endpointUrl: `https://api.clovai.app/v1/workflows/${workflowMeta.workflowId}/run`,
+      endpointUrl: `https://api.elevennodes.app/v1/workflows/${workflowMeta.workflowId}/run`,
       triggerMethod: 'POST',
       authType: 'api-key',
       requestSchema: testInput.trim() || '{\n  "input": "string"\n}',
@@ -445,9 +453,12 @@ export default function AgentWorkflowPage() {
   }, [isValidated, workflowMeta, testInput, setDoc])
 
   const handleExecute = useCallback(() => {
-    if (isExecuteTransition) return
+    if (isPersistingExecution || runState.status === 'running' || runState.status === 'waiting-approval') {
+      return
+    }
 
     if (bottom.collapsed) bottom.toggle()
+    setInspectorTab('trace')
 
     if (!isValidWorkflowInput(testInput)) {
       toast.error('Add valid JSON workflow input in the Test & run panel before executing.')
@@ -468,33 +479,57 @@ export default function AgentWorkflowPage() {
     const diagramSnapshot = { nodes: diagram.nodes, edges: diagram.edges }
     const docToSave = mergeDiagramIntoDocument(doc, page.id, diagramSnapshot, page.name)
     saveWorkflowDocument(docToSave)
+    clearExecutionSnapshot()
+    resetExecution()
+    setEditorView('canvas')
+
+    const executionPlan = getExecutablePlan(diagramSnapshot)
+    if (executionPlan.length === 0) {
+      toast.error('No executable agents in this workflow.')
+      return
+    }
+
+    setIsPersistingExecution(true)
     void persistWorkflowBuildSpec({
       doc: docToSave,
       pageId: page.id,
       diagram: diagramSnapshot,
       paletteById,
       serverModelConfig,
+      syncToDisk: true,
+      requireApi: true,
     })
-    saveExecutionSnapshot({
-      pageId: page.id,
-      pageName: page.name,
-      diagram: diagramSnapshot,
-      input: testInput,
-    })
+      .then((saved) =>
+        startExecution(executionPlan, testInput, {
+          workspaceId: saved.workspaceId,
+          pageId: saved.pageId,
+        }),
+      )
+      .catch((error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : 'Failed to save workflow before execution.'
+        toast.error(message)
+      })
+      .finally(() => {
+        setIsPersistingExecution(false)
+      })
+  }, [
+    doc,
+    diagram,
+    testInput,
+    paletteById,
+    serverModelConfig,
+    bottom,
+    isPersistingExecution,
+    runState.status,
+    resetExecution,
+    startExecution,
+  ])
 
-    const navState = {
-      pageId: page.id,
-      pageName: page.name,
-      diagram: diagramSnapshot,
-      input: testInput,
-      autoStart: true,
-    }
-
-    setIsExecuteTransition(true)
-    executeTimerRef.current = setTimeout(() => {
-      navigate('/tools/agent-workflow/execute', { state: navState })
-    }, EXECUTE_LAUNCH_DELAY_MS)
-  }, [doc, diagram, navigate, testInput, isExecuteTransition, paletteById, serverModelConfig, bottom])
+  const handleResetExecution = useCallback(() => {
+    resetExecution()
+    setInspectorTab('test')
+  }, [resetExecution])
 
   useEffect(() => {
     registerSaveHandler(handleSave)
@@ -535,6 +570,15 @@ export default function AgentWorkflowPage() {
 
   const agentNodes = useMemo(() => listAgentNodes(diagram), [diagram])
   const errorCount = validationIssues.filter((issue) => issue.severity === 'error').length
+  const isExecutionMode = runState.status !== 'idle'
+  const isExecuting =
+    isPersistingExecution || runState.status === 'running' || runState.status === 'waiting-approval'
+  const displayTrace = isExecutionMode ? runState.trace : trace
+  const workflowDescription = useMemo(() => {
+    const plan = getExecutablePlan(diagram)
+    const approvalEdges = diagram.edges.filter((edge) => edge.connector?.humanApproval).length
+    return `${plan.length}-step workflow${approvalEdges ? ` with ${approvalEdges} human approval gate(s)` : ''}.`
+  }, [diagram])
 
   if (!tool) return <Navigate to="/404" replace />
 
@@ -640,32 +684,51 @@ export default function AgentWorkflowPage() {
             />
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <WorkflowEditorViewToggle mode={editorView} onModeChange={setEditorView} />
-
-              {editorView === 'canvas' ? (
-                <AgentWorkflowCanvas
-                  ref={canvasRef}
-                  diagram={diagram}
-                  paletteById={paletteById}
-                  onChange={handleChange}
-                  selection={selection}
-                  onSelectionChange={handleSelectionChange}
-                  snapToGrid={snapToGrid}
-                  showGrid={showGrid}
-                  activePageId={activePage.id}
-                  onAutoLayout={runAutoLayout}
-                  transformDroppedNode={transformDroppedNode}
-                  finalizeDroppedNode={finalizeDroppedNode}
-                />
+              {isExecutionMode ? (
+                <>
+                  <ExecutionControlBar
+                    runState={runState}
+                    onCancel={cancelExecution}
+                    onReset={handleResetExecution}
+                    onSubmitApproval={submitApproval}
+                  />
+                  <ExecutionFlowCanvas
+                    diagram={diagram}
+                    paletteById={paletteById}
+                    runState={runState}
+                    workflowName={workflowName}
+                    workflowDescription={workflowDescription}
+                  />
+                </>
               ) : (
-                <WorkflowBuildCodeView
-                  doc={doc}
-                  pageId={activePage.id}
-                  pageName={activePage.name}
-                  diagram={diagram}
-                  paletteById={paletteById}
-                  serverModelConfig={serverModelConfig}
-                />
+                <>
+                  <WorkflowEditorViewToggle mode={editorView} onModeChange={setEditorView} />
+                  {editorView === 'canvas' ? (
+                    <AgentWorkflowCanvas
+                      ref={canvasRef}
+                      diagram={diagram}
+                      paletteById={paletteById}
+                      onChange={handleChange}
+                      selection={selection}
+                      onSelectionChange={handleSelectionChange}
+                      snapToGrid={snapToGrid}
+                      showGrid={showGrid}
+                      activePageId={activePage.id}
+                      onAutoLayout={runAutoLayout}
+                      transformDroppedNode={transformDroppedNode}
+                      finalizeDroppedNode={finalizeDroppedNode}
+                    />
+                  ) : (
+                    <WorkflowBuildCodeView
+                      doc={doc}
+                      pageId={activePage.id}
+                      pageName={activePage.name}
+                      diagram={diagram}
+                      paletteById={paletteById}
+                      serverModelConfig={serverModelConfig}
+                    />
+                  )}
+                </>
               )}
 
               <PagesBar
@@ -679,14 +742,19 @@ export default function AgentWorkflowPage() {
 
               <BottomInspectorPanel
                 validationIssues={validationIssues}
-                trace={trace}
+                trace={displayTrace}
                 logs={logs}
+                executionEvents={runState.events}
+                executionErrors={runState.errors}
+                executionWarnings={runState.warnings}
                 testInput={testInput}
                 onTestInputChange={setTestInput}
                 onSimulate={handleTest}
                 onExecute={handleExecute}
-                isExecuting={isExecuteTransition}
-                canExecute={agentNodes.length > 0}
+                isExecuting={isExecuting}
+                canExecute={agentNodes.length > 0 && !isExecutionMode}
+                activeTab={inspectorTab}
+                onActiveTabChange={setInspectorTab}
                 height={bottom.size}
                 collapsed={bottom.collapsed}
                 onResizePointerDown={bottom.onResizePointerDown}
@@ -762,7 +830,6 @@ export default function AgentWorkflowPage() {
         isSaving={isUnsavedSaving}
       />
 
-      {isExecuteTransition && <ExecuteLaunchOverlay workflowName={workflowName} />}
     </div>
     </DevProfiler>
   )

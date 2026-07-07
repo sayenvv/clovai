@@ -37,7 +37,7 @@
     {
       "id": "ai-flowchart",
       "title": "Flowchart Generator",
-      "description": "Design flowcharts on a drag-and-drop canvas. AI generation via Clovai Engine coming soon.",
+      "description": "Design flowcharts on a drag-and-drop canvas. AI generation via Eleven Nodes Engine coming soon.",
       "icon": "git-branch",
       "route": "/tools/ai-flowchart",
       "category": "ai-generators",
@@ -793,7 +793,7 @@
     }
   ],
   "featured": {
-    "title": "Clovai Engine \u2014 coming soon",
+    "title": "Eleven Nodes Engine \u2014 coming soon",
     "description": "A multi-agent AI orchestration engine that will turn plain language into complete diagrams. Until then, enjoy the fastest manual canvas around.",
     "icon": "sparkles",
     "cta": {

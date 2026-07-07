@@ -1,9 +1,9 @@
 import { Profiler, type ProfilerOnRenderCallback, type ReactNode } from 'react'
 
-const STORAGE_KEY = 'clovai:perf'
+const STORAGE_KEY = 'eleven-nodes:perf'
 const THRESHOLD_MS = 4
 
-/** Enable in dev: `localStorage.setItem('clovai:perf', '1')` then reload. */
+/** Enable in dev: `localStorage.setItem('eleven-nodes:perf', '1')` then reload. */
 export function isRenderProfilingEnabled(): boolean {
   if (!import.meta.env.DEV) return false
   try {

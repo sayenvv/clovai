@@ -1,12 +1,13 @@
 export const APP_NAME = 'Eleven Nodes'
+export const APP_SLUG = 'eleven-nodes'
 
 export const STORAGE_KEYS = {
-  theme: 'clovai-theme',
-  configStore: 'clovai-config-store-v4',
-  diagram: (toolId: string) => `clovai-diagram-${toolId}`,
-  shareSettings: (toolId: string) => `clovai-share-${toolId}`,
+  theme: 'eleven-nodes-theme',
+  configStore: 'eleven-nodes-config-store-v4',
+  diagram: (toolId: string) => `eleven-nodes-diagram-${toolId}`,
+  shareSettings: (toolId: string) => `eleven-nodes-share-${toolId}`,
   workflowBuild: (workspaceId: string, pageId: string) =>
-    `clovai-workflow-build:${workspaceId}:${pageId}`,
+    `eleven-nodes-workflow-build:${workspaceId}:${pageId}`,
 } as const
 
 export const QUERY_KEYS = {

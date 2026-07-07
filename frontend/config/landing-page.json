@@ -11,13 +11,13 @@
       "order": 1,
       "isVisible": true,
       "announcement": {
-        "label": "Clovai Engine — multi-agent AI generation, coming soon",
+        "label": "Eleven Nodes Engine — multi-agent AI generation, coming soon",
         "href": "/tools/ai-flowchart",
         "icon": "sparkles"
       },
       "title": "Ship diagrams at the",
       "highlight": "speed of thought",
-      "subtitle": "Design flowcharts, architecture diagrams, UML, ER models and more on a fast drag-and-drop canvas. AI generation, powered by the multi-agent Clovai Engine, is on the way.",
+      "subtitle": "Design flowcharts, architecture diagrams, UML, ER models and more on a fast drag-and-drop canvas. AI generation, powered by the multi-agent Eleven Nodes Engine, is on the way.",
       "ctas": [
         {
           "id": "hero-primary",
@@ -127,7 +127,7 @@
         },
         {
           "id": "feat-engine",
-          "title": "Clovai Engine",
+          "title": "Eleven Nodes Engine",
           "description": "Our upcoming multi-agent AI orchestration engine will turn plain language into complete, well-laid-out diagrams.",
           "icon": "sparkles",
           "badge": { "label": "Coming soon", "variant": "gradient" },
@@ -165,7 +165,7 @@
         {
           "id": "step-share",
           "title": "Share & export",
-          "description": "Export your diagram as JSON today; live embeds and one-click sharing are next. AI generation joins with the Clovai Engine.",
+          "description": "Export your diagram as JSON today; live embeds and one-click sharing are next. AI generation joins with the Eleven Nodes Engine.",
           "icon": "share-2",
           "order": 3
         }
@@ -250,7 +250,7 @@
         "align": "left"
       },
       "title": "Enterprise-grade by default",
-      "description": "Clovai meets the bar of the most demanding security and compliance teams, so yours can say yes faster.",
+      "description": "Eleven Nodes meets the bar of the most demanding security and compliance teams, so yours can say yes faster.",
       "bullets": [
         {
           "id": "ent-sso",
@@ -305,7 +305,7 @@
             "Unlimited manual diagrams",
             "Core diagram tools & shapes",
             "JSON export",
-            "Clovai Engine waitlist access",
+            "Eleven Nodes Engine waitlist access",
             "Community support"
           ],
           "cta": {
@@ -329,7 +329,7 @@
             "Full shape libraries",
             "Real-time collaboration",
             "Version history & branching",
-            "Priority Clovai Engine access at launch",
+            "Priority Eleven Nodes Engine access at launch",
             "Priority support"
           ],
           "cta": {
@@ -385,7 +385,7 @@
       "items": [
         {
           "id": "t-1",
-          "quote": "Clovai replaced three tools for us. The canvas is so fast that our architecture reviews moved from whiteboard photos to living diagrams.",
+          "quote": "Eleven Nodes replaced three tools for us. The canvas is so fast that our architecture reviews moved from whiteboard photos to living diagrams.",
           "author": "Priya Sharma",
           "role": "Staff Engineer",
           "company": "Northwind Labs",
@@ -403,7 +403,7 @@
         },
         {
           "id": "t-3",
-          "quote": "We rolled Clovai out to 400 people in a week. SSO, SCIM and audit logs worked out of the box — our security team had nothing to add.",
+          "quote": "We rolled Eleven Nodes out to 400 people in a week. SSO, SCIM and audit logs worked out of the box — our security team had nothing to add.",
           "author": "Elena Kovács",
           "role": "VP of Engineering",
           "company": "Meridian Systems",
@@ -426,14 +426,14 @@
       "items": [
         {
           "id": "faq-engine",
-          "question": "What is the Clovai Engine and when does it launch?",
-          "answer": "The Clovai Engine is our upcoming multi-agent AI orchestration system: specialized agents plan, draw and lay out complete diagrams from plain language. It is in active development — join the waitlist from any plan and you'll get access the moment it ships.",
+          "question": "What is the Eleven Nodes Engine and when does it launch?",
+          "answer": "The Eleven Nodes Engine is our upcoming multi-agent AI orchestration system: specialized agents plan, draw and lay out complete diagrams from plain language. It is in active development — join the waitlist from any plan and you'll get access the moment it ships.",
           "order": 1
         },
         {
           "id": "faq-data",
           "question": "Will my data be used to train AI models?",
-          "answer": "No. Your diagrams and prompts will never be used for model training. Enterprise plans can additionally opt into EU-only data residency and zero-retention inference when the Clovai Engine launches.",
+          "answer": "No. Your diagrams and prompts will never be used for model training. Enterprise plans can additionally opt into EU-only data residency and zero-retention inference when the Eleven Nodes Engine launches.",
           "order": 2
         },
         {
@@ -444,7 +444,7 @@
         },
         {
           "id": "faq-offline",
-          "question": "Does Clovai work offline?",
+          "question": "Does Eleven Nodes work offline?",
           "answer": "Yes — the canvas designer runs in your browser and your drafts autosave locally, so you can keep designing without a connection.",
           "order": 4
         },

@@ -12,7 +12,7 @@ import { resolveWorkflowModelConfig } from '@/components/agent-workflow/workflow
 
 export const AGENT_WORKFLOW_TOOL_ID = 'agent-workflow'
 
-const EXECUTION_SNAPSHOT_KEY = 'clovai-agent-workflow-execution-snapshot'
+const EXECUTION_SNAPSHOT_KEY = 'eleven-nodes-agent-workflow-execution-snapshot'
 
 export interface ExecutionSnapshot {
   pageId: string

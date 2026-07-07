@@ -132,7 +132,7 @@ export default function AdminConfigPage() {
   }
 
   const downloadSample = () => {
-    downloadJson(defaultAppConfig, 'clovai-sample-config.json')
+    downloadJson(defaultAppConfig, 'eleven-nodes-sample-config.json')
   }
 
   const isSaving = saveMutation.isPending || updateMutation.isPending

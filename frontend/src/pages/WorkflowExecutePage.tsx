@@ -36,13 +36,13 @@ interface ExecuteLocationState {
 
 const DEFAULT_INPUT = '{\n  "query": "Summarize the quarterly report"\n}'
 
-const CENTER_PANEL_STORAGE_KEY = 'clovai-agent-workflow-exec-center-width'
-const CENTER_PANEL_COLLAPSED_KEY = 'clovai-agent-workflow-exec-center-collapsed'
+const CENTER_PANEL_STORAGE_KEY = 'eleven-nodes-agent-workflow-exec-center-width'
+const CENTER_PANEL_COLLAPSED_KEY = 'eleven-nodes-agent-workflow-exec-center-collapsed'
 const CENTER_PANEL_DEFAULT = 320
 const CENTER_PANEL_MIN = 280
 const CENTER_PANEL_MAX = 440
 
-const RIGHT_PANEL_STORAGE_KEY = 'clovai-agent-workflow-exec-right-width'
+const RIGHT_PANEL_STORAGE_KEY = 'eleven-nodes-agent-workflow-exec-right-width'
 const RIGHT_PANEL_DEFAULT = 380
 const RIGHT_PANEL_MIN = 300
 const RIGHT_PANEL_MAX = 560

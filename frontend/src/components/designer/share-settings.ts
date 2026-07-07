@@ -31,7 +31,7 @@ export const DEFAULT_SHARE_SETTINGS: ShareSettings = {
   members: DEFAULT_WORKSPACE_MEMBERS,
 }
 
-export const SHARE_SETTINGS_EVENT = 'clovai-share-settings-updated'
+export const SHARE_SETTINGS_EVENT = 'eleven-nodes-share-settings-updated'
 
 export function loadShareSettings(toolId: string): ShareSettings {
   try {

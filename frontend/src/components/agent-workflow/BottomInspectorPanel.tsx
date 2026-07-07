@@ -9,24 +9,36 @@ import {
   Play,
   Terminal,
   TestTube2,
+  XCircle,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
 import { BOTTOM_PANEL_COLLAPSED_HEIGHT } from '@/components/agent-workflow/panel-layout'
-import type { ExecutionTraceStep, WorkflowValidationIssue } from '@/types/agent-workflow'
+import type {
+  ExecutionTraceStep,
+  WorkflowExecutionEvent,
+  WorkflowValidationIssue,
+} from '@/types/agent-workflow'
+
+export type InspectorTab = 'test' | 'trace' | 'logs' | 'errors' | 'warnings' | 'validation'
 
 interface BottomInspectorPanelProps {
   validationIssues: WorkflowValidationIssue[]
   trace: ExecutionTraceStep[]
   logs: string[]
+  executionEvents: WorkflowExecutionEvent[]
+  executionErrors: WorkflowExecutionEvent[]
+  executionWarnings: WorkflowExecutionEvent[]
   testInput: string
   onTestInputChange: (value: string) => void
   onSimulate: () => void
   onExecute: () => void
   isExecuting?: boolean
   canExecute?: boolean
+  activeTab?: InspectorTab
+  onActiveTabChange?: (tab: InspectorTab) => void
   height: number
   collapsed: boolean
   onResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
@@ -37,20 +49,30 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
   validationIssues,
   trace,
   logs,
+  executionEvents,
+  executionErrors,
+  executionWarnings,
   testInput,
   onTestInputChange,
   onSimulate,
   onExecute,
   isExecuting = false,
   canExecute = true,
+  activeTab = 'test',
+  onActiveTabChange,
   height,
   collapsed,
   onResizePointerDown,
   onToggleCollapse,
 }: BottomInspectorPanelProps) {
-  const errors = validationIssues.filter((issue) => issue.severity === 'error')
-  const warnings = validationIssues.filter((issue) => issue.severity === 'warning')
-  const issueCount = errors.length + warnings.length
+  const validationErrors = validationIssues.filter((issue) => issue.severity === 'error')
+  const validationWarnings = validationIssues.filter((issue) => issue.severity === 'warning')
+  const validationCount = validationErrors.length + validationWarnings.length
+  const runtimeErrorCount = executionErrors.length
+  const runtimeWarningCount = executionWarnings.length
+  const logEvents = executionEvents.filter(
+    (event) => event.level === 'info' || event.level === 'success',
+  )
 
   if (collapsed) {
     return (
@@ -61,9 +83,20 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Terminal className="h-3.5 w-3.5" />
           <span className="font-medium text-foreground">Output</span>
-          {issueCount > 0 && (
+          {isExecuting && (
+            <Badge variant="outline" className="h-4 gap-1 border-0 bg-primary/10 px-1.5 text-[9px] text-primary">
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              Running
+            </Badge>
+          )}
+          {runtimeErrorCount > 0 && (
+            <Badge variant="outline" className="h-4 border-0 bg-red-500/10 px-1 text-[9px] text-red-600">
+              {runtimeErrorCount} err
+            </Badge>
+          )}
+          {validationCount > 0 && (
             <Badge variant="outline" className="h-4 px-1 text-[9px]">
-              {issueCount}
+              {validationCount}
             </Badge>
           )}
         </div>
@@ -96,15 +129,31 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
         <span className="h-1 w-10 rounded-full bg-border transition-colors hover:bg-violet-500/50" />
       </div>
 
-      <Tabs defaultValue="test" className="flex h-full flex-col">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => onActiveTabChange?.(value as InspectorTab)}
+        className="flex h-full flex-col"
+      >
         <div className="flex items-center justify-between border-b border-border pr-2">
-          <TabsList className="h-9 bg-transparent p-0 pl-3">
+          <TabsList className="h-9 flex-wrap bg-transparent p-0 pl-3">
             <TabsTrigger
               value="test"
               className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent"
             >
               <TestTube2 className="mr-1.5 h-3.5 w-3.5" />
               Test & run
+            </TabsTrigger>
+            <TabsTrigger
+              value="trace"
+              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent"
+            >
+              <Clock className="mr-1.5 h-3.5 w-3.5" />
+              Trace
+              {trace.length > 0 && (
+                <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[9px]">
+                  {trace.length}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger
               value="logs"
@@ -114,23 +163,39 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
               Logs
             </TabsTrigger>
             <TabsTrigger
-              value="validation"
+              value="errors"
               className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent"
             >
-              <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
-              Validation
-              {issueCount > 0 && (
-                <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[9px]">
-                  {issueCount}
+              <XCircle className="mr-1.5 h-3.5 w-3.5" />
+              Errors
+              {runtimeErrorCount > 0 && (
+                <Badge variant="outline" className="ml-1.5 h-4 border-0 bg-red-500/10 px-1 text-[9px] text-red-600">
+                  {runtimeErrorCount}
                 </Badge>
               )}
             </TabsTrigger>
             <TabsTrigger
-              value="trace"
+              value="warnings"
               className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent"
             >
-              <Clock className="mr-1.5 h-3.5 w-3.5" />
-              Execution trace
+              <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
+              Warnings
+              {runtimeWarningCount > 0 && (
+                <Badge variant="outline" className="ml-1.5 h-4 border-0 bg-amber-500/10 px-1 text-[9px] text-amber-700">
+                  {runtimeWarningCount}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="validation"
+              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent"
+            >
+              Validation
+              {validationCount > 0 && (
+                <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[9px]">
+                  {validationCount}
+                </Badge>
+              )}
             </TabsTrigger>
           </TabsList>
           <Button
@@ -150,7 +215,7 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
             <div className="min-w-0">
               <p className="text-xs font-semibold text-foreground">Workflow input</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Provide JSON input — required before executing agents in this workflow.
+                Provide JSON input — execution runs on this canvas with live agent highlighting.
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -170,28 +235,119 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
                 ) : (
                   <Play className="h-3.5 w-3.5" />
                 )}
-                {isExecuting ? 'Launching…' : 'Execute workflow'}
+                {isExecuting ? 'Executing…' : 'Execute workflow'}
               </Button>
             </div>
           </div>
           <textarea
             value={testInput}
             onChange={(event) => onTestInputChange(event.target.value)}
-            className="min-h-0 flex-1 w-full resize-none rounded-lg border border-border bg-background p-3 font-mono text-xs leading-relaxed shadow-inner focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+            disabled={isExecuting}
+            className="min-h-0 flex-1 w-full resize-none rounded-lg border border-border bg-background p-3 font-mono text-xs leading-relaxed shadow-inner focus:outline-none focus:ring-2 focus:ring-violet-500/30 disabled:opacity-60"
             placeholder='{\n  "query": "Summarize the quarterly report"\n}'
             spellCheck={false}
           />
         </TabsContent>
 
+        <TabsContent value="trace" className="mt-0 flex-1 overflow-y-auto p-3">
+          {trace.length === 0 ? (
+            <EmptyHint message="Simulate or execute the workflow to view the execution trace." />
+          ) : (
+            <ol className="space-y-2">
+              {trace.map((step, index) => (
+                <li key={step.id} className="flex gap-3 rounded-lg border border-border px-3 py-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium">{step.agentName}</span>
+                      <TraceStatusBadge status={step.status} />
+                      {step.durationMs != null && (
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          {step.durationMs}ms
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{step.message}</p>
+                    {step.output && (
+                      <pre className="mt-2 max-h-28 overflow-auto rounded-md border border-border bg-muted/40 p-2 font-mono text-[10px] leading-relaxed">
+                        {step.output}
+                      </pre>
+                    )}
+                    <p className="mt-1 font-mono text-[10px] text-muted-foreground/70">
+                      {step.timestamp}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </TabsContent>
+
         <TabsContent value="logs" className="mt-0 flex-1 overflow-y-auto p-3 font-mono text-xs">
-          {logs.length === 0 ? (
+          {logEvents.length === 0 && logs.length === 0 ? (
             <EmptyHint message="Run a simulation or execute the workflow to see runtime logs." />
           ) : (
-            logs.map((line, index) => (
-              <div key={index} className="text-muted-foreground">
-                {line}
-              </div>
-            ))
+            <div className="space-y-1">
+              {logs.map((line, index) => (
+                <TerminalLine key={`log-${index}`} level="info" timestamp="" message={line} />
+              ))}
+              {logEvents.map((event) => (
+                <TerminalLine
+                  key={event.id}
+                  level={event.level}
+                  timestamp={event.timestamp}
+                  message={event.message}
+                  detail={event.detail}
+                  kind={event.kind}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="errors" className="mt-0 flex-1 overflow-y-auto p-3">
+          {executionErrors.length === 0 ? (
+            <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" />
+              No runtime errors.
+            </div>
+          ) : (
+            <div className="space-y-1.5 font-mono text-xs">
+              {executionErrors.map((event) => (
+                <TerminalLine
+                  key={event.id}
+                  level="error"
+                  timestamp={event.timestamp}
+                  message={event.message}
+                  detail={event.detail}
+                  kind={event.kind}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="warnings" className="mt-0 flex-1 overflow-y-auto p-3">
+          {executionWarnings.length === 0 ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4" />
+              No runtime warnings.
+            </div>
+          ) : (
+            <div className="space-y-1.5 font-mono text-xs">
+              {executionWarnings.map((event) => (
+                <TerminalLine
+                  key={event.id}
+                  level="warning"
+                  timestamp={event.timestamp}
+                  message={event.message}
+                  detail={event.detail}
+                  kind={event.kind}
+                />
+              ))}
+            </div>
           )}
         </TabsContent>
 
@@ -220,36 +376,45 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
             </ul>
           )}
         </TabsContent>
-
-        <TabsContent value="trace" className="mt-0 flex-1 overflow-y-auto p-3">
-          {trace.length === 0 ? (
-            <EmptyHint message="Simulate or execute the workflow to view the execution trace." />
-          ) : (
-            <ol className="space-y-2">
-              {trace.map((step, index) => (
-                <li key={step.id} className="flex gap-3 rounded-lg border border-border px-3 py-2">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium">{step.agentName}</span>
-                      <TraceStatusBadge status={step.status} />
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{step.message}</p>
-                    <p className="mt-1 font-mono text-[10px] text-muted-foreground/70">
-                      {step.timestamp}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
-        </TabsContent>
       </Tabs>
     </div>
   )
 })
+
+function TerminalLine({
+  level,
+  timestamp,
+  message,
+  detail,
+  kind,
+}: {
+  level: WorkflowExecutionEvent['level'] | 'info'
+  timestamp: string
+  message: string
+  detail?: string
+  kind?: WorkflowExecutionEvent['kind']
+}) {
+  const levelStyles = {
+    info: 'text-muted-foreground',
+    success: 'text-emerald-600 dark:text-emerald-400',
+    warning: 'text-amber-700 dark:text-amber-300',
+    error: 'text-red-700 dark:text-red-300',
+  }
+  const prefix = level === 'error' ? 'ERR' : level === 'warning' ? 'WRN' : level === 'success' ? 'OK ' : 'LOG'
+
+  return (
+    <div className={cn('rounded px-1 py-0.5', levelStyles[level])}>
+      <span className="text-muted-foreground/80">
+        {timestamp ? `[${timestamp}] ` : ''}
+        <span className="font-semibold">{prefix}</span>
+        {kind ? ` ${kind}` : ''}
+        {' · '}
+      </span>
+      {message}
+      {detail && <span className="mt-0.5 block text-[10px] text-muted-foreground/80">{detail}</span>}
+    </div>
+  )
+}
 
 function TraceStatusBadge({ status }: { status: ExecutionTraceStep['status'] }) {
   const styles: Record<ExecutionTraceStep['status'], string> = {

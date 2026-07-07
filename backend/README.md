@@ -1,6 +1,6 @@
-# ClovAI Backend
+# Eleven Nodes Backend
 
-FastAPI service for ClovAI configuration, workflow, agent, and execution APIs.
+FastAPI service for Eleven Nodes configuration, workflow, agent, and execution APIs.
 
 ## Local setup
 
@@ -25,7 +25,7 @@ curl http://localhost:8000/api/health
 Expected response:
 
 ```json
-{"status":"healthy","service":"clovai-api"}
+{"status":"healthy","service":"eleven-nodes-api"}
 ```
 
 ## Workflow runtime
