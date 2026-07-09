@@ -6,8 +6,6 @@ import {
   Clock,
   Loader2,
   PanelRightClose,
-  Play,
-  RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
 import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
 import { SIDE_PANEL_COLLAPSED_WIDTH } from '@/components/agent-workflow/panel-layout'
+import { ExecutionFileUploadButton } from '@/components/agent-workflow/ExecutionFileUploadButton'
 import { cn } from '@/utils/cn'
 import type { ExecutionPlanStep, WorkflowRunState } from '@/types/agent-workflow'
 
@@ -54,10 +53,10 @@ export const ExecutionTimelineShell = memo(function ExecutionTimelineShell({
   if (collapsed) {
     return (
       <aside
-        className="relative flex h-full shrink-0 flex-col border-l border-r border-border bg-card/50"
+        className="relative flex h-full shrink-0 flex-col border-l border-r border-border/60 bg-background"
         style={{ width: SIDE_PANEL_COLLAPSED_WIDTH }}
       >
-        <div className="flex flex-col items-center gap-2 border-b border-border py-2">
+        <div className="flex flex-col items-center gap-2 border-b border-border/60 py-2">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleCollapse}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -92,7 +91,7 @@ export const ExecutionTimelineShell = memo(function ExecutionTimelineShell({
 
   return (
     <aside
-      className="relative flex h-full shrink-0 flex-col border-l border-r border-border bg-card/50"
+      className="relative flex h-full shrink-0 flex-col border-l border-r border-border/60 bg-background"
       style={{ width }}
     >
       <DesignerResizeHandle
@@ -101,7 +100,7 @@ export const ExecutionTimelineShell = memo(function ExecutionTimelineShell({
         ariaLabel="Resize timeline panel"
       />
 
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">Timeline</p>
           <p className="truncate text-[11px] text-muted-foreground">{workflowName}</p>
@@ -111,7 +110,7 @@ export const ExecutionTimelineShell = memo(function ExecutionTimelineShell({
         </Button>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2">
         <Select className="h-8 flex-1 text-xs" defaultValue="latest" disabled={isRunning}>
           <option value="latest">Checkpoint · latest run</option>
           {runState.runId && <option value={runState.runId}>{runState.runId}</option>}
@@ -200,28 +199,50 @@ export const ExecutionTimelineShell = memo(function ExecutionTimelineShell({
         )}
       </div>
 
-      <div className="shrink-0 space-y-2 border-t border-border p-3">
-        <Textarea
-          rows={3}
-          value={input}
-          onChange={(event) => onInputChange(event.target.value)}
-          placeholder='{\n  "query": "Your input…"\n}'
-          className="font-mono text-xs"
-          disabled={isRunning}
-        />
-        <Button className="w-full" onClick={onRunAgain} disabled={isRunning}>
-          {runState.status === 'idle' ? (
-            <>
-              <Play className="h-3.5 w-3.5" />
-              Execute workflow
-            </>
-          ) : (
-            <>
-              <RotateCcw className="h-3.5 w-3.5" />
-              Run again
-            </>
-          )}
-        </Button>
+      <div className="shrink-0 space-y-2 border-t border-border/60 bg-background p-3 backdrop-blur-sm">
+        <div className="rounded-[22px] border border-border/60 bg-background p-2.5 shadow-sm transition-colors focus-within:border-ring/40 focus-within:ring-2 focus-within:ring-ring/10 dark:border-zinc-700/70 dark:focus-within:border-zinc-600 dark:focus-within:ring-zinc-500/10">
+          <Textarea
+            rows={2}
+            value={input}
+            onChange={(event) => onInputChange(event.target.value)}
+            placeholder="Ask for workflow changes"
+            className="min-h-[52px] resize-none border-0 bg-transparent px-2 py-1.5 text-sm leading-relaxed text-foreground shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-0 dark:text-white dark:placeholder:text-zinc-500"
+            disabled={isRunning}
+            spellCheck={false}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault()
+                if (!isRunning) onRunAgain()
+              }
+            }}
+          />
+          <div className="flex items-center gap-1 pt-1">
+            <ExecutionFileUploadButton
+              variant="icon"
+              disabled={isRunning}
+              onInputLoaded={onInputChange}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="ml-auto h-9 gap-1.5 px-4 text-xs shadow-md dark:bg-black dark:text-white dark:hover:bg-zinc-950"
+              onClick={onRunAgain}
+              disabled={isRunning}
+              aria-label={runState.status === 'idle' ? 'Execute workflow' : 'Run again'}
+              title={runState.status === 'idle' ? 'Execute workflow' : 'Run again'}
+            >
+              {isRunning ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : runState.status === 'idle' ? (
+                'Execute'
+              ) : (
+                'Run again'
+              )}
+            </Button>
+          </div>
+        </div>
+        <p className="text-[10px] text-muted-foreground">⌘/Ctrl + Enter to execute</p>
       </div>
     </aside>
   )

@@ -7,6 +7,7 @@ export interface PersistedPanelConfig {
   sizeKey: string
   collapsedKey: string
   defaultSize: number
+  responsiveDefault?: (viewportWidth: number) => number
   min: number
   max?: number
 }
@@ -23,7 +24,8 @@ export const EDITOR_RIGHT_PANEL: PersistedPanelConfig = {
   sizeKey: 'eleven-nodes-agent-workflow-right-panel-width',
   collapsedKey: 'eleven-nodes-agent-workflow-right-panel-collapsed',
   defaultSize: 340,
-  min: 280,
+  responsiveDefault: (viewportWidth) => Math.round(viewportWidth * 0.28),
+  min: 320,
   max: 560,
 }
 
@@ -35,16 +37,28 @@ export const EDITOR_BOTTOM_PANEL: PersistedPanelConfig = {
   max: 560,
 }
 
+function clampPanelSize(config: PersistedPanelConfig, size: number): number {
+  const max = config.max ?? Number.POSITIVE_INFINITY
+  return Math.min(max, Math.max(config.min, size))
+}
+
+export function getPanelDefaultSize(config: PersistedPanelConfig): number {
+  if (typeof window === 'undefined' || !config.responsiveDefault) {
+    return clampPanelSize(config, config.defaultSize)
+  }
+  return clampPanelSize(config, config.responsiveDefault(window.innerWidth))
+}
+
 export function readStoredSize(config: PersistedPanelConfig): number {
   try {
     const stored = localStorage.getItem(config.sizeKey)
-    if (!stored) return config.defaultSize
+    const defaultSize = getPanelDefaultSize(config)
+    if (!stored) return defaultSize
     const parsed = Number.parseInt(stored, 10)
-    if (Number.isNaN(parsed) || parsed < config.min) return config.defaultSize
-    if (config.max !== undefined && parsed > config.max) return config.defaultSize
-    return parsed
+    if (Number.isNaN(parsed)) return defaultSize
+    return clampPanelSize(config, parsed)
   } catch {
-    return config.defaultSize
+    return getPanelDefaultSize(config)
   }
 }
 

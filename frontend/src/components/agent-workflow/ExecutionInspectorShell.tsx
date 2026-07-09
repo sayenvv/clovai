@@ -27,10 +27,10 @@ export const ExecutionInspectorShell = memo(function ExecutionInspectorShell({
   if (collapsed) {
     return (
       <aside
-        className="relative flex h-full shrink-0 flex-col border-l border-border bg-card/50"
+        className="relative flex h-full shrink-0 flex-col border-l border-border/60 bg-background"
         style={{ width: SIDE_PANEL_COLLAPSED_WIDTH }}
       >
-        <div className="flex flex-col items-center gap-2 border-b border-border py-2">
+        <div className="flex flex-col items-center gap-2 border-b border-border/60 py-2">
           <Button
             variant="ghost"
             size="icon"
@@ -56,7 +56,7 @@ export const ExecutionInspectorShell = memo(function ExecutionInspectorShell({
 
   return (
     <aside
-      className="relative flex h-full shrink-0 flex-col border-l border-border bg-card/50"
+      className="relative flex h-full shrink-0 flex-col border-l border-border/60 bg-background"
       style={{ width }}
     >
       <DesignerResizeHandle
@@ -65,7 +65,7 @@ export const ExecutionInspectorShell = memo(function ExecutionInspectorShell({
         ariaLabel="Resize inspector panel"
       />
 
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
         <p className="text-sm font-semibold text-foreground">Events & traces</p>
         <Button
           variant="ghost"

@@ -5,6 +5,9 @@ import type { PaletteItem } from '@/types/config'
 import { enrichDiagram } from '@/components/agent-workflow/agent-workflow-defaults'
 import {
   AGENT_WORKFLOW_TOOL_ID,
+  clearExecutionSnapshot,
+  createWorkflowWorkspaceHandoff,
+  createWorkflowWorkspaceDocument,
   loadWorkflowDocument,
 } from '@/components/agent-workflow/workflow-storage'
 import {
@@ -73,11 +76,31 @@ export function useWorkflowDocument(
   }, [])
 
   const addPage = useCallback(() => {
+    onInvalidate?.()
     setDoc((previous) => {
       const page = createPage(`Workflow ${previous.pages.length + 1}`)
-      return { pages: [...previous.pages, page], activePageId: page.id, workflow: previous.workflow }
+      return { ...previous, pages: [...previous.pages, page], activePageId: page.id }
     })
-  }, [])
+  }, [onInvalidate])
+
+  const createNewWorkspace = useCallback(() => {
+    const nextDoc = createWorkflowWorkspaceDocument()
+    const handoffId = createWorkflowWorkspaceHandoff(nextDoc)
+    const url = new URL('/tools/agent-workflow', window.location.origin)
+    url.searchParams.set('workspaceDraft', handoffId)
+    const opened = window.open(url.toString(), '_blank')
+
+    if (opened) {
+      opened.opener = null
+      toast.success('New workspace opened in a new tab.')
+      return
+    }
+
+    onInvalidate?.()
+    clearExecutionSnapshot()
+    setDoc(nextDoc)
+    toast.info('Popup blocked. New workspace opened in this tab instead.')
+  }, [onInvalidate])
 
   const createWorkflowTab = useCallback(() => {
     addPage()
@@ -119,6 +142,7 @@ export function useWorkflowDocument(
     selectPage,
     addPage,
     createWorkflowTab,
+    createNewWorkspace,
     renamePage,
     deletePage,
   }

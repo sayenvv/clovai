@@ -4,10 +4,8 @@ import {
   Bot,
   CheckCircle2,
   Loader2,
-  Play,
   Send,
   Square,
-  TestTube2,
   User,
   UserCheck,
   XCircle,
@@ -15,6 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { ExecutionFileUploadButton } from '@/components/agent-workflow/ExecutionFileUploadButton'
 import { cn } from '@/utils/cn'
 import type {
   ExecutionTraceStep,
@@ -25,7 +24,6 @@ import type {
 interface ExecutionSidebarPanelProps {
   testInput: string
   onTestInputChange: (value: string) => void
-  onSimulate: () => void
   onExecute: () => void
   isExecuting?: boolean
   canExecute?: boolean
@@ -59,7 +57,6 @@ const STATUS_STYLES: Record<WorkflowRunStatus, string> = {
 export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
   testInput,
   onTestInputChange,
-  onSimulate,
   onExecute,
   isExecuting = false,
   canExecute = true,
@@ -167,7 +164,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
         )}
       </div>
 
-      <div className="shrink-0 space-y-2 border-t border-border bg-card/95 p-3 backdrop-blur-sm">
+      <div className="shrink-0 space-y-2 border-t border-border/60 bg-background p-3 backdrop-blur-sm">
         {awaitingApproval && approvalPrompt ? (
           <>
             <Textarea
@@ -202,47 +199,45 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
           </>
         ) : (
           <>
-            <Textarea
-              rows={5}
-              value={testInput}
-              onChange={(event) => onTestInputChange(event.target.value)}
-              disabled={isExecuting}
-              placeholder='{\n  "query": "Summarize the quarterly report"\n}'
-              className="min-h-[112px] resize-none font-mono text-xs leading-relaxed"
-              spellCheck={false}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-                  event.preventDefault()
-                  if (!isExecuting && canExecute) onExecute()
-                }
-              }}
-            />
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9 shrink-0 gap-1.5 px-3 text-xs"
-                onClick={onSimulate}
+            <div className="rounded-[22px] border border-border/60 bg-background p-2.5 shadow-sm transition-colors focus-within:border-ring/40 focus-within:ring-2 focus-within:ring-ring/10 dark:border-zinc-700/70 dark:focus-within:border-zinc-600 dark:focus-within:ring-zinc-500/10">
+              <Textarea
+                rows={2}
+                value={testInput}
+                onChange={(event) => onTestInputChange(event.target.value)}
                 disabled={isExecuting}
-              >
-                <TestTube2 className="h-3.5 w-3.5" />
-                Simulate
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={!canExecute || isExecuting}
-                onClick={onExecute}
-                className="h-9 flex-1 gap-1.5 bg-emerald-600 text-xs text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
-              >
-                {isExecuting ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Play className="h-3.5 w-3.5" />
-                )}
-                {isExecuting ? 'Executing…' : 'Execute'}
-              </Button>
+                placeholder="Ask for workflow changes"
+                className="min-h-[52px] resize-none border-0 bg-transparent px-2 py-1.5 text-sm leading-relaxed text-foreground shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-0 dark:text-white dark:placeholder:text-zinc-500"
+                spellCheck={false}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                    event.preventDefault()
+                    if (!isExecuting && canExecute) onExecute()
+                  }
+                }}
+              />
+              <div className="flex items-center gap-1 pt-1">
+                <ExecutionFileUploadButton
+                  variant="icon"
+                  disabled={isExecuting}
+                  onInputLoaded={onTestInputChange}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={!canExecute || isExecuting}
+                  onClick={onExecute}
+                  className="ml-auto h-9 gap-1.5 px-4 text-xs shadow-md dark:bg-black dark:text-white dark:hover:bg-zinc-950"
+                  aria-label={isExecuting ? 'Executing workflow' : 'Execute workflow'}
+                  title={isExecuting ? 'Executing workflow' : 'Execute workflow'}
+                >
+                  {isExecuting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Execute'
+                  )}
+                </Button>
+              </div>
             </div>
             <p className="text-[10px] text-muted-foreground">⌘/Ctrl + Enter to execute</p>
           </>
@@ -275,10 +270,10 @@ function ChatBubble({
       </span>
       <div
         className={cn(
-          'min-w-0 max-w-[90%] rounded-xl border px-3 py-2 text-xs leading-relaxed',
+          'min-w-0 max-w-[90%] rounded-xl border px-3 py-2 text-xs leading-relaxed shadow-sm',
           isUser
-            ? 'border-emerald-500/20 bg-emerald-500/5 text-foreground'
-            : 'border-violet-500/20 bg-violet-500/5 text-foreground',
+            ? 'border-emerald-600/35 bg-emerald-50 text-foreground dark:border-emerald-500/20 dark:bg-emerald-500/5'
+            : 'border-violet-600/35 bg-violet-50 text-foreground dark:border-violet-500/20 dark:bg-violet-500/5',
         )}
       >
         {label && (

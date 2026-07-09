@@ -4,6 +4,7 @@ import {
   Copy,
   Code2,
   Cpu,
+  Crown,
   Download,
   Eraser,
   ExternalLink,
@@ -40,6 +41,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { Selection } from '@/components/designer/selection-utils'
@@ -66,6 +70,8 @@ interface DesignerMenubarProps {
   snapToGrid: boolean
   showGrid: boolean
   onNew: () => void
+  onNewPage?: () => void
+  onNewWorkspace?: () => void
   onImport: () => void
   onExportJson: () => void
   onExportSvg: () => void
@@ -128,6 +134,8 @@ export const DesignerMenubar = memo(function DesignerMenubar({
   snapToGrid,
   showGrid,
   onNew,
+  onNewPage,
+  onNewWorkspace,
   onImport,
   onExportJson,
   onExportSvg,
@@ -169,9 +177,29 @@ export const DesignerMenubar = memo(function DesignerMenubar({
       <DropdownMenu>
         <MenuTrigger label="File" />
         <DropdownMenuContent align="start">
-          <DropdownMenuItem onSelect={onNew}>
-            <FilePlus2 /> New diagram
-          </DropdownMenuItem>
+          {onNewPage || onNewWorkspace ? (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <FilePlus2 /> New
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {onNewPage && (
+                  <DropdownMenuItem onSelect={onNewPage}>
+                    <FilePlus2 /> New page
+                  </DropdownMenuItem>
+                )}
+                {onNewWorkspace && (
+                  <DropdownMenuItem onSelect={onNewWorkspace}>
+                    <Layers /> New workspace
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ) : (
+            <DropdownMenuItem onSelect={onNew}>
+              <FilePlus2 /> New diagram
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onImport}>
             <Upload /> Import JSON…
@@ -195,7 +223,11 @@ export const DesignerMenubar = memo(function DesignerMenubar({
             onSelect={onViewCode}
             disabled={!viewCodeWhenEmpty && isEmpty}
           >
-            <Code2 /> Debug as code…
+            <Code2 /> Code view
+            <span className="ml-auto inline-flex items-center gap-1 rounded-sm border border-amber-400/60 bg-amber-300/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-800 dark:border-amber-300/40 dark:bg-amber-300/10 dark:text-amber-200">
+              <Crown className="h-2.5 w-2.5" />
+              Premium
+            </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -279,7 +311,11 @@ export const DesignerMenubar = memo(function DesignerMenubar({
                 checked={codeViewActive ?? false}
                 onCheckedChange={() => onToggleCodeView()}
               >
-                Code debug view
+                Code view
+                <span className="ml-auto inline-flex items-center gap-1 rounded-sm border border-amber-400/60 bg-amber-300/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-800 dark:border-amber-300/40 dark:bg-amber-300/10 dark:text-amber-200">
+                  <Crown className="h-2.5 w-2.5" />
+                  Premium
+                </span>
               </DropdownMenuCheckboxItem>
             </>
           )}

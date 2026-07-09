@@ -32,7 +32,6 @@ import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 interface ExecutionSidebarOptions {
   testInput: string
   onTestInputChange: (value: string) => void
-  onSimulate: () => void
   onExecute: () => void
   isExecuting?: boolean
   canExecute?: boolean
@@ -145,10 +144,10 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   if (collapsed) {
     return (
       <aside
-        className="relative flex h-full shrink-0 flex-col border-l border-border bg-card/50"
+        className="relative flex h-full shrink-0 flex-col border-l border-border/60 bg-background"
         style={{ width: SIDE_PANEL_COLLAPSED_WIDTH }}
       >
-        <div className="flex flex-col items-center gap-2 border-b border-border py-2">
+        <div className="flex flex-col items-center gap-2 border-b border-border/60 py-2">
           <Button
             variant="ghost"
             size="icon"
@@ -171,7 +170,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
 
   return (
     <aside
-      className="relative flex h-full shrink-0 flex-col border-l border-border bg-card/50"
+      className="relative flex h-full shrink-0 flex-col border-l border-border/60 bg-background"
       style={{ width }}
     >
       <DesignerResizeHandle
@@ -181,7 +180,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
       />
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
+        <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-3 py-2">
           <div className="min-w-0 flex-1">
             {executionPanelOpen ? (
               <TooltipProvider delayDuration={200}>
@@ -233,7 +232,6 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
               <ExecutionSidebarPanel
                 testInput={execution.testInput}
                 onTestInputChange={execution.onTestInputChange}
-                onSimulate={execution.onSimulate}
                 onExecute={execution.onExecute}
                 isExecuting={execution.isExecuting}
                 canExecute={execution.canExecute}

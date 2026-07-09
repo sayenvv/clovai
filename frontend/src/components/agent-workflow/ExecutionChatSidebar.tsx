@@ -65,10 +65,10 @@ export const ExecutionChatSidebar = memo(function ExecutionChatSidebar({
   if (collapsed) {
     return (
       <aside
-        className="relative flex h-full shrink-0 flex-col border-r border-border bg-card/50"
+        className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background"
         style={{ width: SIDE_PANEL_COLLAPSED_WIDTH }}
       >
-        <div className="flex flex-col items-center gap-2 border-b border-border py-2">
+        <div className="flex flex-col items-center gap-2 border-b border-border/60 py-2">
           <Button
             variant="ghost"
             size="icon"
@@ -91,7 +91,7 @@ export const ExecutionChatSidebar = memo(function ExecutionChatSidebar({
 
   return (
     <aside
-      className="relative flex h-full shrink-0 flex-col border-r border-border bg-card/50"
+      className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background"
       style={{ width }}
     >
       <DesignerResizeHandle
@@ -100,7 +100,7 @@ export const ExecutionChatSidebar = memo(function ExecutionChatSidebar({
         ariaLabel="Resize chat panel"
       />
 
-      <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2.5">
+      <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-3 py-2.5">
         <h2 className="text-sm font-semibold text-foreground">Chat</h2>
         <Button
           variant="ghost"
@@ -143,7 +143,7 @@ export const ExecutionChatSidebar = memo(function ExecutionChatSidebar({
             )}
           </div>
 
-          <div className="shrink-0 space-y-2 border-t border-border p-3">
+          <div className="shrink-0 space-y-2 border-t border-border/60 p-3">
             <Textarea
               rows={3}
               value={draft}
@@ -232,12 +232,12 @@ function ChatBubble({ message }: { message: ChatMessage }) {
       </span>
       <div
         className={cn(
-          'max-w-[90%] rounded-xl border px-3 py-2 text-xs leading-relaxed',
+          'max-w-[90%] rounded-xl border px-3 py-2 text-xs leading-relaxed shadow-sm',
           isUser
-            ? 'border-emerald-500/20 bg-emerald-500/5 text-foreground'
+            ? 'border-emerald-600/35 bg-emerald-50 text-foreground dark:border-emerald-500/20 dark:bg-emerald-500/5'
             : isSystem
-              ? 'border-border/60 bg-muted/30 text-muted-foreground'
-              : 'border-violet-500/20 bg-violet-500/5 text-foreground',
+              ? 'border-border/60 bg-muted/60 text-muted-foreground dark:border-border/60 dark:bg-muted/30'
+              : 'border-violet-600/35 bg-violet-50 text-foreground dark:border-violet-500/20 dark:bg-violet-500/5',
         )}
       >
         <pre className={cn('whitespace-pre-wrap font-sans', isUser && message.content.startsWith('{') && 'font-mono text-[11px]')}>

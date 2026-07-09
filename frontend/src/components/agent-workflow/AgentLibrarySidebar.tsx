@@ -200,6 +200,10 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   const [storeOpen, setStoreOpen] = useState(false)
   const [workflowStoreOpen, setWorkflowStoreOpen] = useState(false)
   const [importSourceId, setImportSourceId] = useState<string | null>(null)
+  const [builtInBlocksExpanded, setBuiltInBlocksExpanded] = useState(true)
+  const [workflowsExpanded, setWorkflowsExpanded] = useState(false)
+  const [externalIntegrationsExpanded, setExternalIntegrationsExpanded] = useState(false)
+  const [importsExpanded, setImportsExpanded] = useState(false)
 
   const previewAgents = useMemo(
     () => sidebarPreviewAgents(EXTERNAL_AGENT_BLOCKS, SIDEBAR_PREVIEW_LIMIT),
@@ -234,10 +238,10 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
     return (
       <>
         <aside
-          className="relative flex h-full shrink-0 flex-col border-r border-border bg-card/50"
+          className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background"
           style={{ width: SIDE_PANEL_COLLAPSED_WIDTH }}
         >
-          <div className="flex flex-col items-center gap-2 border-b border-border py-2">
+          <div className="flex flex-col items-center gap-2 border-b border-border/60 py-2">
             <Button
               variant="ghost"
               size="icon"
@@ -297,7 +301,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   return (
     <>
       <aside
-        className="relative flex h-full shrink-0 flex-col border-r border-border bg-card/50"
+        className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background"
         style={{ width }}
       >
         <DesignerResizeHandle
@@ -306,7 +310,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
           ariaLabel="Resize blocks panel"
         />
 
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2.5">
+        <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-3 py-2.5">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Agent library</h2>
             <p className="text-[10px] text-muted-foreground">Drag blocks onto the canvas</p>
@@ -324,92 +328,113 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-3">
-          <SidebarSection title="Built-in blocks" />
-          <div className="grid grid-cols-2 gap-2">
-            {SIDEBAR_BLOCKS.map((block) => (
-              <BlockTile key={block.id} block={block} onAddAgent={onAddAgent} />
-            ))}
-          </div>
+          <SidebarSection
+            title="Built-in blocks"
+            count={SIDEBAR_BLOCKS.length}
+            collapsed={!builtInBlocksExpanded}
+            onToggle={() => setBuiltInBlocksExpanded((expanded) => !expanded)}
+          />
+          {builtInBlocksExpanded && (
+            <div className="grid grid-cols-2 gap-2">
+              {SIDEBAR_BLOCKS.map((block) => (
+                <BlockTile key={block.id} block={block} onAddAgent={onAddAgent} />
+              ))}
+            </div>
+          )}
 
-          <section className="mt-6 border-t border-border pt-4">
+          <section className="mt-6 border-t border-border/60 pt-4">
             <SidebarSection
               title="Workflows"
               subtitle="Reusable sub-workflows from other tabs"
               count={mountableWorkflows.length > 0 ? mountableWorkflows.length : undefined}
+              collapsed={!workflowsExpanded}
+              onToggle={() => setWorkflowsExpanded((expanded) => !expanded)}
             />
 
-            {previewWorkflows.length > 0 ? (
-              <>
-                <div className="space-y-1.5">
-                  {previewWorkflows.map((page) => (
-                    <WorkflowListItem
-                      key={page.id}
-                      page={page}
-                      agentCount={countAgentsInPage(doc, page.id)}
-                      onMount={onMountWorkflow}
-                      compact
-                    />
-                  ))}
-                </div>
-                {mountableWorkflows.length > SIDEBAR_WORKFLOW_PREVIEW_LIMIT && (
+            {workflowsExpanded && (
+              previewWorkflows.length > 0 ? (
+                <>
+                  <div className="space-y-1.5">
+                    {previewWorkflows.map((page) => (
+                      <WorkflowListItem
+                        key={page.id}
+                        page={page}
+                        agentCount={countAgentsInPage(doc, page.id)}
+                        onMount={onMountWorkflow}
+                        compact
+                      />
+                    ))}
+                  </div>
+                  {mountableWorkflows.length > SIDEBAR_WORKFLOW_PREVIEW_LIMIT && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 h-9 w-full justify-between gap-2 px-3 text-xs"
+                      onClick={() => setWorkflowStoreOpen(true)}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Layers className="h-3.5 w-3.5" />
+                        Workflow library
+                      </span>
+                      <span className="text-muted-foreground">
+                        See all ({mountableWorkflows.length})
+                      </span>
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <WorkflowEmptyHint compact onCreateTab={onCreateWorkflowTab} />
+              )
+            )}
+          </section>
+
+          {EXTERNAL_AGENT_BLOCKS.length > 0 && (
+            <section className="mt-6 border-t border-border/60 pt-4">
+              <SidebarSection
+                title="External integrations"
+                subtitle="Featured third-party agents"
+                count={EXTERNAL_AGENT_BLOCKS.length}
+                collapsed={!externalIntegrationsExpanded}
+                onToggle={() => setExternalIntegrationsExpanded((expanded) => !expanded)}
+              />
+              {externalIntegrationsExpanded && (
+                <>
+                  <div className="space-y-1.5">
+                    {previewAgents.map((block) => (
+                      <ExternalAgentListItem
+                        key={block.id}
+                        block={block}
+                        onAddAgent={onAddAgent}
+                        draggable
+                      />
+                    ))}
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="mt-3 h-9 w-full justify-between gap-2 px-3 text-xs"
-                    onClick={() => setWorkflowStoreOpen(true)}
+                    onClick={() => setStoreOpen(true)}
                   >
                     <span className="flex items-center gap-2">
-                      <Layers className="h-3.5 w-3.5" />
-                      Workflow library
+                      <Store className="h-3.5 w-3.5" />
+                      Agent store
                     </span>
                     <span className="text-muted-foreground">
-                      See all ({mountableWorkflows.length})
+                      See all ({EXTERNAL_AGENT_BLOCKS.length})
                     </span>
                   </Button>
-                )}
-              </>
-            ) : (
-              <WorkflowEmptyHint compact onCreateTab={onCreateWorkflowTab} />
-            )}
-          </section>
-
-          {EXTERNAL_AGENT_BLOCKS.length > 0 && (
-            <section className="mt-6 border-t border-border pt-4">
-              <SidebarSection
-                title="External integrations"
-                subtitle="Featured third-party agents"
-                count={EXTERNAL_AGENT_BLOCKS.length}
-              />
-              <div className="space-y-1.5">
-                {previewAgents.map((block) => (
-                  <ExternalAgentListItem
-                    key={block.id}
-                    block={block}
-                    onAddAgent={onAddAgent}
-                    draggable
-                  />
-                ))}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-3 h-9 w-full justify-between gap-2 px-3 text-xs"
-                onClick={() => setStoreOpen(true)}
-              >
-                <span className="flex items-center gap-2">
-                  <Store className="h-3.5 w-3.5" />
-                  Agent store
-                </span>
-                <span className="text-muted-foreground">
-                  See all ({EXTERNAL_AGENT_BLOCKS.length})
-                </span>
-              </Button>
+                </>
+              )}
             </section>
           )}
 
-          <ExternalAgentImportSection onOpenImport={setImportSourceId} />
+          <ExternalAgentImportSection
+            onOpenImport={setImportSourceId}
+            collapsed={!importsExpanded}
+            onToggleCollapse={() => setImportsExpanded((expanded) => !expanded)}
+          />
         </div>
       </aside>
       {dialogs}

@@ -194,7 +194,7 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
         <div className="relative min-h-0 flex-1">
           <TabsContent value="trace" className="absolute inset-0 mt-0 overflow-y-auto p-3">
             {trace.length === 0 ? (
-              <EmptyHint message="Simulate or execute the workflow to view the execution trace." />
+              <EmptyHint message="Execute the workflow to view the execution trace." />
             ) : (
               <ol className="space-y-2">
                 {trace.map((step, index) => (

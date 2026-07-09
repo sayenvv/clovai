@@ -13,10 +13,11 @@ import {
 } from '@/components/agent-workflow/panel-layout'
 
 function usePersistedHorizontalPanel(config: PersistedPanelConfig, invert: boolean) {
+  const maxWidth = config.max ?? 2000
   const { width, setWidth, onResizePointerDown } = useHorizontalResize({
     initialWidth: readStoredSize(config),
     minWidth: config.min,
-    maxWidth: config.max ?? 2000,
+    maxWidth,
     invert,
   })
   const [collapsed, setCollapsed] = useState(() => readStoredCollapsed(config))
@@ -30,6 +31,16 @@ function usePersistedHorizontalPanel(config: PersistedPanelConfig, invert: boole
   useEffect(() => {
     persistPanelCollapsed(config, collapsed)
   }, [config, collapsed])
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWidth((previous) => Math.min(maxWidth, Math.max(config.min, previous)))
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [config.min, maxWidth, setWidth])
 
   const toggle = useCallback(() => {
     setCollapsed((previous) => {

@@ -13,6 +13,8 @@ import { resolveWorkflowModelConfig } from '@/components/agent-workflow/workflow
 export const AGENT_WORKFLOW_TOOL_ID = 'agent-workflow'
 
 const EXECUTION_SNAPSHOT_KEY = 'eleven-nodes-agent-workflow-execution-snapshot'
+const NEW_WORKSPACE_HANDOFF_PARAM = 'workspaceDraft'
+const NEW_WORKSPACE_HANDOFF_PREFIX = 'eleven-nodes-agent-workflow-new-workspace:'
 
 export interface ExecutionSnapshot {
   pageId: string
@@ -32,7 +34,59 @@ function defaultWorkflowMeta(): AgentWorkflowMeta {
   }
 }
 
+export function createWorkflowWorkspaceDocument(pageName = 'Main workflow'): DiagramDocument {
+  const page = createPage(pageName)
+  return {
+    pages: [page],
+    activePageId: page.id,
+    workspaceId: `ws_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    workflow: defaultWorkflowMeta(),
+  }
+}
+
+export function createWorkflowWorkspaceHandoff(doc: DiagramDocument): string {
+  const handoffId = `draft_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  try {
+    localStorage.setItem(`${NEW_WORKSPACE_HANDOFF_PREFIX}${handoffId}`, JSON.stringify(doc))
+  } catch {
+    // quota / private mode
+  }
+  return handoffId
+}
+
+function consumeWorkflowWorkspaceHandoff(): DiagramDocument | null {
+  try {
+    const url = new URL(window.location.href)
+    const handoffId = url.searchParams.get(NEW_WORKSPACE_HANDOFF_PARAM)
+    if (!handoffId) return null
+
+    url.searchParams.delete(NEW_WORKSPACE_HANDOFF_PARAM)
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+
+    const key = `${NEW_WORKSPACE_HANDOFF_PREFIX}${handoffId}`
+    const raw = localStorage.getItem(key)
+    localStorage.removeItem(key)
+    if (!raw) return null
+
+    const doc = normalizeDocument(JSON.parse(raw))
+    const workflow = doc.workflow ?? defaultWorkflowMeta()
+    return {
+      ...doc,
+      workspaceId: doc.workspaceId ?? createWorkflowWorkspaceDocument().workspaceId,
+      workflow: {
+        ...workflow,
+        modelConfig: resolveWorkflowModelConfig(workflow.modelConfig),
+      },
+    }
+  } catch {
+    return null
+  }
+}
+
 export function loadWorkflowDocument(): DiagramDocument {
+  const handoff = consumeWorkflowWorkspaceHandoff()
+  if (handoff) return handoff
+
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.diagram(AGENT_WORKFLOW_TOOL_ID))
     if (raw) {
@@ -50,13 +104,7 @@ export function loadWorkflowDocument(): DiagramDocument {
   } catch {
     // corrupted draft
   }
-  const page = createPage('Main workflow')
-  return {
-    pages: [page],
-    activePageId: page.id,
-    workspaceId: getOrCreateWorkspaceId(),
-    workflow: defaultWorkflowMeta(),
-  }
+  return createWorkflowWorkspaceDocument()
 }
 
 export function saveWorkflowDocument(doc: DiagramDocument): void {

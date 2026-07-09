@@ -19,13 +19,18 @@ import {
   primaryImportSource,
   type AgentImportSource,
 } from '@/components/agent-workflow/agent-workflow-defaults'
+import { SidebarSection } from '@/components/agent-workflow/workflow-ui'
 
 interface ExternalAgentImportSectionProps {
   onOpenImport: (sourceId: string) => void
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 export const ExternalAgentImportSection = memo(function ExternalAgentImportSection({
   onOpenImport,
+  collapsed = false,
+  onToggleCollapse,
 }: ExternalAgentImportSectionProps) {
   const primary = primaryImportSource()
   const comingSoon = useMemo(
@@ -37,34 +42,39 @@ export const ExternalAgentImportSection = memo(function ExternalAgentImportSecti
 
   return (
     <section className="mt-6 border-t border-border pt-4">
-      <div className="mb-3">
-        <h3 className="text-xs font-semibold text-foreground">Import agents</h3>
-        <p className="mt-0.5 text-[10px] text-muted-foreground">
-          Pull agents from external platforms into your workflow
-        </p>
-      </div>
+      <SidebarSection
+        title="Import agents"
+        subtitle="Pull agents from external platforms into your workflow"
+        count={(primary ? 1 : 0) + comingSoon.length}
+        collapsed={collapsed}
+        onToggle={onToggleCollapse}
+      />
 
-      {primary && (
-        <ImportSourceButton source={primary} onClick={() => onOpenImport(primary.id)} />
-      )}
+      {collapsed ? null : (
+        <>
+          {primary && (
+            <ImportSourceButton source={primary} onClick={() => onOpenImport(primary.id)} />
+          )}
 
-      {comingSoon.length > 0 && (
-        <div className="mt-2 space-y-1">
-          {comingSoon.map((source) => (
-            <div
-              key={source.id}
-              className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[11px] text-muted-foreground"
-            >
-              <span className="truncate">
-                {source.label}
-                <span className="text-muted-foreground/70"> · {source.provider}</span>
-              </span>
-              <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[9px] font-normal">
-                Soon
-              </Badge>
+          {comingSoon.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {comingSoon.map((source) => (
+                <div
+                  key={source.id}
+                  className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[11px] text-muted-foreground"
+                >
+                  <span className="truncate">
+                    {source.label}
+                    <span className="text-muted-foreground/70"> · {source.provider}</span>
+                  </span>
+                  <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[9px] font-normal">
+                    Soon
+                  </Badge>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </section>
   )

@@ -21,7 +21,6 @@ import {
 import type { PaletteItem } from '@/types/config'
 import type {
   AgentWorkflowMeta,
-  ExecutionTraceStep,
   WorkflowDeployment,
   WorkflowValidationIssue,
 } from '@/types/agent-workflow'
@@ -109,28 +108,6 @@ function defaultWorkflowMeta(): AgentWorkflowMeta {
   }
 }
 
-function simulateTrace(diagram: Diagram): ExecutionTraceStep[] {
-  const now = Date.now()
-  return diagram.nodes.slice(0, 6).map((node, index) => {
-    const edge = diagram.edges.find((candidate) => candidate.from === node.id)
-    const waiting = edge?.connector?.humanApproval
-    return {
-      id: `trace-${node.id}`,
-      agentName: node.label,
-      status:
-        index === diagram.nodes.length - 1 && waiting
-          ? 'waiting-approval'
-          : index === 0
-            ? 'completed'
-            : 'running',
-      message: waiting
-        ? `Waiting for ${edge?.connector?.approvalRole ?? 'reviewer'} approval`
-        : `Processed step ${index + 1} successfully`,
-      timestamp: new Date(now + index * 1200).toISOString(),
-    }
-  })
-}
-
 export default function AgentWorkflowPage() {
   const navigate = useNavigate()
   const { megaMenu } = useAppConfig()
@@ -152,7 +129,6 @@ export default function AgentWorkflowPage() {
   const [shareOpen, setShareOpen] = useState(false)
   const [validationIssues, setValidationIssues] = useState<WorkflowValidationIssue[]>([])
   const [isValidated, setIsValidated] = useState(false)
-  const [trace, setTrace] = useState<ExecutionTraceStep[]>([])
   const [logs, setLogs] = useState<string[]>([])
   const [testInput, setTestInput] = useState('{\n  "query": "Summarize the quarterly report"\n}')
   const [agentPickOpen, setAgentPickOpen] = useState(false)
@@ -180,6 +156,7 @@ export default function AgentWorkflowPage() {
     selectPage,
     addPage,
     createWorkflowTab,
+    createNewWorkspace,
     renamePage,
     deletePage,
   } = useWorkflowDocument(paletteById, invalidateValidation)
@@ -282,6 +259,14 @@ export default function AgentWorkflowPage() {
     addPage()
     setSelection(null)
   }, [addPage])
+
+  const handleCreateNewWorkspace = useCallback(() => {
+    createNewWorkspace()
+    setSelection(null)
+    setEditorView('canvas')
+    resetExecution()
+    setExecutionPanelOpen(false)
+  }, [createNewWorkspace, resetExecution])
 
   const handleDeletePage = useCallback(
     (pageId: string) => {
@@ -428,20 +413,6 @@ export default function AgentWorkflowPage() {
       toast.success('Workflow validated successfully')
     }
   }, [diagram, paletteById, inferredType, setDoc])
-
-  const handleTest = useCallback(() => {
-    const stamp = new Date().toISOString()
-    setTrace(simulateTrace(diagram))
-    setLogs([
-      `[${stamp}] Starting workflow ${workflowMeta.workflowId}`,
-      `[${stamp}] Input: ${testInput.replace(/\s+/g, ' ').slice(0, 80)}…`,
-      ...diagram.nodes.map(
-        (node, index) =>
-          `[${new Date(Date.now() + index * 500).toISOString()}] Agent "${node.label}" executed`,
-      ),
-    ])
-    toast.success('Simulation complete — see Trace or Logs in the output panel')
-  }, [diagram, testInput, workflowMeta.workflowId])
 
   const openExecutionPanel = useCallback(() => {
     setSelection(null)
@@ -605,7 +576,7 @@ export default function AgentWorkflowPage() {
   const isExecutionMode = runState.status !== 'idle'
   const isExecuting =
     isPersistingExecution || runState.status === 'running' || runState.status === 'waiting-approval'
-  const displayTrace = isExecutionMode ? runState.trace : trace
+  const displayTrace = runState.trace
   const workflowDescription = useMemo(() => {
     const plan = getExecutablePlan(diagram)
     const approvalEdges = diagram.edges.filter((edge) => edge.connector?.humanApproval).length
@@ -643,6 +614,8 @@ export default function AgentWorkflowPage() {
               handleChange(() => ({ nodes: [], edges: [] }))
               setSelection(null)
             }}
+            onNewPage={handleAddPage}
+            onNewWorkspace={handleCreateNewWorkspace}
             onImport={() => subWorkflow.openInsert('import')}
             onExportJson={() => toast.info('Export coming soon')}
             onExportSvg={() => toast.info('Export coming soon')}
@@ -809,7 +782,6 @@ export default function AgentWorkflowPage() {
           execution={{
             testInput,
             onTestInputChange: setTestInput,
-            onSimulate: handleTest,
             onExecute: handleExecute,
             isExecuting,
             canExecute: agentNodes.length > 0 && !isExecutionMode,

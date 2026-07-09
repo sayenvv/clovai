@@ -1334,7 +1334,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       )}
 
       {/* Empty state hint */}
-      {diagram.nodes.length === 0 && (
+      {diagram.nodes.length === 0 && !agentMode && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed bg-background/70 px-8 py-6 text-center backdrop-blur-sm">
             <MousePointerClick className="h-6 w-6 text-muted-foreground" aria-hidden />
