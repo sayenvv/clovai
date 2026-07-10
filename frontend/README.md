@@ -28,7 +28,7 @@ npm run build      # type-check + production build
 
 - `/` — JSON-driven landing page (hero, tools, features, workflow, templates, enterprise, pricing, testimonials, FAQ, CTA, contact form)
 - `/tools` — searchable, filterable tools directory
-- `/tools/:toolId` — **canvas designer workspace** (n8n-style): drag-and-drop shape palette, pan/zoom canvas, connections, inline renaming, JSON export, local autosave. Shape palettes are defined per tool in JSON (`designer.palette`); the Flowchart Generator ships with a full flowchart palette. AI generation (the multi-agent **Eleven Nodes Engine**) is surfaced as coming soon.
+- `/tools/:toolId` — **canvas designer workspace** (n8n-style): drag-and-drop shape palette, pan/zoom canvas, connections, inline renaming, JSON export, local autosave. Shape palettes are defined per tool in JSON (`designer.palette`); the Diagram Generator ships with a full flowchart palette. AI generation (the multi-agent **Eleven Nodes Engine**) is surfaced as coming soon.
 - `/admin/config` — **Configuration Console**: upload, edit, validate, preview, save, version, activate and delete configurations
 - `/:slug` — any extra page defined purely in JSON config
 

@@ -4,6 +4,7 @@ import {
   Bot,
   CheckCircle2,
   Loader2,
+  Play,
   Send,
   Square,
   User,
@@ -234,7 +235,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
                   {isExecuting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    'Execute'
+                    <Play className="h-3.5 w-3.5 fill-current" />
                   )}
                 </Button>
               </div>

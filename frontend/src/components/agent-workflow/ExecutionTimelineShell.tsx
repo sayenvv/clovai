@@ -6,6 +6,8 @@ import {
   Clock,
   Loader2,
   PanelRightClose,
+  Play,
+  RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -226,7 +228,7 @@ export const ExecutionTimelineShell = memo(function ExecutionTimelineShell({
               type="button"
               variant="secondary"
               size="sm"
-              className="ml-auto h-9 gap-1.5 px-4 text-xs shadow-md dark:bg-black dark:text-white dark:hover:bg-zinc-950"
+              className="ml-auto h-9 gap-1.5 px-4 text-xs dark:bg-black dark:text-white dark:hover:bg-zinc-950"
               onClick={onRunAgain}
               disabled={isRunning}
               aria-label={runState.status === 'idle' ? 'Execute workflow' : 'Run again'}
@@ -235,9 +237,9 @@ export const ExecutionTimelineShell = memo(function ExecutionTimelineShell({
               {isRunning ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : runState.status === 'idle' ? (
-                'Execute'
+                <Play className="h-3.5 w-3.5 fill-current" />
               ) : (
-                'Run again'
+                <RotateCcw className="h-3.5 w-3.5" />
               )}
             </Button>
           </div>

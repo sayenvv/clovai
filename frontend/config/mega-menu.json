@@ -2,8 +2,8 @@
   "categories": [
     {
       "id": "ai-generators",
-      "title": "Flow & Ideation",
-      "description": "Flowcharts, agent workflows, mind maps and decisions",
+      "title": "Available now",
+      "description": "Agent workflows and diagram generation",
       "icon": "git-branch",
       "order": 1,
       "isVisible": true
@@ -14,7 +14,7 @@
       "description": "Model systems and code",
       "icon": "code-2",
       "order": 2,
-      "isVisible": true
+      "isVisible": false
     },
     {
       "id": "business-planning",
@@ -22,7 +22,7 @@
       "description": "Processes, teams and ideas",
       "icon": "briefcase",
       "order": 3,
-      "isVisible": true
+      "isVisible": false
     },
     {
       "id": "data-infrastructure",
@@ -30,24 +30,24 @@
       "description": "Databases and networks",
       "icon": "database",
       "order": 4,
-      "isVisible": true
+      "isVisible": false
     }
   ],
   "tools": [
     {
       "id": "ai-flowchart",
-      "title": "Flowchart Generator",
-      "description": "Design flowcharts on a drag-and-drop canvas. AI generation via Eleven Nodes Engine coming soon.",
+      "title": "Diagram Generator",
+      "description": "Design and generate advanced diagrams on a drag-and-drop canvas — process flows, decisions, and subprocesses.",
       "icon": "git-branch",
       "route": "/tools/ai-flowchart",
       "category": "ai-generators",
       "badge": {
-        "label": "Popular",
-        "variant": "gradient"
+        "label": "Available",
+        "variant": "success"
       },
       "isVisible": true,
       "isEnabled": true,
-      "order": 1,
+      "order": 2,
       "designer": {
         "paletteVersion": 3,
         "palette": [
@@ -339,17 +339,17 @@
     {
       "id": "agent-workflow",
       "title": "Agent Workflow Automation",
-      "description": "Design multi-agent orchestration workflows visually — each node is an agent you connect, configure, and automate.",
+      "description": "Design multi-agent orchestration workflows visually — agents, tools, approvals, and execution on one canvas.",
       "icon": "bot",
       "route": "/tools/agent-workflow",
       "category": "ai-generators",
       "badge": {
-        "label": "New",
-        "variant": "gradient"
+        "label": "Available",
+        "variant": "success"
       },
       "isVisible": true,
       "isEnabled": true,
-      "order": 2,
+      "order": 1,
       "designer": {
         "paletteVersion": 4,
         "palette": [
@@ -672,9 +672,13 @@
       "icon": "brain",
       "route": "/tools/mind-map",
       "category": "ai-generators",
-      "isVisible": true,
-      "isEnabled": true,
-      "order": 3
+      "isVisible": false,
+      "isEnabled": false,
+      "order": 3,
+      "badge": {
+        "label": "Coming soon",
+        "variant": "outline"
+      }
     },
     {
       "id": "decision-tree",
@@ -683,9 +687,13 @@
       "icon": "split",
       "route": "/tools/decision-tree",
       "category": "ai-generators",
-      "isVisible": true,
-      "isEnabled": true,
-      "order": 4
+      "isVisible": false,
+      "isEnabled": false,
+      "order": 4,
+      "badge": {
+        "label": "Coming soon",
+        "variant": "outline"
+      }
     },
     {
       "id": "architecture-diagram",
@@ -695,11 +703,11 @@
       "route": "/tools/architecture-diagram",
       "category": "software-design",
       "badge": {
-        "label": "New",
-        "variant": "success"
+        "label": "Coming soon",
+        "variant": "outline"
       },
-      "isVisible": true,
-      "isEnabled": true,
+      "isVisible": false,
+      "isEnabled": false,
       "order": 1
     },
     {
@@ -709,20 +717,28 @@
       "icon": "arrow-left-right",
       "route": "/tools/sequence-diagram",
       "category": "software-design",
-      "isVisible": true,
-      "isEnabled": true,
-      "order": 2
+      "isVisible": false,
+      "isEnabled": false,
+      "order": 2,
+      "badge": {
+        "label": "Coming soon",
+        "variant": "outline"
+      }
     },
     {
       "id": "uml-designer",
       "title": "UML Designer",
-      "description": "Full UML suite \u2014 class, state, activity and use-case diagrams.",
+      "description": "Full UML suite — class, state, activity and use-case diagrams.",
       "icon": "boxes",
       "route": "/tools/uml-designer",
       "category": "software-design",
-      "isVisible": true,
-      "isEnabled": true,
-      "order": 3
+      "isVisible": false,
+      "isEnabled": false,
+      "order": 3,
+      "badge": {
+        "label": "Coming soon",
+        "variant": "outline"
+      }
     },
     {
       "id": "bpmn-builder",
@@ -731,9 +747,13 @@
       "icon": "workflow",
       "route": "/tools/bpmn-builder",
       "category": "business-planning",
-      "isVisible": true,
-      "isEnabled": true,
-      "order": 1
+      "isVisible": false,
+      "isEnabled": false,
+      "order": 1,
+      "badge": {
+        "label": "Coming soon",
+        "variant": "outline"
+      }
     },
     {
       "id": "org-chart",
@@ -742,9 +762,13 @@
       "icon": "users",
       "route": "/tools/org-chart",
       "category": "business-planning",
-      "isVisible": true,
-      "isEnabled": true,
-      "order": 2
+      "isVisible": false,
+      "isEnabled": false,
+      "order": 2,
+      "badge": {
+        "label": "Coming soon",
+        "variant": "outline"
+      }
     },
     {
       "id": "gantt-planner",
@@ -754,11 +778,11 @@
       "route": "/tools/gantt-planner",
       "category": "business-planning",
       "badge": {
-        "label": "Beta",
-        "variant": "warning"
+        "label": "Coming soon",
+        "variant": "outline"
       },
-      "isVisible": true,
-      "isEnabled": true,
+      "isVisible": false,
+      "isEnabled": false,
       "order": 3
     },
     {
@@ -769,11 +793,11 @@
       "route": "/tools/er-diagram",
       "category": "data-infrastructure",
       "badge": {
-        "label": "Popular",
-        "variant": "gradient"
+        "label": "Coming soon",
+        "variant": "outline"
       },
-      "isVisible": true,
-      "isEnabled": true,
+      "isVisible": false,
+      "isEnabled": false,
       "order": 1,
       "metadata": {
         "imports": [
@@ -790,9 +814,13 @@
       "icon": "network",
       "route": "/tools/network-diagram",
       "category": "data-infrastructure",
-      "isVisible": true,
-      "isEnabled": true,
-      "order": 2
+      "isVisible": false,
+      "isEnabled": false,
+      "order": 2,
+      "badge": {
+        "label": "Coming soon",
+        "variant": "outline"
+      }
     },
     {
       "id": "data-flow",
@@ -801,7 +829,7 @@
       "icon": "git-merge",
       "route": "/tools/data-flow",
       "category": "data-infrastructure",
-      "isVisible": true,
+      "isVisible": false,
       "isEnabled": false,
       "order": 3,
       "badge": {
@@ -811,13 +839,13 @@
     }
   ],
   "featured": {
-    "title": "Eleven Nodes Engine \u2014 coming soon",
-    "description": "A multi-agent AI orchestration engine that will turn plain language into complete diagrams. Until then, enjoy the fastest manual canvas around.",
+    "title": "Two tools shipping today",
+    "description": "Agent Workflow Automation for multi-agent systems, and Diagram Generator for seamless process diagrams. More modules land on the same canvas as we grow.",
     "icon": "sparkles",
     "cta": {
       "id": "mega-featured-cta",
-      "label": "Open Flowchart Designer",
-      "href": "/tools/ai-flowchart",
+      "label": "Open Agent Workflows",
+      "href": "/tools/agent-workflow",
       "variant": "gradient",
       "icon": "arrow-right",
       "iconPosition": "right",

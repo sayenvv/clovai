@@ -9,7 +9,7 @@
   "items": [
     { "id": "nav-tools", "label": "Tools", "type": "megaMenu", "order": 1, "isVisible": true },
     { "id": "nav-features", "label": "Features", "href": "/#features", "type": "link", "order": 2, "isVisible": true },
-    { "id": "nav-templates", "label": "Templates", "href": "/#templates", "type": "link", "order": 3, "isVisible": true },
+    { "id": "nav-templates", "label": "Use cases", "href": "/#templates", "type": "link", "order": 3, "isVisible": true },
     { "id": "nav-pricing", "label": "Pricing", "href": "/#pricing", "type": "link", "order": 4, "isVisible": true },
     { "id": "nav-enterprise", "label": "Enterprise", "href": "/#enterprise", "type": "link", "order": 5, "isVisible": true }
   ],

@@ -1,5 +1,5 @@
 {
-  "description": "Eleven Nodes is the AI-powered workflow platform for modern teams.",
+  "description": "Eleven Nodes is the canvas platform for agent workflow automation and advanced diagram generation — built to grow with your stack.",
   "columns": [
     {
       "id": "footer-product",
@@ -8,7 +8,7 @@
       "links": [
         { "id": "f-tools", "label": "All tools", "href": "/tools", "isExternal": false },
         { "id": "f-features", "label": "Features", "href": "/#features", "isExternal": false },
-        { "id": "f-templates", "label": "Templates", "href": "/#templates", "isExternal": false },
+        { "id": "f-templates", "label": "Use cases", "href": "/#templates", "isExternal": false },
         { "id": "f-pricing", "label": "Pricing", "href": "/#pricing", "isExternal": false },
         { "id": "f-changelog", "label": "Changelog", "href": "/#", "badge": { "label": "New", "variant": "success" }, "isExternal": false }
       ]
@@ -18,12 +18,8 @@
       "title": "Popular tools",
       "order": 2,
       "links": [
-        { "id": "f-flowchart", "label": "AI Flowchart Generator", "href": "/tools/ai-flowchart", "isExternal": false },
         { "id": "f-agent-workflow", "label": "Agent Workflow Automation", "href": "/tools/agent-workflow", "isExternal": false },
-        { "id": "f-architecture", "label": "Architecture Diagram", "href": "/tools/architecture-diagram", "isExternal": false },
-        { "id": "f-er", "label": "ER Diagram Generator", "href": "/tools/er-diagram", "isExternal": false },
-        { "id": "f-uml", "label": "UML Designer", "href": "/tools/uml-designer", "isExternal": false },
-        { "id": "f-mindmap", "label": "Mind Map Creator", "href": "/tools/mind-map", "isExternal": false }
+        { "id": "f-flowchart", "label": "Diagram Generator", "href": "/tools/ai-flowchart", "isExternal": false }
       ]
     },
     {

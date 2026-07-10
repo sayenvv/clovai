@@ -37,10 +37,10 @@ export default function ToolsPage() {
     <div className="container py-14 md:py-20">
       <div className="mx-auto max-w-2xl text-center">
         <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-          All <span className="text-gradient">diagram tools</span>
+          Available <span className="text-gradient">tools</span>
         </h1>
         <p className="mt-3 text-muted-foreground">
-          Every tool in one place. Pick one and start designing on its canvas workspace.
+          Agent Workflow Automation and Diagram Generator are live today. More diagram modules will join this list as they ship.
         </p>
         <div className="relative mx-auto mt-8 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
