@@ -19,8 +19,10 @@ import {
   loadExecutionSnapshot,
   loadWorkflowDocument,
   mergeDiagramIntoDocument,
+  saveExecutionSnapshot,
   saveWorkflowDocument,
 } from '@/components/agent-workflow/workflow-storage'
+import { getSession } from '@/services/project-auth-store'
 import { useHorizontalResize } from '@/hooks/use-horizontal-resize'
 import type { PaletteItem } from '@/types/config'
 
@@ -171,7 +173,7 @@ export default function WorkflowExecutePage() {
 
     const snapshot = loadExecutionSnapshot()
     if (snapshot?.diagram && snapshot.pageId) {
-      const fresh = loadWorkflowDocument()
+      const fresh = loadWorkflowDocument(getSession()?.workspaceId)
       setDoc(
         mergeDiagramIntoDocument(
           fresh,
@@ -185,7 +187,7 @@ export default function WorkflowExecutePage() {
       return
     }
 
-    const fresh = loadWorkflowDocument()
+    const fresh = loadWorkflowDocument(getSession()?.workspaceId)
     setDoc(fresh)
     setSelectedPageId((current) => {
       if (handoff.pageId && fresh.pages.some((page) => page.id === handoff.pageId)) {

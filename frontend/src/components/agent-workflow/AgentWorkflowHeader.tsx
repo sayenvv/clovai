@@ -8,6 +8,7 @@ import { Logo, LOGO_SIZE_WORKSPACE } from '@/components/shared/Logo'
 import { ProfileMenu } from '@/components/shared/ProfileMenu'
 import type { DeploymentStatus } from '@/types/agent-workflow'
 import { APP_NAME } from '@/constants'
+import { getSession } from '@/services/project-auth-store'
 
 interface AgentWorkflowHeaderProps {
   workflowName: string
@@ -38,6 +39,14 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
   isValidated,
   onNavigateHome,
 }: AgentWorkflowHeaderProps) {
+  const session = getSession()
+  const projectLabel = session
+    ? session.accountType === 'company'
+      ? session.displayName
+      : `${session.displayName}`
+    : null
+  const userInitials = (session?.fullName || session?.email || 'U').slice(0, 1).toUpperCase()
+
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card/80 px-3 backdrop-blur-sm">
       {onNavigateHome ? (
@@ -64,6 +73,15 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
           className="h-8 max-w-xs border-transparent bg-transparent px-2 text-sm font-semibold shadow-none focus-visible:border-input focus-visible:bg-background"
           aria-label="Workflow name"
         />
+        {projectLabel && (
+          <Badge
+            variant="outline"
+            className="hidden max-w-[10rem] truncate border-indigo-500/30 bg-indigo-500/5 text-[10px] font-normal text-indigo-700 dark:text-indigo-300 sm:inline-flex"
+            title={projectLabel}
+          >
+            {projectLabel}
+          </Badge>
+        )}
         <Badge variant="outline" className="shrink-0 text-[10px] font-normal">
           v{version}
         </Badge>
@@ -82,7 +100,10 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
           </Badge>
         )}
         {validationErrorCount > 0 && (
-          <Badge variant="outline" className="shrink-0 border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300">
+          <Badge
+            variant="outline"
+            className="shrink-0 border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300"
+          >
             {validationErrorCount} issue{validationErrorCount === 1 ? '' : 's'}
           </Badge>
         )}
@@ -114,7 +135,11 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
         </Button>
       </div>
 
-      <ProfileMenu />
+      <ProfileMenu
+        showSignOut
+        userInitials={userInitials}
+        userLabel={session?.email}
+      />
     </header>
   )
 })

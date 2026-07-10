@@ -1,8 +1,8 @@
 {
   "id": "landing",
   "slug": "",
-  "title": "Eleven Nodes — Agent Workflows & Diagram Generation",
-  "description": "Design advanced agentic workflows diagrammatically and generate flowcharts seamlessly — one canvas platform that grows with your stack.",
+  "title": "Eleven Nodes — AI Workflow Automation & Multi-Agent Orchestration",
+  "description": "Design, orchestrate, and deploy reliable multi-agent workflows from one visual platform.",
   "isVisible": true,
   "sections": [
     {
@@ -11,17 +11,17 @@
       "order": 1,
       "isVisible": true,
       "announcement": {
-        "label": "Now shipping: Agent Workflow Automation + Diagram Generator",
+        "label": "The orchestration layer for production AI",
         "href": "/tools",
         "icon": "sparkles"
       },
-      "title": "Design agentic workflows.",
-      "highlight": "Generate diagrams.",
-      "subtitle": "Build advanced multi-agent automations on a visual canvas, and generate polished flowcharts without fighting the layout. One platform — designed to grow as you add more tools.",
+      "title": "Build AI systems that",
+      "highlight": "work in production.",
+      "subtitle": "Design, orchestrate, and govern multi-agent workflows from a visual canvas built for reliability, control, and scale.",
       "ctas": [
         {
           "id": "hero-primary",
-          "label": "Open Agent Workflows",
+          "label": "Start building",
           "href": "/tools/agent-workflow",
           "variant": "gradient",
           "icon": "arrow-right",
@@ -30,7 +30,7 @@
         },
         {
           "id": "hero-secondary",
-          "label": "Open Diagram Generator",
+          "label": "Explore the platform",
           "href": "/tools/ai-flowchart",
           "variant": "outline",
           "icon": "git-branch",

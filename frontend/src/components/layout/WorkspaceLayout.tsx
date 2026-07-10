@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { WorkflowWorkspaceLoadingScreen } from '@/components/agent-workflow/ExecuteLaunchOverlay'
+import { ProjectAuthGate } from '@/components/agent-workflow/ProjectAuthGate'
+import { getSession, type ProjectSession } from '@/services/project-auth-store'
 
 const DESKTOP_WORKSPACE_QUERY = '(min-width: 1024px)'
 
@@ -59,6 +61,20 @@ export function WorkspaceLayout() {
   const isDesktop = useDesktopWorkspaceSupport()
   const isAgentWorkflowWorkspace = location.pathname.startsWith('/tools/agent-workflow')
   const workspaceFallback = isAgentWorkflowWorkspace ? <WorkflowWorkspaceLoadingScreen /> : <LoadingScreen />
+  const [session, setSession] = useState<ProjectSession | null>(() =>
+    isAgentWorkflowWorkspace ? getSession() : null,
+  )
+
+  useEffect(() => {
+    if (!isAgentWorkflowWorkspace) {
+      setSession(null)
+      return
+    }
+    const sync = () => setSession(getSession())
+    sync()
+    window.addEventListener('eleven-nodes-project-session', sync)
+    return () => window.removeEventListener('eleven-nodes-project-session', sync)
+  }, [isAgentWorkflowWorkspace, location.key])
 
   if (isPending) return workspaceFallback
 
@@ -81,6 +97,16 @@ export function WorkspaceLayout() {
 
   if (isAgentWorkflowWorkspace && isDesktop === false) {
     return <DesktopOnlyWorkspaceMessage />
+  }
+
+  if (isAgentWorkflowWorkspace && !session) {
+    return (
+      <AppConfigProvider config={record.config}>
+        <ErrorBoundary label="project sign-in">
+          <ProjectAuthGate onAuthenticated={setSession} />
+        </ErrorBoundary>
+      </AppConfigProvider>
+    )
   }
 
   return (

@@ -4,10 +4,15 @@ export const APP_SLUG = 'eleven-nodes'
 export const STORAGE_KEYS = {
   theme: 'eleven-nodes-theme',
   configStore: 'eleven-nodes-config-store-v4',
-  diagram: (toolId: string) => `eleven-nodes-diagram-${toolId}`,
+  diagram: (toolId: string, workspaceId?: string) =>
+    workspaceId
+      ? `eleven-nodes-diagram-${toolId}:${workspaceId}`
+      : `eleven-nodes-diagram-${toolId}`,
   shareSettings: (toolId: string) => `eleven-nodes-share-${toolId}`,
   workflowBuild: (workspaceId: string, pageId: string) =>
     `eleven-nodes-workflow-build:${workspaceId}:${pageId}`,
+  projectAccounts: 'eleven-nodes-project-accounts',
+  projectSession: 'eleven-nodes-project-session',
 } as const
 
 export const QUERY_KEYS = {

@@ -4,26 +4,27 @@ import { createPage, type Diagram, type DiagramDocument } from '@/components/des
 import type { PaletteItem } from '@/types/config'
 import { enrichDiagram } from '@/components/agent-workflow/agent-workflow-defaults'
 import {
-  AGENT_WORKFLOW_TOOL_ID,
   clearExecutionSnapshot,
   createWorkflowWorkspaceHandoff,
   createWorkflowWorkspaceDocument,
   loadWorkflowDocument,
+  saveWorkflowDocument,
 } from '@/components/agent-workflow/workflow-storage'
 import {
   shouldSyncToolLayout,
   syncMappedToolLayout,
 } from '@/components/agent-workflow/tool-agent-mapping'
 import { persistWorkflowBuildSpec } from '@/components/agent-workflow/workflow-build-storage'
-import { STORAGE_KEYS } from '@/constants'
-
-const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
+import { getSession } from '@/services/project-auth-store'
 
 export function useWorkflowDocument(
   paletteById: Map<string, PaletteItem>,
   onInvalidate?: () => void,
 ) {
-  const [doc, setDoc] = useState<DiagramDocument>(() => loadWorkflowDocument())
+  const [doc, setDoc] = useState<DiagramDocument>(() => {
+    const session = getSession()
+    return loadWorkflowDocument(session?.workspaceId)
+  })
   const [workflowName, setWorkflowName] = useState(() => doc.pages[0]?.name ?? 'Untitled workflow')
 
   const activePage = doc.pages.find((page) => page.id === doc.activePageId) ?? doc.pages[0]
@@ -33,7 +34,13 @@ export function useWorkflowDocument(
   )
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.diagram(TOOL_ID), JSON.stringify(doc))
+    const session = getSession()
+    const workspaceId = doc.workspaceId ?? session?.workspaceId
+    if (!workspaceId) {
+      saveWorkflowDocument(doc)
+      return
+    }
+    saveWorkflowDocument({ ...doc, workspaceId })
   }, [doc])
 
   useEffect(() => {

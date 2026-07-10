@@ -17,10 +17,10 @@ const HeroVisual = memo(function HeroVisual() {
     <div className="relative mx-auto mt-14 w-full max-w-5xl" aria-hidden>
       <div className="absolute -inset-x-8 -top-20 h-72 bg-brand-gradient-soft blur-3xl" />
       <div className="relative overflow-hidden rounded-2xl border bg-card/90 shadow-brand backdrop-blur-sm">
-        <div className="flex items-center gap-1.5 border-b px-5 py-3">
-          <span className="h-3 w-3 rounded-full bg-red-400/80" />
-          <span className="h-3 w-3 rounded-full bg-amber-400/80" />
-          <span className="h-3 w-3 rounded-full bg-emerald-400/80" />
+        <div className="flex items-center gap-1.5 border-b bg-background/40 px-4 py-3 sm:px-5">
+          <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
+          <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
           <div className="ml-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1">
               <Bot className="h-3 w-3 text-primary" />
@@ -32,16 +32,28 @@ const HeroVisual = memo(function HeroVisual() {
               onboarding-flow
             </span>
           </div>
+          <div className="ml-auto hidden items-center gap-2 sm:flex">
+            <span className="rounded-md border bg-muted/50 px-2 py-1 text-[10px] font-medium text-muted-foreground">
+              v1.8
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-400">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+              Live
+            </span>
+            <span className="rounded-md bg-primary px-2.5 py-1 text-[10px] font-semibold text-primary-foreground shadow-sm">
+              Deploy
+            </span>
+          </div>
         </div>
 
-        <div className="grid gap-0 md:grid-cols-2">
-          <div className="relative border-b p-6 md:border-b-0 md:border-r">
+        <div className="hero-product-grid grid gap-0 md:grid-cols-2">
+          <div className="hero-agent-preview relative border-b p-6 md:border-b-0 md:border-r">
             <p className="mb-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Agent workflow
             </p>
             <div className="relative flex flex-col items-stretch gap-3">
               <svg className="pointer-events-none absolute left-8 top-10 h-[calc(100%-2.5rem)] w-px text-border" aria-hidden>
-                <line x1="0" y1="0" x2="0" y2="100%" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" />
+                <line className="workflow-connector" x1="0" y1="0" x2="0" y2="100%" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" />
               </svg>
               {[
                 { icon: Bot, label: 'Researcher', meta: 'Agent' },
@@ -66,14 +78,14 @@ const HeroVisual = memo(function HeroVisual() {
             </div>
           </div>
 
-          <div className="relative p-6">
-            <p className="mb-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          <div className="hero-diagram-canvas relative p-6">
+            <p className="relative z-10 mb-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Flowchart
             </p>
-            <div className="relative grid grid-cols-3 items-center gap-3 py-2">
+            <div className="hero-diagram-grid relative grid grid-cols-3 items-center gap-3 rounded-xl border border-primary/15 bg-background/75 px-3 py-8 shadow-sm">
               <svg className="absolute inset-0 h-full w-full text-border" aria-hidden>
-                <line x1="28%" y1="50%" x2="40%" y2="50%" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
-                <line x1="60%" y1="50%" x2="72%" y2="50%" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
+                <line className="workflow-connector" x1="28%" y1="50%" x2="40%" y2="50%" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
+                <line className="workflow-connector" x1="60%" y1="50%" x2="72%" y2="50%" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
               </svg>
               {[
                 { label: 'Start', shape: 'rounded-full' },
@@ -97,7 +109,7 @@ const HeroVisual = memo(function HeroVisual() {
                 </motion.div>
               ))}
             </div>
-            <p className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+            <p className="relative z-10 mt-5 flex items-center justify-center gap-1.5 text-[11px] font-medium text-muted-foreground">
               <Sparkles className="h-3 w-3 text-primary" />
               Same canvas model — different tools
             </p>

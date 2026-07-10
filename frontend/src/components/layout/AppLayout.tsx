@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Outlet } from 'react-router-dom'
 import { AlertTriangle, RotateCcw } from 'lucide-react'
 import { useActiveConfig } from '@/hooks/use-config'
@@ -12,6 +13,7 @@ import { Footer } from './Footer'
 /** Root layout: loads the active configuration once, then provides it to
  *  the entire tree. Everything below renders purely from that config. */
 export function AppLayout() {
+  const location = useLocation()
   const { data: record, isPending, isError, error, refetch } = useActiveConfig()
 
   if (isPending) return <LoadingScreen />
@@ -35,7 +37,7 @@ export function AppLayout() {
 
   return (
     <AppConfigProvider config={record.config}>
-      <div className="flex min-h-screen flex-col">
+      <div className={`flex min-h-screen flex-col ${location.pathname === '/' ? 'landing-shell' : ''}`}>
         <Navbar />
         <main className="flex-1">
           <ErrorBoundary label="this page">

@@ -9,6 +9,7 @@ import {
 import type { Diagram, DiagramDocument } from '@/components/designer/diagram-types'
 import type { ExecutionPlanStep } from '@/types/agent-workflow'
 import type { PaletteItem } from '@/types/config'
+import { getSession } from '@/services/project-auth-store'
 
 export interface ExecutionContext {
   diagram: Diagram
@@ -33,7 +34,7 @@ export interface ExecutionHandoff {
 /** Hydrate execute-page state from router state + session snapshot + localStorage. */
 export function bootstrapExecuteState(handoff: ExecutionHandoff): ExecutionBootstrap {
   const snapshot = loadExecutionSnapshot()
-  const fresh = loadWorkflowDocument()
+  const fresh = loadWorkflowDocument(getSession()?.workspaceId)
 
   const incomingDiagram = handoff.diagram ?? snapshot?.diagram
   const incomingPageId = handoff.pageId ?? snapshot?.pageId
@@ -90,8 +91,7 @@ export function resolveExecutionContext(
     }
   }
 
-  const doc = loadWorkflowDocument()
-  const page = resolveWorkflowPage(doc, pageId)
+  const doc = loadWorkflowDocument(getSession()?.workspaceId)
   if (!page) return null
 
   const diagram = enrichDiagram(page.diagram, paletteById)

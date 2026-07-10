@@ -19,5 +19,9 @@ export default function LandingPage() {
     )
   }
 
-  return <PageRenderer page={page} />
+  return (
+    <div className="professional-home">
+      <PageRenderer page={page} />
+    </div>
+  )
 }

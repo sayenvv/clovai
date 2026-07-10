@@ -129,4 +129,108 @@
   .section-padding {
     @apply py-20 md:py-28;
   }
+
+  /* Landing-page-only finishing layer; product workspaces remain isolated. */
+  .professional-home {
+    overflow: clip;
+    background: hsl(var(--background));
+  }
+
+  /* Premium dark art direction, scoped to the root marketing route. */
+  .landing-shell {
+    --background: 228 20% 5%;
+    --foreground: 210 20% 98%;
+    --card: 228 17% 8%;
+    --card-foreground: 210 20% 98%;
+    --popover: 228 17% 8%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 0 82% 62%;
+    --primary-foreground: 0 0% 100%;
+    --primary-deep: 355 78% 52%;
+    --secondary: 228 14% 12%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 228 13% 12%;
+    --muted-foreground: 220 9% 64%;
+    --accent: 0 35% 15%;
+    --accent-foreground: 0 75% 75%;
+    --border: 225 12% 18%;
+    --input: 225 12% 20%;
+    --ring: 0 82% 62%;
+    color: hsl(var(--foreground));
+    background: hsl(var(--background));
+  }
+  .landing-shell header {
+    border-color: hsl(var(--border) / 0.65);
+    background: hsl(var(--background) / 0.72);
+    backdrop-filter: blur(18px) saturate(130%);
+  }
+  .landing-shell footer {
+    background: hsl(var(--background));
+  }
+  .landing-shell .professional-home {
+    background:
+      radial-gradient(circle at 50% -8%, hsl(var(--primary) / 0.13), transparent 30rem),
+      hsl(var(--background));
+  }
+  .landing-shell .shadow-brand {
+    --tw-shadow-color: hsl(var(--primary) / 0.18);
+    box-shadow: 0 24px 80px -32px var(--tw-shadow-color);
+  }
+  .landing-shell .professional-home .rounded-xl,
+  .landing-shell .professional-home .rounded-2xl {
+    border-color: hsl(var(--border) / 0.78);
+  }
+  .landing-shell .professional-home .workflow-connector {
+    color: hsl(var(--primary));
+    stroke-dashoffset: 0;
+    animation: landing-connector-flow 3.5s linear infinite;
+    filter: drop-shadow(0 0 4px hsl(var(--primary) / 0.45));
+  }
+  @keyframes landing-connector-flow {
+    to {
+      stroke-dashoffset: -32;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .landing-shell .professional-home .workflow-connector {
+      animation: none;
+    }
+  }
+  .professional-home > section + section {
+    border-top: 1px solid hsl(var(--border) / 0.38);
+  }
+  .professional-home > section:nth-of-type(even) {
+    background: hsl(var(--muted) / 0.12);
+  }
+  .professional-home :is(h1, h2) {
+    text-wrap: balance;
+  }
+  .professional-home p {
+    text-wrap: pretty;
+  }
+  .professional-home .hero-product-grid {
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  }
+  .professional-home .hero-agent-preview {
+    background: hsl(var(--muted) / 0.08);
+  }
+  .professional-home .hero-diagram-canvas {
+    isolation: isolate;
+    background: linear-gradient(145deg, hsl(var(--primary) / 0.045), transparent 62%);
+    box-shadow: inset 1px 0 0 hsl(var(--primary) / 0.1);
+  }
+  .professional-home .hero-diagram-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.24) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.24) 1px, transparent 1px);
+    background-size: 24px 24px;
+    box-shadow:
+      0 1px 2px hsl(var(--foreground) / 0.03),
+      0 18px 50px -32px hsl(var(--primary) / 0.32);
+  }
+  @media (max-width: 767px) {
+    .professional-home .hero-product-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
 }

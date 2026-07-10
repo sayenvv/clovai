@@ -83,18 +83,23 @@ function consumeWorkflowWorkspaceHandoff(): DiagramDocument | null {
   }
 }
 
-export function loadWorkflowDocument(): DiagramDocument {
+export function loadWorkflowDocument(workspaceId?: string): DiagramDocument {
   const handoff = consumeWorkflowWorkspaceHandoff()
   if (handoff) return handoff
 
+  const resolvedWorkspaceId = workspaceId?.trim() || undefined
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.diagram(AGENT_WORKFLOW_TOOL_ID))
+    const key = resolvedWorkspaceId
+      ? STORAGE_KEYS.diagram(AGENT_WORKFLOW_TOOL_ID, resolvedWorkspaceId)
+      : STORAGE_KEYS.diagram(AGENT_WORKFLOW_TOOL_ID)
+    const raw = localStorage.getItem(key)
     if (raw) {
       const doc = normalizeDocument(JSON.parse(raw))
       const workflow = doc.workflow ?? defaultWorkflowMeta()
       return {
         ...doc,
-        workspaceId: doc.workspaceId ?? getOrCreateWorkspaceId(),
+        workspaceId: doc.workspaceId ?? resolvedWorkspaceId ?? getOrCreateWorkspaceId(),
         workflow: {
           ...workflow,
           modelConfig: resolveWorkflowModelConfig(workflow.modelConfig),
@@ -104,15 +109,31 @@ export function loadWorkflowDocument(): DiagramDocument {
   } catch {
     // corrupted draft
   }
+
+  if (resolvedWorkspaceId) {
+    const doc = createWorkflowWorkspaceDocument()
+    return { ...doc, workspaceId: resolvedWorkspaceId }
+  }
   return createWorkflowWorkspaceDocument()
 }
 
 export function saveWorkflowDocument(doc: DiagramDocument): void {
+  const workspaceId = doc.workspaceId
   try {
-    localStorage.setItem(STORAGE_KEYS.diagram(AGENT_WORKFLOW_TOOL_ID), JSON.stringify(doc))
+    const key = workspaceId
+      ? STORAGE_KEYS.diagram(AGENT_WORKFLOW_TOOL_ID, workspaceId)
+      : STORAGE_KEYS.diagram(AGENT_WORKFLOW_TOOL_ID)
+    localStorage.setItem(key, JSON.stringify(doc))
   } catch {
     // quota / private mode
   }
+}
+
+export function saveWorkflowDocumentForWorkspace(
+  workspaceId: string,
+  doc: DiagramDocument,
+): void {
+  saveWorkflowDocument({ ...doc, workspaceId })
 }
 
 export function resolveWorkflowPage(doc: DiagramDocument, pageId?: string) {
