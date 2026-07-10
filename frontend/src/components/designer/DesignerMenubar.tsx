@@ -86,9 +86,11 @@ interface DesignerMenubarProps {
   onFitToContent: () => void
   onSnapToGridChange: (enabled: boolean) => void
   onShowGridChange: (enabled: boolean) => void
-  onShare: () => void
+  onShare?: () => void
   toolId: string
-  onManageAccess: () => void
+  onManageAccess?: () => void
+  /** Hide Share menu and collaboration entry points. */
+  showShare?: boolean
   /** Hide facepile when the workspace header already shows members. */
   showWorkspaceMembers?: boolean
   /** Right-side properties / inspector panel (agent workflow). */
@@ -153,6 +155,7 @@ export const DesignerMenubar = memo(function DesignerMenubar({
   onShare,
   toolId,
   onManageAccess,
+  showShare = true,
   showWorkspaceMembers = true,
   propertiesPanelOpen,
   onTogglePropertiesPanel,
@@ -337,14 +340,16 @@ export const DesignerMenubar = memo(function DesignerMenubar({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <DropdownMenu>
-        <MenuTrigger label="Share" />
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem onSelect={onShare}>
-            <Link2 /> Share & collaborate…
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {showShare && onShare && (
+        <DropdownMenu>
+          <MenuTrigger label="Share" />
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onSelect={onShare}>
+              <Link2 /> Share & collaborate…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       <DropdownMenu>
         <MenuTrigger label="Settings" />

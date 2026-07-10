@@ -69,8 +69,11 @@ export const paletteItemSchema = z.object({
     'multi-document',
     'card',
     'internal-storage',
+    'service',
   ]),
   color: z.enum(['emerald', 'blue', 'amber', 'violet', 'cyan', 'rose', 'slate']).default('blue'),
+  /** Optional icon path for cloud / service nodes (e.g. /cloud-icons/azure/service-bus.svg). */
+  icon: z.string().optional(),
   /** Optional group name used to cluster shapes in the palette. */
   group: z.string().optional(),
   order: z.number().int().default(0),

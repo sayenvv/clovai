@@ -8,8 +8,8 @@ import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import {
   getNodeSize,
-  MIN_NODE_HEIGHT,
-  MIN_NODE_WIDTH,
+  clampNodeSize,
+  minNodeSize,
   resizeAspect,
   resolveNodeStyle,
   resolveEdgeRouting,
@@ -60,6 +60,7 @@ const NodeProperties = memo(function NodeProperties({
   const nodeDefaults = defaultNodeColors(isDark)
   const { width, height } = getNodeSize(node, shape)
   const aspect = resizeAspect(shape)
+  const minSize = minNodeSize(shape)
   const sizeRatio = width / height
 
   const updateNode = (patch: Partial<DiagramNode>) => {
@@ -73,21 +74,22 @@ const NodeProperties = memo(function NodeProperties({
 
   const updateSize = (patch: { width?: number; height?: number }) => {
     if (aspect === 'square') {
-      const size = Math.max(patch.width ?? width, patch.height ?? height)
-      updateNode({ width: size, height: size })
+      const size = Math.max(patch.width ?? width, patch.height ?? height, minSize.width, minSize.height)
+      const clamped = clampNodeSize(shape, size, size)
+      updateNode(clamped)
       return
     }
     if (aspect === 'preserve') {
       if (patch.width !== undefined) {
-        updateNode({ width: patch.width, height: Math.round(patch.width / sizeRatio) })
+        updateNode(clampNodeSize(shape, patch.width, Math.round(patch.width / sizeRatio)))
         return
       }
       if (patch.height !== undefined) {
-        updateNode({ width: Math.round(patch.height * sizeRatio), height: patch.height })
+        updateNode(clampNodeSize(shape, Math.round(patch.height * sizeRatio), patch.height))
         return
       }
     }
-    updateNode(patch)
+    updateNode(clampNodeSize(shape, patch.width ?? width, patch.height ?? height))
   }
 
   const numeric = (value: string, fallback: number) => {
@@ -161,10 +163,10 @@ const NodeProperties = memo(function NodeProperties({
         <Field label="Width">
           <Input
             type="number"
-            min={MIN_NODE_WIDTH}
+            min={minSize.width}
             value={Math.round(width)}
             onChange={(event) =>
-              updateSize({ width: Math.max(MIN_NODE_WIDTH, numeric(event.target.value, width)) })
+              updateSize({ width: numeric(event.target.value, width) })
             }
             className="h-8 text-xs tabular-nums"
           />
@@ -172,10 +174,10 @@ const NodeProperties = memo(function NodeProperties({
         <Field label="Height">
           <Input
             type="number"
-            min={MIN_NODE_HEIGHT}
+            min={minSize.height}
             value={Math.round(height)}
             onChange={(event) =>
-              updateSize({ height: Math.max(MIN_NODE_HEIGHT, numeric(event.target.value, height)) })
+              updateSize({ height: numeric(event.target.value, height) })
             }
             className="h-8 text-xs tabular-nums"
           />

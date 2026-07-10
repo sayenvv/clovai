@@ -37,7 +37,7 @@
     {
       "id": "ai-flowchart",
       "title": "Diagram Generator",
-      "description": "Design and generate advanced diagrams on a drag-and-drop canvas — process flows, decisions, and subprocesses.",
+      "description": "Design advanced workflow and architecture diagrams — flowchart shapes, swimlanes, and cloud service components.",
       "icon": "git-branch",
       "route": "/tools/ai-flowchart",
       "category": "ai-generators",
@@ -49,7 +49,7 @@
       "isEnabled": true,
       "order": 2,
       "designer": {
-        "paletteVersion": 3,
+        "paletteVersion": 6,
         "palette": [
           {
             "id": "fc-start-end",
@@ -329,11 +329,174 @@
             "color": "slate",
             "group": "Annotate",
             "order": 31
+          },
+          {
+            "id": "fc-aws-lambda",
+            "label": "Lambda",
+            "description": "AWS serverless compute",
+            "shape": "service",
+            "icon": "/cloud-icons/aws/lambda.svg",
+            "color": "amber",
+            "group": "AWS",
+            "order": 32
+          },
+          {
+            "id": "fc-aws-s3",
+            "label": "S3",
+            "description": "AWS object storage",
+            "shape": "service",
+            "icon": "/cloud-icons/aws/s3.svg",
+            "color": "amber",
+            "group": "AWS",
+            "order": 33
+          },
+          {
+            "id": "fc-aws-sqs",
+            "label": "SQS",
+            "description": "AWS message queue",
+            "shape": "service",
+            "icon": "/cloud-icons/aws/sqs.svg",
+            "color": "amber",
+            "group": "AWS",
+            "order": 34
+          },
+          {
+            "id": "fc-aws-sns",
+            "label": "SNS",
+            "description": "AWS notification service",
+            "shape": "service",
+            "icon": "/cloud-icons/aws/sns.svg",
+            "color": "amber",
+            "group": "AWS",
+            "order": 35
+          },
+          {
+            "id": "fc-aws-api-gateway",
+            "label": "API Gateway",
+            "description": "AWS API management",
+            "shape": "service",
+            "icon": "/cloud-icons/aws/api-gateway.svg",
+            "color": "amber",
+            "group": "AWS",
+            "order": 36
+          },
+          {
+            "id": "fc-aws-dynamodb",
+            "label": "DynamoDB",
+            "description": "AWS NoSQL database",
+            "shape": "service",
+            "icon": "/cloud-icons/aws/dynamodb.svg",
+            "color": "amber",
+            "group": "AWS",
+            "order": 37
+          },
+          {
+            "id": "fc-aws-eventbridge",
+            "label": "EventBridge",
+            "description": "AWS event bus",
+            "shape": "service",
+            "icon": "/cloud-icons/aws/eventbridge.svg",
+            "color": "amber",
+            "group": "AWS",
+            "order": 38
+          },
+          {
+            "id": "fc-aws-step-functions",
+            "label": "Step Functions",
+            "description": "AWS workflow orchestration",
+            "shape": "service",
+            "icon": "/cloud-icons/aws/step-functions.svg",
+            "color": "amber",
+            "group": "AWS",
+            "order": 39
+          },
+          {
+            "id": "fc-gcp-cloud-functions",
+            "label": "Cloud Functions",
+            "description": "GCP serverless functions",
+            "shape": "service",
+            "icon": "/cloud-icons/gcp/cloud-functions.svg",
+            "color": "cyan",
+            "group": "Google Cloud",
+            "order": 40
+          },
+          {
+            "id": "fc-gcp-cloud-run",
+            "label": "Cloud Run",
+            "description": "GCP container hosting",
+            "shape": "service",
+            "icon": "/cloud-icons/gcp/cloud-run.svg",
+            "color": "cyan",
+            "group": "Google Cloud",
+            "order": 41
+          },
+          {
+            "id": "fc-gcp-pub-sub",
+            "label": "Pub/Sub",
+            "description": "GCP messaging service",
+            "shape": "service",
+            "icon": "/cloud-icons/gcp/pub-sub.svg",
+            "color": "cyan",
+            "group": "Google Cloud",
+            "order": 42
+          },
+          {
+            "id": "fc-gcp-cloud-storage",
+            "label": "Cloud Storage",
+            "description": "GCP object storage",
+            "shape": "service",
+            "icon": "/cloud-icons/gcp/cloud-storage.svg",
+            "color": "cyan",
+            "group": "Google Cloud",
+            "order": 43
+          },
+          {
+            "id": "fc-gcp-firestore",
+            "label": "Firestore",
+            "description": "GCP document database",
+            "shape": "service",
+            "icon": "/cloud-icons/gcp/firestore.svg",
+            "color": "cyan",
+            "group": "Google Cloud",
+            "order": 44
+          },
+          {
+            "id": "fc-gcp-bigquery",
+            "label": "BigQuery",
+            "description": "GCP data warehouse",
+            "shape": "service",
+            "icon": "/cloud-icons/gcp/bigquery.svg",
+            "color": "cyan",
+            "group": "Google Cloud",
+            "order": 45
+          },
+          {
+            "id": "fc-gcp-cloud-tasks",
+            "label": "Cloud Tasks",
+            "description": "GCP async task queue",
+            "shape": "service",
+            "icon": "/cloud-icons/gcp/cloud-tasks.svg",
+            "color": "cyan",
+            "group": "Google Cloud",
+            "order": 46
+          },
+          {
+            "id": "fc-gcp-cloud-scheduler",
+            "label": "Cloud Scheduler",
+            "description": "GCP cron scheduling",
+            "shape": "service",
+            "icon": "/cloud-icons/gcp/cloud-scheduler.svg",
+            "color": "cyan",
+            "group": "Google Cloud",
+            "order": 47
           }
         ]
       },
       "metadata": {
-        "aiGeneration": "coming-soon"
+        "aiGeneration": "coming-soon",
+        "azureIconsManifest": "/cloud-icons/azure/manifest.json",
+        "gcpIconsManifest": "/cloud-icons/gcp/manifest.json",
+        "awsIconsManifest": "/cloud-icons/aws/manifest.json"
       }
     },
     {

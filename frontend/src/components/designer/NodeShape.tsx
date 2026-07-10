@@ -44,6 +44,10 @@ interface NodeShapeProps {
   borderColor?: string
   isDark?: boolean
   className?: string
+  /** Sidebar palette uses tighter geometry so shapes read correctly at small sizes. */
+  variant?: 'canvas' | 'palette'
+  /** Icon path for cloud / service nodes. */
+  icon?: string
 }
 
 const ClippedShape = memo(function ClippedShape({
@@ -64,7 +68,8 @@ const ClippedShape = memo(function ClippedShape({
       <span
         className={cn(
           'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium',
-          labelClassName)}
+          labelClassName,
+        )}
         style={S.text(colors)}
       >
         {label}
@@ -73,6 +78,49 @@ const ClippedShape = memo(function ClippedShape({
   )
 })
 
+function ServiceNode({
+  label,
+  icon,
+  variant,
+  className,
+  colors,
+}: {
+  label: string
+  icon?: string
+  variant: 'canvas' | 'palette'
+  className?: string
+  colors: ResolvedDiagramColors
+}) {
+  const isPalette = variant === 'palette'
+
+  if (!icon) {
+    return (
+      <div
+        className={cn(
+          'flex h-full w-full items-center justify-center rounded-md bg-muted/30',
+          className,
+        )}
+      >
+        <span className="text-[10px] font-medium text-muted-foreground">{label || 'Service'}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={cn('flex h-full w-full items-center justify-center', className)}
+      title={label || undefined}
+    >
+      <img
+        src={icon}
+        alt={label}
+        className={cn('object-contain', isPalette ? 'h-8 w-8' : 'h-full w-full')}
+        draggable={false}
+      />
+    </div>
+  )
+}
+
 export const NodeShape = memo(function NodeShape({
   shape,
   label,
@@ -80,12 +128,30 @@ export const NodeShape = memo(function NodeShape({
   borderColor,
   isDark = false,
   className,
+  variant = 'canvas',
+  icon,
 }: NodeShapeProps) {
   const colors = resolveNodeColors({ fillColor, borderColor }, isDark)
+  const isPalette = variant === 'palette'
+  const rectRadius = isPalette ? 'rounded-sm' : 'rounded-lg'
   const base = cn(
     'flex h-full w-full items-center justify-center border-2 px-3 text-center text-xs font-medium shadow-sm transition-shadow',
-    className)
+    className,
+  )
   const boxStyle = S.box(colors)
+  const labelStyle = S.text(colors)
+
+  if (shape === 'service') {
+    return (
+      <ServiceNode
+        colors={colors}
+        label={label}
+        icon={icon}
+        variant={variant}
+        className={className}
+      />
+    )
+  }
 
   const clipPath = CLIP_PATHS[shape]
   if (clipPath) {
@@ -96,10 +162,12 @@ export const NodeShape = memo(function NodeShape({
           colors={colors}
           label={label}
           labelClassName={cn(
-            shape === 'decision' && 'px-8',
+            isPalette && 'px-1 text-[0px]',
+            shape === 'decision' && !isPalette && 'px-8',
             shape === 'triangle' && 'items-start pt-2',
             shape === 'off-page' && 'items-start pt-3',
-            shape === 'manual-input' && 'items-end pb-2')}
+            shape === 'manual-input' && 'items-end pb-2',
+          )}
         />
       </div>
     )
@@ -107,17 +175,28 @@ export const NodeShape = memo(function NodeShape({
 
   switch (shape) {
     case 'terminator':
-      return <div className={cn(base, 'rounded-full', className)} style={boxStyle}>{label}</div>
+      return (
+        <div
+          className={cn(base, isPalette ? 'rounded-full px-1' : 'rounded-full', className)}
+          style={boxStyle}
+        >
+          {label}
+        </div>
+      )
 
     case 'input-output':
       return (
         <div className={cn('relative h-full w-full', className)}>
           <div
-            className={cn('absolute inset-0 -skew-x-12 rounded-md border-2 shadow-sm')}
+            className={cn('absolute inset-0 -skew-x-12 border-2 shadow-sm', isPalette ? 'rounded-sm' : 'rounded-md')}
+            style={boxStyle}
           />
           <span
             className={cn(
-              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium')}
+              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium',
+              isPalette && 'px-1 text-[0px]',
+            )}
+            style={labelStyle}
           >
             {label}
           </span>
@@ -128,13 +207,19 @@ export const NodeShape = memo(function NodeShape({
       return (
         <div className={cn('relative h-full w-full', className)}>
           <div
-            className={cn(
-              'absolute inset-0 rounded-[50%_50%_50%_50%/14%_14%_14%_14%] border-2 shadow-sm')}
+            className="absolute inset-0 rounded-[50%_50%_50%_50%/14%_14%_14%_14%] border-2 shadow-sm"
+            style={boxStyle}
           />
-          <div className={cn('absolute inset-x-0 top-0 h-4 rounded-[50%] border-2')} />
+          <div
+            className="absolute inset-x-0 top-0 h-[22%] rounded-[50%] border-2"
+            style={S.border(colors, S.fill(colors))}
+          />
           <span
             className={cn(
-              'absolute inset-0 flex items-center justify-center px-3 pt-2 text-center text-xs font-medium')}
+              'absolute inset-0 flex items-center justify-center px-3 pt-[10%] text-center text-xs font-medium',
+              isPalette && 'px-1 text-[0px]',
+            )}
+            style={labelStyle}
           >
             {label}
           </span>
@@ -142,21 +227,51 @@ export const NodeShape = memo(function NodeShape({
       )
 
     case 'document':
-      return <div className={cn(base, 'rounded-md rounded-br-[45%_70%]', className)} style={boxStyle}>{label}</div>
+      return (
+        <div
+          className={cn(base, isPalette ? 'rounded-sm rounded-br-[40%_60%]' : 'rounded-md rounded-br-[45%_70%]', className)}
+          style={boxStyle}
+        >
+          {label}
+        </div>
+      )
 
     case 'delay':
-      return <div className={cn(base, 'rounded-md rounded-r-full', className)} style={boxStyle}>{label}</div>
+      return (
+        <div
+          className={cn(base, isPalette ? 'rounded-sm rounded-r-full' : 'rounded-md rounded-r-full', className)}
+          style={boxStyle}
+        >
+          {label}
+        </div>
+      )
 
     case 'connector':
     case 'circle':
-      return <div className={cn(base, 'rounded-full px-1', className)} style={boxStyle}>{label}</div>
+      return (
+        <div className={cn(base, 'rounded-full px-1', className)} style={boxStyle}>
+          {label}
+        </div>
+      )
 
     case 'ellipse':
-      return <div className={cn(base, 'rounded-[50%]', className)} style={boxStyle}>{label}</div>
+      return (
+        <div className={cn(base, 'rounded-[50%]', className)} style={boxStyle}>
+          {label}
+        </div>
+      )
 
     case 'note':
       return (
-        <div className={cn(base, 'items-start justify-start rounded-sm rounded-br-2xl p-3 text-left shadow-md', className)}>
+        <div
+          className={cn(
+            base,
+            'items-start justify-start p-3 text-left shadow-md',
+            isPalette ? 'rounded-sm rounded-br-xl p-1.5' : 'rounded-sm rounded-br-2xl',
+            className,
+          )}
+          style={boxStyle}
+        >
           {label}
         </div>
       )
@@ -165,8 +280,10 @@ export const NodeShape = memo(function NodeShape({
       return (
         <div
           className={cn(
-            'flex h-full w-full items-center justify-center border-2 border-dashed border-transparent px-2 text-center text-sm font-medium',
-            className)}
+            'flex h-full w-full items-center justify-center border-2 border-dashed px-2 text-center text-sm font-medium',
+            className,
+          )}
+          style={{ ...S.border(colors), borderStyle: 'dashed', ...labelStyle }}
         >
           {label}
         </div>
@@ -176,16 +293,19 @@ export const NodeShape = memo(function NodeShape({
       return (
         <div
           className={cn(
-            'relative flex h-full w-full flex-col overflow-hidden rounded-lg border-2 shadow-sm',
-            className)}
+            'relative flex h-full w-full flex-col overflow-hidden border-2 shadow-sm',
+            isPalette ? 'rounded-sm' : 'rounded-lg',
+            className,
+          )}
+          style={boxStyle}
         >
           <div
-            className={cn(
-              'flex min-h-9 shrink-0 items-center border-b-2 px-3 py-1.5 text-xs font-semibold leading-snug')}
+            className="flex min-h-6 shrink-0 items-center border-b-2 px-2 py-1 text-[10px] font-semibold leading-snug"
+            style={S.border(colors, { borderWidth: 0, borderBottomWidth: 2 })}
           >
-            <span className="break-words">{label}</span>
+            <span className={cn('break-words', isPalette && 'truncate text-[0px]')}>{label}</span>
           </div>
-          <div className={cn('min-h-0 flex-1', 'opacity-35')} />
+          <div className="min-h-0 flex-1 opacity-35" style={S.fill(colors, { opacity: 0.35 })} />
         </div>
       )
 
@@ -193,16 +313,21 @@ export const NodeShape = memo(function NodeShape({
       return (
         <div
           className={cn(
-            'flex h-full w-full overflow-hidden rounded-md border-2 shadow-sm',
-            className)}
+            'flex h-full w-full overflow-hidden border-2 shadow-sm',
+            isPalette ? 'rounded-sm' : 'rounded-md',
+            className,
+          )}
+          style={boxStyle}
         >
           <div
-            className={cn(
-              'flex w-10 shrink-0 items-center justify-center border-r-2 px-1')}
+            className="flex w-8 shrink-0 items-center justify-center border-r-2 px-0.5"
+            style={S.border(colors, { borderWidth: 0, borderRightWidth: 2 })}
           >
-            <span className="whitespace-nowrap text-xs font-semibold -rotate-90">{label}</span>
+            <span className={cn('whitespace-nowrap text-[9px] font-semibold -rotate-90', isPalette && 'text-[0px]')}>
+              {label}
+            </span>
           </div>
-          <div className={cn('min-w-0 flex-1', 'opacity-30')} />
+          <div className="min-w-0 flex-1 opacity-30" style={S.fill(colors, { opacity: 0.3 })} />
         </div>
       )
 
@@ -210,27 +335,39 @@ export const NodeShape = memo(function NodeShape({
       return (
         <div
           className={cn(
-            'flex h-full w-full flex-col overflow-hidden rounded-md border-2 shadow-sm',
-            className)}
+            'flex h-full w-full flex-col overflow-hidden border-2 shadow-sm',
+            isPalette ? 'rounded-sm' : 'rounded-md',
+            className,
+          )}
+          style={boxStyle}
         >
           <div
-            className={cn(
-              'flex min-h-9 shrink-0 items-center justify-center border-b-2 px-2 py-1.5 text-center text-xs font-semibold leading-snug')}
+            className="flex min-h-6 shrink-0 items-center justify-center border-b-2 px-1 py-1 text-center text-[9px] font-semibold leading-snug"
+            style={S.border(colors, { borderWidth: 0, borderBottomWidth: 2 })}
           >
-            <span className="break-words">{label}</span>
+            <span className={cn('break-words', isPalette && 'truncate text-[0px]')}>{label}</span>
           </div>
-          <div className={cn('min-h-0 flex-1', 'opacity-30')} />
+          <div className="min-h-0 flex-1 opacity-30" style={S.fill(colors, { opacity: 0.3 })} />
         </div>
       )
 
     case 'subprocess':
       return (
         <div className={cn('relative h-full w-full', className)}>
-          <div className={cn('absolute inset-0 rounded-lg border-2 shadow-sm')} />
-          <div className={cn('absolute inset-[5px] rounded-md border-2')} />
+          <div
+            className={cn('absolute inset-0 border-2 shadow-sm', isPalette ? 'rounded-sm' : 'rounded-lg')}
+            style={boxStyle}
+          />
+          <div
+            className={cn('absolute border-2', isPalette ? 'inset-[3px] rounded-[3px]' : 'inset-[5px] rounded-md')}
+            style={S.border(colors)}
+          />
           <span
             className={cn(
-              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium')}
+              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium',
+              isPalette && 'px-1 text-[0px]',
+            )}
+            style={labelStyle}
           >
             {label}
           </span>
@@ -244,27 +381,36 @@ export const NodeShape = memo(function NodeShape({
             clipPath={CLIP_PATHS.decision!}
             colors={colors}
             label={label || '+'}
-            labelClassName="text-base font-bold"
+            labelClassName={cn('text-base font-bold', isPalette && 'text-[10px]')}
           />
         </div>
       )
 
     case 'or-gate':
       return (
-        <div className={cn(base, 'rounded-full px-1 text-base font-bold', className)}>
-          {label || '+'}
+        <div
+          className={cn(base, 'rounded-full px-1 text-base font-bold', isPalette && 'text-xs', className)}
+          style={boxStyle}
+        >
+          {label || '○'}
         </div>
       )
 
     case 'event':
       return (
         <div className={cn('relative h-full w-full', className)}>
-          <div className={cn('absolute inset-0 rounded-full border-2')} />
-          <div className={cn('absolute inset-[4px] rounded-full border')} />
+          <div className="absolute inset-0 rounded-full border-2" style={S.border(colors, S.fill(colors))} />
+          <div
+            className={cn('absolute rounded-full border', isPalette ? 'inset-[2px]' : 'inset-[4px]')}
+            style={S.border(colors)}
+          />
           {label && (
             <span
               className={cn(
-                'absolute inset-0 flex items-center justify-center px-1 text-center text-[9px] font-medium')}
+                'absolute inset-0 flex items-center justify-center px-1 text-center font-medium',
+                isPalette ? 'text-[0px]' : 'text-[9px]',
+              )}
+              style={labelStyle}
             >
               {label}
             </span>
@@ -276,16 +422,19 @@ export const NodeShape = memo(function NodeShape({
       return (
         <div className={cn('relative h-full w-full', className)}>
           <div
-            className={cn(
-              'absolute inset-x-0 top-0 bottom-2 rounded-t-lg border-2 border-b-0 shadow-sm')}
+            className="absolute inset-x-0 top-0 bottom-[14%] rounded-t-lg border-2 border-b-0 shadow-sm"
+            style={boxStyle}
           />
           <div
-            className={cn(
-              'absolute inset-x-2 bottom-0 h-2 rounded-b-[50%] border-2 border-t-0')}
+            className="absolute inset-x-[8%] bottom-0 h-[14%] rounded-b-[50%] border-2 border-t-0"
+            style={S.border(colors, S.fill(colors))}
           />
           <span
             className={cn(
-              'absolute inset-x-0 top-0 bottom-2 flex items-center justify-center px-3 text-center text-xs font-medium')}
+              'absolute inset-x-0 top-0 bottom-[14%] flex items-center justify-center px-3 text-center text-xs font-medium',
+              isPalette && 'px-1 text-[0px]',
+            )}
+            style={labelStyle}
           >
             {label}
           </span>
@@ -296,11 +445,15 @@ export const NodeShape = memo(function NodeShape({
       return (
         <div className={cn('relative h-full w-full', className)}>
           <div
-            className={cn('absolute inset-0 skew-x-12 rounded-md border-2 shadow-sm')}
+            className={cn('absolute inset-0 skew-x-12 border-2 shadow-sm', isPalette ? 'rounded-sm' : 'rounded-md')}
+            style={boxStyle}
           />
           <span
             className={cn(
-              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium')}
+              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium',
+              isPalette && 'px-1 text-[0px]',
+            )}
+            style={labelStyle}
           >
             {label}
           </span>
@@ -310,11 +463,13 @@ export const NodeShape = memo(function NodeShape({
     case 'annotation':
       return (
         <div className={cn('relative flex h-full w-full items-center', className)}>
-          <div className={cn('h-full w-1.5 shrink-0 rounded-l-sm')} />
+          <div className="h-full w-1.5 shrink-0 rounded-l-sm" style={S.fill(colors)} />
           <div
             className={cn(
-              'flex h-[calc(100%-8px)] flex-1 items-center border border-l-0 px-2 text-left text-[11px] font-medium',
+              'flex h-[calc(100%-6px)] flex-1 items-center border border-l-0 px-2 text-left font-medium',
+              isPalette ? 'text-[0px]' : 'text-[11px]',
             )}
+            style={S.border(colors, S.fill(colors))}
           >
             {label}
           </div>
@@ -326,18 +481,24 @@ export const NodeShape = memo(function NodeShape({
         <div className={cn('relative h-full w-full', className)}>
           <div
             className={cn(
-              'absolute inset-x-2 top-0 h-[calc(100%-6px)] rounded-md rounded-br-[40%_55%] border-2 opacity-60',
+              'absolute inset-x-[8%] top-0 h-[calc(100%-12%)] rounded-md rounded-br-[40%_55%] border-2 opacity-60',
+              isPalette && 'rounded-sm',
             )}
+            style={S.border(colors, S.fill(colors))}
           />
           <div
             className={cn(
-              'absolute inset-x-0 bottom-0 h-[calc(100%-6px)] rounded-md rounded-br-[40%_55%] border-2 shadow-sm',
+              'absolute inset-x-0 bottom-0 h-[calc(100%-12%)] rounded-md rounded-br-[40%_55%] border-2 shadow-sm',
+              isPalette && 'rounded-sm',
             )}
+            style={boxStyle}
           />
           <span
             className={cn(
-              'absolute inset-x-0 bottom-0 flex h-[calc(100%-6px)] items-center justify-center px-3 text-center text-xs font-medium',
+              'absolute inset-x-0 bottom-0 flex h-[calc(100%-12%)] items-center justify-center px-3 text-center text-xs font-medium',
+              isPalette && 'px-1 text-[0px]',
             )}
+            style={labelStyle}
           >
             {label}
           </span>
@@ -347,15 +508,20 @@ export const NodeShape = memo(function NodeShape({
     case 'card':
       return (
         <div className={cn('relative h-full w-full', className)}>
-          <div className={cn('absolute inset-0 rounded-lg border-2 shadow-sm')} />
           <div
-            className={cn(
-              'absolute right-0 top-0 h-5 w-5 border-b-2 border-l-2 bg-background')}
-            style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
+            className={cn('absolute inset-0 border-2 shadow-sm', isPalette ? 'rounded-sm' : 'rounded-lg')}
+            style={boxStyle}
+          />
+          <div
+            className="absolute right-0 top-0 h-[18%] w-[18%] border-b-2 border-l-2 bg-background"
+            style={{ ...S.border(colors), clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
           />
           <span
             className={cn(
-              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium')}
+              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium',
+              isPalette && 'px-1 text-[0px]',
+            )}
+            style={labelStyle}
           >
             {label}
           </span>
@@ -365,12 +531,24 @@ export const NodeShape = memo(function NodeShape({
     case 'internal-storage':
       return (
         <div className={cn('relative h-full w-full', className)}>
-          <div className={cn('absolute inset-0 rounded-lg border-2 shadow-sm')} />
-          <div className={cn('absolute left-2 top-2 h-4 w-4 border-b-2 border-r-2')} />
-          <div className={cn('absolute left-2 top-2 h-7 w-7 border-l-2 border-t-2')} />
+          <div
+            className={cn('absolute inset-0 border-2 shadow-sm', isPalette ? 'rounded-sm' : 'rounded-lg')}
+            style={boxStyle}
+          />
+          <div
+            className={cn('absolute border-b-2 border-r-2', isPalette ? 'left-1.5 top-1.5 h-2.5 w-2.5' : 'left-2 top-2 h-4 w-4')}
+            style={S.border(colors)}
+          />
+          <div
+            className={cn('absolute border-l-2 border-t-2', isPalette ? 'left-1.5 top-1.5 h-4 w-4' : 'left-2 top-2 h-7 w-7')}
+            style={S.border(colors)}
+          />
           <span
             className={cn(
-              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium')}
+              'absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium',
+              isPalette && 'px-1 text-[0px]',
+            )}
+            style={labelStyle}
           >
             {label}
           </span>
@@ -380,6 +558,10 @@ export const NodeShape = memo(function NodeShape({
     case 'process':
     case 'rectangle':
     default:
-      return <div className={cn(base, 'rounded-lg', className)} style={boxStyle}>{label}</div>
+      return (
+        <div className={cn(base, rectRadius, className)} style={boxStyle}>
+          {label}
+        </div>
+      )
   }
 })

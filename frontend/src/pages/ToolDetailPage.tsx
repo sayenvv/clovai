@@ -15,7 +15,9 @@ import { ShareDialog } from '@/components/designer/ShareDialog'
 import { PropertiesPanel } from '@/components/designer/PropertiesPanel'
 import { PagesBar } from '@/components/designer/PagesBar'
 import { computeCenteredViewport, zoomViewportAt } from '@/components/designer/viewport-utils'
-import { resolveDesignerPalette } from '@/utils/resolve-designer-palette'
+import { resolveDesignerPalette, mergePaletteWithCloudProviders } from '@/utils/resolve-designer-palette'
+import { useAzurePalette } from '@/hooks/use-azure-palette'
+import { useCloudPalette } from '@/hooks/use-cloud-palette'
 import { STORAGE_KEYS } from '@/constants'
 import { exportDiagram } from '@/components/designer/diagram-export'
 import { downloadJson } from '@/utils/download'
@@ -57,14 +59,34 @@ export default function ToolDetailPage() {
   const { megaMenu, navbar } = useAppConfig()
   const { isDark } = useTheme()
 
+  const isDiagramGenerator = toolId === 'ai-flowchart'
+
   const tool = useMemo(
     () => megaMenu.tools.find((t) => t.route === `/tools/${toolId}` && t.isVisible !== false),
     [megaMenu.tools, toolId],
   )
 
-  const { palette, isToolSpecific } = useMemo(
+  const { palette: basePalette, isToolSpecific } = useMemo(
     () => resolveDesignerPalette(tool, toolId),
     [tool, toolId],
+  )
+  const {
+    items: azureItems,
+    count: azureCount,
+    loading: azureLoading,
+    error: azureError,
+  } = useAzurePalette(isDiagramGenerator)
+  const {
+    items: providerItems,
+    count: providerCount,
+    loading: providerLoading,
+    error: providerError,
+  } = useCloudPalette(isDiagramGenerator)
+  const palette = useMemo(
+    () => isDiagramGenerator
+      ? mergePaletteWithCloudProviders(basePalette, [...azureItems, ...providerItems])
+      : basePalette,
+    [isDiagramGenerator, basePalette, azureItems, providerItems],
   )
   const paletteById = useMemo(() => {
     const map = new Map<string, PaletteItem>()
@@ -364,12 +386,14 @@ export default function ToolDetailPage() {
         </div>
       </div>
 
-      <ShareDialog
-        open={shareOpen}
-        onOpenChange={setShareOpen}
-        documentTitle={tool.title}
-        toolId={toolId}
-      />
+      {!isDiagramGenerator && (
+        <ShareDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          documentTitle={tool.title}
+          toolId={toolId}
+        />
+      )}
 
       <DesignerMenubar
         selection={selection}
@@ -391,9 +415,11 @@ export default function ToolDetailPage() {
         onFitToContent={fitToContent}
         onSnapToGridChange={setSnapToGrid}
         onShowGridChange={setShowGrid}
-        onShare={() => setShareOpen(true)}
+        onShare={isDiagramGenerator ? undefined : () => setShareOpen(true)}
         toolId={toolId}
-        onManageAccess={() => setShareOpen(true)}
+        onManageAccess={isDiagramGenerator ? undefined : () => setShareOpen(true)}
+        showShare={!isDiagramGenerator}
+        showWorkspaceMembers={!isDiagramGenerator}
       />
 
       <input
@@ -414,6 +440,9 @@ export default function ToolDetailPage() {
           isToolSpecific={isToolSpecific}
           toolTitle={tool.title}
           onAdd={addAtCenter}
+          cloudCount={azureCount + providerCount}
+          cloudLoading={azureLoading || providerLoading}
+          cloudError={azureError ?? providerError}
         />
         {/* Canvas column: the pages bar only spans the canvas, not the sidebars. */}
         <div className="flex min-w-0 flex-1 flex-col">

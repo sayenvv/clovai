@@ -1,0 +1,2809 @@
+{
+  "version": 1,
+  "provider": "AWS",
+  "source": "https://aws-icons.com",
+  "terms": "https://aws.amazon.com/architecture/icons/",
+  "syncedAt": "2026-07-10T17:30:38.906Z",
+  "count": 311,
+  "icons": [
+    {
+      "id": "fc-aws-athena",
+      "label": "Athena",
+      "description": "AWS Athena",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Athena.svg",
+      "order": 2000
+    },
+    {
+      "id": "fc-aws-clean-rooms",
+      "label": "Clean Rooms",
+      "description": "AWS Clean Rooms",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Clean-Rooms.svg",
+      "order": 2001
+    },
+    {
+      "id": "fc-aws-cloudsearch",
+      "label": "CloudSearch",
+      "description": "AWS CloudSearch",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/CloudSearch.svg",
+      "order": 2002
+    },
+    {
+      "id": "fc-aws-data-exchange",
+      "label": "Data Exchange",
+      "description": "AWS Data Exchange",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Data-Exchange.svg",
+      "order": 2003
+    },
+    {
+      "id": "fc-aws-data-pipeline",
+      "label": "Data Pipeline",
+      "description": "AWS Data Pipeline",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Data-Pipeline.svg",
+      "order": 2004
+    },
+    {
+      "id": "fc-aws-datazone",
+      "label": "DataZone",
+      "description": "AWS DataZone",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/DataZone.svg",
+      "order": 2005
+    },
+    {
+      "id": "fc-aws-emr",
+      "label": "EMR",
+      "description": "AWS EMR",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/EMR.svg",
+      "order": 2006
+    },
+    {
+      "id": "fc-aws-finspace",
+      "label": "FinSpace",
+      "description": "AWS FinSpace",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/FinSpace.svg",
+      "order": 2007
+    },
+    {
+      "id": "fc-aws-glue",
+      "label": "Glue",
+      "description": "AWS Glue",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Glue.svg",
+      "order": 2008
+    },
+    {
+      "id": "fc-aws-glue-databrew",
+      "label": "Glue DataBrew",
+      "description": "AWS Glue DataBrew",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Glue-DataBrew.svg",
+      "order": 2009
+    },
+    {
+      "id": "fc-aws-glue-elastic-views",
+      "label": "Glue Elastic Views",
+      "description": "AWS Glue Elastic Views",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Glue-Elastic-Views.svg",
+      "order": 2010
+    },
+    {
+      "id": "fc-aws-kinesis",
+      "label": "Kinesis",
+      "description": "AWS Kinesis",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Kinesis.svg",
+      "order": 2011
+    },
+    {
+      "id": "fc-aws-kinesis-data-analytics",
+      "label": "Kinesis Data Analytics",
+      "description": "AWS Kinesis Data Analytics",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Kinesis-Data-Analytics.svg",
+      "order": 2012
+    },
+    {
+      "id": "fc-aws-kinesis-data-streams",
+      "label": "Kinesis Data Streams",
+      "description": "AWS Kinesis Data Streams",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Kinesis-Data-Streams.svg",
+      "order": 2013
+    },
+    {
+      "id": "fc-aws-kinesis-firehose",
+      "label": "Kinesis Firehose",
+      "description": "AWS Kinesis Firehose",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Kinesis-Firehose.svg",
+      "order": 2014
+    },
+    {
+      "id": "fc-aws-kinesis-video-streams",
+      "label": "Kinesis Video Streams",
+      "description": "AWS Kinesis Video Streams",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Kinesis-Video-Streams.svg",
+      "order": 2015
+    },
+    {
+      "id": "fc-aws-lake-formation",
+      "label": "Lake Formation",
+      "description": "AWS Lake Formation",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Lake-Formation.svg",
+      "order": 2016
+    },
+    {
+      "id": "fc-aws-managed-streaming-for-apache-kafka",
+      "label": "Managed Streaming for Apache Kafka",
+      "description": "AWS Managed Streaming for Apache Kafka",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Managed-Streaming-for-Apache-Kafka.svg",
+      "order": 2017
+    },
+    {
+      "id": "fc-aws-opensearch-service",
+      "label": "OpenSearch Service",
+      "description": "AWS OpenSearch Service",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/OpenSearch-Service.svg",
+      "order": 2018
+    },
+    {
+      "id": "fc-aws-quicksight",
+      "label": "QuickSight",
+      "description": "AWS QuickSight",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/QuickSight.svg",
+      "order": 2019
+    },
+    {
+      "id": "fc-aws-redshift",
+      "label": "Redshift",
+      "description": "AWS Redshift",
+      "category": "analytics",
+      "categoryLabel": "Analytics",
+      "icon": "/cloud-icons/aws/analytics/Redshift.svg",
+      "order": 2020
+    },
+    {
+      "id": "fc-aws-api-gateway",
+      "label": "API Gateway",
+      "description": "AWS API Gateway",
+      "category": "app-integration",
+      "categoryLabel": "App Integration",
+      "icon": "/cloud-icons/aws/app-integration/API-Gateway.svg",
+      "order": 2021
+    },
+    {
+      "id": "fc-aws-appflow",
+      "label": "AppFlow",
+      "description": "AWS AppFlow",
+      "category": "app-integration",
+      "categoryLabel": "App Integration",
+      "icon": "/cloud-icons/aws/app-integration/AppFlow.svg",
+      "order": 2022
+    },
+    {
+      "id": "fc-aws-appsync",
+      "label": "AppSync",
+      "description": "AWS AppSync",
+      "category": "app-integration",
+      "categoryLabel": "App Integration",
+      "icon": "/cloud-icons/aws/app-integration/AppSync.svg",
+      "order": 2023
+    },
+    {
+      "id": "fc-aws-console-mobile-application",
+      "label": "Console Mobile Application",
+      "description": "AWS Console Mobile Application",
+      "category": "app-integration",
+      "categoryLabel": "App Integration",
+      "icon": "/cloud-icons/aws/app-integration/Console-Mobile-Application.svg",
+      "order": 2024
+    },
+    {
+      "id": "fc-aws-eventbridge",
+      "label": "EventBridge",
+      "description": "AWS EventBridge",
+      "category": "app-integration",
+      "categoryLabel": "App Integration",
+      "icon": "/cloud-icons/aws/app-integration/EventBridge.svg",
+      "order": 2025
+    },
+    {
+      "id": "fc-aws-express-workflows",
+      "label": "Express Workflows",
+      "description": "AWS Express Workflows",
+      "category": "app-integration",
+      "categoryLabel": "App Integration",
+      "icon": "/cloud-icons/aws/app-integration/Express-Workflows.svg",
+      "order": 2026
+    },
+    {
+      "id": "fc-aws-managed-workflows-for-apache-airflow",
+      "label": "Managed Workflows for Apache Airflow",
+      "description": "AWS Managed Workflows for Apache Airflow",
+      "category": "app-integration",
+      "categoryLabel": "App Integration",
+      "icon": "/cloud-icons/aws/app-integration/Managed-Workflows-for-Apache-Airflow.svg",
+      "order": 2027
+    },
+    {
+      "id": "fc-aws-mq",
+      "label": "MQ",
+      "description": "AWS MQ",
+      "category": "app-integration",
+      "categoryLabel": "App Integration",
+      "icon": "/cloud-icons/aws/app-integration/MQ.svg",
+      "order": 2028
+    },
+    {
+      "id": "fc-aws-simple-notification-service",
+      "label": "Simple Notification Service",
+      "description": "AWS Simple Notification Service",
+      "category": "app-integration",
+      "categoryLabel": "App Integration",
+      "icon": "/cloud-icons/aws/app-integration/Simple-Notification-Service.svg",
+      "order": 2029
+    },
+    {
+      "id": "fc-aws-simple-queue-service",
+      "label": "Simple Queue Service",
+      "description": "AWS Simple Queue Service",
+      "category": "app-integration",
+      "categoryLabel": "App Integration",
+      "icon": "/cloud-icons/aws/app-integration/Simple-Queue-Service.svg",
+      "order": 2030
+    },
+    {
+      "id": "fc-aws-step-functions",
+      "label": "Step Functions",
+      "description": "AWS Step Functions",
+      "category": "app-integration",
+      "categoryLabel": "App Integration",
+      "icon": "/cloud-icons/aws/app-integration/Step-Functions.svg",
+      "order": 2031
+    },
+    {
+      "id": "fc-aws-managed-blockchain",
+      "label": "Managed Blockchain",
+      "description": "AWS Managed Blockchain",
+      "category": "blockchain",
+      "categoryLabel": "Blockchain",
+      "icon": "/cloud-icons/aws/blockchain/Managed-Blockchain.svg",
+      "order": 2032
+    },
+    {
+      "id": "fc-aws-quantum-ledger-database",
+      "label": "Quantum Ledger Database",
+      "description": "AWS Quantum Ledger Database",
+      "category": "blockchain",
+      "categoryLabel": "Blockchain",
+      "icon": "/cloud-icons/aws/blockchain/Quantum-Ledger-Database.svg",
+      "order": 2033
+    },
+    {
+      "id": "fc-aws-alexa-for-business",
+      "label": "Alexa For Business",
+      "description": "AWS Alexa For Business",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/Alexa-For-Business.svg",
+      "order": 2034
+    },
+    {
+      "id": "fc-aws-chime",
+      "label": "Chime",
+      "description": "AWS Chime",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/Chime.svg",
+      "order": 2035
+    },
+    {
+      "id": "fc-aws-chime-sdk",
+      "label": "Chime SDK",
+      "description": "AWS Chime SDK",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/Chime-SDK.svg",
+      "order": 2036
+    },
+    {
+      "id": "fc-aws-chime-voice-connector",
+      "label": "Chime Voice Connector",
+      "description": "AWS Chime Voice Connector",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/Chime-Voice-Connector.svg",
+      "order": 2037
+    },
+    {
+      "id": "fc-aws-connect",
+      "label": "Connect",
+      "description": "AWS Connect",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/Connect.svg",
+      "order": 2038
+    },
+    {
+      "id": "fc-aws-honeycode",
+      "label": "Honeycode",
+      "description": "AWS Honeycode",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/Honeycode.svg",
+      "order": 2039
+    },
+    {
+      "id": "fc-aws-pinpoint",
+      "label": "Pinpoint",
+      "description": "AWS Pinpoint",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/Pinpoint.svg",
+      "order": 2040
+    },
+    {
+      "id": "fc-aws-pinpoint-apis",
+      "label": "Pinpoint APIs",
+      "description": "AWS Pinpoint APIs",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/Pinpoint-APIs.svg",
+      "order": 2041
+    },
+    {
+      "id": "fc-aws-simple-email-service",
+      "label": "Simple Email Service",
+      "description": "AWS Simple Email Service",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/Simple-Email-Service.svg",
+      "order": 2042
+    },
+    {
+      "id": "fc-aws-supply-chain",
+      "label": "Supply Chain",
+      "description": "AWS Supply Chain",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/Supply-Chain.svg",
+      "order": 2043
+    },
+    {
+      "id": "fc-aws-wickr",
+      "label": "Wickr",
+      "description": "AWS Wickr",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/Wickr.svg",
+      "order": 2044
+    },
+    {
+      "id": "fc-aws-workdocs",
+      "label": "WorkDocs",
+      "description": "AWS WorkDocs",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/WorkDocs.svg",
+      "order": 2045
+    },
+    {
+      "id": "fc-aws-workdocs-sdk",
+      "label": "WorkDocs SDK",
+      "description": "AWS WorkDocs SDK",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/WorkDocs-SDK.svg",
+      "order": 2046
+    },
+    {
+      "id": "fc-aws-workmail",
+      "label": "WorkMail",
+      "description": "AWS WorkMail",
+      "category": "business-applications",
+      "categoryLabel": "Business Applications",
+      "icon": "/cloud-icons/aws/business-applications/WorkMail.svg",
+      "order": 2047
+    },
+    {
+      "id": "fc-aws-application-cost-profiler",
+      "label": "Application Cost Profiler",
+      "description": "AWS Application Cost Profiler",
+      "category": "cloud-financial-management",
+      "categoryLabel": "Cloud Financial Management",
+      "icon": "/cloud-icons/aws/cloud-financial-management/Application-Cost-Profiler.svg",
+      "order": 2048
+    },
+    {
+      "id": "fc-aws-billing-conductor",
+      "label": "Billing Conductor",
+      "description": "AWS Billing Conductor",
+      "category": "cloud-financial-management",
+      "categoryLabel": "Cloud Financial Management",
+      "icon": "/cloud-icons/aws/cloud-financial-management/Billing-Conductor.svg",
+      "order": 2049
+    },
+    {
+      "id": "fc-aws-budgets",
+      "label": "Budgets",
+      "description": "AWS Budgets",
+      "category": "cloud-financial-management",
+      "categoryLabel": "Cloud Financial Management",
+      "icon": "/cloud-icons/aws/cloud-financial-management/Budgets.svg",
+      "order": 2050
+    },
+    {
+      "id": "fc-aws-cost-and-usage-report",
+      "label": "Cost and Usage Report",
+      "description": "AWS Cost and Usage Report",
+      "category": "cloud-financial-management",
+      "categoryLabel": "Cloud Financial Management",
+      "icon": "/cloud-icons/aws/cloud-financial-management/Cost-and-Usage-Report.svg",
+      "order": 2051
+    },
+    {
+      "id": "fc-aws-cost-explorer",
+      "label": "Cost Explorer",
+      "description": "AWS Cost Explorer",
+      "category": "cloud-financial-management",
+      "categoryLabel": "Cloud Financial Management",
+      "icon": "/cloud-icons/aws/cloud-financial-management/Cost-Explorer.svg",
+      "order": 2052
+    },
+    {
+      "id": "fc-aws-reserved-instance-reporting",
+      "label": "Reserved Instance Reporting",
+      "description": "AWS Reserved Instance Reporting",
+      "category": "cloud-financial-management",
+      "categoryLabel": "Cloud Financial Management",
+      "icon": "/cloud-icons/aws/cloud-financial-management/Reserved-Instance-Reporting.svg",
+      "order": 2053
+    },
+    {
+      "id": "fc-aws-savings-plans",
+      "label": "Savings Plans",
+      "description": "AWS Savings Plans",
+      "category": "cloud-financial-management",
+      "categoryLabel": "Cloud Financial Management",
+      "icon": "/cloud-icons/aws/cloud-financial-management/Savings-Plans.svg",
+      "order": 2054
+    },
+    {
+      "id": "fc-aws-app-runner",
+      "label": "App Runner",
+      "description": "AWS App Runner",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/App-Runner.svg",
+      "order": 2055
+    },
+    {
+      "id": "fc-aws-application-auto-scaling",
+      "label": "Application Auto Scaling",
+      "description": "AWS Application Auto Scaling",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Application-Auto-Scaling.svg",
+      "order": 2056
+    },
+    {
+      "id": "fc-aws-batch",
+      "label": "Batch",
+      "description": "AWS Batch",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Batch.svg",
+      "order": 2057
+    },
+    {
+      "id": "fc-aws-bottlerocket",
+      "label": "Bottlerocket",
+      "description": "AWS Bottlerocket",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Bottlerocket.svg",
+      "order": 2058
+    },
+    {
+      "id": "fc-aws-compute-optimizer",
+      "label": "Compute Optimizer",
+      "description": "AWS Compute Optimizer",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Compute-Optimizer.svg",
+      "order": 2059
+    },
+    {
+      "id": "fc-aws-ec2",
+      "label": "EC2",
+      "description": "AWS EC2",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/EC2.svg",
+      "order": 2060
+    },
+    {
+      "id": "fc-aws-ec2-auto-scaling",
+      "label": "EC2 Auto Scaling",
+      "description": "AWS EC2 Auto Scaling",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/EC2-Auto-Scaling.svg",
+      "order": 2061
+    },
+    {
+      "id": "fc-aws-ec2-image-builder",
+      "label": "EC2 Image Builder",
+      "description": "AWS EC2 Image Builder",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/EC2-Image-Builder.svg",
+      "order": 2062
+    },
+    {
+      "id": "fc-aws-elastic-beanstalk",
+      "label": "Elastic Beanstalk",
+      "description": "AWS Elastic Beanstalk",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Elastic-Beanstalk.svg",
+      "order": 2063
+    },
+    {
+      "id": "fc-aws-elastic-fabric-adapter",
+      "label": "Elastic Fabric Adapter",
+      "description": "AWS Elastic Fabric Adapter",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Elastic-Fabric-Adapter.svg",
+      "order": 2064
+    },
+    {
+      "id": "fc-aws-fargate",
+      "label": "Fargate",
+      "description": "AWS Fargate",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Fargate.svg",
+      "order": 2065
+    },
+    {
+      "id": "fc-aws-genomics-cli",
+      "label": "Genomics CLI",
+      "description": "AWS Genomics CLI",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Genomics-CLI.svg",
+      "order": 2066
+    },
+    {
+      "id": "fc-aws-lambda",
+      "label": "Lambda",
+      "description": "AWS Lambda",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Lambda.svg",
+      "order": 2067
+    },
+    {
+      "id": "fc-aws-lightsail",
+      "label": "Lightsail",
+      "description": "AWS Lightsail",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Lightsail.svg",
+      "order": 2068
+    },
+    {
+      "id": "fc-aws-local-zones",
+      "label": "Local Zones",
+      "description": "AWS Local Zones",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Local-Zones.svg",
+      "order": 2069
+    },
+    {
+      "id": "fc-aws-nice-dcv",
+      "label": "NICE DCV",
+      "description": "AWS NICE DCV",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/NICE-DCV.svg",
+      "order": 2070
+    },
+    {
+      "id": "fc-aws-nice-enginframe",
+      "label": "NICE EnginFrame",
+      "description": "AWS NICE EnginFrame",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/NICE-EnginFrame.svg",
+      "order": 2071
+    },
+    {
+      "id": "fc-aws-nitro-enclaves",
+      "label": "Nitro Enclaves",
+      "description": "AWS Nitro Enclaves",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Nitro-Enclaves.svg",
+      "order": 2072
+    },
+    {
+      "id": "fc-aws-outposts-family",
+      "label": "Outposts family",
+      "description": "AWS Outposts family",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Outposts-family.svg",
+      "order": 2073
+    },
+    {
+      "id": "fc-aws-outposts-rack",
+      "label": "Outposts rack",
+      "description": "AWS Outposts rack",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Outposts-rack.svg",
+      "order": 2074
+    },
+    {
+      "id": "fc-aws-outposts-servers",
+      "label": "Outposts servers",
+      "description": "AWS Outposts servers",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Outposts-servers.svg",
+      "order": 2075
+    },
+    {
+      "id": "fc-aws-parallelcluster",
+      "label": "ParallelCluster",
+      "description": "AWS ParallelCluster",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/ParallelCluster.svg",
+      "order": 2076
+    },
+    {
+      "id": "fc-aws-serverless-application-repository",
+      "label": "Serverless Application Repository",
+      "description": "AWS Serverless Application Repository",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Serverless-Application-Repository.svg",
+      "order": 2077
+    },
+    {
+      "id": "fc-aws-simspace-weaver",
+      "label": "SimSpace Weaver",
+      "description": "AWS SimSpace Weaver",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/SimSpace-Weaver.svg",
+      "order": 2078
+    },
+    {
+      "id": "fc-aws-thinkbox-deadline",
+      "label": "Thinkbox Deadline",
+      "description": "AWS Thinkbox Deadline",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Thinkbox-Deadline.svg",
+      "order": 2079
+    },
+    {
+      "id": "fc-aws-thinkbox-frost",
+      "label": "Thinkbox Frost",
+      "description": "AWS Thinkbox Frost",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Thinkbox-Frost.svg",
+      "order": 2080
+    },
+    {
+      "id": "fc-aws-thinkbox-krakatoa",
+      "label": "Thinkbox Krakatoa",
+      "description": "AWS Thinkbox Krakatoa",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Thinkbox-Krakatoa.svg",
+      "order": 2081
+    },
+    {
+      "id": "fc-aws-thinkbox-sequoia",
+      "label": "Thinkbox Sequoia",
+      "description": "AWS Thinkbox Sequoia",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Thinkbox-Sequoia.svg",
+      "order": 2082
+    },
+    {
+      "id": "fc-aws-thinkbox-stoke",
+      "label": "Thinkbox Stoke",
+      "description": "AWS Thinkbox Stoke",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Thinkbox-Stoke.svg",
+      "order": 2083
+    },
+    {
+      "id": "fc-aws-thinkbox-xmesh",
+      "label": "Thinkbox XMesh",
+      "description": "AWS Thinkbox XMesh",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Thinkbox-XMesh.svg",
+      "order": 2084
+    },
+    {
+      "id": "fc-aws-vmware-cloud-on-aws",
+      "label": "VMware Cloud on AWS",
+      "description": "AWS VMware Cloud on AWS",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/VMware-Cloud-on-AWS.svg",
+      "order": 2085
+    },
+    {
+      "id": "fc-aws-wavelength",
+      "label": "Wavelength",
+      "description": "AWS Wavelength",
+      "category": "compute",
+      "categoryLabel": "Compute",
+      "icon": "/cloud-icons/aws/compute/Wavelength.svg",
+      "order": 2086
+    },
+    {
+      "id": "fc-aws-ecs-anywhere",
+      "label": "ECS Anywhere",
+      "description": "AWS ECS Anywhere",
+      "category": "containers",
+      "categoryLabel": "Containers",
+      "icon": "/cloud-icons/aws/containers/ECS-Anywhere.svg",
+      "order": 2087
+    },
+    {
+      "id": "fc-aws-eks-anywhere",
+      "label": "EKS Anywhere",
+      "description": "AWS EKS Anywhere",
+      "category": "containers",
+      "categoryLabel": "Containers",
+      "icon": "/cloud-icons/aws/containers/EKS-Anywhere.svg",
+      "order": 2088
+    },
+    {
+      "id": "fc-aws-eks-cloud",
+      "label": "EKS Cloud",
+      "description": "AWS EKS Cloud",
+      "category": "containers",
+      "categoryLabel": "Containers",
+      "icon": "/cloud-icons/aws/containers/EKS-Cloud.svg",
+      "order": 2089
+    },
+    {
+      "id": "fc-aws-eks-distro",
+      "label": "EKS Distro",
+      "description": "AWS EKS Distro",
+      "category": "containers",
+      "categoryLabel": "Containers",
+      "icon": "/cloud-icons/aws/containers/EKS-Distro.svg",
+      "order": 2090
+    },
+    {
+      "id": "fc-aws-elastic-container-registry",
+      "label": "Elastic Container Registry",
+      "description": "AWS Elastic Container Registry",
+      "category": "containers",
+      "categoryLabel": "Containers",
+      "icon": "/cloud-icons/aws/containers/Elastic-Container-Registry.svg",
+      "order": 2091
+    },
+    {
+      "id": "fc-aws-elastic-container-service",
+      "label": "Elastic Container Service",
+      "description": "AWS Elastic Container Service",
+      "category": "containers",
+      "categoryLabel": "Containers",
+      "icon": "/cloud-icons/aws/containers/Elastic-Container-Service.svg",
+      "order": 2092
+    },
+    {
+      "id": "fc-aws-elastic-kubernetes-service",
+      "label": "Elastic Kubernetes Service",
+      "description": "AWS Elastic Kubernetes Service",
+      "category": "containers",
+      "categoryLabel": "Containers",
+      "icon": "/cloud-icons/aws/containers/Elastic-Kubernetes-Service.svg",
+      "order": 2093
+    },
+    {
+      "id": "fc-aws-fargate",
+      "label": "Fargate",
+      "description": "AWS Fargate",
+      "category": "containers",
+      "categoryLabel": "Containers",
+      "icon": "/cloud-icons/aws/containers/Fargate.svg",
+      "order": 2094
+    },
+    {
+      "id": "fc-aws-red-hat-openshift-service-on-aws",
+      "label": "Red Hat OpenShift Service on AWS",
+      "description": "AWS Red Hat OpenShift Service on AWS",
+      "category": "containers",
+      "categoryLabel": "Containers",
+      "icon": "/cloud-icons/aws/containers/Red-Hat-OpenShift-Service-on-AWS.svg",
+      "order": 2095
+    },
+    {
+      "id": "fc-aws-activate",
+      "label": "Activate",
+      "description": "AWS Activate",
+      "category": "customer-enablement",
+      "categoryLabel": "Customer Enablement",
+      "icon": "/cloud-icons/aws/customer-enablement/Activate.svg",
+      "order": 2096
+    },
+    {
+      "id": "fc-aws-iq",
+      "label": "IQ",
+      "description": "AWS IQ",
+      "category": "customer-enablement",
+      "categoryLabel": "Customer Enablement",
+      "icon": "/cloud-icons/aws/customer-enablement/IQ.svg",
+      "order": 2097
+    },
+    {
+      "id": "fc-aws-managed-services",
+      "label": "Managed Services",
+      "description": "AWS Managed Services",
+      "category": "customer-enablement",
+      "categoryLabel": "Customer Enablement",
+      "icon": "/cloud-icons/aws/customer-enablement/Managed-Services.svg",
+      "order": 2098
+    },
+    {
+      "id": "fc-aws-professional-services",
+      "label": "Professional Services",
+      "description": "AWS Professional Services",
+      "category": "customer-enablement",
+      "categoryLabel": "Customer Enablement",
+      "icon": "/cloud-icons/aws/customer-enablement/Professional-Services.svg",
+      "order": 2099
+    },
+    {
+      "id": "fc-aws-repost",
+      "label": "rePost",
+      "description": "AWS rePost",
+      "category": "customer-enablement",
+      "categoryLabel": "Customer Enablement",
+      "icon": "/cloud-icons/aws/customer-enablement/rePost.svg",
+      "order": 2100
+    },
+    {
+      "id": "fc-aws-support",
+      "label": "Support",
+      "description": "AWS Support",
+      "category": "customer-enablement",
+      "categoryLabel": "Customer Enablement",
+      "icon": "/cloud-icons/aws/customer-enablement/Support.svg",
+      "order": 2101
+    },
+    {
+      "id": "fc-aws-training-certification",
+      "label": "Training Certification",
+      "description": "AWS Training Certification",
+      "category": "customer-enablement",
+      "categoryLabel": "Customer Enablement",
+      "icon": "/cloud-icons/aws/customer-enablement/Training-Certification.svg",
+      "order": 2102
+    },
+    {
+      "id": "fc-aws-aurora",
+      "label": "Aurora",
+      "description": "AWS Aurora",
+      "category": "database",
+      "categoryLabel": "Database",
+      "icon": "/cloud-icons/aws/database/Aurora.svg",
+      "order": 2103
+    },
+    {
+      "id": "fc-aws-database-migration-service",
+      "label": "Database Migration Service",
+      "description": "AWS Database Migration Service",
+      "category": "database",
+      "categoryLabel": "Database",
+      "icon": "/cloud-icons/aws/database/Database-Migration-Service.svg",
+      "order": 2104
+    },
+    {
+      "id": "fc-aws-documentdb",
+      "label": "DocumentDB",
+      "description": "AWS DocumentDB",
+      "category": "database",
+      "categoryLabel": "Database",
+      "icon": "/cloud-icons/aws/database/DocumentDB.svg",
+      "order": 2105
+    },
+    {
+      "id": "fc-aws-dynamodb",
+      "label": "DynamoDB",
+      "description": "AWS DynamoDB",
+      "category": "database",
+      "categoryLabel": "Database",
+      "icon": "/cloud-icons/aws/database/DynamoDB.svg",
+      "order": 2106
+    },
+    {
+      "id": "fc-aws-elasticache",
+      "label": "ElastiCache",
+      "description": "AWS ElastiCache",
+      "category": "database",
+      "categoryLabel": "Database",
+      "icon": "/cloud-icons/aws/database/ElastiCache.svg",
+      "order": 2107
+    },
+    {
+      "id": "fc-aws-keyspaces",
+      "label": "Keyspaces",
+      "description": "AWS Keyspaces",
+      "category": "database",
+      "categoryLabel": "Database",
+      "icon": "/cloud-icons/aws/database/Keyspaces.svg",
+      "order": 2108
+    },
+    {
+      "id": "fc-aws-memorydb-for-redis",
+      "label": "MemoryDB for Redis",
+      "description": "AWS MemoryDB for Redis",
+      "category": "database",
+      "categoryLabel": "Database",
+      "icon": "/cloud-icons/aws/database/MemoryDB-for-Redis.svg",
+      "order": 2109
+    },
+    {
+      "id": "fc-aws-neptune",
+      "label": "Neptune",
+      "description": "AWS Neptune",
+      "category": "database",
+      "categoryLabel": "Database",
+      "icon": "/cloud-icons/aws/database/Neptune.svg",
+      "order": 2110
+    },
+    {
+      "id": "fc-aws-rds",
+      "label": "RDS",
+      "description": "AWS RDS",
+      "category": "database",
+      "categoryLabel": "Database",
+      "icon": "/cloud-icons/aws/database/RDS.svg",
+      "order": 2111
+    },
+    {
+      "id": "fc-aws-rds-on-vmware",
+      "label": "RDS on VMware",
+      "description": "AWS RDS on VMware",
+      "category": "database",
+      "categoryLabel": "Database",
+      "icon": "/cloud-icons/aws/database/RDS-on-VMware.svg",
+      "order": 2112
+    },
+    {
+      "id": "fc-aws-timestream",
+      "label": "Timestream",
+      "description": "AWS Timestream",
+      "category": "database",
+      "categoryLabel": "Database",
+      "icon": "/cloud-icons/aws/database/Timestream.svg",
+      "order": 2113
+    },
+    {
+      "id": "fc-aws-application-composer",
+      "label": "Application Composer",
+      "description": "AWS Application Composer",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/Application-Composer.svg",
+      "order": 2114
+    },
+    {
+      "id": "fc-aws-cloud-control-api",
+      "label": "Cloud Control API",
+      "description": "AWS Cloud Control API",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/Cloud-Control-API.svg",
+      "order": 2115
+    },
+    {
+      "id": "fc-aws-cloud-development-kit",
+      "label": "Cloud Development Kit",
+      "description": "AWS Cloud Development Kit",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/Cloud-Development-Kit.svg",
+      "order": 2116
+    },
+    {
+      "id": "fc-aws-cloud9",
+      "label": "Cloud9",
+      "description": "AWS Cloud9",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/Cloud9.svg",
+      "order": 2117
+    },
+    {
+      "id": "fc-aws-cloudshell",
+      "label": "CloudShell",
+      "description": "AWS CloudShell",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/CloudShell.svg",
+      "order": 2118
+    },
+    {
+      "id": "fc-aws-codeartifact",
+      "label": "CodeArtifact",
+      "description": "AWS CodeArtifact",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/CodeArtifact.svg",
+      "order": 2119
+    },
+    {
+      "id": "fc-aws-codebuild",
+      "label": "CodeBuild",
+      "description": "AWS CodeBuild",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/CodeBuild.svg",
+      "order": 2120
+    },
+    {
+      "id": "fc-aws-codecatalyst",
+      "label": "CodeCatalyst",
+      "description": "AWS CodeCatalyst",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/CodeCatalyst.svg",
+      "order": 2121
+    },
+    {
+      "id": "fc-aws-codecommit",
+      "label": "CodeCommit",
+      "description": "AWS CodeCommit",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/CodeCommit.svg",
+      "order": 2122
+    },
+    {
+      "id": "fc-aws-codedeploy",
+      "label": "CodeDeploy",
+      "description": "AWS CodeDeploy",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/CodeDeploy.svg",
+      "order": 2123
+    },
+    {
+      "id": "fc-aws-codepipeline",
+      "label": "CodePipeline",
+      "description": "AWS CodePipeline",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/CodePipeline.svg",
+      "order": 2124
+    },
+    {
+      "id": "fc-aws-codestar",
+      "label": "CodeStar",
+      "description": "AWS CodeStar",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/CodeStar.svg",
+      "order": 2125
+    },
+    {
+      "id": "fc-aws-command-line-interface",
+      "label": "Command Line Interface",
+      "description": "AWS Command Line Interface",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/Command-Line-Interface.svg",
+      "order": 2126
+    },
+    {
+      "id": "fc-aws-corretto",
+      "label": "Corretto",
+      "description": "AWS Corretto",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/Corretto.svg",
+      "order": 2127
+    },
+    {
+      "id": "fc-aws-tools-and-sdks",
+      "label": "Tools and SDKs",
+      "description": "AWS Tools and SDKs",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/Tools-and-SDKs.svg",
+      "order": 2128
+    },
+    {
+      "id": "fc-aws-x-ray",
+      "label": "X Ray",
+      "description": "AWS X Ray",
+      "category": "developer-tools",
+      "categoryLabel": "Developer Tools",
+      "icon": "/cloud-icons/aws/developer-tools/X-Ray.svg",
+      "order": 2129
+    },
+    {
+      "id": "fc-aws-appstream",
+      "label": "AppStream",
+      "description": "AWS AppStream",
+      "category": "end-user-computing",
+      "categoryLabel": "End User Computing",
+      "icon": "/cloud-icons/aws/end-user-computing/AppStream.svg",
+      "order": 2130
+    },
+    {
+      "id": "fc-aws-worklink",
+      "label": "WorkLink",
+      "description": "AWS WorkLink",
+      "category": "end-user-computing",
+      "categoryLabel": "End User Computing",
+      "icon": "/cloud-icons/aws/end-user-computing/WorkLink.svg",
+      "order": 2131
+    },
+    {
+      "id": "fc-aws-workspaces-family",
+      "label": "WorkSpaces Family",
+      "description": "AWS WorkSpaces Family",
+      "category": "end-user-computing",
+      "categoryLabel": "End User Computing",
+      "icon": "/cloud-icons/aws/end-user-computing/WorkSpaces-Family.svg",
+      "order": 2132
+    },
+    {
+      "id": "fc-aws-amplify",
+      "label": "Amplify",
+      "description": "AWS Amplify",
+      "category": "front-end-web-mobile",
+      "categoryLabel": "Front End Web Mobile",
+      "icon": "/cloud-icons/aws/front-end-web-mobile/Amplify.svg",
+      "order": 2133
+    },
+    {
+      "id": "fc-aws-device-farm",
+      "label": "Device Farm",
+      "description": "AWS Device Farm",
+      "category": "front-end-web-mobile",
+      "categoryLabel": "Front End Web Mobile",
+      "icon": "/cloud-icons/aws/front-end-web-mobile/Device-Farm.svg",
+      "order": 2134
+    },
+    {
+      "id": "fc-aws-location-service",
+      "label": "Location Service",
+      "description": "AWS Location Service",
+      "category": "front-end-web-mobile",
+      "categoryLabel": "Front End Web Mobile",
+      "icon": "/cloud-icons/aws/front-end-web-mobile/Location-Service.svg",
+      "order": 2135
+    },
+    {
+      "id": "fc-aws-gamekit",
+      "label": "GameKit",
+      "description": "AWS GameKit",
+      "category": "games",
+      "categoryLabel": "Games",
+      "icon": "/cloud-icons/aws/games/GameKit.svg",
+      "order": 2136
+    },
+    {
+      "id": "fc-aws-gamelift",
+      "label": "GameLift",
+      "description": "AWS GameLift",
+      "category": "games",
+      "categoryLabel": "Games",
+      "icon": "/cloud-icons/aws/games/GameLift.svg",
+      "order": 2137
+    },
+    {
+      "id": "fc-aws-gamesparks",
+      "label": "GameSparks",
+      "description": "AWS GameSparks",
+      "category": "games",
+      "categoryLabel": "Games",
+      "icon": "/cloud-icons/aws/games/GameSparks.svg",
+      "order": 2138
+    },
+    {
+      "id": "fc-aws-lumberyard",
+      "label": "Lumberyard",
+      "description": "AWS Lumberyard",
+      "category": "games",
+      "categoryLabel": "Games",
+      "icon": "/cloud-icons/aws/games/Lumberyard.svg",
+      "order": 2139
+    },
+    {
+      "id": "fc-aws-open-3d-engine",
+      "label": "Open 3D Engine",
+      "description": "AWS Open 3D Engine",
+      "category": "games",
+      "categoryLabel": "Games",
+      "icon": "/cloud-icons/aws/games/Open-3D-Engine.svg",
+      "order": 2140
+    },
+    {
+      "id": "fc-aws-marketplace-dark",
+      "label": "Marketplace Dark",
+      "description": "AWS Marketplace Dark",
+      "category": "general-icons",
+      "categoryLabel": "General Icons",
+      "icon": "/cloud-icons/aws/general-icons/Marketplace_Dark.svg",
+      "order": 2141
+    },
+    {
+      "id": "fc-aws-marketplace-light",
+      "label": "Marketplace Light",
+      "description": "AWS Marketplace Light",
+      "category": "general-icons",
+      "categoryLabel": "General Icons",
+      "icon": "/cloud-icons/aws/general-icons/Marketplace_Light.svg",
+      "order": 2142
+    },
+    {
+      "id": "fc-aws-freertos",
+      "label": "FreeRTOS",
+      "description": "AWS FreeRTOS",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/FreeRTOS.svg",
+      "order": 2143
+    },
+    {
+      "id": "fc-aws-iot-1-click",
+      "label": "IoT 1 Click",
+      "description": "AWS IoT 1 Click",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-1-Click.svg",
+      "order": 2144
+    },
+    {
+      "id": "fc-aws-iot-analytics",
+      "label": "IoT Analytics",
+      "description": "AWS IoT Analytics",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-Analytics.svg",
+      "order": 2145
+    },
+    {
+      "id": "fc-aws-iot-button",
+      "label": "IoT Button",
+      "description": "AWS IoT Button",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-Button.svg",
+      "order": 2146
+    },
+    {
+      "id": "fc-aws-iot-core",
+      "label": "IoT Core",
+      "description": "AWS IoT Core",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-Core.svg",
+      "order": 2147
+    },
+    {
+      "id": "fc-aws-iot-device-defender",
+      "label": "IoT Device Defender",
+      "description": "AWS IoT Device Defender",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-Device-Defender.svg",
+      "order": 2148
+    },
+    {
+      "id": "fc-aws-iot-device-management",
+      "label": "IoT Device Management",
+      "description": "AWS IoT Device Management",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-Device-Management.svg",
+      "order": 2149
+    },
+    {
+      "id": "fc-aws-iot-edukit",
+      "label": "IoT EduKit",
+      "description": "AWS IoT EduKit",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-EduKit.svg",
+      "order": 2150
+    },
+    {
+      "id": "fc-aws-iot-events",
+      "label": "IoT Events",
+      "description": "AWS IoT Events",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-Events.svg",
+      "order": 2151
+    },
+    {
+      "id": "fc-aws-iot-expresslink",
+      "label": "IoT ExpressLink",
+      "description": "AWS IoT ExpressLink",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-ExpressLink.svg",
+      "order": 2152
+    },
+    {
+      "id": "fc-aws-iot-fleetwise",
+      "label": "IoT FleetWise",
+      "description": "AWS IoT FleetWise",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-FleetWise.svg",
+      "order": 2153
+    },
+    {
+      "id": "fc-aws-iot-greengrass",
+      "label": "IoT Greengrass",
+      "description": "AWS IoT Greengrass",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-Greengrass.svg",
+      "order": 2154
+    },
+    {
+      "id": "fc-aws-iot-roborunner",
+      "label": "IoT RoboRunner",
+      "description": "AWS IoT RoboRunner",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-RoboRunner.svg",
+      "order": 2155
+    },
+    {
+      "id": "fc-aws-iot-sitewise",
+      "label": "IoT SiteWise",
+      "description": "AWS IoT SiteWise",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-SiteWise.svg",
+      "order": 2156
+    },
+    {
+      "id": "fc-aws-iot-things-graph",
+      "label": "IoT Things Graph",
+      "description": "AWS IoT Things Graph",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-Things-Graph.svg",
+      "order": 2157
+    },
+    {
+      "id": "fc-aws-iot-twinmaker",
+      "label": "IoT TwinMaker",
+      "description": "AWS IoT TwinMaker",
+      "category": "internet-of-things",
+      "categoryLabel": "Internet of Things",
+      "icon": "/cloud-icons/aws/internet-of-things/IoT-TwinMaker.svg",
+      "order": 2158
+    },
+    {
+      "id": "fc-aws-apache-mxnet-on-aws",
+      "label": "Apache MXNet on AWS",
+      "description": "AWS Apache MXNet on AWS",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Apache-MXNet-on-AWS.svg",
+      "order": 2159
+    },
+    {
+      "id": "fc-aws-augmented-ai-a2i",
+      "label": "Augmented AI A2I",
+      "description": "AWS Augmented AI A2I",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Augmented-AI-A2I.svg",
+      "order": 2160
+    },
+    {
+      "id": "fc-aws-codeguru",
+      "label": "CodeGuru",
+      "description": "AWS CodeGuru",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/CodeGuru.svg",
+      "order": 2161
+    },
+    {
+      "id": "fc-aws-codewhisperer",
+      "label": "CodeWhisperer",
+      "description": "AWS CodeWhisperer",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/CodeWhisperer.svg",
+      "order": 2162
+    },
+    {
+      "id": "fc-aws-comprehend",
+      "label": "Comprehend",
+      "description": "AWS Comprehend",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Comprehend.svg",
+      "order": 2163
+    },
+    {
+      "id": "fc-aws-comprehend-medical",
+      "label": "Comprehend Medical",
+      "description": "AWS Comprehend Medical",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Comprehend-Medical.svg",
+      "order": 2164
+    },
+    {
+      "id": "fc-aws-deep-learning-amis",
+      "label": "Deep Learning AMIs",
+      "description": "AWS Deep Learning AMIs",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Deep-Learning-AMIs.svg",
+      "order": 2165
+    },
+    {
+      "id": "fc-aws-deep-learning-containers",
+      "label": "Deep Learning Containers",
+      "description": "AWS Deep Learning Containers",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Deep-Learning-Containers.svg",
+      "order": 2166
+    },
+    {
+      "id": "fc-aws-deepcomposer",
+      "label": "DeepComposer",
+      "description": "AWS DeepComposer",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/DeepComposer.svg",
+      "order": 2167
+    },
+    {
+      "id": "fc-aws-deeplens",
+      "label": "DeepLens",
+      "description": "AWS DeepLens",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/DeepLens.svg",
+      "order": 2168
+    },
+    {
+      "id": "fc-aws-deepracer",
+      "label": "DeepRacer",
+      "description": "AWS DeepRacer",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/DeepRacer.svg",
+      "order": 2169
+    },
+    {
+      "id": "fc-aws-devops-guru",
+      "label": "DevOps Guru",
+      "description": "AWS DevOps Guru",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/DevOps-Guru.svg",
+      "order": 2170
+    },
+    {
+      "id": "fc-aws-elastic-inference",
+      "label": "Elastic Inference",
+      "description": "AWS Elastic Inference",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Elastic-Inference.svg",
+      "order": 2171
+    },
+    {
+      "id": "fc-aws-forecast",
+      "label": "Forecast",
+      "description": "AWS Forecast",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Forecast.svg",
+      "order": 2172
+    },
+    {
+      "id": "fc-aws-fraud-detector",
+      "label": "Fraud Detector",
+      "description": "AWS Fraud Detector",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Fraud-Detector.svg",
+      "order": 2173
+    },
+    {
+      "id": "fc-aws-healthlake",
+      "label": "HealthLake",
+      "description": "AWS HealthLake",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/HealthLake.svg",
+      "order": 2174
+    },
+    {
+      "id": "fc-aws-kendra",
+      "label": "Kendra",
+      "description": "AWS Kendra",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Kendra.svg",
+      "order": 2175
+    },
+    {
+      "id": "fc-aws-lex",
+      "label": "Lex",
+      "description": "AWS Lex",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Lex.svg",
+      "order": 2176
+    },
+    {
+      "id": "fc-aws-lookout-for-equipment",
+      "label": "Lookout for Equipment",
+      "description": "AWS Lookout for Equipment",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Lookout-for-Equipment.svg",
+      "order": 2177
+    },
+    {
+      "id": "fc-aws-lookout-for-metrics",
+      "label": "Lookout for Metrics",
+      "description": "AWS Lookout for Metrics",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Lookout-for-Metrics.svg",
+      "order": 2178
+    },
+    {
+      "id": "fc-aws-lookout-for-vision",
+      "label": "Lookout for Vision",
+      "description": "AWS Lookout for Vision",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Lookout-for-Vision.svg",
+      "order": 2179
+    },
+    {
+      "id": "fc-aws-monitron",
+      "label": "Monitron",
+      "description": "AWS Monitron",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Monitron.svg",
+      "order": 2180
+    },
+    {
+      "id": "fc-aws-neuron",
+      "label": "Neuron",
+      "description": "AWS Neuron",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Neuron.svg",
+      "order": 2181
+    },
+    {
+      "id": "fc-aws-omics",
+      "label": "Omics",
+      "description": "AWS Omics",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Omics.svg",
+      "order": 2182
+    },
+    {
+      "id": "fc-aws-panorama",
+      "label": "Panorama",
+      "description": "AWS Panorama",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Panorama.svg",
+      "order": 2183
+    },
+    {
+      "id": "fc-aws-personalize",
+      "label": "Personalize",
+      "description": "AWS Personalize",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Personalize.svg",
+      "order": 2184
+    },
+    {
+      "id": "fc-aws-polly",
+      "label": "Polly",
+      "description": "AWS Polly",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Polly.svg",
+      "order": 2185
+    },
+    {
+      "id": "fc-aws-rekognition",
+      "label": "Rekognition",
+      "description": "AWS Rekognition",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Rekognition.svg",
+      "order": 2186
+    },
+    {
+      "id": "fc-aws-sagemaker",
+      "label": "SageMaker",
+      "description": "AWS SageMaker",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/SageMaker.svg",
+      "order": 2187
+    },
+    {
+      "id": "fc-aws-sagemaker-ground-truth",
+      "label": "SageMaker Ground Truth",
+      "description": "AWS SageMaker Ground Truth",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/SageMaker-Ground-Truth.svg",
+      "order": 2188
+    },
+    {
+      "id": "fc-aws-sagemaker-studio-lab",
+      "label": "SageMaker Studio Lab",
+      "description": "AWS SageMaker Studio Lab",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/SageMaker-Studio-Lab.svg",
+      "order": 2189
+    },
+    {
+      "id": "fc-aws-tensorflow-on-aws",
+      "label": "TensorFlow on AWS",
+      "description": "AWS TensorFlow on AWS",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/TensorFlow-on-AWS.svg",
+      "order": 2190
+    },
+    {
+      "id": "fc-aws-textract",
+      "label": "Textract",
+      "description": "AWS Textract",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Textract.svg",
+      "order": 2191
+    },
+    {
+      "id": "fc-aws-torchserve",
+      "label": "TorchServe",
+      "description": "AWS TorchServe",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/TorchServe.svg",
+      "order": 2192
+    },
+    {
+      "id": "fc-aws-transcribe",
+      "label": "Transcribe",
+      "description": "AWS Transcribe",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Transcribe.svg",
+      "order": 2193
+    },
+    {
+      "id": "fc-aws-translate",
+      "label": "Translate",
+      "description": "AWS Translate",
+      "category": "machine-learning",
+      "categoryLabel": "Machine Learning",
+      "icon": "/cloud-icons/aws/machine-learning/Translate.svg",
+      "order": 2194
+    },
+    {
+      "id": "fc-aws-appconfig",
+      "label": "AppConfig",
+      "description": "AWS AppConfig",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/AppConfig.svg",
+      "order": 2195
+    },
+    {
+      "id": "fc-aws-application-auto-scaling",
+      "label": "Application Auto Scaling",
+      "description": "AWS Application Auto Scaling",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Application-Auto-Scaling.svg",
+      "order": 2196
+    },
+    {
+      "id": "fc-aws-auto-scaling",
+      "label": "Auto Scaling",
+      "description": "AWS Auto Scaling",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Auto-Scaling.svg",
+      "order": 2197
+    },
+    {
+      "id": "fc-aws-backint-agent",
+      "label": "Backint Agent",
+      "description": "AWS Backint Agent",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Backint-Agent.svg",
+      "order": 2198
+    },
+    {
+      "id": "fc-aws-chatbot",
+      "label": "Chatbot",
+      "description": "AWS Chatbot",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Chatbot.svg",
+      "order": 2199
+    },
+    {
+      "id": "fc-aws-cloudformation",
+      "label": "CloudFormation",
+      "description": "AWS CloudFormation",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/CloudFormation.svg",
+      "order": 2200
+    },
+    {
+      "id": "fc-aws-cloudtrail",
+      "label": "CloudTrail",
+      "description": "AWS CloudTrail",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/CloudTrail.svg",
+      "order": 2201
+    },
+    {
+      "id": "fc-aws-cloudwatch",
+      "label": "CloudWatch",
+      "description": "AWS CloudWatch",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/CloudWatch.svg",
+      "order": 2202
+    },
+    {
+      "id": "fc-aws-config",
+      "label": "Config",
+      "description": "AWS Config",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Config.svg",
+      "order": 2203
+    },
+    {
+      "id": "fc-aws-control-tower",
+      "label": "Control Tower",
+      "description": "AWS Control Tower",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Control-Tower.svg",
+      "order": 2204
+    },
+    {
+      "id": "fc-aws-distro-for-opentelemetry",
+      "label": "Distro for OpenTelemetry",
+      "description": "AWS Distro for OpenTelemetry",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Distro-for-OpenTelemetry.svg",
+      "order": 2205
+    },
+    {
+      "id": "fc-aws-fault-injection-simulator",
+      "label": "Fault Injection Simulator",
+      "description": "AWS Fault Injection Simulator",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Fault-Injection-Simulator.svg",
+      "order": 2206
+    },
+    {
+      "id": "fc-aws-launch-wizard",
+      "label": "Launch Wizard",
+      "description": "AWS Launch Wizard",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Launch-Wizard.svg",
+      "order": 2207
+    },
+    {
+      "id": "fc-aws-license-manager",
+      "label": "License Manager",
+      "description": "AWS License Manager",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/License-Manager.svg",
+      "order": 2208
+    },
+    {
+      "id": "fc-aws-managed-grafana",
+      "label": "Managed Grafana",
+      "description": "AWS Managed Grafana",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Managed-Grafana.svg",
+      "order": 2209
+    },
+    {
+      "id": "fc-aws-managed-service-for-prometheus",
+      "label": "Managed Service for Prometheus",
+      "description": "AWS Managed Service for Prometheus",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Managed-Service-for-Prometheus.svg",
+      "order": 2210
+    },
+    {
+      "id": "fc-aws-management-console",
+      "label": "Management Console",
+      "description": "AWS Management Console",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Management-Console.svg",
+      "order": 2211
+    },
+    {
+      "id": "fc-aws-opsworks",
+      "label": "OpsWorks",
+      "description": "AWS OpsWorks",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/OpsWorks.svg",
+      "order": 2212
+    },
+    {
+      "id": "fc-aws-organizations",
+      "label": "Organizations",
+      "description": "AWS Organizations",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Organizations.svg",
+      "order": 2213
+    },
+    {
+      "id": "fc-aws-personal-health-dashboard",
+      "label": "Personal Health Dashboard",
+      "description": "AWS Personal Health Dashboard",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Personal-Health-Dashboard.svg",
+      "order": 2214
+    },
+    {
+      "id": "fc-aws-proton",
+      "label": "Proton",
+      "description": "AWS Proton",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Proton.svg",
+      "order": 2215
+    },
+    {
+      "id": "fc-aws-resilience-hub",
+      "label": "Resilience Hub",
+      "description": "AWS Resilience Hub",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Resilience-Hub.svg",
+      "order": 2216
+    },
+    {
+      "id": "fc-aws-resource-explorer",
+      "label": "Resource Explorer",
+      "description": "AWS Resource Explorer",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Resource-Explorer.svg",
+      "order": 2217
+    },
+    {
+      "id": "fc-aws-service-catalog",
+      "label": "Service Catalog",
+      "description": "AWS Service Catalog",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Service-Catalog.svg",
+      "order": 2218
+    },
+    {
+      "id": "fc-aws-service-management-connector",
+      "label": "Service Management Connector",
+      "description": "AWS Service Management Connector",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Service-Management-Connector.svg",
+      "order": 2219
+    },
+    {
+      "id": "fc-aws-systems-manager",
+      "label": "Systems Manager",
+      "description": "AWS Systems Manager",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Systems-Manager.svg",
+      "order": 2220
+    },
+    {
+      "id": "fc-aws-trusted-advisor",
+      "label": "Trusted Advisor",
+      "description": "AWS Trusted Advisor",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Trusted-Advisor.svg",
+      "order": 2221
+    },
+    {
+      "id": "fc-aws-well-architected-tool",
+      "label": "Well Architected Tool",
+      "description": "AWS Well Architected Tool",
+      "category": "management-governance",
+      "categoryLabel": "Management Governance",
+      "icon": "/cloud-icons/aws/management-governance/Well-Architected-Tool.svg",
+      "order": 2222
+    },
+    {
+      "id": "fc-aws-elastic-transcoder",
+      "label": "Elastic Transcoder",
+      "description": "AWS Elastic Transcoder",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elastic-Transcoder.svg",
+      "order": 2223
+    },
+    {
+      "id": "fc-aws-elemental-appliances-and-software",
+      "label": "Elemental Appliances & Software",
+      "description": "AWS Elemental Appliances & Software",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-Appliances-&-Software.svg",
+      "order": 2224
+    },
+    {
+      "id": "fc-aws-elemental-conductor",
+      "label": "Elemental Conductor",
+      "description": "AWS Elemental Conductor",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-Conductor.svg",
+      "order": 2225
+    },
+    {
+      "id": "fc-aws-elemental-delta",
+      "label": "Elemental Delta",
+      "description": "AWS Elemental Delta",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-Delta.svg",
+      "order": 2226
+    },
+    {
+      "id": "fc-aws-elemental-link",
+      "label": "Elemental Link",
+      "description": "AWS Elemental Link",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-Link.svg",
+      "order": 2227
+    },
+    {
+      "id": "fc-aws-elemental-live",
+      "label": "Elemental Live",
+      "description": "AWS Elemental Live",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-Live.svg",
+      "order": 2228
+    },
+    {
+      "id": "fc-aws-elemental-mediaconnect",
+      "label": "Elemental MediaConnect",
+      "description": "AWS Elemental MediaConnect",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-MediaConnect.svg",
+      "order": 2229
+    },
+    {
+      "id": "fc-aws-elemental-mediaconvert",
+      "label": "Elemental MediaConvert",
+      "description": "AWS Elemental MediaConvert",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-MediaConvert.svg",
+      "order": 2230
+    },
+    {
+      "id": "fc-aws-elemental-medialive",
+      "label": "Elemental MediaLive",
+      "description": "AWS Elemental MediaLive",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-MediaLive.svg",
+      "order": 2231
+    },
+    {
+      "id": "fc-aws-elemental-mediapackage",
+      "label": "Elemental MediaPackage",
+      "description": "AWS Elemental MediaPackage",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-MediaPackage.svg",
+      "order": 2232
+    },
+    {
+      "id": "fc-aws-elemental-mediastore",
+      "label": "Elemental MediaStore",
+      "description": "AWS Elemental MediaStore",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-MediaStore.svg",
+      "order": 2233
+    },
+    {
+      "id": "fc-aws-elemental-mediatailor",
+      "label": "Elemental MediaTailor",
+      "description": "AWS Elemental MediaTailor",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-MediaTailor.svg",
+      "order": 2234
+    },
+    {
+      "id": "fc-aws-elemental-server",
+      "label": "Elemental Server",
+      "description": "AWS Elemental Server",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Elemental-Server.svg",
+      "order": 2235
+    },
+    {
+      "id": "fc-aws-interactive-video-service",
+      "label": "Interactive Video Service",
+      "description": "AWS Interactive Video Service",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Interactive-Video-Service.svg",
+      "order": 2236
+    },
+    {
+      "id": "fc-aws-kinesis-video-streams",
+      "label": "Kinesis Video Streams",
+      "description": "AWS Kinesis Video Streams",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Kinesis-Video-Streams.svg",
+      "order": 2237
+    },
+    {
+      "id": "fc-aws-nimble-studio",
+      "label": "Nimble Studio",
+      "description": "AWS Nimble Studio",
+      "category": "media-services",
+      "categoryLabel": "Media Services",
+      "icon": "/cloud-icons/aws/media-services/Nimble-Studio.svg",
+      "order": 2238
+    },
+    {
+      "id": "fc-aws-application-discovery-service",
+      "label": "Application Discovery Service",
+      "description": "AWS Application Discovery Service",
+      "category": "migration-transfer",
+      "categoryLabel": "Migration Transfer",
+      "icon": "/cloud-icons/aws/migration-transfer/Application-Discovery-Service.svg",
+      "order": 2239
+    },
+    {
+      "id": "fc-aws-application-migration-service",
+      "label": "Application Migration Service",
+      "description": "AWS Application Migration Service",
+      "category": "migration-transfer",
+      "categoryLabel": "Migration Transfer",
+      "icon": "/cloud-icons/aws/migration-transfer/Application-Migration-Service.svg",
+      "order": 2240
+    },
+    {
+      "id": "fc-aws-datasync",
+      "label": "DataSync",
+      "description": "AWS DataSync",
+      "category": "migration-transfer",
+      "categoryLabel": "Migration Transfer",
+      "icon": "/cloud-icons/aws/migration-transfer/DataSync.svg",
+      "order": 2241
+    },
+    {
+      "id": "fc-aws-mainframe-modernization",
+      "label": "Mainframe Modernization",
+      "description": "AWS Mainframe Modernization",
+      "category": "migration-transfer",
+      "categoryLabel": "Migration Transfer",
+      "icon": "/cloud-icons/aws/migration-transfer/Mainframe-Modernization.svg",
+      "order": 2242
+    },
+    {
+      "id": "fc-aws-migration-evaluator",
+      "label": "Migration Evaluator",
+      "description": "AWS Migration Evaluator",
+      "category": "migration-transfer",
+      "categoryLabel": "Migration Transfer",
+      "icon": "/cloud-icons/aws/migration-transfer/Migration-Evaluator.svg",
+      "order": 2243
+    },
+    {
+      "id": "fc-aws-migration-hub",
+      "label": "Migration Hub",
+      "description": "AWS Migration Hub",
+      "category": "migration-transfer",
+      "categoryLabel": "Migration Transfer",
+      "icon": "/cloud-icons/aws/migration-transfer/Migration-Hub.svg",
+      "order": 2244
+    },
+    {
+      "id": "fc-aws-server-migration-service",
+      "label": "Server Migration Service",
+      "description": "AWS Server Migration Service",
+      "category": "migration-transfer",
+      "categoryLabel": "Migration Transfer",
+      "icon": "/cloud-icons/aws/migration-transfer/Server-Migration-Service.svg",
+      "order": 2245
+    },
+    {
+      "id": "fc-aws-transfer-family",
+      "label": "Transfer Family",
+      "description": "AWS Transfer Family",
+      "category": "migration-transfer",
+      "categoryLabel": "Migration Transfer",
+      "icon": "/cloud-icons/aws/migration-transfer/Transfer-Family.svg",
+      "order": 2246
+    },
+    {
+      "id": "fc-aws-app-mesh",
+      "label": "App Mesh",
+      "description": "AWS App Mesh",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/App-Mesh.svg",
+      "order": 2247
+    },
+    {
+      "id": "fc-aws-client-vpn",
+      "label": "Client VPN",
+      "description": "AWS Client VPN",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Client-VPN.svg",
+      "order": 2248
+    },
+    {
+      "id": "fc-aws-cloud-directory",
+      "label": "Cloud Directory",
+      "description": "AWS Cloud Directory",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Cloud-Directory.svg",
+      "order": 2249
+    },
+    {
+      "id": "fc-aws-cloud-map",
+      "label": "Cloud Map",
+      "description": "AWS Cloud Map",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Cloud-Map.svg",
+      "order": 2250
+    },
+    {
+      "id": "fc-aws-cloud-wan",
+      "label": "Cloud WAN",
+      "description": "AWS Cloud WAN",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Cloud-WAN.svg",
+      "order": 2251
+    },
+    {
+      "id": "fc-aws-cloudfront",
+      "label": "CloudFront",
+      "description": "AWS CloudFront",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/CloudFront.svg",
+      "order": 2252
+    },
+    {
+      "id": "fc-aws-direct-connect",
+      "label": "Direct Connect",
+      "description": "AWS Direct Connect",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Direct-Connect.svg",
+      "order": 2253
+    },
+    {
+      "id": "fc-aws-elastic-load-balancing",
+      "label": "Elastic Load Balancing",
+      "description": "AWS Elastic Load Balancing",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Elastic-Load-Balancing.svg",
+      "order": 2254
+    },
+    {
+      "id": "fc-aws-global-accelerator",
+      "label": "Global Accelerator",
+      "description": "AWS Global Accelerator",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Global-Accelerator.svg",
+      "order": 2255
+    },
+    {
+      "id": "fc-aws-private-5g",
+      "label": "Private 5G",
+      "description": "AWS Private 5G",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Private-5G.svg",
+      "order": 2256
+    },
+    {
+      "id": "fc-aws-privatelink",
+      "label": "PrivateLink",
+      "description": "AWS PrivateLink",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/PrivateLink.svg",
+      "order": 2257
+    },
+    {
+      "id": "fc-aws-route-53",
+      "label": "Route 53",
+      "description": "AWS Route 53",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Route-53.svg",
+      "order": 2258
+    },
+    {
+      "id": "fc-aws-site-to-site-vpn",
+      "label": "Site to Site VPN",
+      "description": "AWS Site to Site VPN",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Site-to-Site-VPN.svg",
+      "order": 2259
+    },
+    {
+      "id": "fc-aws-transit-gateway",
+      "label": "Transit Gateway",
+      "description": "AWS Transit Gateway",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Transit-Gateway.svg",
+      "order": 2260
+    },
+    {
+      "id": "fc-aws-verified-access",
+      "label": "Verified Access",
+      "description": "AWS Verified Access",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Verified-Access.svg",
+      "order": 2261
+    },
+    {
+      "id": "fc-aws-virtual-private-cloud",
+      "label": "Virtual Private Cloud",
+      "description": "AWS Virtual Private Cloud",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/Virtual-Private-Cloud.svg",
+      "order": 2262
+    },
+    {
+      "id": "fc-aws-vpc-lattice",
+      "label": "VPC Lattice",
+      "description": "AWS VPC Lattice",
+      "category": "networking-content-delivery",
+      "categoryLabel": "Networking Content Delivery",
+      "icon": "/cloud-icons/aws/networking-content-delivery/VPC-Lattice.svg",
+      "order": 2263
+    },
+    {
+      "id": "fc-aws-braket",
+      "label": "Braket",
+      "description": "AWS Braket",
+      "category": "quantum-technologies",
+      "categoryLabel": "Quantum Technologies",
+      "icon": "/cloud-icons/aws/quantum-technologies/Braket.svg",
+      "order": 2264
+    },
+    {
+      "id": "fc-aws-robomaker",
+      "label": "RoboMaker",
+      "description": "AWS RoboMaker",
+      "category": "robotics",
+      "categoryLabel": "Robotics",
+      "icon": "/cloud-icons/aws/robotics/RoboMaker.svg",
+      "order": 2265
+    },
+    {
+      "id": "fc-aws-ground-station",
+      "label": "Ground Station",
+      "description": "AWS Ground Station",
+      "category": "satellite",
+      "categoryLabel": "Satellite",
+      "icon": "/cloud-icons/aws/satellite/Ground-Station.svg",
+      "order": 2266
+    },
+    {
+      "id": "fc-aws-artifact",
+      "label": "Artifact",
+      "description": "AWS Artifact",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Artifact.svg",
+      "order": 2267
+    },
+    {
+      "id": "fc-aws-audit-manager",
+      "label": "Audit Manager",
+      "description": "AWS Audit Manager",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Audit-Manager.svg",
+      "order": 2268
+    },
+    {
+      "id": "fc-aws-certificate-manager",
+      "label": "Certificate Manager",
+      "description": "AWS Certificate Manager",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Certificate-Manager.svg",
+      "order": 2269
+    },
+    {
+      "id": "fc-aws-cloud-directory",
+      "label": "Cloud Directory",
+      "description": "AWS Cloud Directory",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Cloud-Directory.svg",
+      "order": 2270
+    },
+    {
+      "id": "fc-aws-cloudhsm",
+      "label": "CloudHSM",
+      "description": "AWS CloudHSM",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/CloudHSM.svg",
+      "order": 2271
+    },
+    {
+      "id": "fc-aws-cognito",
+      "label": "Cognito",
+      "description": "AWS Cognito",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Cognito.svg",
+      "order": 2272
+    },
+    {
+      "id": "fc-aws-detective",
+      "label": "Detective",
+      "description": "AWS Detective",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Detective.svg",
+      "order": 2273
+    },
+    {
+      "id": "fc-aws-directory-service",
+      "label": "Directory Service",
+      "description": "AWS Directory Service",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Directory-Service.svg",
+      "order": 2274
+    },
+    {
+      "id": "fc-aws-firewall-manager",
+      "label": "Firewall Manager",
+      "description": "AWS Firewall Manager",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Firewall-Manager.svg",
+      "order": 2275
+    },
+    {
+      "id": "fc-aws-guardduty",
+      "label": "GuardDuty",
+      "description": "AWS GuardDuty",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/GuardDuty.svg",
+      "order": 2276
+    },
+    {
+      "id": "fc-aws-iam-identity-center",
+      "label": "IAM Identity Center",
+      "description": "AWS IAM Identity Center",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/IAM-Identity-Center.svg",
+      "order": 2277
+    },
+    {
+      "id": "fc-aws-identity-and-access-management",
+      "label": "Identity and Access Management",
+      "description": "AWS Identity and Access Management",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Identity-and-Access-Management.svg",
+      "order": 2278
+    },
+    {
+      "id": "fc-aws-inspector",
+      "label": "Inspector",
+      "description": "AWS Inspector",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Inspector.svg",
+      "order": 2279
+    },
+    {
+      "id": "fc-aws-key-management-service",
+      "label": "Key Management Service",
+      "description": "AWS Key Management Service",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Key-Management-Service.svg",
+      "order": 2280
+    },
+    {
+      "id": "fc-aws-macie",
+      "label": "Macie",
+      "description": "AWS Macie",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Macie.svg",
+      "order": 2281
+    },
+    {
+      "id": "fc-aws-network-firewall",
+      "label": "Network Firewall",
+      "description": "AWS Network Firewall",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Network-Firewall.svg",
+      "order": 2282
+    },
+    {
+      "id": "fc-aws-private-certificate-authority",
+      "label": "Private Certificate Authority",
+      "description": "AWS Private Certificate Authority",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Private-Certificate-Authority.svg",
+      "order": 2283
+    },
+    {
+      "id": "fc-aws-resource-access-manager",
+      "label": "Resource Access Manager",
+      "description": "AWS Resource Access Manager",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Resource-Access-Manager.svg",
+      "order": 2284
+    },
+    {
+      "id": "fc-aws-secrets-manager",
+      "label": "Secrets Manager",
+      "description": "AWS Secrets Manager",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Secrets-Manager.svg",
+      "order": 2285
+    },
+    {
+      "id": "fc-aws-security-hub",
+      "label": "Security Hub",
+      "description": "AWS Security Hub",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Security-Hub.svg",
+      "order": 2286
+    },
+    {
+      "id": "fc-aws-security-lake",
+      "label": "Security Lake",
+      "description": "AWS Security Lake",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Security-Lake.svg",
+      "order": 2287
+    },
+    {
+      "id": "fc-aws-shield",
+      "label": "Shield",
+      "description": "AWS Shield",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Shield.svg",
+      "order": 2288
+    },
+    {
+      "id": "fc-aws-signer",
+      "label": "Signer",
+      "description": "AWS Signer",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Signer.svg",
+      "order": 2289
+    },
+    {
+      "id": "fc-aws-verified-permissions",
+      "label": "Verified Permissions",
+      "description": "AWS Verified Permissions",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/Verified-Permissions.svg",
+      "order": 2290
+    },
+    {
+      "id": "fc-aws-waf",
+      "label": "WAF",
+      "description": "AWS WAF",
+      "category": "security-identity-compliance",
+      "categoryLabel": "Security Identity Compliance",
+      "icon": "/cloud-icons/aws/security-identity-compliance/WAF.svg",
+      "order": 2291
+    },
+    {
+      "id": "fc-aws-backup",
+      "label": "Backup",
+      "description": "AWS Backup",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/Backup.svg",
+      "order": 2292
+    },
+    {
+      "id": "fc-aws-efs",
+      "label": "EFS",
+      "description": "AWS EFS",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/EFS.svg",
+      "order": 2293
+    },
+    {
+      "id": "fc-aws-elastic-block-store",
+      "label": "Elastic Block Store",
+      "description": "AWS Elastic Block Store",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/Elastic-Block-Store.svg",
+      "order": 2294
+    },
+    {
+      "id": "fc-aws-elastic-disaster-recovery",
+      "label": "Elastic Disaster Recovery",
+      "description": "AWS Elastic Disaster Recovery",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/Elastic-Disaster-Recovery.svg",
+      "order": 2295
+    },
+    {
+      "id": "fc-aws-file-cache",
+      "label": "File Cache",
+      "description": "AWS File Cache",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/File-Cache.svg",
+      "order": 2296
+    },
+    {
+      "id": "fc-aws-fsx",
+      "label": "FSx",
+      "description": "AWS FSx",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/FSx.svg",
+      "order": 2297
+    },
+    {
+      "id": "fc-aws-fsx-for-lustre",
+      "label": "FSx for Lustre",
+      "description": "AWS FSx for Lustre",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/FSx-for-Lustre.svg",
+      "order": 2298
+    },
+    {
+      "id": "fc-aws-fsx-for-netapp-ontap",
+      "label": "FSx for NetApp ONTAP",
+      "description": "AWS FSx for NetApp ONTAP",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/FSx-for-NetApp-ONTAP.svg",
+      "order": 2299
+    },
+    {
+      "id": "fc-aws-fsx-for-openzfs",
+      "label": "FSx for OpenZFS",
+      "description": "AWS FSx for OpenZFS",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/FSx-for-OpenZFS.svg",
+      "order": 2300
+    },
+    {
+      "id": "fc-aws-fsx-for-wfs",
+      "label": "FSx for WFS",
+      "description": "AWS FSx for WFS",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/FSx-for-WFS.svg",
+      "order": 2301
+    },
+    {
+      "id": "fc-aws-s3-on-outposts",
+      "label": "S3 on Outposts",
+      "description": "AWS S3 on Outposts",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/S3-on-Outposts.svg",
+      "order": 2302
+    },
+    {
+      "id": "fc-aws-simple-storage-service",
+      "label": "Simple Storage Service",
+      "description": "AWS Simple Storage Service",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/Simple-Storage-Service.svg",
+      "order": 2303
+    },
+    {
+      "id": "fc-aws-simple-storage-service-glacier",
+      "label": "Simple Storage Service Glacier",
+      "description": "AWS Simple Storage Service Glacier",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/Simple-Storage-Service-Glacier.svg",
+      "order": 2304
+    },
+    {
+      "id": "fc-aws-snowball",
+      "label": "Snowball",
+      "description": "AWS Snowball",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/Snowball.svg",
+      "order": 2305
+    },
+    {
+      "id": "fc-aws-snowball-edge",
+      "label": "Snowball Edge",
+      "description": "AWS Snowball Edge",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/Snowball-Edge.svg",
+      "order": 2306
+    },
+    {
+      "id": "fc-aws-snowcone",
+      "label": "Snowcone",
+      "description": "AWS Snowcone",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/Snowcone.svg",
+      "order": 2307
+    },
+    {
+      "id": "fc-aws-snowmobile",
+      "label": "Snowmobile",
+      "description": "AWS Snowmobile",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/Snowmobile.svg",
+      "order": 2308
+    },
+    {
+      "id": "fc-aws-storage-gateway",
+      "label": "Storage Gateway",
+      "description": "AWS Storage Gateway",
+      "category": "storage",
+      "categoryLabel": "Storage",
+      "icon": "/cloud-icons/aws/storage/Storage-Gateway.svg",
+      "order": 2309
+    },
+    {
+      "id": "fc-aws-sumerian",
+      "label": "Sumerian",
+      "description": "AWS Sumerian",
+      "category": "vr-ar",
+      "categoryLabel": "VR AR",
+      "icon": "/cloud-icons/aws/vr-ar/Sumerian.svg",
+      "order": 2310
+    }
+  ]
+}

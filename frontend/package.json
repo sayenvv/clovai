@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync:azure-icons": "node scripts/sync-azure-icons.mjs",
+    "sync:cloud-icons": "node scripts/sync-cloud-icons.mjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.15",

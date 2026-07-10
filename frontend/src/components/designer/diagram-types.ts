@@ -87,6 +87,7 @@ export const SHAPE_OPTIONS: Array<{ value: PaletteShape; label: string }> = [
   { value: 'multi-document', label: 'Multi-document' },
   { value: 'card', label: 'Card' },
   { value: 'internal-storage', label: 'Internal storage' },
+  { value: 'service', label: 'Cloud service' },
 ]
 
 export type EdgeRouting = 'curved' | 'orthogonal'
@@ -259,6 +260,7 @@ export const SHAPE_HEIGHTS: Record<PaletteShape, number> = {
   'multi-document': 64,
   card: 56,
   'internal-storage': 56,
+  service: 56,
 }
 
 export function nodeSize(shape: PaletteShape): { width: number; height: number } {
@@ -272,11 +274,71 @@ export function nodeSize(shape: PaletteShape): { width: number; height: number }
   if (shape === 'parallel-gateway') return { width: 72, height: 72 }
   if (shape === 'or-gate' || shape === 'event') return { width: 56, height: 56 }
   if (shape === 'annotation') return { width: 120, height: SHAPE_HEIGHTS.annotation }
+  if (shape === 'service') return { width: 56, height: SHAPE_HEIGHTS.service }
   return { width: NODE_WIDTH, height: SHAPE_HEIGHTS[shape] }
 }
 
-export const MIN_NODE_WIDTH = 48
-export const MIN_NODE_HEIGHT = 32
+/** Minimum rendered size per shape — prevents icons/shapes shrinking too small on canvas. */
+export function minNodeSize(shape: PaletteShape): { width: number; height: number } {
+  switch (shape) {
+    case 'service':
+    case 'connector':
+    case 'circle':
+    case 'or-gate':
+    case 'event':
+    case 'parallel-gateway':
+      return { width: 56, height: 56 }
+    case 'decision':
+      return { width: 64, height: 64 }
+    case 'text':
+      return { width: 48, height: 28 }
+    case 'annotation':
+      return { width: 72, height: 32 }
+    case 'swimlane-pool':
+      return { width: 200, height: 120 }
+    case 'swimlane-lane':
+      return { width: 200, height: 64 }
+    case 'swimlane-vertical':
+      return { width: 80, height: 160 }
+    default:
+      return { width: 72, height: 40 }
+  }
+}
+
+export const MIN_NODE_WIDTH = 72
+export const MIN_NODE_HEIGHT = 40
+
+export function clampNodeSize(
+  shape: PaletteShape,
+  width: number,
+  height: number,
+): { width: number; height: number } {
+  const min = minNodeSize(shape)
+  let nextWidth = Math.max(min.width, width)
+  let nextHeight = Math.max(min.height, height)
+  const aspect = resizeAspect(shape)
+
+  if (aspect === 'square') {
+    const size = Math.max(nextWidth, nextHeight, min.width, min.height)
+    return { width: size, height: size }
+  }
+
+  if (aspect === 'preserve') {
+    const ratio = nextWidth / nextHeight
+    if (nextWidth / min.width >= nextHeight / min.height) {
+      nextWidth = Math.max(min.width, nextWidth)
+      nextHeight = Math.max(min.height, nextWidth / ratio)
+    } else {
+      nextHeight = Math.max(min.height, nextHeight)
+      nextWidth = Math.max(min.width, nextHeight * ratio)
+    }
+  }
+
+  return {
+    width: Math.max(min.width, nextWidth),
+    height: Math.max(min.height, nextHeight),
+  }
+}
 
 /** Controls whether resize keeps a shape's proportions. */
 export type ResizeAspect = 'free' | 'square' | 'preserve'
@@ -288,6 +350,7 @@ const SQUARE_ASPECT_SHAPES = new Set<PaletteShape>([
   'event',
   'parallel-gateway',
   'decision',
+  'service',
 ])
 
 const PRESERVE_ASPECT_SHAPES = new Set<PaletteShape>([
@@ -304,13 +367,15 @@ export function resizeAspect(shape: PaletteShape): ResizeAspect {
   return 'free'
 }
 
-/** Effective node size: custom (resized) dimensions or the shape default. */
+/** Effective node size: custom (resized) dimensions or the shape default, clamped to minimums. */
 export function getNodeSize(
   node: DiagramNode,
   shape: PaletteShape,
 ): { width: number; height: number } {
   const fallback = nodeSize(shape)
-  return { width: node.width ?? fallback.width, height: node.height ?? fallback.height }
+  const width = node.width ?? fallback.width
+  const height = node.height ?? fallback.height
+  return clampNodeSize(shape, width, height)
 }
 
 /** Outward normal for each side — used to shape edge curves. */

@@ -35,8 +35,7 @@ import {
   bestPortSidesForConnection,
   resolveEdgeRouting,
   getNodeSize,
-  MIN_NODE_HEIGHT,
-  MIN_NODE_WIDTH,
+  clampNodeSize,
   nearestSide,
   nodeRouteObstacle,
   nodeSize,
@@ -97,6 +96,7 @@ type DragSession =
       id: string
       handle: FullResizeHandle
       aspect: ResizeAspect
+      shape: PaletteShape
       startWorld: { x: number; y: number }
       origin: { x: number; y: number; width: number; height: number }
     }
@@ -182,6 +182,7 @@ function applyResize(
   dy: number,
   snap: (value: number) => number,
   aspect: ResizeAspect,
+  shape: PaletteShape,
 ): { x: number; y: number; width: number; height: number } {
   let width = origin.width
   let height = origin.height
@@ -199,8 +200,9 @@ function applyResize(
     height = snap(origin.height - dy)
   }
 
-  width = Math.max(MIN_NODE_WIDTH, width)
-  height = Math.max(MIN_NODE_HEIGHT, height)
+  const clamped = clampNodeSize(shape, width, height)
+  width = clamped.width
+  height = clamped.height
 
   if (aspect === 'square') {
     const size = Math.max(width, height)
@@ -210,14 +212,13 @@ function applyResize(
     const ratio = origin.width / origin.height
     const verticalHandle = handle === 'n' || handle === 's'
     if (verticalHandle) {
-      width = Math.max(MIN_NODE_WIDTH, height * ratio)
-      height = width / ratio
-    } else {
-      height = Math.max(MIN_NODE_HEIGHT, width / ratio)
       width = height * ratio
+    } else {
+      height = width / ratio
     }
-    width = Math.max(MIN_NODE_WIDTH, width)
-    height = Math.max(MIN_NODE_HEIGHT, height)
+    const preserved = clampNodeSize(shape, width, height)
+    width = preserved.width
+    height = preserved.height
   }
 
   let x = origin.x
@@ -579,6 +580,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       id: node.id,
       handle,
       aspect: resizeAspect(shape),
+      shape,
       startWorld: toWorld(event.clientX, event.clientY),
       origin: { x: node.x, y: node.y, width, height },
     }
@@ -638,10 +640,10 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     }
 
     // Resize: adjust the dragged handle, keeping the opposite edge anchored.
-    const { id, handle, aspect, startWorld, origin } = session
+    const { id, handle, aspect, shape, startWorld, origin } = session
     const dx = world.x - startWorld.x
     const dy = world.y - startWorld.y
-    const next = applyResize(handle, origin, dx, dy, snap, aspect)
+    const next = applyResize(handle, origin, dx, dy, snap, aspect, shape)
 
     onChange((previous) => {
       const nodes = previous.nodes.map((node) =>
@@ -1043,6 +1045,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   borderColor={colorOverrides.borderColor}
                   isDark={isDark}
                   label={isEditing ? '' : node.label}
+                  icon={item.icon}
                   className="cursor-inherit"
                 />
               )}

@@ -2,8 +2,7 @@ import { defaultAppConfig } from '@/config/default-config'
 import { FALLBACK_PALETTE } from '@/components/designer/diagram-types'
 import type { PaletteItem, Tool } from '@/types/config'
 
-/** Returns the best palette for a tool — prefers the bundled default when the
- *  active (cached) config still carries an outdated designer palette. */
+/** Returns the base flowchart palette for a tool (without runtime Azure icons). */
 export function resolveDesignerPalette(
   tool: Tool | undefined,
   toolRouteSuffix: string,
@@ -33,4 +32,17 @@ export function resolveDesignerPalette(
   }
 
   return { palette: activePalette, isToolSpecific: true }
+}
+
+export function mergePaletteWithAzure(base: PaletteItem[], azureItems: PaletteItem[]): PaletteItem[] {
+  const flowchartItems = base.filter((item) => !item.id.startsWith('fc-azure-'))
+  return [...flowchartItems, ...azureItems]
+}
+
+export function mergePaletteWithCloudProviders(
+  base: PaletteItem[],
+  cloudItems: PaletteItem[],
+): PaletteItem[] {
+  const providerIds = /^(fc-azure-|fc-gcp-|fc-aws-)/
+  return [...base.filter((item) => !providerIds.test(item.id)), ...cloudItems]
 }

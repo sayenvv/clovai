@@ -134,6 +134,14 @@ function renderNodeSvg(
   const cx = node.x + width / 2
   const cy = node.y + height / 2
 
+  if (shape === 'service') {
+    const iconSize = Math.min(width, height)
+    const iconMarkup = item.icon
+      ? `<image href="${escapeXml(item.icon)}" x="${node.x}" y="${node.y}" width="${iconSize}" height="${iconSize}" />`
+      : ''
+    return `<g data-node-id="${escapeXml(node.id)}">${iconMarkup}</g>`
+  }
+
   return `<g data-node-id="${escapeXml(node.id)}">
     ${shapeBodyMarkup(node, shape, width, height, fill, border)}
     <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" fill="${text}" font-size="12" font-family="system-ui, -apple-system, sans-serif">${label}</text>
