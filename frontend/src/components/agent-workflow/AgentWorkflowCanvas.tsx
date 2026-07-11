@@ -45,6 +45,8 @@ interface AgentWorkflowCanvasProps {
   onOpenExecution?: () => void
   executionPanelOpen?: boolean
   onBackToDesign?: () => void
+  onUndo?: () => void
+  onRedo?: () => void
 }
 export const AgentWorkflowCanvas = memo(
   forwardRef<AgentWorkflowCanvasHandle, AgentWorkflowCanvasProps>(function AgentWorkflowCanvas(
@@ -63,6 +65,8 @@ export const AgentWorkflowCanvas = memo(
       onOpenExecution,
       executionPanelOpen = false,
       onBackToDesign,
+      onUndo,
+      onRedo,
     },
     ref,
   ) {
@@ -186,10 +190,13 @@ export const AgentWorkflowCanvas = memo(
             showGrid={showGrid}
             onZoomIn={() => zoomBy(1.2)}
             onZoomOut={() => zoomBy(1 / 1.2)}
+            onFitToScreen={fitView}
             agentMode
             transformDroppedNode={transformDroppedNode}
             finalizeDroppedNode={finalizeDroppedNode}
             selectionDisabled={executionPanelOpen}
+            onUndo={onUndo}
+            onRedo={onRedo}
           />
         </div>
       </DevProfiler>

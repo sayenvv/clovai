@@ -118,7 +118,7 @@ function shapeBodyMarkup(
     case 'note':
       return `<path d="M ${x} ${y} H ${x + width - 12} L ${x + width} ${y + 12} V ${y + height} H ${x} Z" fill="${fill}" stroke="${border}" stroke-width="2" stroke-linejoin="round" />`
     default:
-      return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="8" fill="${fill}" stroke="${border}" stroke-width="2" />`
+      return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="0" fill="${fill}" stroke="${border}" stroke-width="2" />`
   }
 }
 
@@ -197,8 +197,11 @@ function renderEdgeSvg(
   let markup = `<path d="${path}" fill="none" stroke="${colors.border}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#export-arrow)" />`
 
   if (label) {
+    const endpointGap = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y)
+    const labelWidth = Math.min(280, Math.max(24, Math.min(endpointGap - 48, label.length * 6.5 + 16)))
+    const labelHeight = 22
     markup += `<g>
-      <rect x="${midpoint.x - 28}" y="${midpoint.y - 11}" width="56" height="22" rx="4" fill="${colors.fill}" stroke="${colors.border}" stroke-width="1" />
+      <rect x="${midpoint.x - labelWidth / 2}" y="${midpoint.y - labelHeight / 2}" width="${labelWidth}" height="${labelHeight}" rx="0" fill="${colors.fill}" stroke="${colors.border}" stroke-width="1" />
       <text x="${midpoint.x}" y="${midpoint.y + 1}" text-anchor="middle" dominant-baseline="middle" fill="${colors.text}" font-size="11" font-family="system-ui, -apple-system, sans-serif">${escapeXml(label)}</text>
     </g>`
   }

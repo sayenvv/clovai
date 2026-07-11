@@ -13,6 +13,7 @@ import {
   resizeAspect,
   resolveNodeStyle,
   resolveEdgeRouting,
+  EDGE_ROUTING_OPTIONS,
   SHAPE_OPTIONS,
   type Diagram,
   PORT_SIDES,
@@ -35,6 +36,8 @@ interface PropertiesPanelProps {
   onDuplicate: () => void
   onDelete: () => void
   onClose: () => void
+  /** When true, color swatches are omitted (edited via bottom toolbar instead). */
+  hideColorFields?: boolean
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -50,10 +53,12 @@ const NodeProperties = memo(function NodeProperties({
   node,
   item,
   onChange,
+  hideColorFields = false,
 }: {
   node: DiagramNode
   item: PaletteItem
   onChange: PropertiesPanelProps['onChange']
+  hideColorFields?: boolean
 }) {
   const { isDark } = useTheme()
   const { shape } = resolveNodeStyle(node, item)
@@ -130,18 +135,22 @@ const NodeProperties = memo(function NodeProperties({
         </Select>
       </Field>
 
-      <ColorPaletteField
-        label="Background"
-        value={node.fillColor}
-        defaultValue={nodeDefaults.fill}
-        onChange={(fillColor) => updateNode({ fillColor })}
-      />
-      <ColorPaletteField
-        label="Border"
-        value={node.borderColor}
-        defaultValue={nodeDefaults.border}
-        onChange={(borderColor) => updateNode({ borderColor })}
-      />
+      {!hideColorFields && (
+        <>
+          <ColorPaletteField
+            label="Background"
+            value={node.fillColor}
+            defaultValue={nodeDefaults.fill}
+            onChange={(fillColor) => updateNode({ fillColor })}
+          />
+          <ColorPaletteField
+            label="Border"
+            value={node.borderColor}
+            defaultValue={nodeDefaults.border}
+            onChange={(borderColor) => updateNode({ borderColor })}
+          />
+        </>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         <Field label="X">
@@ -210,10 +219,12 @@ const EdgeProperties = memo(function EdgeProperties({
   edge,
   nodeLabel,
   onChange,
+  hideColorFields = false,
 }: {
   edge: DiagramEdge
   nodeLabel: (id: string) => string
   onChange: PropertiesPanelProps['onChange']
+  hideColorFields?: boolean
 }) {
   const { isDark } = useTheme()
   const edgeDefaults = defaultEdgeColors(isDark)
@@ -233,6 +244,7 @@ const EdgeProperties = memo(function EdgeProperties({
   }
 
   const reverse = () => {
+    if (edge.locked) return
     onChange((previous) => ({
       ...previous,
       edges: previous.edges.map((candidate) =>
@@ -300,31 +312,47 @@ const EdgeProperties = memo(function EdgeProperties({
           className="h-8 text-xs"
         />
       </Field>
-      <ColorPaletteField
-        label="Label background"
-        value={edge.fillColor}
-        defaultValue={edgeDefaults.fill}
-        onChange={(fillColor) => updateEdge({ fillColor })}
-      />
-      <ColorPaletteField
-        label="Line color"
-        value={edge.borderColor}
-        defaultValue={edgeDefaults.border}
-        onChange={(borderColor) => updateEdge({ borderColor })}
-      />
-      <Field label="Routing">
-        <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
-          <div>
-            <p className="text-xs font-medium">Straight connector</p>
-            <p className="text-[11px] text-muted-foreground">90° corners only</p>
-          </div>
-          <Switch
-            checked={routing === 'orthogonal'}
-            onCheckedChange={(checked) => updateRouting(checked ? 'orthogonal' : 'curved')}
-            aria-label="Toggle straight connector"
+      {!hideColorFields && (
+        <>
+          <ColorPaletteField
+            label="Label background"
+            value={edge.fillColor}
+            defaultValue={edgeDefaults.fill}
+            onChange={(fillColor) => updateEdge({ fillColor })}
           />
-        </div>
+          <ColorPaletteField
+            label="Line color"
+            value={edge.borderColor}
+            defaultValue={edgeDefaults.border}
+            onChange={(borderColor) => updateEdge({ borderColor })}
+          />
+        </>
+      )}
+      <Field label="Routing">
+        <Select
+          value={routing}
+          onChange={(event) => updateRouting(event.target.value as EdgeRouting)}
+          className="h-8 text-xs"
+          aria-label="Connector routing"
+        >
+          {EDGE_ROUTING_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
       </Field>
+      <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
+        <div>
+          <p className="text-xs font-medium">Lock connector</p>
+          <p className="text-[11px] text-muted-foreground">Keep anchors fixed while moving</p>
+        </div>
+        <Switch
+          checked={Boolean(edge.locked)}
+          onCheckedChange={(checked) => updateEdge({ locked: checked })}
+          aria-label="Lock connector"
+        />
+      </div>
       <Button variant="outline" size="sm" className="h-8 text-xs" onClick={reverse}>
         <ArrowLeftRight className="h-3.5 w-3.5" /> Reverse direction
       </Button>
@@ -342,16 +370,22 @@ export const PropertiesPanel = memo(function PropertiesPanel({
   onDuplicate,
   onDelete,
   onClose,
+  hideColorFields = false,
 }: PropertiesPanelProps) {
   if (!selection) return null
 
   const node =
     selection.kind === 'node' ? diagram.nodes.find((n) => n.id === selection.id) : undefined
   const edge =
-    selection.kind === 'edge' ? diagram.edges.find((e) => e.id === selection.id) : undefined
+    selection.kind === 'edge'
+      ? diagram.edges.find((e) => e.id === selection.id)
+      : selection.kind === 'edges' && selection.ids.length === 1
+        ? diagram.edges.find((e) => e.id === selection.ids[0])
+        : undefined
+  const multiEdgeCount = selection.kind === 'edges' ? selection.ids.length : 0
   const item = node ? paletteById.get(node.paletteId) : undefined
 
-  if (!node && !edge) return null
+  if (!node && !edge && multiEdgeCount === 0) return null
 
   const nodeLabel = (id: string) => diagram.nodes.find((n) => n.id === id)?.label ?? 'Deleted shape'
 
@@ -362,14 +396,39 @@ export const PropertiesPanel = memo(function PropertiesPanel({
     >
       <DesignerPanelHeader
         icon={<SlidersHorizontal className="h-4 w-4" />}
-        title={node ? 'Shape' : 'Connection'}
+        title={
+          node
+            ? 'Shape'
+            : multiEdgeCount > 1
+              ? `${multiEdgeCount} connectors`
+              : 'Connection'
+        }
         onClose={onClose}
         closeLabel="Close properties"
       />
 
       <div className="flex-1 overflow-y-auto p-4">
-        {node && item && <NodeProperties node={node} item={item} onChange={onChange} />}
-        {edge && <EdgeProperties edge={edge} nodeLabel={nodeLabel} onChange={onChange} />}
+        {node && item && (
+          <NodeProperties
+            node={node}
+            item={item}
+            onChange={onChange}
+            hideColorFields={hideColorFields}
+          />
+        )}
+        {edge && (
+          <EdgeProperties
+            edge={edge}
+            nodeLabel={nodeLabel}
+            onChange={onChange}
+            hideColorFields={hideColorFields}
+          />
+        )}
+        {multiEdgeCount > 1 && (
+          <p className="text-xs text-muted-foreground">
+            Use the context menu or keyboard shortcuts to edit multiple connectors at once.
+          </p>
+        )}
       </div>
 
       <div className="flex gap-2 border-t p-3">

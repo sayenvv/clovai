@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { createPage, type Diagram, type DiagramDocument } from '@/components/designer/diagram-types'
+import { createDiagramHistoryStack } from '@/components/designer/diagram-history'
 import type { PaletteItem } from '@/types/config'
 import { enrichDiagram } from '@/components/agent-workflow/agent-workflow-defaults'
 import {
@@ -26,6 +27,8 @@ export function useWorkflowDocument(
     return loadWorkflowDocument(session?.workspaceId)
   })
   const [workflowName, setWorkflowName] = useState(() => doc.pages[0]?.name ?? 'Untitled workflow')
+  const historyRef = useRef(createDiagramHistoryStack())
+  const historyPageIdRef = useRef<string | null>(null)
 
   const activePage = doc.pages.find((page) => page.id === doc.activePageId) ?? doc.pages[0]
   const diagram = useMemo(
@@ -62,23 +65,69 @@ export function useWorkflowDocument(
   const handleChange = useCallback(
     (updater: (previous: Diagram) => Diagram) => {
       onInvalidate?.()
-      setDoc((previous) => ({
-        ...previous,
-        pages: previous.pages.map((page) => {
-          if (page.id !== previous.activePageId) return page
-          const before = page.diagram
-          const enriched = enrichDiagram(updater(before), paletteById)
-          const next = shouldSyncToolLayout(before, enriched)
-            ? syncMappedToolLayout(enriched)
-            : enriched
-          return { ...page, diagram: next }
-        }),
-      }))
+      setDoc((previous) => {
+        if (historyPageIdRef.current !== previous.activePageId) {
+          historyRef.current.clear()
+          historyPageIdRef.current = previous.activePageId
+        }
+        return {
+          ...previous,
+          pages: previous.pages.map((page) => {
+            if (page.id !== previous.activePageId) return page
+            const before = page.diagram
+            const enriched = enrichDiagram(updater(before), paletteById)
+            const next = shouldSyncToolLayout(before, enriched)
+              ? syncMappedToolLayout(enriched)
+              : enriched
+            if (next === before) return page
+            historyRef.current.push(before)
+            return { ...page, diagram: next }
+          }),
+        }
+      })
     },
     [paletteById, onInvalidate],
   )
 
+  const handleUndo = useCallback(() => {
+    setDoc((previous) => {
+      const page = previous.pages.find((candidate) => candidate.id === previous.activePageId)
+      if (!page) return previous
+      const restored = historyRef.current.undo(page.diagram)
+      if (!restored) return previous
+      onInvalidate?.()
+      return {
+        ...previous,
+        pages: previous.pages.map((candidate) =>
+          candidate.id === previous.activePageId
+            ? { ...candidate, diagram: restored }
+            : candidate,
+        ),
+      }
+    })
+  }, [onInvalidate])
+
+  const handleRedo = useCallback(() => {
+    setDoc((previous) => {
+      const page = previous.pages.find((candidate) => candidate.id === previous.activePageId)
+      if (!page) return previous
+      const restored = historyRef.current.redo(page.diagram)
+      if (!restored) return previous
+      onInvalidate?.()
+      return {
+        ...previous,
+        pages: previous.pages.map((candidate) =>
+          candidate.id === previous.activePageId
+            ? { ...candidate, diagram: restored }
+            : candidate,
+        ),
+      }
+    })
+  }, [onInvalidate])
+
   const selectPage = useCallback((pageId: string) => {
+    historyRef.current.clear()
+    historyPageIdRef.current = pageId
     setDoc((previous) => ({ ...previous, activePageId: pageId }))
   }, [])
 
@@ -86,6 +135,8 @@ export function useWorkflowDocument(
     onInvalidate?.()
     setDoc((previous) => {
       const page = createPage(`Workflow ${previous.pages.length + 1}`)
+      historyRef.current.clear()
+      historyPageIdRef.current = page.id
       return { ...previous, pages: [...previous.pages, page], activePageId: page.id }
     })
   }, [onInvalidate])
@@ -146,6 +197,8 @@ export function useWorkflowDocument(
     workflowName,
     setWorkflowName,
     handleChange,
+    handleUndo,
+    handleRedo,
     selectPage,
     addPage,
     createWorkflowTab,

@@ -153,6 +153,8 @@ export default function AgentWorkflowPage() {
     diagram,
     workflowName,
     handleChange,
+    handleUndo,
+    handleRedo,
     selectPage,
     addPage,
     createWorkflowTab,
@@ -720,6 +722,8 @@ export default function AgentWorkflowPage() {
                       onOpenExecution={openExecutionPanel}
                       executionPanelOpen={executionPanelOpen}
                       onBackToDesign={handleBackToDesign}
+                      onUndo={handleUndo}
+                      onRedo={handleRedo}
                     />
                   ) : (
                     <WorkflowBuildCodeView

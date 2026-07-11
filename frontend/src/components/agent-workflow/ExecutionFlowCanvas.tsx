@@ -538,6 +538,7 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
             scale={scale}
             onZoomIn={() => zoomBy(1.2)}
             onZoomOut={() => zoomBy(1 / 1.2)}
+            onFitToScreen={focusWorkflowInViewport}
           />
         </div>
 

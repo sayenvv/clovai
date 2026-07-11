@@ -9,12 +9,14 @@ import { ProfileMenu } from '@/components/shared/ProfileMenu'
 import { useTheme } from '@/hooks/use-theme'
 import { Logo, LOGO_SIZE_WORKSPACE } from '@/components/shared/Logo'
 import { ShapePalette } from '@/components/designer/ShapePalette'
+import { DesignerBottomToolbar } from '@/components/designer/DesignerBottomToolbar'
 import { DesignerCanvas, type Selection } from '@/components/designer/DesignerCanvas'
 import { DesignerMenubar } from '@/components/designer/DesignerMenubar'
 import { ShareDialog } from '@/components/designer/ShareDialog'
 import { PropertiesPanel } from '@/components/designer/PropertiesPanel'
 import { PagesBar } from '@/components/designer/PagesBar'
 import { computeCenteredViewport, zoomViewportAt } from '@/components/designer/viewport-utils'
+import { createDiagramHistoryStack } from '@/components/designer/diagram-history'
 import { resolveDesignerPalette, mergePaletteWithCloudProviders } from '@/utils/resolve-designer-palette'
 import { useAzurePalette } from '@/hooks/use-azure-palette'
 import { useCloudPalette } from '@/hooks/use-cloud-palette'
@@ -98,6 +100,8 @@ export default function ToolDetailPage() {
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT)
   const [selection, setSelection] = useState<Selection>(null)
   const [snapToGrid, setSnapToGrid] = useState(false)
+  const historyRef = useRef(createDiagramHistoryStack())
+  const historyPageIdRef = useRef<string | null>(null)
   const [showGrid, setShowGrid] = useState(true)
   const [codeExportOpen, setCodeExportOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
@@ -140,12 +144,58 @@ export default function ToolDetailPage() {
 
   /* ---- active-page diagram updates ---- */
   const handleChange = useCallback((updater: (previous: Diagram) => Diagram) => {
-    setDoc((previous) => ({
-      ...previous,
-      pages: previous.pages.map((page) =>
-        page.id === previous.activePageId ? { ...page, diagram: updater(page.diagram) } : page,
-      ),
-    }))
+    setDoc((previous) => {
+      if (historyPageIdRef.current !== previous.activePageId) {
+        historyRef.current.clear()
+        historyPageIdRef.current = previous.activePageId
+      }
+      return {
+        ...previous,
+        pages: previous.pages.map((page) => {
+          if (page.id !== previous.activePageId) return page
+          const next = updater(page.diagram)
+          if (next === page.diagram) return page
+          historyRef.current.push(page.diagram)
+          return { ...page, diagram: next }
+        }),
+      }
+    })
+  }, [])
+
+  const handleUndo = useCallback(() => {
+    setDoc((previous) => {
+      const page = previous.pages.find((candidate) => candidate.id === previous.activePageId)
+      if (!page) return previous
+      const restored = historyRef.current.undo(page.diagram)
+      if (!restored) return previous
+      setSelection(null)
+      return {
+        ...previous,
+        pages: previous.pages.map((candidate) =>
+          candidate.id === previous.activePageId
+            ? { ...candidate, diagram: restored }
+            : candidate,
+        ),
+      }
+    })
+  }, [])
+
+  const handleRedo = useCallback(() => {
+    setDoc((previous) => {
+      const page = previous.pages.find((candidate) => candidate.id === previous.activePageId)
+      if (!page) return previous
+      const restored = historyRef.current.redo(page.diagram)
+      if (!restored) return previous
+      setSelection(null)
+      return {
+        ...previous,
+        pages: previous.pages.map((candidate) =>
+          candidate.id === previous.activePageId
+            ? { ...candidate, diagram: restored }
+            : candidate,
+        ),
+      }
+    })
   }, [])
 
   const handleViewportChange = useCallback((updater: (previous: Viewport) => Viewport) => {
@@ -154,6 +204,8 @@ export default function ToolDetailPage() {
 
   /* ---- page management ---- */
   const selectPage = useCallback((pageId: string) => {
+    historyRef.current.clear()
+    historyPageIdRef.current = pageId
     setDoc((previous) => ({ ...previous, activePageId: pageId }))
     setSelection(null)
   }, [])
@@ -161,6 +213,8 @@ export default function ToolDetailPage() {
   const addPage = useCallback(() => {
     setDoc((previous) => {
       const page = createPage(`Page ${previous.pages.length + 1}`)
+      historyRef.current.clear()
+      historyPageIdRef.current = page.id
       return { pages: [...previous.pages, page], activePageId: page.id }
     })
     setSelection(null)
@@ -249,7 +303,17 @@ export default function ToolDetailPage() {
     if (!selection) return
     handleChange((previous) => {
       if (selection.kind === 'edge') {
-        return { ...previous, edges: previous.edges.filter((edge) => edge.id !== selection.id) }
+        return {
+          ...previous,
+          edges: previous.edges.filter((edge) => edge.id !== selection.id || edge.locked),
+        }
+      }
+      if (selection.kind === 'edges') {
+        const removeIds = new Set(selection.ids)
+        return {
+          ...previous,
+          edges: previous.edges.filter((edge) => !removeIds.has(edge.id) || edge.locked),
+        }
       }
       if (selection.kind === 'nodes') {
         const removeIds = new Set(selection.ids)
@@ -446,7 +510,7 @@ export default function ToolDetailPage() {
         />
         {/* Canvas column: the pages bar only spans the canvas, not the sidebars. */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div ref={canvasAreaRef} className="min-h-0 min-w-0 flex-1">
+          <div ref={canvasAreaRef} className="relative min-h-0 min-w-0 flex-1">
             <DesignerCanvas
               key={activePage.id}
               diagram={diagram}
@@ -460,7 +524,19 @@ export default function ToolDetailPage() {
               showGrid={showGrid}
               onZoomIn={() => zoomBy(1.2)}
               onZoomOut={() => zoomBy(1 / 1.2)}
+              onFitToScreen={fitToContent}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
             />
+            {isDiagramGenerator && (
+              <DesignerBottomToolbar
+                diagram={diagram}
+                selection={selection}
+                onChange={handleChange}
+                onDuplicate={duplicateSelection}
+                onDelete={deleteSelection}
+              />
+            )}
           </div>
           <PagesBar
             pages={doc.pages}
@@ -471,7 +547,7 @@ export default function ToolDetailPage() {
             onDelete={deletePage}
           />
         </div>
-        {!codeExportOpen && (
+        {!codeExportOpen && !isDiagramGenerator && (
           <PropertiesPanel
             diagram={diagram}
             selection={selection}

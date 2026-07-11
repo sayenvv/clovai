@@ -130,6 +130,22 @@
     @apply py-20 md:py-28;
   }
 
+  /** Animated dash flow along diagram connectors. */
+  .diagram-flow-edge {
+    stroke-dasharray: 4 8;
+    animation: diagram-connector-flow 0.85s linear infinite;
+  }
+  @keyframes diagram-connector-flow {
+    to {
+      stroke-dashoffset: -12;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .diagram-flow-edge {
+      animation: none;
+    }
+  }
+
   /* Landing-page-only finishing layer; product workspaces remain isolated. */
   .professional-home {
     overflow: clip;

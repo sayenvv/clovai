@@ -90,10 +90,16 @@ export const SHAPE_OPTIONS: Array<{ value: PaletteShape; label: string }> = [
   { value: 'service', label: 'Cloud service' },
 ]
 
-export type EdgeRouting = 'curved' | 'orthogonal'
+export type EdgeRouting = 'curved' | 'orthogonal' | 'straight'
 
-/** Default connector style — smooth curve until the user enables straight routing. */
-export const DEFAULT_EDGE_ROUTING: EdgeRouting = 'curved'
+/** Default connector style — 90° orthogonal routing (Visio / draw.io style). */
+export const DEFAULT_EDGE_ROUTING: EdgeRouting = 'orthogonal'
+
+export const EDGE_ROUTING_OPTIONS: Array<{ value: EdgeRouting; label: string }> = [
+  { value: 'curved', label: 'Bezier curve' },
+  { value: 'orthogonal', label: 'Orthogonal' },
+  { value: 'straight', label: 'Straight' },
+]
 
 export function resolveEdgeRouting(routing?: EdgeRouting): EdgeRouting {
   return routing ?? DEFAULT_EDGE_ROUTING
@@ -113,6 +119,10 @@ export interface DiagramEdge {
   fillColor?: string
   /** Connector stroke — hex color. */
   borderColor?: string
+  /** When true, auto-reroute and reconnect are blocked. */
+  locked?: boolean
+  /** Higher values render above other connectors. */
+  zIndex?: number
   /** Agent workflow connector configuration. */
   connector?: ConnectorConfig
 }
@@ -388,7 +398,7 @@ export const SIDE_DIRECTION: Record<PortSide, { x: number; y: number }> = {
 
 const CONNECTOR_STUB = 20
 const CHANNEL_PAD = 20
-const CORNER_RADIUS = 10
+const CORNER_RADIUS = 0
 const TURN_PENALTY = 18
 /** @deprecated Used only for legacy references; routing uses CONNECTOR_STUB. */
 export const EDGE_PORT_INSET = CONNECTOR_STUB
@@ -553,12 +563,40 @@ function segmentBlocked(
   return polylineHitsObstacles([a, b], obstacles)
 }
 
-function fallbackChannel(fromStub: RoutePoint, toStub: RoutePoint): RoutePoint[] {
+/**
+ * Simple orthogonal elbows between stubs. Prefer the first bend that stays on the
+ * stub's exit axis (so bottom ports go sideways below the node, not up through it).
+ */
+function fallbackChannel(
+  fromStub: RoutePoint,
+  toStub: RoutePoint,
+  blockers: RouteObstacle[] = [],
+  fromSide?: PortSide,
+): RoutePoint[] {
   const elbowA = { x: toStub.x, y: fromStub.y }
   const elbowB = { x: fromStub.x, y: toStub.y }
   const pathA = [fromStub, elbowA, toStub]
   const pathB = [fromStub, elbowB, toStub]
-  return pathCost(pathA) <= pathCost(pathB) ? pathA : pathB
+  const midX = (fromStub.x + toStub.x) / 2
+  const midY = (fromStub.y + toStub.y) / 2
+  const pathC = [fromStub, { x: midX, y: fromStub.y }, { x: midX, y: toStub.y }, toStub]
+  const pathD = [fromStub, { x: fromStub.x, y: midY }, { x: toStub.x, y: midY }, toStub]
+
+  // top/bottom stubs: keep first run horizontal at stub Y (outside the node).
+  // left/right stubs: keep first run vertical at stub X (outside the node).
+  const preferExitAxis =
+    fromSide === 'top' || fromSide === 'bottom'
+      ? [pathA, pathC, pathB, pathD]
+      : fromSide === 'left' || fromSide === 'right'
+        ? [pathB, pathD, pathA, pathC]
+        : pathCost(pathA) <= pathCost(pathB)
+          ? [pathA, pathC, pathB, pathD]
+          : [pathB, pathD, pathA, pathC]
+
+  for (const path of preferExitAxis) {
+    if (!polylineHitsObstacles(path, blockers)) return path
+  }
+  return preferExitAxis[0]
 }
 
 /** Visio-style orthogonal grid routing between port stubs. */
@@ -567,6 +605,7 @@ function orthogonalGridRoute(
   toStub: RoutePoint,
   blockers: RouteObstacle[],
   channelHints: RouteObstacle[],
+  fromSide?: PortSide,
 ): RoutePoint[] {
   if (Math.abs(fromStub.x - toStub.x) < 0.01 && Math.abs(fromStub.y - toStub.y) < 0.01) {
     return [fromStub, toStub]
@@ -660,9 +699,10 @@ function orthogonalGridRoute(
     }
   }
 
-  const fallback = fallbackChannel(fromStub, toStub)
-  if (!polylineHitsObstacles(fallback, blockers)) return simplifyPolyline(fallback)
-  return simplifyPolyline([fromStub, toStub])
+  const fallback = fallbackChannel(fromStub, toStub, blockers, fromSide)
+  // Never return a diagonal stub-to-stub segment — elbows stay orthogonal even if
+  // they skim an obstacle (readability over perfect clearance).
+  return simplifyPolyline(fallback)
 }
 
 function pickBestChannel(
@@ -672,9 +712,49 @@ function pickBestChannel(
   toPort: RoutePoint,
   blockers: RouteObstacle[],
   channelHints: RouteObstacle[],
+  fromSide?: PortSide,
 ): RoutePoint[] {
-  const channel = orthogonalGridRoute(fromStub, toStub, blockers, channelHints)
-  return simplifyPolyline([fromPort, ...channel, toPort])
+  const channel = orthogonalGridRoute(fromStub, toStub, blockers, channelHints, fromSide)
+  return ensureOrthogonalPolyline(simplifyPolyline([fromPort, ...channel, toPort]))
+}
+
+/** Insert elbows so every segment is strictly horizontal or vertical. */
+function ensureOrthogonalPolyline(points: RoutePoint[]): RoutePoint[] {
+  if (points.length < 2) return points
+  const result: RoutePoint[] = [points[0]]
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = result[result.length - 1]
+    const current = points[index]
+    const axisAligned =
+      Math.abs(current.x - previous.x) < 0.01 || Math.abs(current.y - previous.y) < 0.01
+    if (!axisAligned) {
+      // Prefer horizontal-then-vertical elbow (Visio default).
+      result.push({ x: current.x, y: previous.y })
+    }
+    if (segmentLength(result[result.length - 1], current) >= 0.5) {
+      result.push(current)
+    }
+  }
+  return simplifyCollinear(result)
+}
+
+/** Drop redundant points that sit on a straight orthogonal run. */
+function simplifyCollinear(points: RoutePoint[]): RoutePoint[] {
+  if (points.length <= 2) return points
+  const result = [points[0]]
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = result[result.length - 1]
+    const current = points[index]
+    const next = points[index + 1]
+    const sameHorizontal =
+      Math.abs(previous.y - current.y) < 0.01 && Math.abs(current.y - next.y) < 0.01
+    const sameVertical =
+      Math.abs(previous.x - current.x) < 0.01 && Math.abs(current.x - next.x) < 0.01
+    if (sameHorizontal || sameVertical) continue
+    result.push(current)
+  }
+  result.push(points[points.length - 1])
+  return simplifyPolyline(result)
 }
 
 /** Orthogonal path points — Visio-style grid routing with dynamic bends. */
@@ -687,18 +767,18 @@ function orthogonalEdgePoints(
 ): Array<{ x: number; y: number }> {
   const fromStub = stubPoint(from, fromSide, CONNECTOR_STUB)
   const toStub = stubPoint(to, toSide, CONNECTOR_STUB)
+  // Include source/target as blockers so stub→stub channels go around them
+  // (stubs sit outside ROUTE_PAD, so exit stubs remain valid grid points).
   const allObstacles = context?.obstacles ?? []
-  const blockers = allObstacles.filter(
-    (obstacle) =>
-      obstacle.id !== context?.fromNodeId && obstacle.id !== context?.toNodeId,
-  )
-  return pickBestChannel(from, fromStub, toStub, to, blockers, allObstacles)
+  return pickBestChannel(from, fromStub, toStub, to, allObstacles, allObstacles, fromSide)
 }
 
 function pointsToRoundedPath(points: Array<{ x: number; y: number }>, radius = CORNER_RADIUS): string {
   if (points.length < 2) return ''
-  if (points.length === 2) {
-    return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`
+  if (points.length === 2 || radius <= 0) {
+    return points
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
+      .join(' ')
   }
 
   let path = `M ${points[0].x} ${points[0].y}`
@@ -798,6 +878,46 @@ export function curvedEdgePath(
   return `M ${from.x} ${from.y} L ${fromStub.x} ${fromStub.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${toStub.x} ${toStub.y} L ${to.x} ${to.y}`
 }
 
+/**
+ * Live connect/reconnect preview.
+ * Stubs only from the fixed port and ends exactly at the pointer — no overshoot past the cursor.
+ */
+export function previewEdgePath(
+  fixed: { x: number; y: number },
+  fixedSide: PortSide,
+  pointer: { x: number; y: number },
+  /** `from-fixed` = dragging toward a target; `to-fixed` = dragging the source end. */
+  direction: 'from-fixed' | 'to-fixed' = 'from-fixed',
+): string {
+  const distance = Math.hypot(pointer.x - fixed.x, pointer.y - fixed.y)
+  if (distance < 4) {
+    return `M ${fixed.x} ${fixed.y} L ${pointer.x} ${pointer.y}`
+  }
+
+  const stubLen = Math.min(CONNECTOR_STUB, Math.max(8, distance * 0.28))
+  const stub = stubPoint(fixed, fixedSide, stubLen)
+  const d = SIDE_DIRECTION[fixedSide]
+  const bend = Math.min(96, Math.max(20, distance / 2.4))
+
+  if (direction === 'from-fixed') {
+    const dx = pointer.x - stub.x
+    const dy = pointer.y - stub.y
+    const len = Math.hypot(dx, dy) || 1
+    const pull = Math.min(bend, len * 0.4)
+    const c1 = { x: stub.x + d.x * bend, y: stub.y + d.y * bend }
+    const c2 = { x: pointer.x - (dx / len) * pull, y: pointer.y - (dy / len) * pull }
+    return `M ${fixed.x} ${fixed.y} L ${stub.x} ${stub.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${pointer.x} ${pointer.y}`
+  }
+
+  const dx = stub.x - pointer.x
+  const dy = stub.y - pointer.y
+  const len = Math.hypot(dx, dy) || 1
+  const pull = Math.min(bend, len * 0.4)
+  const c1 = { x: pointer.x + (dx / len) * pull, y: pointer.y + (dy / len) * pull }
+  const c2 = { x: stub.x + d.x * bend, y: stub.y + d.y * bend }
+  return `M ${pointer.x} ${pointer.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${stub.x} ${stub.y} L ${fixed.x} ${fixed.y}`
+}
+
 /** Orthogonal connector — straight segments with 90° corners only. */
 export function orthogonalEdgePath(
   from: { x: number; y: number },
@@ -818,12 +938,16 @@ export function buildEdgePath(
   routing: EdgeRouting = 'curved',
   context?: EdgeRouteContext,
 ): string {
-  return routing === 'orthogonal'
-    ? orthogonalEdgePath(from, fromSide, to, toSide, context)
-    : curvedEdgePath(from, fromSide, to, toSide)
+  if (routing === 'orthogonal') {
+    return orthogonalEdgePath(from, fromSide, to, toSide, context)
+  }
+  if (routing === 'straight') {
+    return `M ${from.x} ${from.y} L ${to.x} ${to.y}`
+  }
+  return curvedEdgePath(from, fromSide, to, toSide)
 }
 
-/** Point on the connector path where labels should sit (mid-path, on the line). */
+/** Point where connector labels sit — on the actual route, halfway along its length. */
 export function edgeLabelPosition(
   from: { x: number; y: number },
   fromSide: PortSide,
@@ -835,7 +959,11 @@ export function edgeLabelPosition(
   if (routing === 'orthogonal') {
     return polylineMidpoint(orthogonalEdgePoints(from, fromSide, to, toSide, context))
   }
+  if (routing === 'straight') {
+    return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
+  }
 
+  // Sample the curved path (stubs + cubic) so the label sits on the stroke.
   const fromStub = stubPoint(from, fromSide, CONNECTOR_STUB)
   const toStub = stubPoint(to, toSide, CONNECTOR_STUB)
   const distance = Math.hypot(toStub.x - fromStub.x, toStub.y - fromStub.y)
@@ -844,7 +972,12 @@ export function edgeLabelPosition(
   const d2 = SIDE_DIRECTION[toSide]
   const c1 = { x: fromStub.x + d1.x * bend, y: fromStub.y + d1.y * bend }
   const c2 = { x: toStub.x + d2.x * bend, y: toStub.y + d2.y * bend }
-  return cubicBezierPoint(from, c1, c2, to, 0.5)
+  const samples: Array<{ x: number; y: number }> = [from, fromStub]
+  for (let step = 1; step <= 8; step += 1) {
+    samples.push(cubicBezierPoint(fromStub, c1, c2, toStub, step / 8))
+  }
+  samples.push(to)
+  return polylineMidpoint(samples)
 }
 
 /** @deprecated Use edgeLabelPosition — kept as alias for callers. */
@@ -987,6 +1120,11 @@ export function bestPortSidesForConnection(
       const to = portPoint(toNode, toShape, toSide)
       const points = orthogonalEdgePoints(from, fromSide, to, toSide, context)
       let cost = pathCost(points)
+      // Prefer routes that clear other nodes (source/target stubs intentionally skim padding).
+      const others = (context?.obstacles ?? []).filter(
+        (obstacle) => obstacle.id !== context?.fromNodeId && obstacle.id !== context?.toNodeId,
+      )
+      if (polylineHitsObstacles(points, others)) cost += 400
       if (fromSide === preferred.fromSide && toSide === preferred.toSide) cost -= 16
       if (cost < bestCost) {
         bestCost = cost
