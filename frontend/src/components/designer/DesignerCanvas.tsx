@@ -27,6 +27,7 @@ import {
   toolNodeSize,
 } from '@/components/agent-workflow/tool-agent-mapping'
 import { resolveEdgeColors } from './diagram-colors'
+import { connectorLabelWidth, formatConnectorLabel } from './connector-label'
 import {
   buildEdgePath,
   previewEdgePath,
@@ -151,48 +152,6 @@ function findPortAtWorld(
 function isConnectableTarget(node: DiagramNode, agentMode: boolean): boolean {
   if (agentMode && isToolNode(node)) return false
   return true
-}
-
-/** Keep short labels on one line; split longer ones into ~2 balanced lines. */
-function formatConnectorLabel(text: string, maxCharsPerLine = 28): string {
-  const normalized = text.replace(/\r\n/g, '\n').trim()
-  if (!normalized) return ''
-  if (normalized.includes('\n')) return normalized
-  if (normalized.length <= maxCharsPerLine) return normalized
-
-  const words = normalized.split(/\s+/).filter(Boolean)
-  if (words.length <= 2) return normalized
-
-  const total = normalized.length
-  const target = Math.ceil(total / 2)
-  let best = 1
-  let bestScore = Number.POSITIVE_INFINITY
-  let length = 0
-  for (let i = 0; i < words.length - 1; i++) {
-    length += words[i].length + (i > 0 ? 1 : 0)
-    // Prefer a break that also respects the available line width.
-    const linePenalty = length > maxCharsPerLine ? (length - maxCharsPerLine) * 2 : 0
-    const score = Math.abs(length - target) + linePenalty
-    if (score < bestScore) {
-      bestScore = score
-      best = i + 1
-    }
-  }
-  return `${words.slice(0, best).join(' ')}\n${words.slice(best).join(' ')}`
-}
-
-/** Label chip width: snug for short text, never wider than the gap between nodes. */
-function connectorLabelWidth(text: string, maxAvailable: number, editing = false): number {
-  const maxWidth = Math.max(24, Math.min(280, maxAvailable))
-  const charsPerLine = Math.max(8, Math.min(40, Math.floor((maxWidth - 16) / 6.5)))
-  const formatted = formatConnectorLabel(text || (editing ? 'Short label' : ''), charsPerLine)
-  const longest = Math.max(
-    1,
-    ...formatted.split('\n').map((line) => line.length),
-    editing ? 12 : 0,
-  )
-  // ~6.5px per character at 11px + horizontal padding.
-  return Math.round(Math.min(maxWidth, Math.max(editing ? Math.min(96, maxWidth) : 24, longest * 6.5 + 16)))
 }
 
 function nodeContainsPoint(
@@ -1694,8 +1653,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                       <span
                         title={text}
                         className={cn(
-                          'box-border block w-full border bg-background px-2 py-0.5 text-center text-[11px] font-medium leading-snug tracking-tight shadow-sm',
-                          'whitespace-pre-line break-words',
+                          'box-border block w-full overflow-hidden border bg-background px-2 py-0.5 text-center text-[11px] font-medium leading-snug tracking-tight shadow-sm',
+                          'whitespace-pre-line break-words [overflow-wrap:anywhere]',
                           isSelected && 'ring-1 ring-sky-400/40',
                         )}
                         style={{

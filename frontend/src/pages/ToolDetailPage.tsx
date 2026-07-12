@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense, lazy } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
+import { Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { APP_NAME } from '@/constants'
 import { useAppConfig } from '@/hooks/use-app-config'
@@ -15,14 +16,18 @@ import { DesignerMenubar } from '@/components/designer/DesignerMenubar'
 import { ShareDialog } from '@/components/designer/ShareDialog'
 import { PropertiesPanel } from '@/components/designer/PropertiesPanel'
 import { PagesBar } from '@/components/designer/PagesBar'
+import { GenerateFlowchartChat } from '@/components/designer/GenerateFlowchartChat'
+import { diagramFromFlowchartPlan } from '@/components/designer/flowchart-from-generation'
 import { computeCenteredViewport, zoomViewportAt } from '@/components/designer/viewport-utils'
 import { createDiagramHistoryStack } from '@/components/designer/diagram-history'
 import { resolveDesignerPalette, mergePaletteWithCloudProviders } from '@/utils/resolve-designer-palette'
 import { useAzurePalette } from '@/hooks/use-azure-palette'
 import { useCloudPalette } from '@/hooks/use-cloud-palette'
+import { useServerLlmConfig } from '@/hooks/use-server-llm-config'
 import { STORAGE_KEYS } from '@/constants'
 import { exportDiagram } from '@/components/designer/diagram-export'
 import { downloadJson } from '@/utils/download'
+import { Button } from '@/components/ui/button'
 import {
   createNodeId,
   createPage,
@@ -33,6 +38,7 @@ import {
   type Viewport,
 } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
+import type { FlowchartGenerationPlan } from '@/types/flowchart-generation'
 
 const CodeExportPanel = lazy(() =>
   import('@/components/designer/CodeExportPanel').then((module) => ({
@@ -54,12 +60,13 @@ function loadDocument(toolId: string): DiagramDocument {
 
 /** Standalone tool workspace (opened in its own tab, no site navbar):
  *  an n8n-style canvas designer with multiple pages. The shape palette
- *  comes from the tool's JSON `designer` config; AI generation (Eleven Nodes
- *  Engine) is coming soon. */
+ *  comes from the tool's JSON `designer` config; Diagram Generator can chat
+ *  with Eleven Nodes AI to draft flowcharts. */
 export default function ToolDetailPage() {
   const { toolId = '' } = useParams()
   const { megaMenu, navbar } = useAppConfig()
   const { isDark } = useTheme()
+  const { configured: llmConfigured } = useServerLlmConfig()
 
   const isDiagramGenerator = toolId === 'ai-flowchart'
 
@@ -105,6 +112,7 @@ export default function ToolDetailPage() {
   const [showGrid, setShowGrid] = useState(true)
   const [codeExportOpen, setCodeExportOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [aiChatOpen, setAiChatOpen] = useState(false)
   const canvasAreaRef = useRef<HTMLDivElement>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
 
@@ -284,6 +292,24 @@ export default function ToolDetailPage() {
     centerViewport()
   }, [centerViewport])
 
+  const handleFlowchartGenerated = useCallback(
+    (plan: FlowchartGenerationPlan) => {
+      const { diagram: nextDiagram, title } = diagramFromFlowchartPlan(plan, paletteById)
+      handleChange(() => nextDiagram)
+      setSelection(null)
+      if (title.trim()) {
+        setDoc((previous) => ({
+          ...previous,
+          pages: previous.pages.map((page) =>
+            page.id === previous.activePageId ? { ...page, name: title.trim().slice(0, 48) } : page,
+          ),
+        }))
+      }
+      requestAnimationFrame(() => applyCenteredViewport(nextDiagram))
+    },
+    [paletteById, handleChange, applyCenteredViewport],
+  )
+
   const duplicateSelection = useCallback(() => {
     if (selection?.kind !== 'node') return
     handleChange((previous) => {
@@ -445,7 +471,24 @@ export default function ToolDetailPage() {
           )}
         </div>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {isDiagramGenerator && (
+            <Button
+              type="button"
+              size="sm"
+              variant={aiChatOpen ? 'secondary' : 'default'}
+              className={
+                aiChatOpen
+                  ? 'h-8 gap-1.5'
+                  : 'h-8 gap-1.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-500/20 hover:from-violet-500 hover:to-fuchsia-500'
+              }
+              onClick={() => setAiChatOpen((open) => !open)}
+              aria-pressed={aiChatOpen}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {aiChatOpen ? 'Close AI' : 'Chat with AI'}
+            </Button>
+          )}
           <ProfileMenu />
         </div>
       </div>
@@ -547,6 +590,14 @@ export default function ToolDetailPage() {
             onDelete={deletePage}
           />
         </div>
+        {isDiagramGenerator && aiChatOpen && (
+          <GenerateFlowchartChat
+            onClose={() => setAiChatOpen(false)}
+            diagramName={activePage.name}
+            llmConfigured={llmConfigured}
+            onAcceptDraft={handleFlowchartGenerated}
+          />
+        )}
         {!codeExportOpen && !isDiagramGenerator && (
           <PropertiesPanel
             diagram={diagram}
