@@ -1,8 +1,9 @@
 from copy import deepcopy
-from pathlib import Path
 
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 
+from app.db.models import Page, User, Workflow, Workspace, WorkspaceMember
 from app.main import app
 from app.modules.workflows.runtime import DryRunAgentFactory, WorkflowRuntimeService
 
@@ -48,30 +49,42 @@ SAMPLE_SPEC = {
 }
 
 
-def test_save_and_load_workflow_build_spec(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        "app.api.routes.workflows.DATA_ROOT",
-        tmp_path / "workflows",
-    )
-    monkeypatch.setattr(
-        "app.api.routes.workflows.REPO_ROOT",
-        tmp_path,
-    )
-
+def test_save_and_load_workflow_build_spec(isolated_database):
+    headers = {
+        "X-User-Id": "acct_test",
+        "X-User-Email": "owner@example.com",
+        "X-User-Name": "Test%20Owner",
+        "X-Workspace-Name": "Test%20Workspace",
+        "X-Account-Type": "company",
+    }
     put = client.put(
         "/api/workflows/ws_test/pages/page_test",
         json=SAMPLE_SPEC,
+        headers=headers,
     )
     assert put.status_code == 200
     body = put.json()
     assert body["workspaceId"] == "ws_test"
     assert body["pageId"] == "page_test"
     assert body["workflowId"] == "wf_test"
-    assert Path(body["filePath"]).name == "page_test.json"
+    assert body["databaseRecordId"]
+
+    update = client.put(
+        "/api/workflows/ws_test/pages/page_test",
+        json=SAMPLE_SPEC,
+        headers=headers,
+    )
+    assert update.status_code == 200
+    assert update.json()["databaseRecordId"] == body["databaseRecordId"]
 
     get = client.get("/api/workflows/ws_test/pages/page_test")
     assert get.status_code == 200
     assert get.json()["meta"]["workflowId"] == "wf_test"
+
+    with isolated_database() as session:
+        for model in (User, Workspace, WorkspaceMember, Page, Workflow):
+            count = session.scalar(select(func.count()).select_from(model))
+            assert count == 1
 
 
 def executable_spec() -> dict:
@@ -138,9 +151,7 @@ def executable_spec() -> dict:
     return spec
 
 
-def save_executable_spec(client: TestClient, tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("app.api.routes.workflows.DATA_ROOT", tmp_path / "workflows")
-    monkeypatch.setattr("app.api.routes.workflows.REPO_ROOT", tmp_path)
+def save_executable_spec(client: TestClient) -> None:
     response = client.put(
         "/api/workflows/ws_test/pages/page_test",
         json=executable_spec(),
@@ -148,8 +159,8 @@ def save_executable_spec(client: TestClient, tmp_path, monkeypatch) -> None:
     assert response.status_code == 200
 
 
-def test_validate_compiles_json_into_execution_layers(tmp_path, monkeypatch) -> None:
-    save_executable_spec(client, tmp_path, monkeypatch)
+def test_validate_compiles_json_into_execution_layers() -> None:
+    save_executable_spec(client)
 
     response = client.post("/api/workflows/ws_test/pages/page_test/validate")
 
@@ -161,8 +172,8 @@ def test_validate_compiles_json_into_execution_layers(tmp_path, monkeypatch) -> 
     assert any(issue["code"] == "approval_required" for issue in body["issues"])
 
 
-def test_test_endpoint_executes_dependencies_without_model_calls(tmp_path, monkeypatch) -> None:
-    save_executable_spec(client, tmp_path, monkeypatch)
+def test_test_endpoint_executes_dependencies_without_model_calls() -> None:
+    save_executable_spec(client)
 
     response = client.post(
         "/api/workflows/ws_test/pages/page_test/test",
@@ -178,8 +189,8 @@ def test_test_endpoint_executes_dependencies_without_model_calls(tmp_path, monke
     assert writer_dependencies["research"]["agentId"] == "research"
 
 
-def test_execute_requires_human_approval_before_creating_provider(tmp_path, monkeypatch) -> None:
-    save_executable_spec(client, tmp_path, monkeypatch)
+def test_execute_requires_human_approval_before_creating_provider() -> None:
+    save_executable_spec(client)
 
     response = client.post(
         "/api/workflows/ws_test/pages/page_test/execute",
@@ -190,8 +201,8 @@ def test_execute_requires_human_approval_before_creating_provider(tmp_path, monk
     assert response.json()["detail"]["requiredEdgeIds"] == ["research-to-writer"]
 
 
-def test_execute_uses_compiled_workflow_with_injected_agent_factory(tmp_path, monkeypatch) -> None:
-    save_executable_spec(client, tmp_path, monkeypatch)
+def test_execute_uses_compiled_workflow_with_injected_agent_factory(monkeypatch) -> None:
+    save_executable_spec(client)
     runtime = WorkflowRuntimeService(
         execution_factory_builder=lambda model_config: DryRunAgentFactory()
     )
@@ -210,7 +221,7 @@ def test_execute_uses_compiled_workflow_with_injected_agent_factory(tmp_path, mo
     assert response.json()["status"] == "completed"
 
 
-def test_validate_reports_dependency_cycles(tmp_path, monkeypatch) -> None:
+def test_validate_reports_dependency_cycles() -> None:
     spec = executable_spec()
     spec["edges"].append(
         {
@@ -223,8 +234,6 @@ def test_validate_reports_dependency_cycles(tmp_path, monkeypatch) -> None:
             "approvalMessage": "",
         }
     )
-    monkeypatch.setattr("app.api.routes.workflows.DATA_ROOT", tmp_path / "workflows")
-    monkeypatch.setattr("app.api.routes.workflows.REPO_ROOT", tmp_path)
     put = client.put("/api/workflows/ws_test/pages/page_test", json=spec)
     assert put.status_code == 200
 

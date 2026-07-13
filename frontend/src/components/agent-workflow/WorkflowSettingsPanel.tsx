@@ -23,9 +23,17 @@ interface WorkflowSettingsPanelProps {
 const EXECUTION_TYPES: { value: WorkflowExecutionType; label: string; description: string }[] = [
   { value: 'sequential', label: 'Sequential', description: 'Agents execute one after another.' },
   { value: 'parallel', label: 'Parallel', description: 'Independent branches run concurrently.' },
-  { value: 'conditional', label: 'Conditional', description: 'Router decides the next path.' },
+  {
+    value: 'conditional',
+    label: 'Handoff / conditional',
+    description: 'Router hands off to the next specialist path.',
+  },
   { value: 'group-chat', label: 'Group chat', description: 'Agents collaborate in a shared thread.' },
-  { value: 'dependency', label: 'Dependency', description: 'Cross-workflow dependencies gate execution.' },
+  {
+    value: 'dependency',
+    label: 'Magnetic / dependency',
+    description: 'Upstream producers gate downstream agents.',
+  },
   {
     value: 'human-in-the-loop',
     label: 'Human-in-the-loop',

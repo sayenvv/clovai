@@ -40,6 +40,8 @@ class GeneratedAgent(BaseModel):
     palette_id: str = Field(default="aw-agent", max_length=40)
     instructions: str = Field(default="", max_length=8000)
     tools: list[str] = Field(default_factory=list, max_length=6)
+    x: float | None = Field(default=None, ge=0, le=8000)
+    y: float | None = Field(default=None, ge=0, le=8000)
 
 
 class GeneratedEdge(BaseModel):
@@ -95,6 +97,19 @@ def _normalize_plan_dict(raw: dict) -> dict:
         if key in seen_keys:
             key = f"{key}_{index + 1}"
         seen_keys.add(key)
+
+        position: dict = {}
+        raw_x = agent.get("x")
+        raw_y = agent.get("y")
+        try:
+            if raw_x is not None and raw_y is not None:
+                x_value = float(raw_x)
+                y_value = float(raw_y)
+                if 0 <= x_value <= 8000 and 0 <= y_value <= 8000:
+                    position = {"x": x_value, "y": y_value}
+        except (TypeError, ValueError):
+            position = {}
+
         normalized_agents.append(
             {
                 "key": key,
@@ -103,6 +118,7 @@ def _normalize_plan_dict(raw: dict) -> dict:
                 "palette_id": _normalize_palette_id(str(agent.get("palette_id") or "aw-agent")),
                 "instructions": str(agent.get("instructions") or "")[:8000],
                 "tools": [str(tool)[:80] for tool in (agent.get("tools") or [])[:6]],
+                **position,
             }
         )
 
@@ -183,6 +199,8 @@ def _template_plan(prompt: str, workflow_name: str) -> WorkflowGenerationPlan:
                     "### Guidelines\n- Output structured steps for the next agent.\n"
                     "- Keep the plan actionable and brief."
                 ),
+                x=80,
+                y=160,
             ),
             GeneratedAgent(
                 key=worker_key,
@@ -195,6 +213,8 @@ def _template_plan(prompt: str, workflow_name: str) -> WorkflowGenerationPlan:
                     "### Guidelines\n- Follow the prior agent output.\n"
                     "- Return a polished final answer."
                 ),
+                x=380,
+                y=160,
             ),
         ],
         edges=[GeneratedEdge(from_key=planner_key, to_key=worker_key)],
@@ -215,7 +235,9 @@ def _json_schema_prompt() -> str:
         '      "description": "What this agent does",\n'
         '      "palette_id": "aw-agent|aw-llm-agent|aw-specialist|aw-planner|aw-reviewer|aw-router|aw-tool-agent",\n'
         '      "instructions": "Markdown system prompt",\n'
-        '      "tools": ["optional tool label"]\n'
+        '      "tools": ["optional tool label"],\n'
+        '      "x": 80,\n'
+        '      "y": 160\n'
         "    }\n"
         "  ],\n"
         '  "edges": [\n'
@@ -228,6 +250,10 @@ def _json_schema_prompt() -> str:
         "- Use aw-reviewer and human_approval=true for human review steps.\n"
         "- Use aw-router for branching workflows.\n"
         "- Instructions must be Markdown with ## Role and ## Guidelines.\n"
+        "- Always include canvas positions x,y for every agent (numbers).\n"
+        "- Lay out left-to-right: start near x=80, space agents ~300px apart horizontally.\n"
+        "- For parallel branches, keep the same x and stagger y by ~180px.\n"
+        "- Keep y values between 80 and 700 so the diagram stays readable.\n"
         "- Return JSON only. No markdown fences or commentary."
     )
 

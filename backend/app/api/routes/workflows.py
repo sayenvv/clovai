@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
-import json
-from datetime import UTC, datetime
-from pathlib import Path
+from typing import Annotated
+from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.db import get_db_session
+from app.db.repositories import (
+    PersistenceActor,
+    load_workflow_definition,
+    save_workflow_definition,
+)
 
 from app.modules.workflows.workflow_generator import (
     GenerateWorkflowRequest,
@@ -38,9 +46,6 @@ from app.modules.workflows import (
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
-# Repo root: backend/app/api/routes/workflows.py -> parents[4]
-REPO_ROOT = Path(__file__).resolve().parents[4]
-DATA_ROOT = REPO_ROOT / "data" / "workflows"
 RUNTIME_SERVICE = WorkflowRuntimeService()
 
 
@@ -82,12 +87,6 @@ async def generate_workflow_route(body: GenerateWorkflowRequest) -> GenerateWork
         raise HTTPException(status_code=502, detail=str(error)) from error
 
 
-def _spec_path(workspace_id: str, page_id: str) -> Path:
-    _validate_path_identifier("workspace_id", workspace_id)
-    _validate_path_identifier("page_id", page_id)
-    return DATA_ROOT / workspace_id / f"{page_id}.json"
-
-
 def _validate_path_identifier(name: str, value: str) -> None:
     if (
         not value
@@ -101,12 +100,18 @@ def _validate_path_identifier(name: str, value: str) -> None:
         raise HTTPException(status_code=400, detail=f"Invalid {name}")
 
 
-def _load_workflow_spec(workspace_id: str, page_id: str) -> WorkflowBuildSpec:
-    path = _spec_path(workspace_id, page_id)
-    if not path.is_file():
+def _load_workflow_spec(
+    session: Session,
+    workspace_id: str,
+    page_id: str,
+) -> WorkflowBuildSpec:
+    _validate_path_identifier("workspace_id", workspace_id)
+    _validate_path_identifier("page_id", page_id)
+    payload = load_workflow_definition(session, workspace_id, page_id)
+    if payload is None:
         raise HTTPException(status_code=404, detail="Workflow build spec not found")
     try:
-        return WorkflowBuildSpec.model_validate_json(path.read_text(encoding="utf-8"))
+        return WorkflowBuildSpec.model_validate(payload)
     except ValidationError as error:
         raise HTTPException(
             status_code=422,
@@ -126,28 +131,46 @@ async def save_workflow_build_spec(
     workspace_id: str,
     page_id: str,
     spec: WorkflowBuildSpec,
+    session: Annotated[Session, Depends(get_db_session)],
+    user_id: Annotated[str | None, Header(alias="X-User-Id")] = None,
+    user_email: Annotated[str | None, Header(alias="X-User-Email")] = None,
+    user_name: Annotated[str | None, Header(alias="X-User-Name")] = None,
+    user_role: Annotated[str | None, Header(alias="X-User-Role")] = None,
+    workspace_name: Annotated[str | None, Header(alias="X-Workspace-Name")] = None,
+    account_type: Annotated[str | None, Header(alias="X-Account-Type")] = None,
 ) -> dict:
-    """Write build spec JSON to data/workflows/{workspace_id}/{page_id}.json."""
+    """Upsert a workflow JSON document and provision its parent records."""
+    _validate_path_identifier("workspace_id", workspace_id)
+    _validate_path_identifier("page_id", page_id)
     if spec.meta.workspace_id != workspace_id or spec.meta.page_id != page_id:
         raise HTTPException(
             status_code=409,
             detail="Path workspace/page IDs must match spec.meta",
         )
 
-    saved_at = datetime.now(UTC).isoformat()
-    payload = spec.model_dump(mode="json", by_alias=True)
-    payload["meta"]["savedAt"] = saved_at
+    resolved_user_id = user_id or "local-user"
+    actor = PersistenceActor(
+        user_id=resolved_user_id,
+        email=(user_email or f"{resolved_user_id}@local.invalid").strip().lower(),
+        full_name=unquote(user_name) if user_name else "Local user",
+        role=user_role if user_role in {"student", "developer", "manager", "founder", "other"} else "developer",
+        workspace_name=unquote(workspace_name) if workspace_name else spec.meta.workflow_name,
+        account_type=account_type if account_type in {"company", "individual"} else "individual",
+    )
 
-    path = _spec_path(workspace_id, page_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    try:
+        stored = save_workflow_definition(session, spec, actor)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except IntegrityError as error:
+        raise HTTPException(status_code=409, detail="Workflow ownership data conflicts") from error
 
     return {
-        "workspaceId": workspace_id,
-        "pageId": page_id,
-        "workflowId": spec.meta.workflow_id,
-        "filePath": str(path.relative_to(REPO_ROOT)),
-        "savedAt": saved_at,
+        "workspaceId": stored.workspace_id,
+        "pageId": stored.page_id,
+        "workflowId": stored.workflow_id,
+        "databaseRecordId": stored.record_id,
+        "savedAt": stored.saved_at.isoformat(),
     }
 
 
@@ -155,8 +178,11 @@ async def save_workflow_build_spec(
 async def load_workflow_build_spec(
     workspace_id: str,
     page_id: str,
+    session: Annotated[Session, Depends(get_db_session)],
 ) -> dict:
-    return _load_workflow_spec(workspace_id, page_id).model_dump(mode="json", by_alias=True)
+    return _load_workflow_spec(session, workspace_id, page_id).model_dump(
+        mode="json", by_alias=True
+    )
 
 
 @router.post(
@@ -167,8 +193,9 @@ async def load_workflow_build_spec(
 async def validate_workflow(
     workspace_id: str,
     page_id: str,
+    session: Annotated[Session, Depends(get_db_session)],
 ) -> WorkflowValidationReport:
-    spec = _load_workflow_spec(workspace_id, page_id)
+    spec = _load_workflow_spec(session, workspace_id, page_id)
     return RUNTIME_SERVICE.validate(spec)
 
 
@@ -181,8 +208,9 @@ async def test_workflow(
     workspace_id: str,
     page_id: str,
     request: WorkflowExecutionRequest,
+    session: Annotated[Session, Depends(get_db_session)],
 ) -> WorkflowRunResponse:
-    spec = _load_workflow_spec(workspace_id, page_id)
+    spec = _load_workflow_spec(session, workspace_id, page_id)
     try:
         return await RUNTIME_SERVICE.test(spec, request)
     except WorkflowDefinitionError as error:
@@ -205,8 +233,9 @@ async def execute_workflow(
     workspace_id: str,
     page_id: str,
     request: WorkflowExecutionRequest,
+    session: Annotated[Session, Depends(get_db_session)],
 ) -> WorkflowRunResponse:
-    spec = _load_workflow_spec(workspace_id, page_id)
+    spec = _load_workflow_spec(session, workspace_id, page_id)
     try:
         return await RUNTIME_SERVICE.execute(spec, request)
     except WorkflowDefinitionError as error:

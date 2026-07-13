@@ -4,6 +4,8 @@ import type { WorkflowExecutionType, WorkflowValidationIssue } from '@/types/age
 import { resolveAgentType } from './agent-workflow-defaults'
 import { isAgentNode, isToolNode } from './tool-agent-mapping'
 
+export { autoLayoutNodes, layoutWorkflowAgents } from './workflow-layout'
+
 export function inferWorkflowType(diagram: Diagram): WorkflowExecutionType {
   const hasHumanEdge = diagram.edges.some((edge) => edge.connector?.humanApproval)
   if (hasHumanEdge) return 'human-in-the-loop'
@@ -117,17 +119,6 @@ export function validateWorkflow(
   })
 
   return issues
-}
-
-export function autoLayoutNodes(nodes: DiagramNode[]): DiagramNode[] {
-  const cols = 3
-  const gapX = 280
-  const gapY = 160
-  return nodes.map((node, index) => ({
-    ...node,
-    x: 80 + (index % cols) * gapX,
-    y: 80 + Math.floor(index / cols) * gapY,
-  }))
 }
 
 export function isAgentPaletteId(paletteId: string): boolean {

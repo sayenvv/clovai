@@ -3,6 +3,8 @@ export type WorkflowGenerationExecutionType =
   | 'parallel'
   | 'human-in-the-loop'
   | 'conditional'
+  | 'group-chat'
+  | 'dependency'
 
 export interface GeneratedWorkflowAgent {
   key: string
@@ -11,6 +13,9 @@ export interface GeneratedWorkflowAgent {
   paletteId: string
   instructions: string
   tools: string[]
+  /** Optional canvas position from the LLM / template. */
+  x?: number
+  y?: number
 }
 
 export interface GeneratedWorkflowEdge {

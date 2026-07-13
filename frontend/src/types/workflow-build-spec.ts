@@ -128,6 +128,6 @@ export interface WorkflowBuildSaveResult {
   pageId: string
   workflowId: string
   localStorageKey: string
-  filePath?: string
+  databaseRecordId?: string
   savedAt: string
 }

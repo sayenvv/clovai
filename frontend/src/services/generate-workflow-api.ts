@@ -18,6 +18,8 @@ function mapPlan(body: {
     palette_id: string
     instructions: string
     tools: string[]
+    x?: number
+    y?: number
   }>
   edges: Array<{
     from_key: string
@@ -37,6 +39,9 @@ function mapPlan(body: {
       paletteId: agent.palette_id,
       instructions: agent.instructions,
       tools: agent.tools ?? [],
+      ...(typeof agent.x === 'number' && typeof agent.y === 'number'
+        ? { x: agent.x, y: agent.y }
+        : {}),
     })),
     edges: body.edges.map((edge) => ({
       fromKey: edge.from_key,

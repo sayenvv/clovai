@@ -1,4 +1,5 @@
 import type { WorkflowBuildSpec } from '@/types/workflow-build-spec'
+import { projectIdentityHeaders } from '@/services/api-identity'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
@@ -6,7 +7,7 @@ export interface WorkflowBuildApiResponse {
   workspaceId: string
   pageId: string
   workflowId: string
-  filePath: string
+  databaseRecordId: string
   savedAt: string
 }
 
@@ -65,7 +66,7 @@ async function errorMessage(response: Response): Promise<string> {
   return text
 }
 
-/** PUT build spec to backend — writes `data/workflows/{workspaceId}/{pageId}.json`. */
+/** PUT a build spec to the backend PostgreSQL workflow store. */
 export async function saveWorkflowBuildSpecToApi(
   spec: WorkflowBuildSpec,
 ): Promise<WorkflowBuildApiResponse> {
@@ -74,7 +75,10 @@ export async function saveWorkflowBuildSpecToApi(
     `${API_BASE}/api/workflows/${encodeURIComponent(workspaceId)}/pages/${encodeURIComponent(pageId)}`,
     {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...projectIdentityHeaders(),
+      },
       body: JSON.stringify(spec, null, 2),
     },
   )
@@ -86,7 +90,7 @@ export async function saveWorkflowBuildSpecToApi(
   return response.json() as Promise<WorkflowBuildApiResponse>
 }
 
-/** GET build spec from backend filesystem. */
+/** GET a build spec from backend PostgreSQL storage. */
 export async function loadWorkflowBuildSpecFromApi(
   workspaceId: string,
   pageId: string,

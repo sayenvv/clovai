@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ReactNode,
 } from 'react'
 import { LayoutGrid, Maximize2, Play, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -47,6 +48,9 @@ interface AgentWorkflowCanvasProps {
   onBackToDesign?: () => void
   onUndo?: () => void
   onRedo?: () => void
+  /** Empty-canvas template picker. */
+  emptyState?: ReactNode
+  hideEmptyState?: boolean
 }
 export const AgentWorkflowCanvas = memo(
   forwardRef<AgentWorkflowCanvasHandle, AgentWorkflowCanvasProps>(function AgentWorkflowCanvas(
@@ -67,6 +71,8 @@ export const AgentWorkflowCanvas = memo(
       onBackToDesign,
       onUndo,
       onRedo,
+      emptyState,
+      hideEmptyState = false,
     },
     ref,
   ) {
@@ -127,13 +133,19 @@ export const AgentWorkflowCanvas = memo(
     return (
       <DevProfiler id="AgentWorkflowCanvas">
         <div ref={canvasAreaRef} className="relative min-h-0 flex-1 bg-canvas">
-          {diagram.nodes.length === 0 && (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-              <div className="max-w-sm rounded-xl border border-dashed border-violet-500/30 bg-card/80 px-6 py-5 text-center shadow-sm backdrop-blur-sm">
-                <p className="text-sm font-medium text-foreground">Build your agent workflow</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Add agents from the sidebar, or use <span className="font-medium text-violet-600 dark:text-violet-300">Generate</span> in the header to draft a full workflow from a prompt.
-                </p>
+          {diagram.nodes.length === 0 && !hideEmptyState && (
+            <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-3xl">
+              <div className="pointer-events-auto w-full max-w-4xl rounded-[1.5rem] border border-violet-500/25 bg-card/75 px-5 py-5 shadow-[0_35px_80px_-30px_rgba(15,23,42,0.65)] backdrop-blur-3xl">
+                {emptyState ?? (
+                  <>
+                    <p className="text-sm font-medium text-foreground">Build your agent workflow</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Add agents from the sidebar, or use{' '}
+                      <span className="font-medium text-violet-600 dark:text-violet-300">Generate</span>{' '}
+                      in the header to draft a full workflow from a prompt.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           )}

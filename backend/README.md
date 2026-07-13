@@ -5,11 +5,15 @@ FastAPI service for Eleven Nodes configuration, workflow, agent, and execution A
 ## Local setup
 
 ```bash
+# From the repository root, create the PostgreSQL database.
+docker compose up -d postgres
+
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
 cp .env.example .env
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
@@ -28,9 +32,34 @@ Expected response:
 {"status":"healthy","service":"eleven-nodes-api"}
 ```
 
+## Database
+
+PostgreSQL is the source of truth for users, workspaces, workspace memberships,
+pages, and workflow JSON. The default local connection is:
+
+```text
+postgresql+psycopg://clovai:clovai@localhost:5432/clovai
+```
+
+Override `DATABASE_URL` in `backend/.env` for another environment. Apply schema
+changes with Alembic rather than creating tables from application startup:
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+The initial migration creates:
+
+- `users`
+- `workspaces`
+- `workspace_members`
+- `pages`
+- `workflows` (`definition` is PostgreSQL `JSONB`)
+
 ## Workflow runtime
 
-The workflow API uses the saved JSON definition as its source of truth:
+The workflow API uses the JSON definition saved in PostgreSQL as its source of truth:
 
 ```bash
 # 1. Save JSON

@@ -56,7 +56,13 @@ import {
   InsertWorkflowDialog,
 } from '@/components/agent-workflow/InsertWorkflowDialog'
 import { GenerateWorkflowDialog } from '@/components/agent-workflow/GenerateWorkflowDialog'
+import {
+  WorkflowTemplateGrid,
+  WorkflowTemplatesDialog,
+} from '@/components/agent-workflow/WorkflowTemplatesDialog'
+import type { WorkflowTemplate } from '@/components/agent-workflow/agent-workflow-templates'
 import { diagramFromGenerationPlanSafe } from '@/components/agent-workflow/workflow-from-generation'
+import { Button } from '@/components/ui/button'
 import { diagramContentCenter } from '@/components/agent-workflow/sub-workflow-ops'
 import {
   attachToolToAgent,
@@ -64,8 +70,9 @@ import {
   listAgentNodes,
   pickAgentForToolPlacement,
   removeToolsMappedToAgent,
+  syncMappedToolLayout,
 } from '@/components/agent-workflow/tool-agent-mapping'
-import { autoLayoutNodes, inferWorkflowType, validateWorkflow } from '@/components/agent-workflow/validate-workflow'
+import { autoLayoutNodes, inferWorkflowType, layoutWorkflowAgents, validateWorkflow } from '@/components/agent-workflow/validate-workflow'
 import {
   AGENT_WORKFLOW_TOOL_ID,
   clearExecutionSnapshot,
@@ -133,6 +140,8 @@ export default function AgentWorkflowPage() {
   const [testInput, setTestInput] = useState('{\n  "query": "Summarize the quarterly report"\n}')
   const [agentPickOpen, setAgentPickOpen] = useState(false)
   const [generateWorkflowOpen, setGenerateWorkflowOpen] = useState(false)
+  const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [showCanvasEmptyState, setShowCanvasEmptyState] = useState(true)
   const [executionPanelOpen, setExecutionPanelOpen] = useState(false)
   const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('trace')
@@ -341,7 +350,21 @@ export default function AgentWorkflowPage() {
   }, [])
 
   const runAutoLayout = useCallback(() => {
-    handleChange((previous) => ({ ...previous, nodes: autoLayoutNodes(previous.nodes) }))
+    handleChange((previous) => {
+      const agentNodes = previous.nodes.filter((node) => isAgentNode(node))
+      const otherNodes = previous.nodes.filter((node) => !isAgentNode(node))
+      const laidOutAgents =
+        previous.edges.length > 0
+          ? layoutWorkflowAgents(
+              agentNodes,
+              previous.edges.map((edge) => ({ from: edge.from, to: edge.to })),
+            )
+          : autoLayoutNodes(agentNodes)
+      return syncMappedToolLayout({
+        ...previous,
+        nodes: [...laidOutAgents, ...otherNodes],
+      })
+    })
     requestAnimationFrame(() => canvasRef.current?.fitView())
     toast.success('Auto-layout applied')
   }, [handleChange])
@@ -370,6 +393,20 @@ export default function AgentWorkflowPage() {
     [invalidateValidation, paletteById, setDoc],
   )
 
+  const handleApplyTemplate = useCallback(
+    (template: WorkflowTemplate) => {
+      if (diagram.nodes.length > 0) {
+        const confirmed = window.confirm(
+          'Replace the current canvas with this template? Unsaved layout on this page will be overwritten.',
+        )
+        if (!confirmed) return
+      }
+      handleWorkflowGenerated(template.plan)
+      toast.success(`Applied “${template.title}” — edit agents and connectors as needed`)
+    },
+    [diagram.nodes.length, handleWorkflowGenerated],
+  )
+
   const handleSave = useCallback(async () => {
     const nextDoc = {
       ...doc,
@@ -388,8 +425,8 @@ export default function AgentWorkflowPage() {
       syncToDisk: true,
       serverModelConfig,
     })
-    if (result.filePath) {
-      toast.success(`Draft saved · build spec → ${result.filePath}`)
+    if (result.databaseRecordId) {
+      toast.success('Draft saved to PostgreSQL')
     } else {
       toast.success('Draft saved · build spec cached locally')
     }
@@ -661,6 +698,7 @@ export default function AgentWorkflowPage() {
             canConvertToSubWorkflow={subWorkflow.canConvert}
             onInsertWorkflow={() => subWorkflow.openInsert('workflow')}
             onInsertImport={() => subWorkflow.openInsert('import')}
+            onInsertTemplates={() => setTemplatesOpen(true)}
             onCreateWorkflowTab={handleCreateWorkflowTab}
             onZoomIn={() => zoomBy(1.2)}
             onZoomOut={() => zoomBy(1 / 1.2)}
@@ -724,6 +762,42 @@ export default function AgentWorkflowPage() {
                       onBackToDesign={handleBackToDesign}
                       onUndo={handleUndo}
                       onRedo={handleRedo}
+                      hideEmptyState={!showCanvasEmptyState}
+                      emptyState={
+                        <div className="space-y-4">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground">
+                                Start from a workflow template
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Sequential, Parallel, Handoff, Group chat, Magnetic, or Human-in-the-loop —
+                                then customize on the canvas. Or{' '}
+                                <button
+                                  type="button"
+                                  className="font-medium text-violet-600 underline-offset-2 hover:underline dark:text-violet-300"
+                                  onClick={() => setGenerateWorkflowOpen(true)}
+                                >
+                                  generate with AI
+                                </button>
+                                .
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 sm:justify-end">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className="h-8"
+                                onClick={() => setShowCanvasEmptyState(false)}
+                              >
+                                Dismiss
+                              </Button>
+                            </div>
+                          </div>
+                          <WorkflowTemplateGrid compact onSelect={handleApplyTemplate} />
+                        </div>
+                      }
                     />
                   ) : (
                     <WorkflowBuildCodeView
@@ -840,6 +914,12 @@ export default function AgentWorkflowPage() {
         workflowName={workflowName}
         llmConfigured={llmConfigured}
         onGenerated={(plan) => handleWorkflowGenerated(plan)}
+      />
+
+      <WorkflowTemplatesDialog
+        open={templatesOpen}
+        onOpenChange={setTemplatesOpen}
+        onSelect={handleApplyTemplate}
       />
 
       <UnsavedChangesDialog

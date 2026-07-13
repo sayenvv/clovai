@@ -12,6 +12,7 @@ import {
   FilePlus2,
   Keyboard,
   Layers,
+  LayoutTemplate,
   Maximize,
   Moon,
   PanelRight,
@@ -101,6 +102,7 @@ interface DesignerMenubarProps {
   canConvertToSubWorkflow?: boolean
   onInsertWorkflow?: () => void
   onInsertImport?: () => void
+  onInsertTemplates?: () => void
   onCreateWorkflowTab?: () => void
   /** Allow opening code view when the canvas is empty (workflow build spec). */
   viewCodeWhenEmpty?: boolean
@@ -163,6 +165,7 @@ export const DesignerMenubar = memo(function DesignerMenubar({
   canConvertToSubWorkflow = false,
   onInsertWorkflow,
   onInsertImport,
+  onInsertTemplates,
   onCreateWorkflowTab,
   viewCodeWhenEmpty = false,
   codeViewActive,
@@ -242,6 +245,11 @@ export const DesignerMenubar = memo(function DesignerMenubar({
             <DropdownMenuItem onSelect={onInsertWorkflow}>
               <Layers /> Workflow…
             </DropdownMenuItem>
+            {onInsertTemplates && (
+              <DropdownMenuItem onSelect={onInsertTemplates}>
+                <LayoutTemplate /> Templates…
+              </DropdownMenuItem>
+            )}
             {onCreateWorkflowTab && (
               <DropdownMenuItem onSelect={onCreateWorkflowTab}>
                 <Plus /> New workflow tab

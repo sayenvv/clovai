@@ -79,7 +79,7 @@ interface PersistWorkflowBuildOptions {
   serverModelConfig?: WorkflowModelConfig
 }
 
-/** Build spec from the canvas and persist to localStorage. API sync only when `syncToDisk` is true (explicit Save). */
+/** Build a spec, cache it locally, and sync it to PostgreSQL on explicit Save. */
 export async function persistWorkflowBuildSpec({
   doc,
   pageId,
@@ -122,7 +122,7 @@ export async function persistWorkflowBuildSpec({
   if (syncToDisk) {
     try {
       const apiResult = await saveWorkflowBuildSpecToApi(spec)
-      result.filePath = apiResult.filePath
+      result.databaseRecordId = apiResult.databaseRecordId
     } catch (error) {
       if (requireApi) throw error
       // Backend may be offline in local dev — localStorage still holds the spec.
