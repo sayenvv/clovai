@@ -71,7 +71,7 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
     <div
       className={cn(
         'relative flex w-[260px] flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm transition-[border-color,box-shadow] duration-300',
-        isRunning && 'border-violet-600 ring-2 ring-violet-500/35 shadow-lg shadow-violet-500/20',
+        isRunning && 'border-red-600 ring-2 ring-red-500/35 shadow-lg shadow-red-500/20',
         isWaiting && 'border-amber-500/50 ring-1 ring-amber-500/25',
         isCompleted && !isRunning && 'border-emerald-500/40 ring-1 ring-emerald-500/15',
         isPending && !isCompleted && !isRunning && !isExternal && 'border-border/80',
@@ -86,7 +86,7 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
           'flex items-start gap-2.5 border-b border-border/60 px-3 py-2.5',
           isExternal
             ? 'bg-gradient-to-r from-amber-500/10 to-orange-500/5'
-            : 'bg-gradient-to-r from-violet-500/10 to-blue-500/5',
+            : 'bg-gradient-to-r from-red-500/10 to-blue-500/5',
         )}
       >
         <AgentNodeAvatar
@@ -103,7 +103,7 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
               variant="outline"
               className={cn(
                 'h-4 border-0 px-1.5 text-[9px] font-medium uppercase tracking-wide',
-                isRunning && 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
+                isRunning && 'bg-red-500/15 text-red-700 dark:text-red-300',
                 isCompleted && !isRunning && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
                 isWaiting && 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
                 isPending && 'bg-muted text-muted-foreground',

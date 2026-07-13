@@ -82,9 +82,9 @@ function MiniCanvasPreview() {
         }}
       />
       <div className="relative space-y-2.5">
-        <div className="h-8 w-[70%] rounded-lg border border-violet-400/30 bg-gradient-to-r from-violet-500/20 to-blue-500/10" />
+        <div className="h-8 w-[70%] rounded-lg border border-red-400/30 bg-gradient-to-r from-red-500/20 to-blue-500/10" />
         <div className="ml-6 h-7 w-[55%] rounded-lg border border-blue-400/30 bg-gradient-to-r from-blue-500/15 to-cyan-500/10" />
-        <div className="h-8 w-[65%] rounded-lg border border-violet-400/20 bg-gradient-to-r from-violet-500/15 to-indigo-500/10" />
+        <div className="h-8 w-[65%] rounded-lg border border-red-400/20 bg-gradient-to-r from-red-500/15 to-indigo-500/10" />
       </div>
       <p className="relative mt-4 text-[11px] font-medium tracking-wide text-white/50">
         Canvas preview · Agent workflow
@@ -256,7 +256,7 @@ function ActionCard({
       className={cn(
         'group relative flex w-full items-start gap-4 overflow-hidden rounded-xl border px-4 py-4 text-left transition-all duration-300',
         accent === 'primary'
-          ? 'border-cyan-300/30 bg-gradient-to-br from-cyan-400/10 via-white/[0.04] to-violet-500/10 hover:border-cyan-300/50'
+          ? 'border-cyan-300/30 bg-gradient-to-br from-cyan-400/10 via-white/[0.04] to-red-500/10 hover:border-cyan-300/50'
           : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]',
       )}
     >

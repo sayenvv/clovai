@@ -69,14 +69,14 @@ export const GenerateWorkflowDialog = memo(function GenerateWorkflowDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl gap-0 overflow-hidden border-violet-500/20 p-0 sm:rounded-2xl">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/60 to-transparent" />
+      <DialogContent className="max-w-2xl gap-0 overflow-hidden border-red-500/20 p-0 sm:rounded-2xl">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-400/60 to-transparent" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.12),transparent_55%)]" />
 
-        <div className="relative border-b border-violet-500/15 bg-gradient-to-br from-violet-500/[0.08] via-fuchsia-500/[0.04] to-background px-6 py-5">
+        <div className="relative border-b border-red-500/15 bg-gradient-to-br from-red-500/[0.08] via-rose-500/[0.04] to-background px-6 py-5">
           <DialogHeader className="space-y-3 text-left">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-lg shadow-violet-500/30">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/30">
                 <Wand2 className="h-5 w-5" />
               </div>
               <div>
@@ -99,7 +99,7 @@ export const GenerateWorkflowDialog = memo(function GenerateWorkflowDialog({
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Customer onboarding automation"
-              className="h-9 border-violet-500/15 bg-background/80"
+              className="h-9 border-red-500/15 bg-background/80"
             />
           </div>
 
@@ -114,8 +114,8 @@ export const GenerateWorkflowDialog = memo(function GenerateWorkflowDialog({
             </div>
             <div
               className={cn(
-                'overflow-hidden rounded-xl border border-violet-500/15 bg-gradient-to-b from-violet-500/[0.03] to-background',
-                'shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] focus-within:border-violet-500/30 focus-within:shadow-[0_0_0_3px_rgba(139,92,246,0.08)]',
+                'overflow-hidden rounded-xl border border-red-500/15 bg-gradient-to-b from-red-500/[0.03] to-background',
+                'shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] focus-within:border-red-500/30 focus-within:shadow-[0_0_0_3px_rgba(139,92,246,0.08)]',
               )}
             >
               <Textarea
@@ -138,8 +138,8 @@ export const GenerateWorkflowDialog = memo(function GenerateWorkflowDialog({
                   type="button"
                   onClick={() => setPrompt(example)}
                   className={cn(
-                    'rounded-full border border-violet-500/15 bg-violet-500/[0.04] px-3 py-1.5 text-left text-[11px] leading-snug text-muted-foreground',
-                    'transition-colors hover:border-violet-500/30 hover:bg-violet-500/[0.08] hover:text-foreground',
+                    'rounded-full border border-red-500/15 bg-red-500/[0.04] px-3 py-1.5 text-left text-[11px] leading-snug text-muted-foreground',
+                    'transition-colors hover:border-red-500/30 hover:bg-red-500/[0.08] hover:text-foreground',
                   )}
                 >
                   {example}
@@ -156,7 +156,7 @@ export const GenerateWorkflowDialog = memo(function GenerateWorkflowDialog({
           <Button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-500/25 hover:from-violet-500 hover:to-fuchsia-500"
+            className="bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md shadow-red-500/25 hover:from-red-500 hover:to-rose-500"
           >
             {isGenerating ? (
               <>

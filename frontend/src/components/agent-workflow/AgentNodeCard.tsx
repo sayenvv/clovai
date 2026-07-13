@@ -99,8 +99,8 @@ export const AgentNodeCard = memo(function AgentNodeCard({
                 ? 'border-indigo-500 ring-2 ring-indigo-500/30 shadow-md'
                 : 'border-indigo-500/35 hover:border-indigo-400/50 hover:shadow'
               : isSelected
-                ? 'border-violet-500 ring-2 ring-violet-500/30 shadow-md'
-                : 'border-border/80 hover:border-violet-400/50 hover:shadow',
+                ? 'border-red-500 ring-2 ring-red-500/30 shadow-md'
+                : 'border-border/80 hover:border-red-400/50 hover:shadow',
         className,
       )}
     >
@@ -116,8 +116,8 @@ export const AgentNodeCard = memo(function AgentNodeCard({
               : isExternal
                 ? 'bg-gradient-to-r from-amber-500/10 to-orange-500/5'
                 : subWorkflow
-                  ? 'bg-gradient-to-r from-indigo-500/10 to-violet-500/5'
-                  : 'bg-gradient-to-r from-violet-500/10 to-blue-500/5',
+                  ? 'bg-gradient-to-r from-indigo-500/10 to-red-500/5'
+                  : 'bg-gradient-to-r from-red-500/10 to-blue-500/5',
         )}
       >
         <AgentNodeAvatar paletteId={node.paletteId} toolNode={toolNode} size="xs" />
@@ -156,7 +156,7 @@ export const AgentNodeCard = memo(function AgentNodeCard({
                   : 'border-blue-500/30 bg-blue-500/5 text-blue-700 dark:text-blue-300'
                 : executorNode
                   ? 'border-orange-500/30 bg-orange-500/5 text-orange-700 dark:text-orange-300'
-                  : 'border-violet-500/30 bg-violet-500/5 text-violet-700 dark:text-violet-300',
+                  : 'border-red-500/30 bg-red-500/5 text-red-700 dark:text-red-300',
             )}
           >
             {toolNode ? (mcpTool ? 'MCP' : 'Tool') : executorNode ? 'Executor' : statusStyle.label}

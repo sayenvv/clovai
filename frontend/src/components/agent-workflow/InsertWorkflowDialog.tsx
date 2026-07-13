@@ -153,10 +153,10 @@ export const InsertWorkflowDialog = memo(function InsertWorkflowDialog({
                         onClick={() => setSelectedPageId(page.id)}
                         className={cn(
                           'flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors',
-                          selected ? 'bg-violet-500/10 text-foreground' : 'hover:bg-muted/60',
+                          selected ? 'bg-red-500/10 text-foreground' : 'hover:bg-muted/60',
                         )}
                       >
-                        <Layers className="h-4 w-4 shrink-0 text-violet-500" />
+                        <Layers className="h-4 w-4 shrink-0 text-red-500" />
                         <span className="min-w-0 flex-1 truncate font-medium">{page.name}</span>
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {agentCount} agent{agentCount === 1 ? '' : 's'}
@@ -166,7 +166,7 @@ export const InsertWorkflowDialog = memo(function InsertWorkflowDialog({
                   })}
                 </div>
               ) : (
-                <div className="rounded-lg border border-dashed border-violet-500/30 bg-violet-500/5 px-4 py-5 text-center">
+                <div className="rounded-lg border border-dashed border-red-500/30 bg-red-500/5 px-4 py-5 text-center">
                   <p className="text-sm font-medium text-foreground">No other workflows yet</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Create a workflow in a new tab, build it there, then come back here to attach
@@ -279,13 +279,13 @@ function ModeOption({
       onClick={onClick}
       className={cn(
         'flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-left transition-colors',
-        active ? 'border-violet-500/40 bg-violet-500/5' : 'hover:bg-muted/40',
+        active ? 'border-red-500/40 bg-red-500/5' : 'hover:bg-muted/40',
       )}
     >
       <span
         className={cn(
           'mt-0.5 h-4 w-4 shrink-0 rounded-full border',
-          active ? 'border-violet-500 bg-violet-500' : 'border-muted-foreground/40',
+          active ? 'border-red-500 bg-red-500' : 'border-muted-foreground/40',
         )}
       />
       <div>

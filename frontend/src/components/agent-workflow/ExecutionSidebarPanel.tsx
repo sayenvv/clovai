@@ -48,7 +48,7 @@ const STATUS_LABELS: Record<WorkflowRunStatus, string> = {
 
 const STATUS_STYLES: Record<WorkflowRunStatus, string> = {
   idle: 'bg-muted text-muted-foreground',
-  running: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  running: 'bg-red-500/10 text-red-700 dark:text-red-300',
   'waiting-approval': 'bg-amber-500/10 text-amber-800 dark:text-amber-200',
   completed: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
   failed: 'bg-red-500/10 text-red-700 dark:text-red-300',
@@ -96,7 +96,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
         {runStatus !== 'idle' && (
           <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
             <div className="flex flex-wrap items-center gap-2">
-              {runStatus === 'running' && <Loader2 className="h-4 w-4 animate-spin text-violet-600" />}
+              {runStatus === 'running' && <Loader2 className="h-4 w-4 animate-spin text-red-600" />}
               {runStatus === 'completed' && (
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               )}
@@ -264,7 +264,7 @@ function ChatBubble({
       <span
         className={cn(
           'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
-          isUser ? 'bg-emerald-500/15 text-emerald-600' : 'bg-violet-500/15 text-violet-600',
+          isUser ? 'bg-emerald-500/15 text-emerald-600' : 'bg-red-500/15 text-red-600',
         )}
       >
         {isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
@@ -274,7 +274,7 @@ function ChatBubble({
           'min-w-0 max-w-[90%] rounded-xl border px-3 py-2 text-xs leading-relaxed shadow-sm',
           isUser
             ? 'border-emerald-600/35 bg-emerald-50 text-foreground dark:border-emerald-500/20 dark:bg-emerald-500/5'
-            : 'border-violet-600/35 bg-violet-50 text-foreground dark:border-violet-500/20 dark:bg-violet-500/5',
+            : 'border-red-600/35 bg-red-50 text-foreground dark:border-red-500/20 dark:bg-red-500/5',
         )}
       >
         {label && (

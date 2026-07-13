@@ -73,8 +73,8 @@ const BLOCK_ICONS: Record<AgentType, LucideIcon> = {
 
 const BLOCK_STYLES: Record<string, { icon: string; hover: string }> = {
   agent: {
-    icon: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
-    hover: 'hover:border-violet-400/50 hover:bg-violet-500/5',
+    icon: 'bg-red-500/10 text-red-600 dark:text-red-300',
+    hover: 'hover:border-red-400/50 hover:bg-red-500/5',
   },
   tool: {
     icon: 'bg-blue-500/10 text-blue-600 dark:text-blue-300',

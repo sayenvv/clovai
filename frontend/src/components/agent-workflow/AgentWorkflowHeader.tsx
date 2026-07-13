@@ -53,7 +53,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
         <button
           type="button"
           onClick={onNavigateHome}
-          className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+          className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
           aria-label={`${APP_NAME} home`}
         >
           <Logo size={LOGO_SIZE_WORKSPACE} />
@@ -87,7 +87,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
         </Badge>
         <Badge
           variant="outline"
-          className="shrink-0 border-violet-500/30 bg-violet-500/5 text-[10px] font-normal capitalize text-violet-700 dark:text-violet-300"
+          className="shrink-0 border-red-500/30 bg-red-500/5 text-[10px] font-normal capitalize text-red-700 dark:text-red-300"
         >
           {status}
         </Badge>
@@ -115,7 +115,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
             variant="outline"
             size="sm"
             onClick={onGenerate}
-            className="border-violet-500/25 bg-gradient-to-r from-violet-500/[0.08] to-fuchsia-500/[0.06] text-violet-700 hover:from-violet-500/[0.12] hover:to-fuchsia-500/[0.1] dark:text-violet-300"
+            className="border-red-500/25 bg-gradient-to-r from-red-500/[0.08] to-rose-500/[0.06] text-red-700 hover:from-red-500/[0.12] hover:to-rose-500/[0.1] dark:text-red-300"
           >
             <Sparkles className="h-3.5 w-3.5" />
             Generate
@@ -129,7 +129,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
           <ShieldCheck className="h-3.5 w-3.5" />
           Validate
         </Button>
-        <Button size="sm" disabled={!isValidated} onClick={onDeploy} className="bg-violet-600 hover:bg-violet-700">
+        <Button size="sm" disabled={!isValidated} onClick={onDeploy} className="bg-red-600 hover:bg-red-700">
           <Rocket className="h-3.5 w-3.5" />
           Deploy
         </Button>

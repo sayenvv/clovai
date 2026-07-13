@@ -42,7 +42,7 @@ const EXECUTION_TYPES: { value: WorkflowExecutionType; label: string; descriptio
 ]
 
 const TAB_TRIGGER_CLASS =
-  'h-8 flex-1 rounded-none border-b-2 border-transparent text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none'
+  'h-8 flex-1 rounded-none border-b-2 border-transparent text-xs data-[state=active]:border-red-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none'
 
 export const WorkflowSettingsPanel = memo(function WorkflowSettingsPanel({
   executionType,
@@ -131,7 +131,7 @@ function StatCard({
 }) {
   return (
     <div className="rounded-lg border border-border bg-muted/30 px-2.5 py-2 text-center">
-      <Icon className="mx-auto mb-1 h-3.5 w-3.5 text-violet-500" />
+      <Icon className="mx-auto mb-1 h-3.5 w-3.5 text-red-500" />
       <p className="text-sm font-semibold">{value}</p>
       <p className="text-[10px] text-muted-foreground">{label}</p>
     </div>

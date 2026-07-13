@@ -364,7 +364,7 @@ function MultiSelectState({
 }) {
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-300">
+      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-red-500/10 text-red-600 dark:text-red-300">
         <GitBranch className="h-5 w-5" />
       </div>
       <p className="text-sm font-medium text-foreground">{count} items selected</p>

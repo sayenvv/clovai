@@ -114,7 +114,7 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
         onPointerDown={onResizePointerDown}
         className="absolute inset-x-0 top-0 z-20 flex h-2 -translate-y-1/2 cursor-ns-resize touch-none items-center justify-center"
       >
-        <span className="h-1 w-10 rounded-full bg-border transition-colors hover:bg-violet-500/50" />
+        <span className="h-1 w-10 rounded-full bg-border transition-colors hover:bg-red-500/50" />
       </div>
 
       <Tabs
@@ -126,7 +126,7 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
           <TabsList className="h-9 flex-wrap bg-transparent p-0 pl-3">
             <TabsTrigger
               value="trace"
-              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent"
+              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-red-500 data-[state=active]:bg-transparent"
             >
               <Clock className="mr-1.5 h-3.5 w-3.5" />
               Trace
@@ -138,14 +138,14 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
             </TabsTrigger>
             <TabsTrigger
               value="logs"
-              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent"
+              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-red-500 data-[state=active]:bg-transparent"
             >
               <Terminal className="mr-1.5 h-3.5 w-3.5" />
               Logs
             </TabsTrigger>
             <TabsTrigger
               value="errors"
-              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent"
+              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-red-500 data-[state=active]:bg-transparent"
             >
               <XCircle className="mr-1.5 h-3.5 w-3.5" />
               Errors
@@ -157,7 +157,7 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
             </TabsTrigger>
             <TabsTrigger
               value="warnings"
-              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent"
+              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-red-500 data-[state=active]:bg-transparent"
             >
               <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
               Warnings
@@ -169,7 +169,7 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
             </TabsTrigger>
             <TabsTrigger
               value="validation"
-              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-violet-500 data-[state=active]:bg-transparent"
+              className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-red-500 data-[state=active]:bg-transparent"
             >
               Validation
               {validationCount > 0 && (
@@ -199,7 +199,7 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
               <ol className="space-y-2">
                 {trace.map((step, index) => (
                   <li key={step.id} className="flex gap-3 rounded-lg border border-border px-3 py-2">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500/15 text-[10px] font-semibold text-red-700 dark:text-red-300">
                       {index + 1}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -395,7 +395,7 @@ function TraceStatusBadge({ status }: { status: ExecutionTraceStep['status'] }) 
     pending: 'bg-slate-500/10 text-slate-600',
     running: 'bg-blue-500/10 text-blue-600',
     completed: 'bg-emerald-500/10 text-emerald-600',
-    'waiting-approval': 'bg-violet-500/10 text-violet-600',
+    'waiting-approval': 'bg-red-500/10 text-red-600',
     error: 'bg-red-500/10 text-red-600',
     skipped: 'bg-muted text-muted-foreground',
   }

@@ -775,7 +775,7 @@ export default function AgentWorkflowPage() {
                                 then customize on the canvas. Or{' '}
                                 <button
                                   type="button"
-                                  className="font-medium text-violet-600 underline-offset-2 hover:underline dark:text-violet-300"
+                                  className="font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-300"
                                   onClick={() => setGenerateWorkflowOpen(true)}
                                 >
                                   generate with AI

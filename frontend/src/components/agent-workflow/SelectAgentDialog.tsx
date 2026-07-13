@@ -43,7 +43,7 @@ export const SelectAgentDialog = memo(function SelectAgentDialog({
                 onOpenChange(false)
               }}
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-violet-500/10 text-violet-600">
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-red-500/10 text-red-600">
                 <Bot className="h-4 w-4" />
               </span>
               <span className="text-left">

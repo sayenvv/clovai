@@ -22,7 +22,7 @@ export const WorkflowModelConfigPanel = memo(function WorkflowModelConfigPanel({
   return (
     <div className="space-y-5">
       {readOnly ? (
-        <div className="rounded-xl border border-violet-500/20 bg-gradient-to-r from-violet-500/5 to-fuchsia-500/5 px-3.5 py-3">
+        <div className="rounded-xl border border-red-500/20 bg-gradient-to-r from-red-500/5 to-rose-500/5 px-3.5 py-3">
           <p className="text-xs font-medium text-foreground">Server-managed configuration</p>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
             All LLM calls use the backend <code className="text-[10px]">.env</code> settings.

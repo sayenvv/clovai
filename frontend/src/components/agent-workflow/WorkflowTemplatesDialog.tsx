@@ -59,13 +59,13 @@ export const WorkflowTemplateGrid = memo(function WorkflowTemplateGrid({
             type="button"
             onClick={() => onSelect(template)}
             className={cn(
-              'group flex flex-col rounded-xl border border-violet-500/15 bg-card/80 text-left transition-all',
-              'hover:-translate-y-0.5 hover:border-violet-500/40 hover:bg-violet-500/[0.04] hover:shadow-md',
+              'group flex flex-col rounded-xl border border-red-500/15 bg-card/80 text-left transition-all',
+              'hover:-translate-y-0.5 hover:border-red-500/40 hover:bg-red-500/[0.04] hover:shadow-md',
               compact ? 'gap-1.5 p-3' : 'gap-2 p-3.5',
             )}
           >
             <div className="flex items-start gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-300">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-300">
                 <Icon className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
@@ -109,8 +109,8 @@ export const WorkflowTemplatesDialog = memo(function WorkflowTemplatesDialog({
 }: WorkflowTemplatesDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl gap-0 overflow-hidden border-violet-500/20 p-0 sm:rounded-2xl">
-        <div className="border-b border-violet-500/15 bg-gradient-to-br from-violet-500/[0.08] via-fuchsia-500/[0.04] to-background px-6 py-5">
+      <DialogContent className="max-w-2xl gap-0 overflow-hidden border-red-500/20 p-0 sm:rounded-2xl">
+        <div className="border-b border-red-500/15 bg-gradient-to-br from-red-500/[0.08] via-rose-500/[0.04] to-background px-6 py-5">
           <DialogHeader className="space-y-2 text-left">
             <DialogTitle className="text-lg tracking-tight">Workflow templates</DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">

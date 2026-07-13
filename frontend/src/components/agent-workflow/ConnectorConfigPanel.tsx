@@ -46,7 +46,7 @@ export const ConnectorConfigPanel = memo(function ConnectorConfigPanel({
     <div className="flex h-full flex-col">
       {connector.humanApproval && (
         <div className="border-b border-border px-4 py-2">
-          <Badge className="bg-violet-600 text-[10px] hover:bg-violet-600">
+          <Badge className="bg-red-600 text-[10px] hover:bg-red-600">
             <ShieldCheck className="mr-1 h-3 w-3" />
             Human approval
           </Badge>
@@ -140,7 +140,7 @@ export const ConnectorConfigPanel = memo(function ConnectorConfigPanel({
         </TabsContent>
 
         <TabsContent value="approval" className="mt-3 flex-1 overflow-y-auto space-y-4 pb-4">
-          <div className="flex items-center justify-between rounded-lg border border-violet-500/30 bg-violet-500/5 px-3 py-2.5">
+          <div className="flex items-center justify-between rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2.5">
             <div>
               <p className="text-sm font-medium">Human approval required</p>
               <p className="text-xs text-muted-foreground">Pause workflow until a reviewer approves</p>

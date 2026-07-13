@@ -60,7 +60,7 @@ const PROVIDER_META: Record<string, { initials: string; avatar: string }> = {
   },
   LlamaIndex: {
     initials: 'LI',
-    avatar: 'bg-violet-500/15 text-violet-700 ring-violet-500/20 dark:text-violet-300',
+    avatar: 'bg-red-500/15 text-red-700 ring-red-500/20 dark:text-red-300',
   },
   'Hugging Face': {
     initials: 'HF',
@@ -225,7 +225,7 @@ export function AgentNodeAvatar({
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-600 ring-1 ring-violet-500/15 dark:text-violet-300',
+        'flex shrink-0 items-center justify-center rounded-lg bg-red-500/15 text-red-600 ring-1 ring-red-500/15 dark:text-red-300',
         size === 'xs' ? 'h-7 w-7' : 'h-9 w-9',
       )}
     >

@@ -225,7 +225,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             ? 'bg-emerald-500/15 text-emerald-600'
             : isSystem
               ? 'bg-muted text-muted-foreground'
-              : 'bg-violet-500/15 text-violet-600',
+              : 'bg-red-500/15 text-red-600',
         )}
       >
         {isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
@@ -237,7 +237,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             ? 'border-emerald-600/35 bg-emerald-50 text-foreground dark:border-emerald-500/20 dark:bg-emerald-500/5'
             : isSystem
               ? 'border-border/60 bg-muted/60 text-muted-foreground dark:border-border/60 dark:bg-muted/30'
-              : 'border-violet-600/35 bg-violet-50 text-foreground dark:border-violet-500/20 dark:bg-violet-500/5',
+              : 'border-red-600/35 bg-red-50 text-foreground dark:border-red-500/20 dark:bg-red-500/5',
         )}
       >
         <pre className={cn('whitespace-pre-wrap font-sans', isUser && message.content.startsWith('{') && 'font-mono text-[11px]')}>
