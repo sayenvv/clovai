@@ -7,6 +7,8 @@ const PALETTE_AGENT_TYPE: Record<string, AgentType> = {
   'aw-agent': 'llm',
   'aw-tool': 'tool',
   'aw-mcp-tool': 'tool',
+  'aw-skill': 'tool',
+  'aw-integration': 'tool',
   'aw-executor': 'executor',
   'aw-start': 'trigger',
   'aw-event': 'trigger',
@@ -87,18 +89,58 @@ function findLibraryBlock(paletteId: string): SidebarBlock | undefined {
   )
 }
 
-/** Default canvas size for agent cards — fits header, description, and tools footer. */
+/** Compact agent card body (docks hang below). */
 export const AGENT_NODE_WIDTH = 240
-export const AGENT_NODE_HEIGHT = 156
-export const TOOL_NODE_WIDTH = 200
-export const TOOL_NODE_HEIGHT = 108
+export const AGENT_NODE_HEIGHT = 64
+export const TOOL_NODE_WIDTH = 180
+export const TOOL_NODE_HEIGHT = 56
 export const TOOL_PALETTE_ID = 'aw-tool'
 export const MCP_TOOL_PALETTE_ID = 'aw-mcp-tool'
+export const SKILL_PALETTE_ID = 'aw-skill'
+export const INTEGRATION_PALETTE_ID = 'aw-integration'
+export const MEMORY_PALETTE_ID = 'aw-memory'
 export const EXECUTOR_PALETTE_ID = 'aw-executor'
 export const AGENT_PALETTE_ID = 'aw-agent'
 
+/** Palettes that always render as child strips (even before mapping). */
+const ALWAYS_CHILD_PALETTE_IDS = new Set([
+  TOOL_PALETTE_ID,
+  MCP_TOOL_PALETTE_ID,
+  SKILL_PALETTE_ID,
+  INTEGRATION_PALETTE_ID,
+])
+
+/** Palettes that attach under an agent when added from the library. */
+const MAPPED_CHILD_PALETTE_IDS = new Set([
+  ...ALWAYS_CHILD_PALETTE_IDS,
+  MEMORY_PALETTE_ID,
+])
+
+export function isAlwaysChildPalette(paletteId: string): boolean {
+  return ALWAYS_CHILD_PALETTE_IDS.has(paletteId)
+}
+
 export function isMappedToolPalette(paletteId: string): boolean {
-  return paletteId === TOOL_PALETTE_ID || paletteId === MCP_TOOL_PALETTE_ID
+  return MAPPED_CHILD_PALETTE_IDS.has(paletteId)
+}
+
+export function childKindForPalette(
+  paletteId: string,
+): 'tool' | 'mcp' | 'skill' | 'integration' | 'memory' | null {
+  switch (paletteId) {
+    case TOOL_PALETTE_ID:
+      return 'tool'
+    case MCP_TOOL_PALETTE_ID:
+      return 'mcp'
+    case SKILL_PALETTE_ID:
+      return 'skill'
+    case INTEGRATION_PALETTE_ID:
+      return 'integration'
+    case MEMORY_PALETTE_ID:
+      return 'memory'
+    default:
+      return null
+  }
 }
 
 function slugifyExecutorId(label: string): string {
@@ -154,14 +196,19 @@ export function defaultAgentConfig(paletteId: string, label: string): AgentNodeC
   const agentType = resolveAgentType(paletteId)
   const block = findLibraryBlock(paletteId)
 
-  if (isMappedToolPalette(paletteId)) {
+  if (isAlwaysChildPalette(paletteId)) {
     const isMcp = paletteId === MCP_TOOL_PALETTE_ID
+    const kind = childKindForPalette(paletteId)
     return {
       agentType: 'tool',
       description: block?.description ?? '',
       instructions: isMcp
         ? `Connect to the ${label} MCP server and use its tools during workflow execution.`
-        : `Execute ${label} integrations for the mapped agent.`,
+        : kind === 'skill'
+          ? `Apply the ${label} skill during agent reasoning.`
+          : kind === 'integration'
+            ? `Use the ${label} integration for this agent.`
+            : `Execute ${label} for the mapped agent.`,
       model: 'gpt-4.1',
       temperature: 0.2,
       tools: isMcp ? [] : defaultToolsForPalette(paletteId),
@@ -241,7 +288,7 @@ export function defaultConnectorConfig(): ConnectorConfig {
 export function enrichAgentNode(node: DiagramNode, item: PaletteItem): DiagramNode {
   if (node.agent) return node
   if (!node.paletteId.startsWith('aw-')) return node
-  const isTool = isMappedToolPalette(node.paletteId)
+  const isTool = isAlwaysChildPalette(node.paletteId) || Boolean(node.mappedAgentId)
   return {
     ...node,
     width: node.width ?? (isTool ? TOOL_NODE_WIDTH : AGENT_NODE_WIDTH),
@@ -254,12 +301,21 @@ export function enrichDiagram(diagram: Diagram, paletteById: Map<string, Palette
   let nodesChanged = false
   const nodes = diagram.nodes.map((node) => {
     if (!node.paletteId?.startsWith('aw-')) return node
-    const isTool = isMappedToolPalette(node.paletteId)
+    const isTool = isAlwaysChildPalette(node.paletteId) || Boolean(node.mappedAgentId)
     const minW = isTool ? TOOL_NODE_WIDTH : AGENT_NODE_WIDTH
     const minH = isTool ? TOOL_NODE_HEIGHT : AGENT_NODE_HEIGHT
     if (node.agent) {
-      const width = !node.width || (!isTool && node.width < minW) ? minW : node.width
-      const height = !node.height || (!isTool && node.height < minH) ? minH : node.height
+      // Keep agent bodies on the compact card size (docks hang outside the box).
+      const width = isTool
+        ? !node.width || node.width < minW
+          ? minW
+          : node.width
+        : AGENT_NODE_WIDTH
+      const height = isTool
+        ? !node.height || node.height < minH
+          ? minH
+          : node.height
+        : AGENT_NODE_HEIGHT
       if (width === node.width && height === node.height) return node
       nodesChanged = true
       return { ...node, width, height }

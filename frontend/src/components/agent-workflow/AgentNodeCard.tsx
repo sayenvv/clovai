@@ -1,36 +1,91 @@
-import { memo } from 'react'
-import { Wrench } from 'lucide-react'
+import { memo, type MouseEvent, type PointerEvent } from 'react'
+import { Bot, Plus } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import { Badge } from '@/components/ui/badge'
 import {
+  childKindForPalette,
   isExternalAgentPalette,
   resolveExternalAgent,
 } from '@/components/agent-workflow/agent-workflow-defaults'
-import { isSubWorkflowNode } from '@/components/agent-workflow/sub-workflow-ops'
 import { AgentNodeAvatar } from '@/components/agent-workflow/external-agent-ui'
 import { isExecutorNode, isMcpToolNode, isToolNode } from '@/components/agent-workflow/tool-agent-mapping'
 import type { DiagramNode } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
-import type { AgentStatus } from '@/types/agent-workflow'
 
-const STATUS_STYLES: Record<AgentStatus, { dot: string; label: string }> = {
-  active: { dot: 'bg-emerald-500', label: 'Active' },
-  inactive: { dot: 'bg-slate-400', label: 'Inactive' },
-  draft: { dot: 'bg-amber-400', label: 'Draft' },
+/** Dock / config actions from the agent card. */
+export type AgentAttachAction =
+  | 'model'
+  | 'tool'
+  | 'skill'
+  | 'integration'
+  | 'memory'
+  | 'mcp'
+  | 'knowledge'
+  | 'config'
+
+export interface MappedChildCounts {
+  tool: number
+  skill: number
+  memory: number
+  integration: number
+  mcp: number
 }
 
+export type AgentDockSlot = {
+  id: 'model' | 'memory' | 'tool' | 'knowledge'
+  label: string
+  action: AgentAttachAction
+  required?: boolean
+  /** Horizontal center as a fraction of node width (0–1) for map-line anchors. */
+  x: number
+}
+
+/**
+ * Bottom capability docks — diamonds on the edge, dangling `+` when empty.
+ * Keep `x` in sync with DesignerCanvas mapping lines.
+ */
+export const AGENT_DOCK_SLOTS: AgentDockSlot[] = [
+  { id: 'model', label: 'Chat Model', action: 'model', required: true, x: 0.14 },
+  { id: 'memory', label: 'Memory', action: 'memory', x: 0.38 },
+  { id: 'tool', label: 'Tool', action: 'tool', x: 0.62 },
+  { id: 'knowledge', label: 'Knowledge', action: 'knowledge', x: 0.86 },
+]
+
+/** Space reserved visually under the card for labels / plus. */
+export const AGENT_DOCK_HANG = 44
+
 const TYPE_LABELS: Record<string, string> = {
-  llm: 'LLM Agent',
+  llm: 'AI Agent',
   specialist: 'Specialist',
-  tool: 'Tool Agent',
+  tool: 'Tool',
   planner: 'Planner',
-  human: 'Human Review',
+  human: 'Human review',
   router: 'Router',
   trigger: 'Trigger',
   memory: 'Memory',
   output: 'Output',
   control: 'Control',
   executor: 'Executor',
+}
+
+function stopCanvas(event: MouseEvent | PointerEvent) {
+  event.stopPropagation()
+  event.preventDefault()
+}
+
+function childKindLabel(paletteId: string): string {
+  const kind = childKindForPalette(paletteId)
+  switch (kind) {
+    case 'mcp':
+      return 'MCP'
+    case 'skill':
+      return 'Skill'
+    case 'integration':
+      return 'Integration'
+    case 'memory':
+      return 'Memory'
+    default:
+      return 'Tool'
+  }
 }
 
 interface AgentNodeCardProps {
@@ -40,8 +95,8 @@ interface AgentNodeCardProps {
   isDark: boolean
   className?: string
   mappedUnderLabel?: string
-  /** Canvas tool nodes mapped under this agent (agent cards only). */
-  mappedToolCount?: number
+  mappedChildren?: MappedChildCounts
+  onAttachAction?: (agentId: string, action: AgentAttachAction) => void
 }
 
 export const AgentNodeCard = memo(function AgentNodeCard({
@@ -50,136 +105,186 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   isSelected,
   className,
   mappedUnderLabel,
-  mappedToolCount = 0,
+  mappedChildren = { tool: 0, skill: 0, memory: 0, integration: 0, mcp: 0 },
+  onAttachAction,
 }: AgentNodeCardProps) {
   const agent = node.agent
-  const status = agent?.status ?? 'draft'
-  const statusStyle = STATUS_STYLES[status]
   const toolNode = isToolNode(node)
   const mcpTool = isMcpToolNode(node)
   const executorNode = isExecutorNode(node)
-  const toolCount = toolNode ? (agent?.tools.length ?? 0) : mappedToolCount
   const externalAgent = resolveExternalAgent(node.paletteId)
-  const subWorkflow = isSubWorkflowNode(node)
-  const typeLabel = toolNode
-    ? mcpTool
-      ? 'MCP Tool'
-      : 'Tool'
-    : executorNode
-      ? 'Executor'
-      : subWorkflow
-      ? 'Sub-workflow'
-      : externalAgent
-        ? `${externalAgent.provider} · ${TYPE_LABELS[agent?.agentType ?? 'llm'] ?? item.label}`
-        : (TYPE_LABELS[agent?.agentType ?? 'llm'] ?? item.label)
-  const isExternal = isExternalAgentPalette(node.paletteId)
+  const title =
+    node.label?.trim() ||
+    (externalAgent ? externalAgent.label : TYPE_LABELS[agent?.agentType ?? 'llm'] ?? item.label)
 
-  return (
-    <div
-      className={cn(
-        'flex h-full flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition-shadow',
-        toolNode
-          ? mcpTool
-            ? isSelected
-              ? 'border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
-              : 'border-emerald-500/30 hover:border-emerald-400/50 hover:shadow'
-            : isSelected
-              ? 'border-blue-500 ring-2 ring-blue-500/30 shadow-md'
-              : 'border-blue-500/30 hover:border-blue-400/50 hover:shadow'
-          : executorNode
-            ? isSelected
-              ? 'border-orange-500 ring-2 ring-orange-500/30 shadow-md'
-              : 'border-orange-500/35 hover:border-orange-400/50 hover:shadow'
-            : isExternal
-            ? isSelected
-              ? 'border-amber-500/50 ring-2 ring-amber-500/20 shadow-md'
-              : 'border-amber-500/25 hover:border-amber-400/40 hover:shadow'
-            : subWorkflow
-              ? isSelected
-                ? 'border-indigo-500 ring-2 ring-indigo-500/30 shadow-md'
-                : 'border-indigo-500/35 hover:border-indigo-400/50 hover:shadow'
-              : isSelected
-                ? 'border-red-500 ring-2 ring-red-500/30 shadow-md'
-                : 'border-border/80 hover:border-red-400/50 hover:shadow',
-        className,
-      )}
-    >
+  if (toolNode || executorNode) {
+    const kind = executorNode ? 'Executor' : childKindLabel(node.paletteId)
+
+    return (
       <div
         className={cn(
-          'flex items-center gap-2 border-b border-border/60 px-3 py-2',
-          toolNode
-            ? mcpTool
-              ? 'bg-gradient-to-r from-emerald-500/10 to-teal-500/5'
-              : 'bg-gradient-to-r from-blue-500/10 to-cyan-500/5'
-            : executorNode
-              ? 'bg-gradient-to-r from-orange-500/10 to-amber-500/5'
-              : isExternal
-                ? 'bg-gradient-to-r from-amber-500/10 to-orange-500/5'
-                : subWorkflow
-                  ? 'bg-gradient-to-r from-indigo-500/10 to-red-500/5'
-                  : 'bg-gradient-to-r from-red-500/10 to-blue-500/5',
+          'flex h-full w-full items-center gap-2 overflow-hidden rounded-[10px]',
+          'border border-[#3F3F46] bg-[#27272A] px-2.5',
+          'transition-[border-color,box-shadow] duration-150',
+          isSelected && 'border-[#71717A] shadow-[0_0_0_1px_rgba(113,113,122,0.35)]',
+          className,
+        )}
+        title={mappedUnderLabel ? `${title} · under ${mappedUnderLabel}` : title}
+      >
+        <div className="flex size-6 shrink-0 items-center justify-center text-[#A1A1AA]">
+          <AgentNodeAvatar
+            paletteId={node.paletteId}
+            toolNode={toolNode && !mcpTool}
+            size="xs"
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12px] font-medium leading-tight text-[#F4F4F5]">{title}</p>
+          <p className="mt-px truncate text-[10px] leading-tight text-[#71717A]">{kind}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const configured = Boolean(agent?.model?.trim())
+  const tools = mappedChildren.tool + mappedChildren.mcp
+  const memory = mappedChildren.memory
+  const knowledge = mappedChildren.skill + mappedChildren.integration
+
+  const slotConnected = (id: AgentDockSlot['id']) => {
+    if (id === 'model') return configured
+    if (id === 'tool') return tools > 0
+    if (id === 'memory') return memory > 0
+    return knowledge > 0
+  }
+
+  const slotCount = (id: AgentDockSlot['id']) => {
+    if (id === 'model') return configured ? 1 : 0
+    if (id === 'tool') return tools
+    if (id === 'memory') return memory
+    return knowledge
+  }
+
+  /** Empty ports always show +; multi docks keep + when selected so more can be added. */
+  const showPlus = (slot: AgentDockSlot, connected: boolean) => {
+    if (!onAttachAction) return false
+    if (!connected) return true
+    return (slot.id === 'tool' || slot.id === 'knowledge') && isSelected
+  }
+
+  return (
+    <div className={cn('agent-wf-node group relative h-full w-full overflow-visible', className)}>
+      {/* Card — icon + title only */}
+      <div
+        className={cn(
+          'flex h-full w-full items-center gap-2.5 overflow-hidden rounded-[12px]',
+          'border border-[#3F3F46] bg-[#27272A] px-3',
+          'shadow-[0_2px_10px_rgba(0,0,0,0.28)]',
+          'transition-[border-color,box-shadow] duration-150',
+          'hover:border-[#52525B]',
+          isSelected && 'border-[#71717A] shadow-[0_0_0_1px_rgba(161,161,170,0.35),0_4px_14px_rgba(0,0,0,0.35)]',
         )}
       >
-        <AgentNodeAvatar paletteId={node.paletteId} toolNode={toolNode} size="xs" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">{node.label}</p>
-          <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
-            {typeLabel}
-          </p>
-        </div>
-        <span
-          className={cn('h-2 w-2 shrink-0 rounded-full', statusStyle.dot)}
-          title={statusStyle.label}
-        />
-      </div>
-
-      <div className="flex min-h-[52px] flex-1 flex-col gap-2 px-3 py-2.5">
-        <p className="line-clamp-2 min-h-[2.5rem] text-xs leading-relaxed text-muted-foreground">
-          {toolNode && mappedUnderLabel
-            ? `Mapped under ${mappedUnderLabel}`
-            : mcpTool && agent?.mcpUrl
-              ? agent.mcpUrl.replace(/^https?:\/\//, '').slice(0, 48)
-              : executorNode
-                ? agent?.description || 'Deterministic code step in the workflow.'
-                : subWorkflow
-                  ? agent?.description || 'Nested workflow mounted as a single agent.'
-                  : agent?.description || 'Configure in the properties panel.'}
-        </p>
-        <div className="mt-auto flex shrink-0 items-center justify-between gap-2 pt-0.5">
-          <Badge
-            variant="outline"
-            className={cn(
-              'h-5 px-1.5 text-[10px] font-normal',
-              toolNode
-                ? mcpTool
-                  ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300'
-                  : 'border-blue-500/30 bg-blue-500/5 text-blue-700 dark:text-blue-300'
-                : executorNode
-                  ? 'border-orange-500/30 bg-orange-500/5 text-orange-700 dark:text-orange-300'
-                  : 'border-red-500/30 bg-red-500/5 text-red-700 dark:text-red-300',
-            )}
-          >
-            {toolNode ? (mcpTool ? 'MCP' : 'Tool') : executorNode ? 'Executor' : statusStyle.label}
-          </Badge>
-          {toolNode ? (
-            <span className="text-[10px] text-muted-foreground">
-              {toolCount} integration{toolCount === 1 ? '' : 's'}
-            </span>
-          ) : executorNode ? (
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-              <span className="rounded bg-orange-500/10 px-1.5 py-0.5 font-mono text-[10px] text-orange-700 dark:text-orange-300">
-                {(agent?.executorHandlerKind ?? 'class') === 'function'
-                  ? 'Single-step'
-                  : 'Multi-handler'}
-              </span>
-            </span>
+        <div className="flex size-9 shrink-0 items-center justify-center text-[#E4E4E7]" aria-hidden>
+          {isExternalAgentPalette(node.paletteId) ? (
+            <AgentNodeAvatar paletteId={node.paletteId} size="sm" />
           ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-              <Wrench className="h-3 w-3" />
-              {toolCount} tool{toolCount === 1 ? '' : 's'}
-            </span>
+            <Bot className="size-5 stroke-[1.5]" />
           )}
         </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[14px] font-medium leading-none tracking-[-0.01em] text-[#FAFAFA]">
+            {title}
+          </div>
+        </div>
+      </div>
+
+      {/* Docks */}
+      <div className="pointer-events-none absolute inset-x-0 top-full z-20">
+        {AGENT_DOCK_SLOTS.map((slot) => {
+          const connected = slotConnected(slot.id)
+          const count = slotCount(slot.id)
+          const plus = showPlus(slot, connected)
+
+          return (
+            <div
+              key={slot.id}
+              className="pointer-events-none absolute top-0 -translate-x-1/2"
+              style={{ left: `${slot.x * 100}%` }}
+            >
+              <button
+                type="button"
+                disabled={!onAttachAction}
+                className={cn(
+                  'pointer-events-auto absolute top-0 left-1/2 flex size-3.5 -translate-x-1/2 -translate-y-1/2',
+                  'items-center justify-center',
+                  'focus-visible:outline-none',
+                  !onAttachAction && 'cursor-default',
+                )}
+                title={
+                  connected
+                    ? count > 1
+                      ? `${slot.label} · ${count}`
+                      : slot.label
+                    : `Add ${slot.label.toLowerCase()}`
+                }
+                aria-label={`${slot.label}${count > 0 ? ` (${count})` : ''}`}
+                onPointerDown={stopCanvas}
+                onClick={(event) => {
+                  stopCanvas(event)
+                  onAttachAction?.(node.id, slot.action)
+                }}
+              >
+                <span
+                  className={cn(
+                    'block size-2 rotate-45 border transition-colors duration-150',
+                    connected
+                      ? 'border-[#A1A1AA] bg-[#27272A]'
+                      : 'border-[#52525B] bg-[#27272A] group-hover:border-[#71717A]',
+                  )}
+                  aria-hidden
+                />
+              </button>
+
+              <span
+                className={cn(
+                  'pointer-events-none absolute top-[8px] left-1/2 -translate-x-1/2 whitespace-nowrap',
+                  'text-[9px] font-medium leading-none tracking-wide',
+                  connected ? 'text-[#A1A1AA]' : 'text-[#52525B]',
+                )}
+              >
+                {slot.label}
+                {slot.required ? <span className="text-[#737373]">*</span> : null}
+              </span>
+
+              {plus ? (
+                <div className="pointer-events-none absolute top-[22px] left-1/2 flex -translate-x-1/2 flex-col items-center">
+                  <span className="h-2.5 w-px bg-[#3F3F46]" aria-hidden />
+                  <button
+                    type="button"
+                    className={cn(
+                      'pointer-events-auto flex size-5 items-center justify-center rounded-[4px]',
+                      'border border-[#3F3F46] bg-[#18181B] text-[#A1A1AA]',
+                      'transition-[border-color,color,background-color] duration-150',
+                      'hover:border-[#71717A] hover:bg-[#27272A] hover:text-[#E4E4E7]',
+                      'focus-visible:outline-none',
+                    )}
+                    title={`Add ${slot.label.toLowerCase()}`}
+                    aria-label={`Add ${slot.label}`}
+                    onPointerDown={stopCanvas}
+                    onClick={(event) => {
+                      stopCanvas(event)
+                      onAttachAction?.(node.id, slot.action)
+                    }}
+                  >
+                    <Plus className="size-3" strokeWidth={2} />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

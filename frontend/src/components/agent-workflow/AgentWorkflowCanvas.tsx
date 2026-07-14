@@ -17,6 +17,7 @@ import type { Diagram, DiagramNode, Viewport } from '@/components/designer/diagr
 import type { PaletteItem } from '@/types/config'
 import type { Selection } from '@/components/designer/selection-utils'
 import { canvasInsertAnchor } from '@/components/agent-workflow/hooks/use-sub-workflow-actions'
+import type { AgentAttachAction } from '@/components/agent-workflow/AgentNodeCard'
 import { DevProfiler } from '@/utils/render-profiler'
 
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, scale: 1 }
@@ -48,6 +49,9 @@ interface AgentWorkflowCanvasProps {
   onBackToDesign?: () => void
   onUndo?: () => void
   onRedo?: () => void
+  onNodeAttachAction?: (agentId: string, action: AgentAttachAction) => void
+  /** Insert Human Review (HITL) on a connector. */
+  onInsertHitlOnEdge?: (edgeId: string) => void
   /** Empty-canvas template picker. */
   emptyState?: ReactNode
   hideEmptyState?: boolean
@@ -65,6 +69,8 @@ export const AgentWorkflowCanvas = memo(
       activePageId,
       onAutoLayout,
       transformDroppedNode,
+      onNodeAttachAction,
+      onInsertHitlOnEdge,
       finalizeDroppedNode,
       onOpenExecution,
       executionPanelOpen = false,
@@ -209,6 +215,8 @@ export const AgentWorkflowCanvas = memo(
             selectionDisabled={executionPanelOpen}
             onUndo={onUndo}
             onRedo={onRedo}
+            onNodeAttachAction={onNodeAttachAction}
+            onInsertHitlOnEdge={onInsertHitlOnEdge}
           />
         </div>
       </DevProfiler>

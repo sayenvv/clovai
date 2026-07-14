@@ -11,7 +11,7 @@ const RESIZE_HANDLES: Array<{ handle: ResizeCorner; className: string }> = [
   { handle: 'nw', className: 'left-0 top-0 cursor-nwse-resize' },
   { handle: 'ne', className: 'left-full top-0 cursor-nesw-resize' },
   { handle: 'se', className: 'left-full top-full cursor-nwse-resize' },
-  { handle: 'sw', className: 'left-0 top-full cursor-nesw-resize' },
+  { handle: 'sw', className: 'left-0 top-full cursor-nwse-resize' },
 ]
 
 const CONNECTOR_SIDES: PortSide[] = ['top', 'right', 'bottom', 'left']
@@ -31,16 +31,15 @@ interface NodeSelectionOverlayProps {
   ) => void
   onPortPointerDown: (event: ReactPointerEvent<HTMLButtonElement>, side: PortSide) => void
   activePortSide?: PortSide | null
-  /** Port currently used by a selected connector on this shape. */
   connectedPortSide?: PortSide | null
   isConnectTarget: boolean
-  /** Magnetic snap target while creating a connection. */
   snapPortSide?: PortSide | null
-  /** Soft glow when node is a compatible connect target. */
   compatibleTarget?: boolean
+  /** Agent workflow: hollow vertex ports. Flowchart: chevron handles. */
+  portStyle?: 'chevron' | 'vertex'
 }
 
-/** Figma / draw.io style selection: dashed box, corner resize, edge connector arrows. */
+/** Selection chrome: resize corners + connector ports. */
 export const NodeSelectionOverlay = memo(function NodeSelectionOverlay({
   shape,
   onResizePointerDown,
@@ -50,15 +49,26 @@ export const NodeSelectionOverlay = memo(function NodeSelectionOverlay({
   isConnectTarget,
   snapPortSide,
   compatibleTarget,
+  portStyle = 'chevron',
 }: NodeSelectionOverlayProps) {
+  const useVertex = portStyle === 'vertex'
+
   return (
     <>
       <div
         className={cn(
-          'pointer-events-none absolute inset-0 z-10 border border-dashed transition-all duration-200',
-          compatibleTarget
-            ? 'border-sky-400/80 shadow-[0_0_0_3px_rgba(56,189,248,0.18)]'
-            : 'border-zinc-400 dark:border-zinc-500',
+          'pointer-events-none absolute inset-0 z-10 transition-all duration-200',
+          useVertex
+            ? cn(
+                'rounded-[10px] border border-foreground/20',
+                compatibleTarget && 'border-sky-500/50 shadow-[0_0_0_3px_rgba(56,189,248,0.12)]',
+              )
+            : cn(
+                'border border-dashed',
+                compatibleTarget
+                  ? 'border-sky-400/80 shadow-[0_0_0_3px_rgba(56,189,248,0.18)]'
+                  : 'border-zinc-400 dark:border-zinc-500',
+              ),
         )}
         aria-hidden
       />
@@ -83,6 +93,7 @@ export const NodeSelectionOverlay = memo(function NodeSelectionOverlay({
         const isConnected = connectedPortSide === side
         const isSnap = snapPortSide === side
         const isOutput = side === 'right' || side === 'bottom'
+        const isFlowSide = side === 'left' || side === 'right'
 
         return (
           <button
@@ -105,18 +116,31 @@ export const NodeSelectionOverlay = memo(function NodeSelectionOverlay({
             onPointerDown={(event) => onPortPointerDown(event, side)}
             style={{ left: `${anchor.x * 100}%`, top: `${anchor.y * 100}%` }}
             className={cn(
-              'absolute z-30 flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white text-white shadow-sm transition-all duration-150',
-              'hover:scale-125 hover:shadow-[0_0_0_4px_rgba(56,189,248,0.25)]',
-              isOutput ? 'bg-sky-500 dark:bg-sky-400' : 'bg-emerald-500 dark:bg-emerald-400',
-              isActive && 'scale-125 ring-2 ring-sky-300 ring-offset-1 ring-offset-transparent',
-              isConnected &&
-                'scale-125 bg-zinc-700 ring-2 ring-zinc-400/50 ring-offset-1 ring-offset-transparent dark:bg-zinc-300 dark:text-zinc-900',
-              isSnap &&
-                'scale-150 bg-sky-400 shadow-[0_0_0_6px_rgba(56,189,248,0.35)] ring-2 ring-sky-200',
-              isConnectTarget && !isActive && !isConnected && !isSnap && 'animate-pulse',
+              'absolute z-30 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-all duration-150',
+              useVertex
+                ? cn(
+                    'border-[1.5px] border-[#52525B] bg-[#27272A] shadow-[0_0_0_2px_rgba(39,39,42,0.95)]',
+                    isFlowSide ? 'h-3 w-3' : 'h-2.5 w-2.5',
+                    'hover:scale-125 hover:border-[#A1A1AA]',
+                    isActive && 'scale-125 border-[#A1A1AA]',
+                    isConnected && 'border-[#A1A1AA] bg-[#A1A1AA]',
+                    isSnap && 'scale-125 border-sky-400 bg-sky-500/20',
+                    isConnectTarget && !isActive && !isConnected && !isSnap && 'border-[#A1A1AA]/80',
+                  )
+                : cn(
+                    'h-4 w-4 border-2 border-white text-white shadow-md',
+                    'hover:scale-125 hover:shadow-[0_0_0_4px_rgba(56,189,248,0.25)]',
+                    isOutput ? 'bg-sky-500 dark:bg-sky-400' : 'bg-emerald-500 dark:bg-emerald-400',
+                    isActive && 'scale-125 ring-2 ring-sky-300 ring-offset-1 ring-offset-transparent',
+                    isConnected &&
+                      'scale-125 bg-zinc-700 ring-2 ring-zinc-400/50 ring-offset-1 ring-offset-transparent dark:bg-zinc-300 dark:text-zinc-900',
+                    isSnap &&
+                      'scale-150 bg-sky-400 shadow-[0_0_0_6px_rgba(56,189,248,0.35)] ring-2 ring-sky-200',
+                    isConnectTarget && !isActive && !isConnected && !isSnap && 'animate-pulse',
+                  ),
             )}
           >
-            <Icon className="h-2.5 w-2.5 stroke-[2.5]" aria-hidden />
+            {!useVertex && <Icon className="h-2.5 w-2.5 stroke-[2.5]" aria-hidden />}
           </button>
         )
       })}
@@ -124,6 +148,5 @@ export const NodeSelectionOverlay = memo(function NodeSelectionOverlay({
   )
 })
 
-/** Resize handles used by applyResize — includes edges for programmatic use. */
 export type ResizeEdge = 'n' | 's' | 'e' | 'w'
 export type FullResizeHandle = ResizeHandle | ResizeEdge

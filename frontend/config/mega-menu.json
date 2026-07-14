@@ -544,13 +544,31 @@
             "order": 3
           },
           {
+            "id": "aw-skill",
+            "label": "Skill",
+            "description": "Behavioral skill attached under an agent",
+            "shape": "process",
+            "color": "slate",
+            "group": "Agents",
+            "order": 4
+          },
+          {
+            "id": "aw-integration",
+            "label": "Integration",
+            "description": "External integration attached under an agent",
+            "shape": "process",
+            "color": "slate",
+            "group": "Agents",
+            "order": 5
+          },
+          {
             "id": "aw-executor",
             "label": "Executor",
             "description": "Eleven Nodes message-processing executor",
             "shape": "process",
             "color": "slate",
             "group": "Agents",
-            "order": 4
+            "order": 6
           },
           {
             "id": "aw-start",

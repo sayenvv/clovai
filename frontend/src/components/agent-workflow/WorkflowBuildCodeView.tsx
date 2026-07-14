@@ -1,6 +1,8 @@
 import { Suspense, lazy, memo, useMemo, useState } from 'react'
+import { LayoutTemplate } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { Diagram, DiagramDocument } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
@@ -30,6 +32,7 @@ interface WorkflowBuildCodeViewProps {
   diagram: Diagram
   paletteById: Map<string, PaletteItem>
   serverModelConfig?: WorkflowModelConfig
+  onBackToCanvas?: () => void
 }
 
 function syntaxLanguage(format: WorkflowCodeFormat): 'json' | 'python' {
@@ -44,6 +47,7 @@ export const WorkflowBuildCodeView = memo(function WorkflowBuildCodeView({
   diagram,
   paletteById,
   serverModelConfig,
+  onBackToCanvas,
 }: WorkflowBuildCodeViewProps) {
   const [format, setFormat] = useState<WorkflowCodeFormat>('json')
   const { copied, copy, resetCopied } = useCopyToClipboard()
@@ -93,6 +97,18 @@ export const WorkflowBuildCodeView = memo(function WorkflowBuildCodeView({
         className="flex min-h-0 flex-1 flex-col"
       >
         <div className="flex shrink-0 items-center gap-2 border-b bg-muted/20 px-2 py-1.5">
+          {onBackToCanvas ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+              onClick={onBackToCanvas}
+            >
+              <LayoutTemplate className="h-3.5 w-3.5" />
+              Canvas
+            </Button>
+          ) : null}
           <TabsList className="h-auto flex-wrap justify-start gap-1 bg-transparent p-0">
             {WORKFLOW_CODE_FORMATS.map((option) => (
               <TabsTrigger

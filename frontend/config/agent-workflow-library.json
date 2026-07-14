@@ -62,6 +62,22 @@
       "toolCount": 0
     },
     {
+      "id": "skill",
+      "paletteId": "aw-skill",
+      "label": "Skill",
+      "description": "Behavioral skill — maps under an agent as a child node.",
+      "agentType": "tool",
+      "toolCount": 0
+    },
+    {
+      "id": "integration",
+      "paletteId": "aw-integration",
+      "label": "Integration",
+      "description": "External integration — maps under an agent as a child node.",
+      "agentType": "tool",
+      "toolCount": 0
+    },
+    {
       "id": "executor",
       "paletteId": "aw-executor",
       "label": "Executor",

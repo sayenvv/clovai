@@ -50,7 +50,23 @@ function usePersistedHorizontalPanel(config: PersistedPanelConfig, invert: boole
     })
   }, [width, setWidth])
 
-  return { size: width, collapsed, onResizePointerDown, toggle }
+  const expand = useCallback(() => {
+    setCollapsed((previous) => {
+      if (!previous) return previous
+      setWidth(sizeRef.current)
+      return false
+    })
+  }, [setWidth])
+
+  const collapse = useCallback(() => {
+    setCollapsed((previous) => {
+      if (previous) return previous
+      sizeRef.current = width
+      return true
+    })
+  }, [width])
+
+  return { size: width, collapsed, onResizePointerDown, toggle, expand, collapse }
 }
 
 function usePersistedVerticalPanel(config: PersistedPanelConfig) {

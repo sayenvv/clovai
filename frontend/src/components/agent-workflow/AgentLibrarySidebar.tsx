@@ -1,38 +1,34 @@
-import { memo, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   Bot,
-  ChevronRight,
   CloudDownload,
   GitBranch,
-  Layers,
   PanelLeftClose,
   Plug,
+  Plus,
+  Search,
   Store,
   Terminal,
   Wrench,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/utils/cn'
 import { DND_MIME } from '@/components/designer/diagram-types'
 import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
-import { AgentStoreDialog } from '@/components/agent-workflow/AgentStoreDialog'
 import {
   EXTERNAL_AGENT_BLOCKS,
   EXECUTOR_PALETTE_ID,
   MCP_TOOL_PALETTE_ID,
   SIDEBAR_BLOCKS,
-  SIDEBAR_PREVIEW_LIMIT,
   type SidebarBlock,
 } from '@/components/agent-workflow/agent-workflow-defaults'
-import {
-  ExternalAgentListItem,
-  sidebarPreviewAgents,
-} from '@/components/agent-workflow/external-agent-ui'
+import { ExternalAgentListItem } from '@/components/agent-workflow/external-agent-ui'
 import {
   listMountableWorkflows,
-  SIDEBAR_WORKFLOW_PREVIEW_LIMIT,
   WorkflowListItem,
-  WorkflowStoreDialog,
 } from '@/components/agent-workflow/workflow-sidebar-ui'
 import {
   AgentImportDialog,
@@ -40,10 +36,16 @@ import {
 } from '@/components/agent-workflow/external-agent-import-ui'
 import { countAgentsInPage } from '@/components/agent-workflow/sub-workflow-ops'
 import { SIDE_PANEL_COLLAPSED_WIDTH } from '@/components/agent-workflow/panel-layout'
-import { SidebarSection, WorkflowEmptyHint } from '@/components/agent-workflow/workflow-ui'
+import { WorkflowEmptyHint } from '@/components/agent-workflow/workflow-ui'
+import { SettingsMenu } from '@/components/agent-workflow/SettingsMenu'
+import { ProfileMenu } from '@/components/shared/ProfileMenu'
+import { getSession } from '@/services/project-auth-store'
 import type { DiagramDocument } from '@/components/designer/diagram-types'
 import type { AgentType } from '@/types/agent-workflow'
+import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 import type { LucideIcon } from 'lucide-react'
+
+type LibrarySection = 'blocks' | 'workflows' | 'store' | 'import'
 
 interface AgentLibrarySidebarProps {
   onAddAgent: (paletteId: string) => void
@@ -51,10 +53,34 @@ interface AgentLibrarySidebarProps {
   activePageId: string
   onMountWorkflow: (pageId: string) => void
   onCreateWorkflowTab?: () => void
+  onOpenSettings?: () => void
+  serverModelConfig?: WorkflowModelConfig
+  llmConfigured?: boolean
   width: number
   collapsed: boolean
   onResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
   onToggleCollapse: () => void
+}
+
+const FLYOUT_MIN_WIDTH = 260
+
+const SECTION_META: Record<LibrarySection, { title: string; subtitle: string }> = {
+  blocks: {
+    title: 'Built-in blocks',
+    subtitle: 'Drag or click to add to the canvas',
+  },
+  workflows: {
+    title: 'Workflows',
+    subtitle: 'Reusable sub-workflows from other tabs',
+  },
+  store: {
+    title: 'Agent store',
+    subtitle: 'Third-party agent integrations',
+  },
+  import: {
+    title: 'Import agents',
+    subtitle: 'Pull agents from external platforms',
+  },
 }
 
 const BLOCK_ICONS: Record<AgentType, LucideIcon> = {
@@ -84,6 +110,14 @@ const BLOCK_STYLES: Record<string, { icon: string; hover: string }> = {
     icon: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
     hover: 'hover:border-emerald-400/50 hover:bg-emerald-500/5',
   },
+  skill: {
+    icon: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
+    hover: 'hover:border-violet-400/50 hover:bg-violet-500/5',
+  },
+  integration: {
+    icon: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    hover: 'hover:border-amber-400/50 hover:bg-amber-500/5',
+  },
   executor: {
     icon: 'bg-orange-500/10 text-orange-600 dark:text-orange-300',
     hover: 'hover:border-orange-400/50 hover:bg-orange-500/5',
@@ -97,10 +131,7 @@ function BlockTile({
   block: SidebarBlock
   onAddAgent: (paletteId: string) => void
 }) {
-  const styles =
-    BLOCK_STYLES[
-      block.id === 'mcp-tool' ? 'mcp' : block.id === 'executor' ? 'executor' : block.id
-    ] ?? BLOCK_STYLES.agent
+  const styles = BLOCK_STYLES[block.id === 'mcp-tool' ? 'mcp' : block.id] ?? BLOCK_STYLES.agent
   const Icon =
     block.paletteId === MCP_TOOL_PALETTE_ID
       ? Plug
@@ -121,17 +152,17 @@ function BlockTile({
       onClick={() => onAddAgent(block.paletteId)}
       title={block.description}
       className={cn(
-        'flex flex-col items-start gap-2 rounded-xl border border-border/70 bg-background p-3 text-left transition-all',
+        'flex items-start gap-2.5 rounded-lg border border-border/70 bg-background p-2.5 text-left transition-colors',
         'cursor-grab active:cursor-grabbing',
         styles.hover,
       )}
     >
-      <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', styles.icon)}>
-        <Icon className="h-4 w-4" />
+      <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md', styles.icon)}>
+        <Icon className="h-3.5 w-3.5" />
       </div>
-      <div className="min-w-0 w-full">
+      <div className="min-w-0 flex-1">
         <span className="text-xs font-semibold text-foreground">{block.label}</span>
-        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-muted-foreground">
+        <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
           {block.description}
         </p>
       </div>
@@ -139,50 +170,60 @@ function BlockTile({
   )
 }
 
-function SidebarCatalogDialogs({
-  storeOpen,
-  setStoreOpen,
-  workflowStoreOpen,
-  setWorkflowStoreOpen,
-  importSourceId,
-  setImportSourceId,
-  doc,
-  activePageId,
-  onAddAgent,
-  onMountWorkflow,
-  onCreateWorkflowTab,
+function RailIconButton({
+  label,
+  icon: Icon,
+  onClick,
+  active,
+  accent,
 }: {
-  storeOpen: boolean
-  setStoreOpen: (open: boolean) => void
-  workflowStoreOpen: boolean
-  setWorkflowStoreOpen: (open: boolean) => void
-  importSourceId: string | null
-  setImportSourceId: (id: string | null) => void
-  doc: DiagramDocument
-  activePageId: string
-  onAddAgent: (paletteId: string) => void
-  onMountWorkflow: (pageId: string) => void
-  onCreateWorkflowTab?: () => void
+  label: string
+  icon: LucideIcon
+  onClick: () => void
+  active?: boolean
+  accent?: boolean
 }) {
   return (
-    <>
-      <AgentStoreDialog open={storeOpen} onOpenChange={setStoreOpen} onAddAgent={onAddAgent} />
-      <WorkflowStoreDialog
-        open={workflowStoreOpen}
-        onOpenChange={setWorkflowStoreOpen}
-        doc={doc}
-        activePageId={activePageId}
-        onMountWorkflow={onMountWorkflow}
-        onCreateWorkflowTab={onCreateWorkflowTab}
-      />
-      <AgentImportDialog
-        sourceId={importSourceId}
-        open={importSourceId !== null}
-        onOpenChange={(open) => {
-          if (!open) setImportSourceId(null)
-        }}
-      />
-    </>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={label}
+          aria-pressed={active}
+          className={cn(
+            'group/rail relative flex h-10 w-10 items-center justify-center rounded-[11px]',
+            'text-muted-foreground transition-all duration-200 ease-out',
+            'hover:bg-foreground/[0.06] hover:text-foreground',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+            active && 'bg-foreground/[0.08] text-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]',
+            accent && !active && 'text-foreground hover:bg-foreground/[0.08]',
+            accent && active && 'bg-foreground/[0.1] text-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]',
+          )}
+        >
+          {active ? (
+            <span
+              className="absolute top-1/2 left-[-11px] h-4 w-[3px] -translate-y-1/2 rounded-full bg-foreground/80"
+              aria-hidden
+            />
+          ) : null}
+          <Icon
+            className={cn(
+              'h-[18px] w-[18px] transition-transform duration-200',
+              'group-hover/rail:scale-105',
+            )}
+            strokeWidth={accent ? 2.1 : 1.75}
+          />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent
+        side="right"
+        sideOffset={12}
+        className="border-border/80 bg-popover/95 px-2.5 py-1.5 text-xs font-medium shadow-lg backdrop-blur-sm"
+      >
+        {label}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -192,170 +233,277 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   activePageId,
   onMountWorkflow,
   onCreateWorkflowTab,
+  onOpenSettings,
+  serverModelConfig,
+  llmConfigured = false,
   width,
   collapsed,
   onResizePointerDown,
   onToggleCollapse,
 }: AgentLibrarySidebarProps) {
-  const [storeOpen, setStoreOpen] = useState(false)
-  const [workflowStoreOpen, setWorkflowStoreOpen] = useState(false)
+  const [section, setSection] = useState<LibrarySection | null>(null)
+  const [query, setQuery] = useState('')
   const [importSourceId, setImportSourceId] = useState<string | null>(null)
-  const [builtInBlocksExpanded, setBuiltInBlocksExpanded] = useState(true)
-  const [workflowsExpanded, setWorkflowsExpanded] = useState(false)
-  const [externalIntegrationsExpanded, setExternalIntegrationsExpanded] = useState(false)
-  const [importsExpanded, setImportsExpanded] = useState(false)
+  const [focusSearch, setFocusSearch] = useState(false)
+  const rootRef = useRef<HTMLElement | null>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const session = getSession()
+  const userInitials = (session?.fullName || session?.email || 'U').slice(0, 1).toUpperCase()
+  const userLabel = session
+    ? [session.fullName || session.email, session.displayName].filter(Boolean).join(' · ')
+    : undefined
 
-  const previewAgents = useMemo(
-    () => sidebarPreviewAgents(EXTERNAL_AGENT_BLOCKS, SIDEBAR_PREVIEW_LIMIT),
-    [],
-  )
+  const flyoutOpen = section !== null
+  const flyoutWidth = Math.max(width, FLYOUT_MIN_WIDTH)
+  const totalWidth = SIDE_PANEL_COLLAPSED_WIDTH + (flyoutOpen ? flyoutWidth : 0)
+
+  const closeFlyout = useCallback(() => {
+    setSection(null)
+    setQuery('')
+    setFocusSearch(false)
+    if (!collapsed) onToggleCollapse()
+  }, [collapsed, onToggleCollapse])
+
+  useEffect(() => {
+    if (!focusSearch || section !== 'blocks') return
+    const id = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [focusSearch, section])
+
+  // Collapse the expandable section when clicking outside the library.
+  useEffect(() => {
+    if (!flyoutOpen) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (rootRef.current?.contains(target)) return
+      // Keep open while an import dialog (portal) is active.
+      if (importSourceId !== null) return
+      if (target instanceof Element && target.closest('[role="dialog"], [data-radix-popper-content-wrapper]')) {
+        return
+      }
+      closeFlyout()
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown, true)
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true)
+  }, [flyoutOpen, importSourceId, closeFlyout])
+
   const mountableWorkflows = useMemo(
     () => listMountableWorkflows(doc, activePageId),
     [doc, activePageId],
   )
-  const previewWorkflows = useMemo(
-    () => mountableWorkflows.slice(0, SIDEBAR_WORKFLOW_PREVIEW_LIMIT),
-    [mountableWorkflows],
-  )
 
-  const dialogs = (
-    <SidebarCatalogDialogs
-      storeOpen={storeOpen}
-      setStoreOpen={setStoreOpen}
-      workflowStoreOpen={workflowStoreOpen}
-      setWorkflowStoreOpen={setWorkflowStoreOpen}
-      importSourceId={importSourceId}
-      setImportSourceId={setImportSourceId}
-      doc={doc}
-      activePageId={activePageId}
-      onAddAgent={onAddAgent}
-      onMountWorkflow={onMountWorkflow}
-      onCreateWorkflowTab={onCreateWorkflowTab}
-    />
-  )
-
-  if (collapsed) {
-    return (
-      <>
-        <aside
-          className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background"
-          style={{ width: SIDE_PANEL_COLLAPSED_WIDTH }}
-        >
-          <div className="flex flex-col items-center gap-2 border-b border-border/60 py-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onToggleCollapse}
-              aria-label="Expand blocks panel"
-              title="Expand blocks"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex flex-1 flex-col items-center justify-center gap-3">
-            <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground [writing-mode:vertical-rl]">
-              Blocks
-            </span>
-            {onCreateWorkflowTab && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setWorkflowStoreOpen(true)}
-                aria-label="Open workflow library"
-                title="Workflow library"
-              >
-                <GitBranch className="h-4 w-4" />
-              </Button>
-            )}
-            {EXTERNAL_AGENT_BLOCKS.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setStoreOpen(true)}
-                aria-label="Open agent store"
-                title="Agent store"
-              >
-                <Store className="h-4 w-4" />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setImportSourceId('azure-foundry')}
-              aria-label="Import agents"
-              title="Import agents"
-            >
-              <CloudDownload className="h-4 w-4" />
-            </Button>
-          </div>
-        </aside>
-        {dialogs}
-      </>
+  const filteredBlocks = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (!needle || section !== 'blocks') return SIDEBAR_BLOCKS
+    return SIDEBAR_BLOCKS.filter(
+      (block) =>
+        block.label.toLowerCase().includes(needle) ||
+        block.description.toLowerCase().includes(needle),
     )
+  }, [query, section])
+
+  const filteredStore = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (!needle || section !== 'store') return EXTERNAL_AGENT_BLOCKS
+    return EXTERNAL_AGENT_BLOCKS.filter(
+      (block) =>
+        block.label.toLowerCase().includes(needle) ||
+        block.provider.toLowerCase().includes(needle) ||
+        (block.description?.toLowerCase().includes(needle) ?? false),
+    )
+  }, [query, section])
+
+  const filteredWorkflows = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (!needle || section !== 'workflows') return mountableWorkflows
+    return mountableWorkflows.filter((page) => page.name.toLowerCase().includes(needle))
+  }, [query, section, mountableWorkflows])
+
+  const openSection = (next: LibrarySection, options?: { focusSearch?: boolean }) => {
+    setQuery('')
+    setFocusSearch(Boolean(options?.focusSearch))
+    setSection((previous) => {
+      const closing = previous === next && !options?.focusSearch
+      if (closing) {
+        if (!collapsed) onToggleCollapse()
+        setFocusSearch(false)
+        return null
+      }
+      if (collapsed) onToggleCollapse()
+      return next
+    })
   }
+
+  const meta = section ? SECTION_META[section] : null
 
   return (
     <>
       <aside
-        className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background"
-        style={{ width }}
+        ref={rootRef}
+        className={cn(
+          'relative flex h-full shrink-0 border-r border-border/70',
+          'bg-background',
+        )}
+        style={{ width: totalWidth }}
       >
-        <DesignerResizeHandle
-          side="right"
-          onPointerDown={onResizePointerDown}
-          ariaLabel="Resize blocks panel"
-        />
+        {flyoutOpen && (
+          <DesignerResizeHandle
+            side="right"
+            onPointerDown={onResizePointerDown}
+            ariaLabel="Resize library panel"
+          />
+        )}
 
-        <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-3 py-2.5">
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">Agent library</h2>
-            <p className="text-[10px] text-muted-foreground">Drag blocks onto the canvas</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            onClick={onToggleCollapse}
-            aria-label="Collapse blocks panel"
-            title="Collapse panel"
-          >
-            <PanelLeftClose className="h-4 w-4" />
-          </Button>
+        {/* Premium icon rail */}
+        <div
+          className={cn(
+            'relative flex h-full shrink-0 flex-col',
+            'bg-gradient-to-b from-muted/40 via-background to-muted/30',
+            flyoutOpen ? 'border-r border-border/60' : '',
+          )}
+          style={{ width: SIDE_PANEL_COLLAPSED_WIDTH }}
+        >
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-border/80 to-transparent"
+            aria-hidden
+          />
+
+          <TooltipProvider delayDuration={180}>
+            <div className="flex flex-1 flex-col items-center px-2 py-3">
+              <div className="flex w-full flex-col items-center gap-1">
+                <RailIconButton
+                  label="Add block"
+                  icon={Plus}
+                  accent
+                  active={section === 'blocks' && !focusSearch}
+                  onClick={() => openSection('blocks')}
+                />
+                <RailIconButton
+                  label="Search blocks"
+                  icon={Search}
+                  active={section === 'blocks' && focusSearch}
+                  onClick={() => openSection('blocks', { focusSearch: true })}
+                />
+              </div>
+
+              <div className="my-3 h-px w-6 bg-gradient-to-r from-transparent via-border to-transparent" aria-hidden />
+
+              <div className="flex w-full flex-col items-center gap-1">
+                <RailIconButton
+                  label="Workflows"
+                  icon={GitBranch}
+                  active={section === 'workflows'}
+                  onClick={() => openSection('workflows')}
+                />
+                {EXTERNAL_AGENT_BLOCKS.length > 0 && (
+                  <RailIconButton
+                    label="Agent store"
+                    icon={Store}
+                    active={section === 'store'}
+                    onClick={() => openSection('store')}
+                  />
+                )}
+                <RailIconButton
+                  label="Import agents"
+                  icon={CloudDownload}
+                  active={section === 'import'}
+                  onClick={() => openSection('import')}
+                />
+              </div>
+
+              <div className="mt-auto flex w-full flex-col items-center gap-1.5 pt-3">
+                <div className="h-px w-6 bg-gradient-to-r from-transparent via-border to-transparent" aria-hidden />
+                <SettingsMenu
+                  onOpenWorkflowSettings={onOpenSettings}
+                  modelConfig={serverModelConfig}
+                  llmConfigured={llmConfigured}
+                  side="right"
+                  align="end"
+                />
+                <div
+                  className="rounded-full p-0.5 shadow-[0_0_0_1px_hsl(var(--border)/0.7)] transition-shadow duration-200 hover:shadow-[0_0_0_1px_hsl(var(--foreground)/0.22)]"
+                  title="Profile"
+                >
+                  <ProfileMenu
+                    showSignOut={Boolean(session)}
+                    userInitials={userInitials}
+                    userLabel={userLabel}
+                    side="right"
+                    align="end"
+                    avatarSize="sm"
+                    triggerClassName="h-9 w-9 rounded-full hover:bg-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+          </TooltipProvider>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 py-3">
-          <SidebarSection
-            title="Built-in blocks"
-            count={SIDEBAR_BLOCKS.length}
-            collapsed={!builtInBlocksExpanded}
-            onToggle={() => setBuiltInBlocksExpanded((expanded) => !expanded)}
-          />
-          {builtInBlocksExpanded && (
-            <div className="grid grid-cols-2 gap-2">
-              {SIDEBAR_BLOCKS.map((block) => (
-                <BlockTile key={block.id} block={block} onAddAgent={onAddAgent} />
-              ))}
+        {/* Expandable section */}
+        {flyoutOpen && meta ? (
+          <div
+            className={cn(
+              'flex min-w-0 flex-1 flex-col bg-background',
+              'animate-in fade-in-0 slide-in-from-left-1 duration-200',
+            )}
+            style={{ width: flyoutWidth }}
+          >
+            <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border/60 px-3 py-2.5">
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-semibold text-foreground">{meta.title}</h2>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">{meta.subtitle}</p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={closeFlyout}
+                aria-label="Close panel"
+                title="Close"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
             </div>
-          )}
 
-          <section className="mt-6 border-t border-border/60 pt-4">
-            <SidebarSection
-              title="Workflows"
-              subtitle="Reusable sub-workflows from other tabs"
-              count={mountableWorkflows.length > 0 ? mountableWorkflows.length : undefined}
-              collapsed={!workflowsExpanded}
-              onToggle={() => setWorkflowsExpanded((expanded) => !expanded)}
-            />
+            {(section === 'blocks' || section === 'store' || section === 'workflows') && (
+              <div className="shrink-0 border-b border-border/60 px-3 py-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    ref={searchInputRef}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search…"
+                    className="h-8 pl-8 text-xs"
+                  />
+                </div>
+              </div>
+            )}
 
-            {workflowsExpanded && (
-              previewWorkflows.length > 0 ? (
-                <>
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+              {section === 'blocks' && (
+                <div className="space-y-2">
+                  {filteredBlocks.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-muted-foreground">No blocks match.</p>
+                  ) : (
+                    filteredBlocks.map((block) => (
+                      <BlockTile key={block.id} block={block} onAddAgent={onAddAgent} />
+                    ))
+                  )}
+                </div>
+              )}
+
+              {section === 'workflows' &&
+                (filteredWorkflows.length > 0 ? (
                   <div className="space-y-1.5">
-                    {previewWorkflows.map((page) => (
+                    {filteredWorkflows.map((page) => (
                       <WorkflowListItem
                         key={page.id}
                         page={page}
@@ -365,79 +513,61 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                       />
                     ))}
                   </div>
-                  {mountableWorkflows.length > SIDEBAR_WORKFLOW_PREVIEW_LIMIT && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 h-9 w-full justify-between gap-2 px-3 text-xs"
-                      onClick={() => setWorkflowStoreOpen(true)}
-                    >
-                      <span className="flex items-center gap-2">
-                        <Layers className="h-3.5 w-3.5" />
-                        Workflow library
-                      </span>
-                      <span className="text-muted-foreground">
-                        See all ({mountableWorkflows.length})
-                      </span>
-                    </Button>
-                  )}
-                </>
-              ) : (
-                <WorkflowEmptyHint compact onCreateTab={onCreateWorkflowTab} />
-              )
-            )}
-          </section>
+                ) : mountableWorkflows.length === 0 ? (
+                  <WorkflowEmptyHint compact onCreateTab={onCreateWorkflowTab} />
+                ) : (
+                  <p className="py-6 text-center text-xs text-muted-foreground">No workflows match.</p>
+                ))}
 
-          {EXTERNAL_AGENT_BLOCKS.length > 0 && (
-            <section className="mt-6 border-t border-border/60 pt-4">
-              <SidebarSection
-                title="External integrations"
-                subtitle="Featured third-party agents"
-                count={EXTERNAL_AGENT_BLOCKS.length}
-                collapsed={!externalIntegrationsExpanded}
-                onToggle={() => setExternalIntegrationsExpanded((expanded) => !expanded)}
-              />
-              {externalIntegrationsExpanded && (
-                <>
-                  <div className="space-y-1.5">
-                    {previewAgents.map((block) => (
+              {section === 'store' && (
+                <div className="space-y-1.5">
+                  {filteredStore.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-muted-foreground">No agents match.</p>
+                  ) : (
+                    filteredStore.map((block) => (
                       <ExternalAgentListItem
                         key={block.id}
                         block={block}
                         onAddAgent={onAddAgent}
                         draggable
                       />
-                    ))}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 h-9 w-full justify-between gap-2 px-3 text-xs"
-                    onClick={() => setStoreOpen(true)}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Store className="h-3.5 w-3.5" />
-                      Agent store
-                    </span>
-                    <span className="text-muted-foreground">
-                      See all ({EXTERNAL_AGENT_BLOCKS.length})
-                    </span>
-                  </Button>
-                </>
+                    ))
+                  )}
+                </div>
               )}
-            </section>
-          )}
 
-          <ExternalAgentImportSection
-            onOpenImport={setImportSourceId}
-            collapsed={!importsExpanded}
-            onToggleCollapse={() => setImportsExpanded((expanded) => !expanded)}
-          />
-        </div>
+              {section === 'import' && (
+                <ExternalAgentImportSection
+                  onOpenImport={setImportSourceId}
+                  collapsed={false}
+                  embedded
+                />
+              )}
+            </div>
+
+            <div className="flex shrink-0 items-center justify-end border-t border-border/60 px-2 py-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground"
+                onClick={closeFlyout}
+              >
+                <PanelLeftClose className="h-3.5 w-3.5" />
+                Collapse
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </aside>
-      {dialogs}
+
+      <AgentImportDialog
+        sourceId={importSourceId}
+        open={importSourceId !== null}
+        onOpenChange={(open) => {
+          if (!open) setImportSourceId(null)
+        }}
+      />
     </>
   )
 })

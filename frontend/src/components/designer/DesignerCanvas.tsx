@@ -8,21 +8,24 @@ import {
   type PointerEvent as ReactPointerEvent,
   type DragEvent as ReactDragEvent,
 } from 'react'
-import { MousePointerClick } from 'lucide-react'
+import { MousePointerClick, Plus } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { useTheme } from '@/hooks/use-theme'
 import { NodeShape } from './NodeShape'
-import { AgentNodeCard } from '@/components/agent-workflow/AgentNodeCard'
+import { AgentNodeCard, AGENT_DOCK_SLOTS } from '@/components/agent-workflow/AgentNodeCard'
+import type { AgentAttachAction, MappedChildCounts } from '@/components/agent-workflow/AgentNodeCard'
 import {
   AGENT_NODE_HEIGHT,
   AGENT_NODE_WIDTH,
   TOOL_NODE_HEIGHT,
   TOOL_NODE_WIDTH,
+  childKindForPalette,
   isMappedToolPalette,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { edgeNeedsApprovalStyle } from '@/components/agent-workflow/validate-workflow'
 import {
   agentNodeSize,
+  curvedAttachmentPath,
   isToolNode,
   toolNodeSize,
 } from '@/components/agent-workflow/tool-agent-mapping'
@@ -185,6 +188,9 @@ interface DesignerCanvasProps {
   /** Agent workflow builder — rich agent cards and approval edge styling. */
   agentMode?: boolean
   transformDroppedNode?: (node: DiagramNode, item: PaletteItem) => DiagramNode
+  onNodeAttachAction?: (agentId: string, action: AgentAttachAction) => void
+  /** Insert a Human Review (HITL) node on the selected/hovered connector. */
+  onInsertHitlOnEdge?: (edgeId: string) => void
   /** Return null to cancel drop (e.g. tool with no agent on canvas). */
   finalizeDroppedNode?: (
     node: DiagramNode,
@@ -273,6 +279,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   onFitToScreen,
   agentMode = false,
   transformDroppedNode,
+  onNodeAttachAction,
+  onInsertHitlOnEdge,
   finalizeDroppedNode,
   selectionDisabled = false,
   onUndo,
@@ -388,7 +396,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
           to: toNodeId,
           fromSide: sides.fromSide,
           toSide: sides.toSide,
-          routing: DEFAULT_EDGE_ROUTING,
+          routing: agentMode ? 'curved' : DEFAULT_EDGE_ROUTING,
         }
         return { ...previous, edges: [...previous.edges, edge] }
       })
@@ -399,7 +407,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         onSelectionChange(selectSingleEdge(createdId))
       }
     },
-    [onChange, resolveConnectionSides, onSelectionChange, selectionDisabled],
+    [onChange, resolveConnectionSides, onSelectionChange, selectionDisabled, agentMode],
   )
 
   const applyReconnect = useCallback(
@@ -1061,32 +1069,50 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     return map
   }, [diagram.nodes])
 
-  const mappedToolCountByAgentId = useMemo(() => {
-    const counts = new Map<string, number>()
+  const mappedChildrenByAgentId = useMemo(() => {
+    const map = new Map<string, MappedChildCounts>()
+    const empty = (): MappedChildCounts => ({
+      tool: 0,
+      skill: 0,
+      memory: 0,
+      integration: 0,
+      mcp: 0,
+    })
     for (const node of diagram.nodes) {
       if (!isToolNode(node) || !node.mappedAgentId) continue
-      counts.set(node.mappedAgentId, (counts.get(node.mappedAgentId) ?? 0) + 1)
+      const current = map.get(node.mappedAgentId) ?? empty()
+      const kind = childKindForPalette(node.paletteId) ?? 'tool'
+      current[kind] += 1
+      map.set(node.mappedAgentId, current)
     }
-    return counts
+    return map
   }, [diagram.nodes])
 
   const mappingLines = useMemo(() => {
-    if (!agentMode) return []
+    if (!agentMode) return [] as Array<{ id: string; d: string }>
     return diagram.nodes.flatMap((node) => {
       if (!isToolNode(node) || !node.mappedAgentId) return []
       const agent = nodesById.get(node.mappedAgentId)
       if (!agent) return []
       const agentSize = agentNodeSize(agent)
       const toolSize = toolNodeSize(node)
-      return [
-        {
-          id: `map-${node.id}`,
-          x1: agent.x + agentSize.width / 2,
-          y1: agent.y + agentSize.height,
-          x2: node.x + toolSize.width / 2,
-          y2: node.y,
-        },
-      ]
+      const kind = childKindForPalette(node.paletteId)
+      const dockId =
+        kind === 'memory'
+          ? 'memory'
+          : kind === 'skill' || kind === 'integration'
+            ? 'knowledge'
+            : 'tool'
+      const slot = AGENT_DOCK_SLOTS.find((item) => item.id === dockId) ?? AGENT_DOCK_SLOTS[2]
+      const from = {
+        x: agent.x + agentSize.width * slot.x,
+        y: agent.y + agentSize.height,
+      }
+      const to = {
+        x: node.x + toolSize.width / 2,
+        y: node.y,
+      }
+      return [{ id: `map-${node.id}`, d: curvedAttachmentPath(from, to) }]
     })
   }, [agentMode, diagram.nodes, nodesById])
 
@@ -1097,7 +1123,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       const fromItem = from && paletteById.get(from.paletteId)
       const toItem = to && paletteById.get(to.paletteId)
       if (!from || !to || !fromItem || !toItem) return []
-      const routing = resolveEdgeRouting(edge.routing)
+      // Agent workflows use curved connectors — no orthogonal/straight rails.
+      const routing = agentMode ? 'curved' : resolveEdgeRouting(edge.routing)
       const fromPoint = portPoint(from, resolvePortShape(from, fromItem, agentMode), edge.fromSide)
       const toPoint = portPoint(to, resolvePortShape(to, toItem, agentMode), edge.toSide)
       const routeContext = {
@@ -1319,7 +1346,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   isSelected={isSelected}
                   isDark={isDark}
                   mappedUnderLabel={mappedUnderLabel}
-                  mappedToolCount={mappedToolCountByAgentId.get(node.id) ?? 0}
+                  mappedChildren={mappedChildrenByAgentId.get(node.id)}
+                  onAttachAction={onNodeAttachAction}
                   className="cursor-inherit h-full w-full"
                 />
               ) : (
@@ -1349,11 +1377,12 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 />
               )}
 
-              {/* Connection ports when not selected — discover on hover */}
+              {/* Connection vertices — L/R always on; T/B on hover */}
               {!toolNode && !isSelected && !isEdgeEndpoint &&
                 PORT_SIDES.map((side) => {
                   const anchor = portAnchor(portShape, side)
                   const isSnap = isSnapNode && snapTarget?.side === side
+                  const isFlowSide = side === 'left' || side === 'right'
                   return (
                     <button
                       key={side}
@@ -1363,11 +1392,25 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                       onPointerDown={(event) => handlePortPointerDown(event, node, side)}
                       style={{ left: `${anchor.x * 100}%`, top: `${anchor.y * 100}%` }}
                       className={cn(
-                        'absolute z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-muted-foreground/60 opacity-0 transition-all duration-150 hover:!bg-sky-500 cursor-crosshair',
-                        'group-hover/node:opacity-100',
-                        isConnectTarget && 'opacity-100 bg-sky-400/80',
+                        'absolute z-10 -translate-x-1/2 -translate-y-1/2 cursor-crosshair rounded-full transition-all duration-150',
+                        agentMode
+                          ? cn(
+                              'border-[1.5px] border-[#52525B] bg-[#27272A]',
+                              isFlowSide
+                                ? 'h-2.5 w-2.5 opacity-100'
+                                : 'h-2 w-2 opacity-0 group-hover/node:opacity-100',
+                              'hover:scale-125 hover:border-[#A1A1AA]',
+                              isConnectTarget && 'opacity-100 scale-125 border-[#A1A1AA]',
+                              (side === 'left' || side === 'right') &&
+                                'shadow-[0_0_0_2px_rgba(39,39,42,0.95)]',
+                            )
+                          : cn(
+                              'h-2.5 w-2.5 border-2 border-background bg-muted-foreground/60 opacity-0',
+                              'group-hover/node:opacity-100 hover:!bg-sky-500',
+                              isConnectTarget && 'opacity-100 bg-sky-400/90',
+                            ),
                         isSnap &&
-                          'opacity-100 scale-150 bg-sky-400 shadow-[0_0_0_6px_rgba(56,189,248,0.35)]',
+                          'opacity-100 scale-150 border-sky-500 bg-sky-500/20 shadow-[0_0_0_4px_rgba(56,189,248,0.2)]',
                       )}
                     />
                   )
@@ -1391,10 +1434,13 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                       onPointerDown={(event) => handlePortPointerDown(event, node, side)}
                       style={{ left: `${anchor.x * 100}%`, top: `${anchor.y * 100}%` }}
                       className={cn(
-                        'absolute z-20 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background transition-colors hover:!bg-zinc-600',
+                        'absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] transition-colors',
+                        agentMode ? 'h-2.5 w-2.5 border-[1.5px] border-[#52525B] bg-[#27272A]' : 'h-3 w-3 border-background',
                         isConnected
-                          ? 'bg-zinc-700 opacity-100 ring-2 ring-zinc-400/40 dark:bg-zinc-300'
-                          : 'bg-zinc-400/90 opacity-100 dark:bg-zinc-500',
+                          ? 'border-[#A1A1AA] bg-[#A1A1AA]'
+                          : agentMode
+                            ? 'bg-[#27272A]'
+                            : 'bg-muted-foreground/80',
                       )}
                     />
                   )
@@ -1412,6 +1458,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   isConnectTarget={isConnectTarget}
                   snapPortSide={isSnapNode ? snapTarget?.side ?? null : null}
                   compatibleTarget={isCompatibleTarget || isSnapNode}
+                  portStyle={agentMode ? 'vertex' : 'chevron'}
                 />
               )}
             </div>
@@ -1427,24 +1474,49 @@ export const DesignerCanvas = memo(function DesignerCanvas({
           <defs>
             <marker
               id="edge-arrow"
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
+              viewBox="0 0 12 12"
+              refX="10"
+              refY="6"
+              markerWidth={agentMode ? 7 : 6}
+              markerHeight={agentMode ? 7 : 6}
               orient="auto"
+              markerUnits="strokeWidth"
             >
-              <path d="M 0 0 L 10 5 L 0 10 Z" fill="currentColor" />
+              <path
+                d="M 1.5 1.5 L 10.5 6 L 1.5 10.5 Z"
+                fill="currentColor"
+                stroke="currentColor"
+                strokeWidth={0.5}
+                strokeLinejoin="round"
+              />
+            </marker>
+            <marker
+              id="edge-arrow-hitl"
+              viewBox="0 0 12 12"
+              refX="10"
+              refY="6"
+              markerWidth={7}
+              markerHeight={7}
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path
+                d="M 1.5 1.5 L 10.5 6 L 1.5 10.5 Z"
+                fill="#b45309"
+                stroke="#b45309"
+                strokeWidth={0.5}
+                strokeLinejoin="round"
+              />
             </marker>
             <filter id="edge-glow" x="-40%" y="-40%" width="180%" height="180%">
-              <feGaussianBlur stdDeviation="2.2" result="blur" />
+              <feGaussianBlur stdDeviation="1.4" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
             <filter id="edge-glow-strong" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3.2" result="blur" />
+              <feGaussianBlur stdDeviation="2" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
@@ -1452,16 +1524,15 @@ export const DesignerCanvas = memo(function DesignerCanvas({
             </filter>
           </defs>
           {mappingLines.map((line) => (
-            <line
+            <path
               key={line.id}
-              x1={line.x1}
-              y1={line.y1}
-              x2={line.x2}
-              y2={line.y2}
-              stroke="#3b82f6"
-              strokeWidth={1.5 / viewport.scale}
-              strokeDasharray={`${6 / viewport.scale} ${4 / viewport.scale}`}
-              strokeOpacity={0.45}
+              d={line.d}
+              fill="none"
+              stroke={isDark ? '#71717a' : '#a1a1aa'}
+              strokeWidth={1.25 / viewport.scale}
+              strokeOpacity={0.9}
+              strokeLinecap="round"
+              strokeDasharray={`${4 / viewport.scale} ${4 / viewport.scale}`}
               className="pointer-events-none"
             />
           ))}
@@ -1478,15 +1549,45 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               isDark,
             )
             const approvalEdge = agentMode && edgeNeedsApprovalStyle(edge)
-            const baseStroke = approvalEdge ? '#8b5cf6' : edgeColors.border
-            const accentStroke = isDark ? '#38bdf8' : '#0284c7'
-            const stroke = isSelected ? accentStroke : isHovered ? baseStroke : baseStroke
-            const strokeWidth = isSelected ? 2.75 : isHovered ? 2.25 : 1.75
+            const quietStroke = isDark ? '#52525b' : '#9ca3af'
+            const selectedStroke = isDark ? '#e4e4e7' : '#27272a'
+            const hoverStroke = isDark ? '#71717a' : '#52525b'
+            const approvalStroke = isDark ? '#f59e0b' : '#d97706'
+            const baseStroke = approvalEdge
+              ? approvalStroke
+              : agentMode
+                ? edge.borderColor
+                  ? edgeColors.border
+                  : quietStroke
+                : edgeColors.border
+            const accentStroke = agentMode
+              ? selectedStroke
+              : isDark
+                ? '#38bdf8'
+                : '#0284c7'
+            const stroke = isSelected ? accentStroke : isHovered ? hoverStroke : baseStroke
+            const strokeWidth = agentMode
+              ? isSelected
+                ? 2.25
+                : isHovered
+                  ? 1.85
+                  : 1.6
+              : isSelected
+                ? 2.75
+                : isHovered
+                  ? 2.25
+                  : 1.75
             const dimmed = isConnecting && !isSelected
-            // Cap label to the clear gap between ports so long text doesn't cover nodes.
             const endpointGap = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y)
             const labelWidth = connectorLabelWidth(text ?? '', endpointGap - 48, isEditing)
             const labelCharsPerLine = Math.max(8, Math.min(40, Math.floor((labelWidth - 16) / 6.5)))
+            const showHitlAffordance =
+              agentMode &&
+              onInsertHitlOnEdge &&
+              !selectionDisabled &&
+              !edge.locked &&
+              !approvalEdge &&
+              (isSelected || isHovered)
 
             return (
             <g
@@ -1497,19 +1598,24 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 opacity: edge.locked ? 0.85 : dimmed ? 0.35 : 1,
               }}
             >
-              {(isHovered || isSelected) && (
-                <path
-                  d={path}
-                  fill="none"
-                  stroke={stroke}
-                  strokeOpacity={isSelected ? 0.35 : 0.22}
-                  strokeWidth={strokeWidth + 4}
-                  strokeLinejoin="miter"
-                  strokeLinecap="butt"
-                  className="pointer-events-none"
-                  filter={isSelected ? 'url(#edge-glow-strong)' : 'url(#edge-glow)'}
-                />
-              )}
+              <path
+                d={path}
+                fill="none"
+                stroke={stroke}
+                strokeOpacity={
+                  agentMode
+                    ? isSelected
+                      ? 0.14
+                      : 0.08
+                    : isSelected || isHovered
+                      ? 0.22
+                      : 0
+                }
+                strokeWidth={strokeWidth + (agentMode ? 5 : 4)}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                className="pointer-events-none"
+              />
               <path
                 d={path}
                 fill="none"
@@ -1532,7 +1638,6 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   sessionRef.current = null
                   setIsGrabbing(false)
                   setEdgeMenu(null)
-                  // Free Backspace/Delete from sidebar search focus.
                   if (
                     document.activeElement instanceof HTMLElement &&
                     document.activeElement.closest('[aria-label="Shape palette"]')
@@ -1567,29 +1672,34 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               <path
                 d={path}
                 fill="none"
-                markerEnd="url(#edge-arrow)"
+                markerEnd={approvalEdge ? 'url(#edge-arrow-hitl)' : 'url(#edge-arrow)'}
                 stroke={stroke}
-                strokeLinejoin="miter"
-                strokeLinecap="butt"
+                strokeLinejoin="round"
+                strokeLinecap="round"
                 className={cn(
                   'pointer-events-none transition-[stroke-width] duration-150',
                   flowMotion && 'diagram-flow-edge',
                 )}
                 strokeWidth={strokeWidth}
                 strokeDasharray={
-                  flowMotion ? undefined : approvalEdge ? '6 4' : undefined
+                  flowMotion
+                    ? undefined
+                    : approvalEdge
+                      ? `${5 / Math.max(viewport.scale, 0.5)} ${4 / Math.max(viewport.scale, 0.5)}`
+                      : undefined
                 }
-                filter={isSelected || isHovered ? 'url(#edge-glow)' : undefined}
               />
-              {isSelected && (
+              {(isSelected || (agentMode && isHovered)) && (
                 <>
                   <circle
                     cx={fromPoint.x}
                     cy={fromPoint.y}
-                    r={6}
+                    r={agentMode ? 4.5 : 6}
                     className={cn(
-                      'pointer-events-auto cursor-grab fill-sky-500 stroke-background stroke-2 active:cursor-grabbing dark:fill-sky-400',
-                      draggingFrom && 'ring-2 ring-sky-300/60',
+                      'pointer-events-auto cursor-grab stroke-2 active:cursor-grabbing',
+                      agentMode
+                        ? 'fill-zinc-700 stroke-white dark:fill-zinc-200 dark:stroke-zinc-950'
+                        : 'fill-sky-500 stroke-background dark:fill-sky-400',
                       edge.locked && 'pointer-events-none opacity-50',
                     )}
                     onPointerDown={(event) =>
@@ -1599,15 +1709,70 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   <circle
                     cx={toPoint.x}
                     cy={toPoint.y}
-                    r={6}
+                    r={agentMode ? 4.5 : 6}
                     className={cn(
-                      'pointer-events-auto cursor-grab fill-sky-500 stroke-background stroke-2 active:cursor-grabbing dark:fill-sky-400',
-                      draggingTo && 'ring-2 ring-sky-300/60',
+                      'pointer-events-auto cursor-grab stroke-2 active:cursor-grabbing',
+                      agentMode
+                        ? 'fill-zinc-700 stroke-white dark:fill-zinc-200 dark:stroke-zinc-950'
+                        : 'fill-sky-500 stroke-background dark:fill-sky-400',
                       edge.locked && 'pointer-events-none opacity-50',
                     )}
                     onPointerDown={(event) => handleEndpointDragPointerDown(event, edge.id, 'to')}
                   />
                 </>
+              )}
+              {showHitlAffordance && (
+                <foreignObject
+                  x={labelPoint.x}
+                  y={labelPoint.y}
+                  width={1}
+                  height={1}
+                  className="pointer-events-auto overflow-visible"
+                >
+                  <div
+                    className={cn(
+                      'absolute left-0 top-0 -translate-x-1/2',
+                      text || isEditing ? '-translate-y-[calc(100%+12px)]' : '-translate-y-1/2',
+                    )}
+                  >
+                    <button
+                      type="button"
+                      title="Insert human approval on this path"
+                      aria-label="Add human-in-the-loop review on this connector"
+                      className={cn(
+                        'inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-card text-foreground shadow-sm transition',
+                        'hover:border-foreground/30 hover:bg-muted',
+                        isSelected && 'ring-1 ring-foreground/10',
+                      )}
+                      onPointerDown={(event) => {
+                        event.stopPropagation()
+                        event.preventDefault()
+                      }}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        event.preventDefault()
+                        onInsertHitlOnEdge(edge.id)
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5 stroke-[2.5]" aria-hidden />
+                    </button>
+                  </div>
+                </foreignObject>
+              )}
+              {approvalEdge && !text && !isEditing && (
+                <foreignObject
+                  x={labelPoint.x}
+                  y={labelPoint.y}
+                  width={1}
+                  height={1}
+                  className="pointer-events-none overflow-visible"
+                >
+                  <div className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2">
+                    <span className="inline-flex items-center rounded-full border border-amber-300/80 bg-amber-50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-amber-900 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+                      Approval
+                    </span>
+                  </div>
+                </foreignObject>
               )}
               {(text || isEditing) && (
                 <foreignObject
@@ -1645,7 +1810,12 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                           }
                           if (event.key === 'Escape') setEditingEdgeId(null)
                         }}
-                        className="box-border w-full resize-none border bg-background px-2 py-1 text-center text-[11px] leading-snug shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        className={cn(
+                          'box-border w-full resize-none px-2 py-1 text-center text-[11px] leading-snug shadow-sm focus:outline-none focus:ring-1',
+                          agentMode
+                            ? 'rounded-lg border border-zinc-300 bg-white focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-950'
+                            : 'border bg-background focus:ring-primary',
+                        )}
                         aria-label="Connector label"
                         placeholder={'Short label on one or two lines'}
                       />
@@ -1653,13 +1823,26 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                       <span
                         title={text}
                         className={cn(
-                          'box-border block w-full overflow-hidden border bg-background px-2 py-0.5 text-center text-[11px] font-medium leading-snug tracking-tight shadow-sm',
+                          'box-border block w-full overflow-hidden px-2.5 py-0.5 text-center text-[11px] font-medium leading-snug tracking-tight',
                           'whitespace-pre-line break-words [overflow-wrap:anywhere]',
-                          isSelected && 'ring-1 ring-sky-400/40',
+                          agentMode
+                            ? cn(
+                                'rounded-full border shadow-[0_1px_2px_rgba(15,23,42,0.04)]',
+                                isSelected
+                                  ? 'border-zinc-400 ring-1 ring-zinc-900/5 dark:border-zinc-500'
+                                  : 'border-zinc-200 dark:border-zinc-700',
+                                approvalEdge && 'border-amber-300/80 dark:border-amber-500/40',
+                              )
+                            : cn('border shadow-sm', isSelected && 'ring-1 ring-sky-400/40'),
                         )}
                         style={{
                           backgroundColor: edgeColors.fill,
-                          borderColor: isSelected ? accentStroke : edgeColors.border,
+                          borderColor: agentMode
+                            ? undefined
+                            : isSelected
+                              ? accentStroke
+                              : edgeColors.border,
+                          color: edgeColors.text,
                         }}
                       >
                         {formatConnectorLabel(text ?? '', labelCharsPerLine)}
@@ -1675,24 +1858,34 @@ export const DesignerCanvas = memo(function DesignerCanvas({
             <path
               d={connectPreviewPath}
               fill="none"
-              strokeDasharray="6 4"
-              className="pointer-events-none stroke-sky-500 dark:stroke-sky-400"
-              strokeLinejoin="miter"
-              strokeLinecap="butt"
-              strokeWidth={2}
-              filter="url(#edge-glow)"
+              strokeDasharray="5 5"
+              className={cn(
+                'pointer-events-none',
+                agentMode
+                  ? 'stroke-zinc-500 dark:stroke-zinc-400'
+                  : 'stroke-sky-500 dark:stroke-sky-400',
+              )}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              strokeWidth={agentMode ? 1.75 : 2}
+              strokeOpacity={0.85}
             />
           )}
           {reconnectPreview && (
             <path
               d={reconnectPreview}
               fill="none"
-              strokeDasharray="6 4"
-              className="pointer-events-none stroke-sky-500 dark:stroke-sky-400"
-              strokeLinejoin="miter"
-              strokeLinecap="butt"
-              strokeWidth={2}
-              filter="url(#edge-glow)"
+              strokeDasharray="5 5"
+              className={cn(
+                'pointer-events-none',
+                agentMode
+                  ? 'stroke-zinc-500 dark:stroke-zinc-400'
+                  : 'stroke-sky-500 dark:stroke-sky-400',
+              )}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              strokeWidth={agentMode ? 1.75 : 2}
+              strokeOpacity={0.85}
             />
           )}
           {marquee && (

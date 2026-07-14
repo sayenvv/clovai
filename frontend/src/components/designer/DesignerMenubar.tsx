@@ -78,7 +78,7 @@ interface DesignerMenubarProps {
   onExportSvg: () => void
   onExportPng: () => void
   onExportPdf: () => void
-  onViewCode: () => void
+  onViewCode?: () => void
   onDuplicate: () => void
   onDeleteSelection: () => void
   onZoomIn: () => void
@@ -111,6 +111,8 @@ interface DesignerMenubarProps {
   onToggleCodeView?: () => void
   /** Open workflow-level settings (model config, execution type). */
   onOpenWorkflowSettings?: () => void
+  /** Hide the Settings menu (e.g. when settings live in the left rail). */
+  showSettingsMenu?: boolean
   /** Server-managed LLM model (read-only display). */
   serverModelConfig?: WorkflowModelConfig
   llmConfigured?: boolean
@@ -171,6 +173,7 @@ export const DesignerMenubar = memo(function DesignerMenubar({
   codeViewActive,
   onToggleCodeView,
   onOpenWorkflowSettings,
+  showSettingsMenu = true,
   serverModelConfig,
   llmConfigured = false,
   llmConfigLoading = false,
@@ -224,17 +227,22 @@ export const DesignerMenubar = memo(function DesignerMenubar({
           <DropdownMenuItem onSelect={onExportPdf} disabled={isEmpty}>
             <Download /> PDF (.pdf)
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={onViewCode}
-            disabled={!viewCodeWhenEmpty && isEmpty}
-          >
-            <Code2 /> Code view
-            <span className="ml-auto inline-flex items-center gap-1 rounded-sm border border-amber-400/60 bg-amber-300/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-800 dark:border-amber-300/40 dark:bg-amber-300/10 dark:text-amber-200">
-              <Crown className="h-2.5 w-2.5" />
-              Premium
-            </span>
-          </DropdownMenuItem>
+          {/* Diagram tools (no Insert menu): keep Code here. Agent workflow uses Insert → Code. */}
+          {!onInsertWorkflow && onViewCode && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={onViewCode}
+                disabled={!viewCodeWhenEmpty && isEmpty}
+              >
+                <Code2 /> Code view
+                <span className="ml-auto inline-flex items-center gap-1 rounded-sm border border-amber-400/60 bg-amber-300/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-800 dark:border-amber-300/40 dark:bg-amber-300/10 dark:text-amber-200">
+                  <Crown className="h-2.5 w-2.5" />
+                  Premium
+                </span>
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -254,6 +262,26 @@ export const DesignerMenubar = memo(function DesignerMenubar({
               <DropdownMenuItem onSelect={onCreateWorkflowTab}>
                 <Plus /> New workflow tab
               </DropdownMenuItem>
+            )}
+            {(onViewCode || onToggleCodeView) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => {
+                    if (onToggleCodeView) onToggleCodeView()
+                    else onViewCode()
+                  }}
+                  disabled={!viewCodeWhenEmpty && isEmpty && !codeViewActive}
+                >
+                  <Code2 /> {codeViewActive ? 'Back to canvas' : 'Code view'}
+                  {!codeViewActive && (
+                    <span className="ml-auto inline-flex items-center gap-1 rounded-sm border border-amber-400/60 bg-amber-300/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-800 dark:border-amber-300/40 dark:bg-amber-300/10 dark:text-amber-200">
+                      <Crown className="h-2.5 w-2.5" />
+                      Premium
+                    </span>
+                  )}
+                </DropdownMenuItem>
+              </>
             )}
             {onInsertImport && (
               <>
@@ -315,21 +343,9 @@ export const DesignerMenubar = memo(function DesignerMenubar({
           <DropdownMenuCheckboxItem checked={showGrid} onCheckedChange={onShowGridChange}>
             Show grid
           </DropdownMenuCheckboxItem>
-          {onToggleCodeView && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                checked={codeViewActive ?? false}
-                onCheckedChange={() => onToggleCodeView()}
-              >
-                Code view
-                <span className="ml-auto inline-flex items-center gap-1 rounded-sm border border-amber-400/60 bg-amber-300/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-amber-800 dark:border-amber-300/40 dark:bg-amber-300/10 dark:text-amber-200">
-                  <Crown className="h-2.5 w-2.5" />
-                  Premium
-                </span>
-              </DropdownMenuCheckboxItem>
-            </>
-          )}
+          <DropdownMenuCheckboxItem checked={snapToGrid} onCheckedChange={onSnapToGridChange}>
+            Snap to grid
+          </DropdownMenuCheckboxItem>
           {onTogglePropertiesPanel && (
             <>
               <DropdownMenuSeparator />
@@ -359,33 +375,35 @@ export const DesignerMenubar = memo(function DesignerMenubar({
         </DropdownMenu>
       )}
 
-      <DropdownMenu>
-        <MenuTrigger label="Settings" />
-        <DropdownMenuContent align="start">
-          {onOpenWorkflowSettings && (
-            <>
-              <DropdownMenuLabel>Workflow</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={onOpenWorkflowSettings}>
-                <Cpu /> Model & workflow settings…
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-            </>
-          )}
-          <DropdownMenuLabel>Canvas</DropdownMenuLabel>
-          <DropdownMenuCheckboxItem checked={snapToGrid} onCheckedChange={onSnapToGridChange}>
-            Snap to grid
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem checked={showGrid} onCheckedChange={onShowGridChange}>
-            Show grid
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>Appearance</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={toggleTheme}>
-            {theme === 'dark' ? <Sun /> : <Moon />}
-            Switch to {theme === 'dark' ? 'light' : 'dark'} mode
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {showSettingsMenu && (
+        <DropdownMenu>
+          <MenuTrigger label="Settings" />
+          <DropdownMenuContent align="start">
+            {onOpenWorkflowSettings && (
+              <>
+                <DropdownMenuLabel>Workflow</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={onOpenWorkflowSettings}>
+                  <Cpu /> Model & workflow settings…
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuLabel>Canvas</DropdownMenuLabel>
+            <DropdownMenuCheckboxItem checked={snapToGrid} onCheckedChange={onSnapToGridChange}>
+              Snap to grid
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={showGrid} onCheckedChange={onShowGridChange}>
+              Show grid
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Appearance</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={toggleTheme}>
+              {theme === 'dark' ? <Sun /> : <Moon />}
+              Switch to {theme === 'dark' ? 'light' : 'dark'} mode
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       <DropdownMenu>
         <MenuTrigger label="Help" />

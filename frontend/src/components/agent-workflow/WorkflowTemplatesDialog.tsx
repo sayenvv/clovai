@@ -121,6 +121,7 @@ export const WorkflowTemplatesDialog = memo(function WorkflowTemplatesDialog({
         </div>
         <div className="max-h-[min(70vh,32rem)] overflow-y-auto px-6 py-5">
           <WorkflowTemplateGrid
+            compact
             onSelect={(template) => {
               onSelect(template)
               onOpenChange(false)

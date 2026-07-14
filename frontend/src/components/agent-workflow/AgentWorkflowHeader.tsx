@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Logo, LOGO_SIZE_WORKSPACE } from '@/components/shared/Logo'
-import { ProfileMenu } from '@/components/shared/ProfileMenu'
 import type { DeploymentStatus } from '@/types/agent-workflow'
 import { APP_NAME } from '@/constants'
 import { getSession } from '@/services/project-auth-store'
@@ -45,7 +44,6 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
       ? session.displayName
       : `${session.displayName}`
     : null
-  const userInitials = (session?.fullName || session?.email || 'U').slice(0, 1).toUpperCase()
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card/80 px-3 backdrop-blur-sm">
@@ -134,12 +132,6 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
           Deploy
         </Button>
       </div>
-
-      <ProfileMenu
-        showSignOut
-        userInitials={userInitials}
-        userLabel={session?.email}
-      />
     </header>
   )
 })

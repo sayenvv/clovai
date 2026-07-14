@@ -25,12 +25,15 @@ interface ExternalAgentImportSectionProps {
   onOpenImport: (sourceId: string) => void
   collapsed?: boolean
   onToggleCollapse?: () => void
+  /** Hide title chrome when shown inside the library flyout. */
+  embedded?: boolean
 }
 
 export const ExternalAgentImportSection = memo(function ExternalAgentImportSection({
   onOpenImport,
   collapsed = false,
   onToggleCollapse,
+  embedded = false,
 }: ExternalAgentImportSectionProps) {
   const primary = primaryImportSource()
   const comingSoon = useMemo(
@@ -40,16 +43,8 @@ export const ExternalAgentImportSection = memo(function ExternalAgentImportSecti
 
   if (!primary && comingSoon.length === 0) return null
 
-  return (
-    <section className="mt-6 border-t border-border pt-4">
-      <SidebarSection
-        title="Import agents"
-        subtitle="Pull agents from external platforms into your workflow"
-        count={(primary ? 1 : 0) + comingSoon.length}
-        collapsed={collapsed}
-        onToggle={onToggleCollapse}
-      />
-
+  const body = (
+    <>
       {collapsed ? null : (
         <>
           {primary && (
@@ -76,6 +71,24 @@ export const ExternalAgentImportSection = memo(function ExternalAgentImportSecti
           )}
         </>
       )}
+    </>
+  )
+
+  if (embedded) {
+    return <div className="space-y-1">{body}</div>
+  }
+
+  return (
+    <section className="mt-6 border-t border-border pt-4">
+      <SidebarSection
+        title="Import agents"
+        subtitle="Pull agents from external platforms into your workflow"
+        count={(primary ? 1 : 0) + comingSoon.length}
+        collapsed={collapsed}
+        onToggle={onToggleCollapse}
+      />
+
+      {body}
     </section>
   )
 })

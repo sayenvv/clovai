@@ -1,12 +1,14 @@
 /** Shared layout constants and persisted panel config for agent workflow. */
 
-export const SIDE_PANEL_COLLAPSED_WIDTH = 44
+export const SIDE_PANEL_COLLAPSED_WIDTH = 56
 export const BOTTOM_PANEL_COLLAPSED_HEIGHT = 36
 
 export interface PersistedPanelConfig {
   sizeKey: string
   collapsedKey: string
   defaultSize: number
+  /** When no saved preference exists, start collapsed. */
+  defaultCollapsed?: boolean
   responsiveDefault?: (viewportWidth: number) => number
   min: number
   max?: number
@@ -14,8 +16,9 @@ export interface PersistedPanelConfig {
 
 export const EDITOR_LEFT_PANEL: PersistedPanelConfig = {
   sizeKey: 'eleven-nodes-agent-workflow-left-panel-width',
-  collapsedKey: 'eleven-nodes-agent-workflow-left-panel-collapsed',
+  collapsedKey: 'eleven-nodes-agent-workflow-left-panel-collapsed-v2',
   defaultSize: 260,
+  defaultCollapsed: true,
   min: 220,
   max: 420,
 }
@@ -64,9 +67,11 @@ export function readStoredSize(config: PersistedPanelConfig): number {
 
 export function readStoredCollapsed(config: PersistedPanelConfig): boolean {
   try {
-    return localStorage.getItem(config.collapsedKey) === 'true'
+    const stored = localStorage.getItem(config.collapsedKey)
+    if (stored === null) return Boolean(config.defaultCollapsed)
+    return stored === 'true'
   } catch {
-    return false
+    return Boolean(config.defaultCollapsed)
   }
 }
 

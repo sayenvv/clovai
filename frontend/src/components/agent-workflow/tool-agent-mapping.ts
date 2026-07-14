@@ -7,22 +7,48 @@ import {
   TOOL_NODE_WIDTH,
   TOOL_PALETTE_ID,
   MCP_TOOL_PALETTE_ID,
+  SKILL_PALETTE_ID,
+  INTEGRATION_PALETTE_ID,
+  MEMORY_PALETTE_ID,
   EXECUTOR_PALETTE_ID,
   isMappedToolPalette,
+  isAlwaysChildPalette,
+  childKindForPalette,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 
 export {
   AGENT_PALETTE_ID,
   TOOL_PALETTE_ID,
   MCP_TOOL_PALETTE_ID,
+  SKILL_PALETTE_ID,
+  INTEGRATION_PALETTE_ID,
+  MEMORY_PALETTE_ID,
   EXECUTOR_PALETTE_ID,
   isMappedToolPalette,
+  isAlwaysChildPalette,
+  childKindForPalette,
 }
-export const TOOL_UNDER_AGENT_GAP = 14
-/** Horizontal gap between tools in a row under an agent. */
-export const TOOL_ROW_GAP = 10
+export const TOOL_UNDER_AGENT_GAP = 48
+/** Horizontal gap between child nodes in a row under an agent. */
+export const TOOL_ROW_GAP = 12
 
-const NON_AGENT_AW_IDS = new Set(['aw-tool', 'aw-mcp-tool', 'aw-note', 'aw-label'])
+/** Soft vertical curve from agent attachment rail to a child node. */
+export function curvedAttachmentPath(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): string {
+  const midY = from.y + (to.y - from.y) * 0.55
+  return `M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`
+}
+
+const NON_AGENT_AW_IDS = new Set([
+  'aw-tool',
+  'aw-mcp-tool',
+  'aw-skill',
+  'aw-integration',
+  'aw-note',
+  'aw-label',
+])
 
 export function isAgentNode(node: DiagramNode): boolean {
   if (node.mappedAgentId) return false
@@ -45,8 +71,8 @@ export function isMcpToolNode(node: DiagramNode): boolean {
 }
 
 export function isToolNode(node: DiagramNode): boolean {
-  if (isMappedToolPalette(node.paletteId ?? '')) return true
-  return Boolean(node.mappedAgentId)
+  if (node.mappedAgentId) return true
+  return isAlwaysChildPalette(node.paletteId ?? '')
 }
 
 export function listAgentNodes(diagram: Diagram): DiagramNode[] {
