@@ -55,8 +55,8 @@ import { APP_NAME } from '@/constants'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 
 const SHORTCUTS: Array<{ keys: string; action: string }> = [
-  { keys: 'Scroll', action: 'Zoom in / out (toward cursor)' },
-  { keys: 'Drag background', action: 'Pan the canvas' },
+  { keys: 'Scroll / two-finger', action: 'Pan the canvas' },
+  { keys: 'Zoom controls', action: 'Zoom in / out' },
   { keys: 'Drag shape', action: 'Move a shape' },
   { keys: 'Drag corner handle', action: 'Resize the selected shape' },
   { keys: 'Click port → click target', action: 'Draw a connection' },

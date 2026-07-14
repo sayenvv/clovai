@@ -51,7 +51,6 @@ import {
   isMappedToolPalette,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { SelectAgentDialog } from '@/components/agent-workflow/SelectAgentDialog'
-import { AttachCapabilityDialog } from '@/components/agent-workflow/AttachCapabilityDialog'
 import type { AgentCapability, AgentCapabilityKind } from '@/components/agent-workflow/agent-capabilities'
 import type { AgentAttachAction } from '@/components/agent-workflow/AgentNodeCard'
 import { insertHitlOnEdge, HITL_PALETTE_ID } from '@/components/agent-workflow/insert-hitl-on-edge'
@@ -140,7 +139,6 @@ export default function AgentWorkflowPage() {
   const [logs, setLogs] = useState<string[]>([])
   const [testInput, setTestInput] = useState('{\n  "query": "Summarize the quarterly report"\n}')
   const [agentPickOpen, setAgentPickOpen] = useState(false)
-  const [attachCapabilityOpen, setAttachCapabilityOpen] = useState(false)
   const [attachTarget, setAttachTarget] = useState<{
     agentId: string
     kind: AgentCapabilityKind
@@ -252,6 +250,11 @@ export default function AgentWorkflowPage() {
 
   const handleSelectionChange = useCallback((next: Selection) => {
     setSelection(next)
+    setAttachTarget((current) => {
+      if (!current) return null
+      if (next?.kind === 'node' && next.id === current.agentId) return current
+      return null
+    })
   }, [])
 
   // Expand details when a node/edge is selected; collapse when the canvas is cleared.
@@ -384,6 +387,7 @@ export default function AgentWorkflowPage() {
       right.expand()
 
       if (action === 'config' || action === 'model') {
+        setAttachTarget(null)
         toast.success('Opened the agent configuration panel')
         return
       }
@@ -400,7 +404,6 @@ export default function AgentWorkflowPage() {
             : 'tool'
 
       setAttachTarget({ agentId, kind })
-      setAttachCapabilityOpen(true)
     },
     [right.expand],
   )
@@ -985,6 +988,23 @@ export default function AgentWorkflowPage() {
           serverModelConfig={serverModelConfig}
           llmConfigured={llmConfigured}
           executionPanelOpen={executionPanelOpen}
+          attachCapability={
+            attachTarget
+              ? {
+                  agentLabel:
+                    diagram.nodes.find((node) => node.id === attachTarget.agentId)?.label ??
+                    'agent',
+                  initialKind: attachTarget.kind,
+                  attachedIds: diagram.nodes
+                    .filter((node) => node.mappedAgentId === attachTarget.agentId)
+                    .flatMap((node) => node.agent?.tools ?? []),
+                  onAttach: (capability) => {
+                    attachCapabilityToAgent(attachTarget.agentId, capability)
+                  },
+                  onClose: () => setAttachTarget(null),
+                }
+              : null
+          }
           execution={{
             testInput,
             onTestInputChange: setTestInput,
@@ -1015,25 +1035,6 @@ export default function AgentWorkflowPage() {
         agents={agentNodes}
         onOpenChange={setAgentPickOpen}
         onSelect={(agentId) => addToolForAgent(agentId)}
-      />
-
-      <AttachCapabilityDialog
-        open={attachCapabilityOpen}
-        onOpenChange={(open) => {
-          setAttachCapabilityOpen(open)
-          if (!open) setAttachTarget(null)
-        }}
-        agentLabel={
-          diagram.nodes.find((node) => node.id === attachTarget?.agentId)?.label ?? 'agent'
-        }
-        initialKind={attachTarget?.kind ?? 'tool'}
-        attachedIds={diagram.nodes
-          .filter((node) => node.mappedAgentId === attachTarget?.agentId)
-          .flatMap((node) => node.agent?.tools ?? [])}
-        onAttach={(capability) => {
-          if (!attachTarget) return
-          attachCapabilityToAgent(attachTarget.agentId, capability)
-        }}
       />
 
       <ConvertSubWorkflowDialog

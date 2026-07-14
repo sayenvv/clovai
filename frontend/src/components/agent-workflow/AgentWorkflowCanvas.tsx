@@ -2,6 +2,7 @@ import {
   forwardRef,
   memo,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useRef,
@@ -134,11 +135,42 @@ export const AgentWorkflowCanvas = memo(
       setViewport(updater)
     }, [])
 
+    // Block trackpad pinch / browser page-zoom over the whole canvas chrome.
+    // DesignerCanvas owns two-finger pan; this only swallows ctrl/meta wheel (pinch).
+    useEffect(() => {
+      const element = canvasAreaRef.current
+      if (!element) return
+
+      const onWheel = (event: WheelEvent) => {
+        if (event.ctrlKey || event.metaKey) {
+          event.preventDefault()
+        }
+      }
+
+      const blockGesture = (event: Event) => {
+        event.preventDefault()
+      }
+
+      element.addEventListener('wheel', onWheel, { passive: false, capture: true })
+      element.addEventListener('gesturestart', blockGesture as EventListener, {
+        passive: false,
+      } as AddEventListenerOptions)
+      element.addEventListener('gesturechange', blockGesture as EventListener, {
+        passive: false,
+      } as AddEventListenerOptions)
+
+      return () => {
+        element.removeEventListener('wheel', onWheel, true)
+        element.removeEventListener('gesturestart', blockGesture as EventListener)
+        element.removeEventListener('gesturechange', blockGesture as EventListener)
+      }
+    }, [])
+
     const hasAgents = listAgentNodes(diagram).length > 0
 
     return (
       <DevProfiler id="AgentWorkflowCanvas">
-        <div ref={canvasAreaRef} className="relative min-h-0 flex-1 bg-canvas">
+        <div ref={canvasAreaRef} className="relative min-h-0 flex-1 touch-none overscroll-none bg-canvas">
           {diagram.nodes.length === 0 && !hideEmptyState && (
             <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-3xl">
               <div className="pointer-events-auto w-full max-w-4xl rounded-[1.5rem] border border-red-500/25 bg-card/75 px-5 py-5 shadow-[0_35px_80px_-30px_rgba(139,19,20,0.65)] backdrop-blur-3xl">

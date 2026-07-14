@@ -194,18 +194,10 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
 
   const handleBackgroundPointerDown = useCallback((event: ReactPointerEvent) => {
     if (event.button !== 0) return
-    containerRef.current?.setPointerCapture(event.pointerId)
-    sessionRef.current = {
-      type: 'pan',
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: viewport.x,
-      originY: viewport.y,
-    }
     setCameraAnimating(false)
-    setIsPanning(true)
-    document.body.style.userSelect = 'none'
-  }, [viewport.x, viewport.y])
+    sessionRef.current = null
+    setIsPanning(false)
+  }, [])
 
   const handleNodePointerDown = useCallback(
     (event: ReactPointerEvent, node: Diagram['nodes'][number]) => {
@@ -290,15 +282,44 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
 
     const onWheel = (event: WheelEvent) => {
       event.preventDefault()
-      const rect = element.getBoundingClientRect()
-      const cursorX = event.clientX - rect.left
-      const cursorY = event.clientY - rect.top
-      const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08
-      setViewport((previous) => zoomViewportAt(previous, factor, cursorX, cursorY))
+      event.stopPropagation()
+      setCameraAnimating(false)
+
+      // Pinch / ctrl+scroll — do not zoom; use toolbar buttons.
+      if (event.ctrlKey || event.metaKey) return
+
+      const lineHeight = 16
+      const pageHeight = element.clientHeight
+      const multiplier =
+        event.deltaMode === 1 ? lineHeight : event.deltaMode === 2 ? pageHeight : 1
+      const dx = event.deltaX * multiplier
+      const dy = event.deltaY * multiplier
+      if (dx === 0 && dy === 0) return
+
+      setViewport((previous) => ({
+        ...previous,
+        x: previous.x - dx,
+        y: previous.y - dy,
+      }))
     }
 
-    element.addEventListener('wheel', onWheel, { passive: false })
-    return () => element.removeEventListener('wheel', onWheel)
+    const blockGesture = (event: Event) => {
+      event.preventDefault()
+    }
+
+    element.addEventListener('wheel', onWheel, { passive: false, capture: true })
+    element.addEventListener('gesturestart', blockGesture as EventListener, {
+      passive: false,
+    } as AddEventListenerOptions)
+    element.addEventListener('gesturechange', blockGesture as EventListener, {
+      passive: false,
+    } as AddEventListenerOptions)
+
+    return () => {
+      element.removeEventListener('wheel', onWheel, true)
+      element.removeEventListener('gesturestart', blockGesture as EventListener)
+      element.removeEventListener('gesturechange', blockGesture as EventListener)
+    }
   }, [])
 
   const nodePosition = useCallback(
@@ -508,7 +529,7 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
         ref={containerRef}
         className={cn(
           'relative min-h-0 flex-1 touch-none overflow-hidden',
-          isPanning ? 'cursor-grabbing' : 'cursor-grab',
+          isDraggingNode ? 'cursor-grabbing' : 'cursor-default',
         )}
         style={{
           backgroundImage:
@@ -695,7 +716,7 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
       {runState.status === 'idle' && agentNodes.length > 0 && !isDraggingNode && !isPanning && (
         <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
           <p className="rounded-lg border border-border bg-card/90 px-3 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur-sm">
-            Drag canvas to pan · Scroll to zoom · Drag nodes to rearrange
+            Scroll to pan · use zoom controls to scale · drag nodes to rearrange
           </p>
           <p className="rounded-lg border border-border bg-card/90 px-4 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur-sm">
             Press Execute to run this workflow

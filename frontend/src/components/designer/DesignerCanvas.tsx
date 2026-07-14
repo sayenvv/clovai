@@ -59,7 +59,6 @@ import {
 import { EdgeContextMenu, type EdgeContextMenuState } from './EdgeContextMenu'
 import { CanvasZoomControls } from './CanvasZoomControls'
 import { NodeSelectionOverlay, type FullResizeHandle } from './NodeSelectionOverlay'
-import { zoomViewportAt } from './viewport-utils'
 import type { PaletteItem, PaletteShape } from '@/types/config'
 import {
   isEdgeInSelection,
@@ -442,23 +441,56 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     [onChange],
   )
 
-  /* ---- zoom (native listener so preventDefault works) ---- */
+  const onViewportChangeRef = useRef(onViewportChange)
+  onViewportChangeRef.current = onViewportChange
+
+  /* ---- pan via trackpad / wheel (zoom only from toolbar buttons) ---- */
   useEffect(() => {
     const element = containerRef.current
     if (!element) return
+
     const onWheel = (event: WheelEvent) => {
+      // Capture + non-passive so trackpad pinch cannot zoom the browser page.
       event.preventDefault()
-      const rect = element.getBoundingClientRect()
-      const cursorX = event.clientX - rect.left
-      const cursorY = event.clientY - rect.top
-      onViewportChange((previous) => {
-        const factor = event.deltaY < 0 ? 1.08 : 1 / 1.08
-        return zoomViewportAt(previous, factor, cursorX, cursorY)
-      })
+      event.stopPropagation()
+
+      // Pinch / ctrl+scroll would zoom — swallow it; use zoom buttons instead.
+      if (event.ctrlKey || event.metaKey) return
+
+      const lineHeight = 16
+      const pageHeight = element.clientHeight
+      const multiplier =
+        event.deltaMode === 1 ? lineHeight : event.deltaMode === 2 ? pageHeight : 1
+      const dx = event.deltaX * multiplier
+      const dy = event.deltaY * multiplier
+      if (dx === 0 && dy === 0) return
+
+      onViewportChangeRef.current((previous) => ({
+        ...previous,
+        x: previous.x - dx,
+        y: previous.y - dy,
+      }))
     }
-    element.addEventListener('wheel', onWheel, { passive: false })
-    return () => element.removeEventListener('wheel', onWheel)
-  }, [onViewportChange])
+
+    const blockGesture = (event: Event) => {
+      event.preventDefault()
+    }
+
+    element.addEventListener('wheel', onWheel, { passive: false, capture: true })
+    // Safari trackpad pinch
+    element.addEventListener('gesturestart', blockGesture as EventListener, {
+      passive: false,
+    } as AddEventListenerOptions)
+    element.addEventListener('gesturechange', blockGesture as EventListener, {
+      passive: false,
+    } as AddEventListenerOptions)
+
+    return () => {
+      element.removeEventListener('wheel', onWheel, true)
+      element.removeEventListener('gesturestart', blockGesture as EventListener)
+      element.removeEventListener('gesturechange', blockGesture as EventListener)
+    }
+  }, [])
 
   /* ---- keyboard: delete, escape, undo/redo, clipboard, duplicate ---- */
   useEffect(() => {
@@ -591,10 +623,10 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   /* ---- pointer interactions ---- */
   const handleBackgroundPointerDown = (event: ReactPointerEvent) => {
     if (event.button !== 0) return
-    containerRef.current?.setPointerCapture(event.pointerId)
     const world = toWorld(event.clientX, event.clientY)
 
     if (event.shiftKey && !selectionDisabled) {
+      containerRef.current?.setPointerCapture(event.pointerId)
       sessionRef.current = {
         type: 'marquee',
         startWorld: world,
@@ -609,14 +641,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       return
     }
 
-    sessionRef.current = {
-      type: 'pan',
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: viewport.x,
-      originY: viewport.y,
-    }
-    setIsGrabbing(true)
+    // Background click clears selection — pan with trackpad / wheel, zoom via buttons.
+    sessionRef.current = null
     onSelectionChange(null)
     setConnectFrom(null)
     setConnectCursor(null)
@@ -1266,14 +1292,14 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     <div
       ref={containerRef}
       tabIndex={0}
-      className="relative h-full flex-1 touch-none overflow-hidden bg-[hsl(var(--canvas))] outline-none"
+      className="relative h-full flex-1 touch-none overflow-hidden overscroll-none bg-[hsl(var(--canvas))] outline-none"
       style={{
         backgroundImage: showGrid
           ? 'radial-gradient(circle, hsl(var(--canvas-grid)) 1px, transparent 1px)'
           : undefined,
         backgroundSize: `${gridSize}px ${gridSize}px`,
         backgroundPosition: `${viewport.x}px ${viewport.y}px`,
-        cursor: connectFrom || reconnectEnd ? 'crosshair' : isGrabbing ? 'grabbing' : 'grab',
+        cursor: connectFrom || reconnectEnd ? 'crosshair' : isGrabbing ? 'grabbing' : 'default',
       }}
       onPointerDown={handleBackgroundPointerDown}
       onPointerMove={handlePointerMove}
@@ -1951,7 +1977,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
             <MousePointerClick className="h-6 w-6 text-muted-foreground" aria-hidden />
             <p className="text-sm font-medium">Drag shapes from the left to start designing</p>
             <p className="text-xs text-muted-foreground">
-              Scroll to zoom · drag the background to pan · double-click a shape to rename it
+              Scroll to pan · use zoom controls to scale · double-click a shape to rename it
             </p>
           </div>
         </div>

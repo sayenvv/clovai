@@ -4,12 +4,17 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
 import { AgentConfigPanel } from '@/components/agent-workflow/AgentConfigPanel'
+import { AttachCapabilityPanel } from '@/components/agent-workflow/AttachCapabilityPanel'
 import { ConnectorConfigPanel } from '@/components/agent-workflow/ConnectorConfigPanel'
 import { ExecutorConfigPanel } from '@/components/agent-workflow/ExecutorConfigPanel'
 import { ToolConfigPanel } from '@/components/agent-workflow/ToolConfigPanel'
 import { SubWorkflowConfigPanel } from '@/components/agent-workflow/SubWorkflowConfigPanel'
 import { WorkflowSettingsPanel } from '@/components/agent-workflow/WorkflowSettingsPanel'
 import { ExecutionSidebarPanel } from '@/components/agent-workflow/ExecutionSidebarPanel'
+import type {
+  AgentCapability,
+  AgentCapabilityKind,
+} from '@/components/agent-workflow/agent-capabilities'
 import {
   agentLabel,
   isExecutorNode,
@@ -45,6 +50,14 @@ interface ExecutionSidebarOptions {
   needsReview?: boolean
 }
 
+interface AttachCapabilityOptions {
+  agentLabel: string
+  initialKind: AgentCapabilityKind
+  attachedIds: string[]
+  onAttach: (capability: AgentCapability) => void
+  onClose: () => void
+}
+
 const EXECUTION_PANEL_HINT =
   'Run workflow and approve human-in-the-loop steps'
 
@@ -66,6 +79,7 @@ interface AgentPropertiesShellProps {
   llmConfigured?: boolean
   executionPanelOpen?: boolean
   execution?: ExecutionSidebarOptions
+  attachCapability?: AttachCapabilityOptions | null
 }
 
 export const AgentPropertiesShell = memo(function AgentPropertiesShell({
@@ -86,9 +100,11 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   llmConfigured = false,
   executionPanelOpen = false,
   execution,
+  attachCapability = null,
 }: AgentPropertiesShellProps) {
   const workflowMeta = doc.workflow
   const modelConfig = serverModelConfig
+  const attaching = Boolean(attachCapability) && !executionPanelOpen
 
   const selectedNode: DiagramNode | undefined =
     selection?.kind === 'node' ? diagram.nodes.find((node) => node.id === selection.id) : undefined
@@ -101,8 +117,9 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
 
   const multiSelectCount = selection?.kind === 'nodes' ? selection.ids.length : 0
 
-  const detailsTitle =
-    multiSelectCount > 0
+  const detailsTitle = attaching
+    ? 'Attach'
+    : multiSelectCount > 0
       ? `${multiSelectCount} selected`
       : selection?.kind === 'node' && selectedNode
         ? selectedNode.label
@@ -110,8 +127,9 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
           ? 'Connector'
           : 'Workflow'
 
-  const detailsSubtitle =
-    selection?.kind === 'edge' && selectedEdge
+  const detailsSubtitle = attaching
+    ? attachCapability?.agentLabel ?? null
+    : selection?.kind === 'edge' && selectedEdge
       ? `${fromLabel ?? 'Source'} → ${toLabel ?? 'Target'}`
       : selection?.kind === 'node' && selectedNode && isToolNode(selectedNode)
         ? isMcpToolNode(selectedNode)
@@ -161,7 +179,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
         </div>
         <div className="flex flex-1 items-center justify-center">
           <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground [writing-mode:vertical-rl]">
-            {executionPanelOpen ? 'Run' : 'Panel'}
+            {executionPanelOpen ? 'Run' : attaching ? 'Attach' : 'Panel'}
           </span>
         </div>
       </aside>
@@ -246,6 +264,14 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
             ) : (
               <div className="p-4 text-xs text-muted-foreground">Execution controls unavailable.</div>
             )
+          ) : attaching && attachCapability ? (
+            <AttachCapabilityPanel
+              agentLabel={attachCapability.agentLabel}
+              initialKind={attachCapability.initialKind}
+              attachedIds={attachCapability.attachedIds}
+              onAttach={attachCapability.onAttach}
+              onClose={attachCapability.onClose}
+            />
           ) : (
             detailsContent
           )}
