@@ -29,5 +29,9 @@ export const ROUTES = {
   page: (slug: string) => `/${slug}`,
 } as const
 
+/** Standalone Admin Center micro-app (separate Vite process / port). */
+export const ADMIN_CENTER_URL =
+  import.meta.env.VITE_ADMIN_CENTER_URL?.replace(/\/$/, '') || 'http://127.0.0.1:5174'
+
 /** Simulated network latency (ms) for the mock API layer. */
 export const MOCK_API_DELAY = 350

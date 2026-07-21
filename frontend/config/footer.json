@@ -42,7 +42,8 @@
         { "id": "f-api", "label": "API Reference", "href": "/#", "isExternal": false },
         { "id": "f-community", "label": "Community", "href": "/#", "isExternal": false },
         { "id": "f-status", "label": "Status", "href": "/#", "isExternal": false },
-        { "id": "f-admin", "label": "Admin Console", "href": "/admin/config", "isExternal": false }
+        { "id": "f-admin-center", "label": "Admin Center", "href": "http://127.0.0.1:5174", "isExternal": true },
+        { "id": "f-admin", "label": "Config Console", "href": "/admin/config", "isExternal": false }
       ]
     }
   ],

@@ -15,7 +15,7 @@ export const defaultAppConfig: AppConfig = appConfigSchema.parse({
   meta: {
     name: 'Eleven Nodes Default',
     version: '1.0.0',
-    configBundleVersion: 7,
+    configBundleVersion: 10,
     description: 'Default Eleven Nodes platform configuration assembled from JSON modules.',
   },
   theme,
