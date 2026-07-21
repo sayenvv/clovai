@@ -1,24 +1,8 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import {
-  Activity,
-  Bot,
-  LayoutDashboard,
-  Settings,
-  ShieldCheck,
-  Users,
-} from 'lucide-react'
 import { AdminSidebar } from '@/components/admin-center/AdminSidebar'
-import { APP_NAME, APP_TITLE, ROUTES } from '@/constants'
+import { ADMIN_MOBILE_NAV } from '@/components/admin-center/nav-config'
+import { APP_NAME, APP_TITLE } from '@/constants'
 import { cn } from '@/utils/cn'
-
-const MOBILE_LINKS = [
-  { to: ROUTES.dashboard, label: 'Home', icon: LayoutDashboard },
-  { to: ROUTES.users, label: 'Users', icon: Users },
-  { to: ROUTES.workflows, label: 'Flows', icon: Bot },
-  { to: ROUTES.activity, label: 'Activity', icon: Activity },
-  { to: ROUTES.access, label: 'Access', icon: ShieldCheck },
-  { to: ROUTES.settings, label: 'Settings', icon: Settings },
-]
 
 /** Standalone Admin Center micro-app shell. */
 export default function AdminCenterPage() {
@@ -36,7 +20,7 @@ export default function AdminCenterPage() {
           <Outlet />
         </main>
         <nav className="flex shrink-0 items-center justify-around border-t border-border/60 bg-background/90 px-1 py-1.5 backdrop-blur md:hidden">
-          {MOBILE_LINKS.map((link) => {
+          {ADMIN_MOBILE_NAV.map((link) => {
             const Icon = link.icon
             return (
               <NavLink
@@ -50,7 +34,7 @@ export default function AdminCenterPage() {
                 }
               >
                 <Icon className="h-4 w-4" />
-                {link.label}
+                {link.mobileLabel ?? link.label}
               </NavLink>
             )
           })}

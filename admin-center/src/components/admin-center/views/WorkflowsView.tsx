@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
-import { ExternalLink, Search } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PageBody, PageHeader } from '@/components/admin-center/PageShell'
 import { PremiumCard } from '@/components/admin-center/PremiumCard'
+import { SearchInput } from '@/components/admin-center/SearchInput'
 import { StatusBadge } from '@/components/admin-center/StatusBadge'
+import { WORKFLOW_STATUS_TONE } from '@/components/admin-center/status-tones'
 import { ADMIN_WORKFLOWS, formatNumber } from '@/components/admin-center/mock-data'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { AGENT_WORKFLOW_URL, ROUTES } from '@/constants'
 
 export function WorkflowsView() {
@@ -37,15 +38,12 @@ export function WorkflowsView() {
       />
       <PageBody className="space-y-4">
         <PremiumCard className="p-4">
-          <div className="relative max-w-sm">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search workflows…"
-              className="h-9 pl-8 text-xs"
-            />
-          </div>
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search workflows…"
+            className="max-w-sm"
+          />
         </PremiumCard>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -56,16 +54,7 @@ export function WorkflowsView() {
                   <h3 className="truncate text-sm font-semibold text-foreground">{row.name}</h3>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">Owned by {row.owner}</p>
                 </div>
-                <StatusBadge
-                  label={row.status}
-                  tone={
-                    row.status === 'published'
-                      ? 'success'
-                      : row.status === 'draft'
-                        ? 'warning'
-                        : 'neutral'
-                  }
-                />
+                <StatusBadge label={row.status} tone={WORKFLOW_STATUS_TONE[row.status]} />
               </div>
               <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-border/60 pt-4 text-center">
                 <div>

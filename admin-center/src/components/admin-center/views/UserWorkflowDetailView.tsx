@@ -21,11 +21,17 @@ import {
   Wrench,
   XCircle,
 } from 'lucide-react'
-import { PageBody, PageHeader } from '@/components/admin-center/PageShell'
+import { EmptyHint, PageBody, PageHeader } from '@/components/admin-center/PageShell'
+import { FilterChips } from '@/components/admin-center/FilterChips'
 import { PremiumCard } from '@/components/admin-center/PremiumCard'
 import { StatCard } from '@/components/admin-center/StatCard'
 import { StatusBadge } from '@/components/admin-center/StatusBadge'
 import { WorkflowDiagramCanvas } from '@/components/admin-center/WorkflowDiagramCanvas'
+import {
+  EXECUTION_STATUS_TONE,
+  LOG_LEVEL_TONE,
+  WORKFLOW_STATUS_TONE,
+} from '@/components/admin-center/status-tones'
 import {
   formatCurrency,
   formatNumber,
@@ -38,36 +44,11 @@ import {
   type ExecutionResources,
   type WorkflowExecution,
   type WorkflowExecutionStatus,
-  type WorkflowLogLevel,
-  type WorkflowStatus,
 } from '@/components/admin-center/mock-data'
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/constants'
+import { formatCompute, formatDuration } from '@/utils/format'
 import { cn } from '@/utils/cn'
-
-const WORKFLOW_TONE: Record<WorkflowStatus, 'success' | 'warning' | 'neutral'> = {
-  published: 'success',
-  draft: 'warning',
-  archived: 'neutral',
-}
-
-const EXEC_TONE: Record<
-  WorkflowExecutionStatus,
-  'success' | 'danger' | 'info' | 'warning' | 'neutral'
-> = {
-  succeeded: 'success',
-  failed: 'danger',
-  running: 'info',
-  waiting_approval: 'warning',
-  cancelled: 'neutral',
-}
-
-const LOG_TONE: Record<WorkflowLogLevel, 'success' | 'warning' | 'danger' | 'info'> = {
-  success: 'success',
-  warn: 'warning',
-  error: 'danger',
-  info: 'info',
-}
 
 const STATUS_FILTERS: Array<'all' | WorkflowExecutionStatus> = [
   'all',
@@ -142,7 +123,7 @@ export function UserWorkflowDetailView() {
         <PremiumCard className="p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge label={workflow.status} tone={WORKFLOW_TONE[workflow.status]} />
+              <StatusBadge label={workflow.status} tone={WORKFLOW_STATUS_TONE[workflow.status]} />
               <StatusBadge label={workflow.model} tone="violet" />
               <span className="text-[11.5px] text-muted-foreground">
                 {formatNumber(workflow.agents)} agents · {formatNumber(tracking.executionCount)}{' '}
@@ -367,32 +348,20 @@ export function UserWorkflowDetailView() {
                 Expand a run for credits, resource meters, and step-by-step logs
               </p>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {STATUS_FILTERS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setStatusFilter(value)}
-                  className={cn(
-                    'rounded-lg px-2 py-1 text-[10.5px] font-medium capitalize',
-                    statusFilter === value
-                      ? 'bg-primary text-primary-foreground'
-                      : 'border border-border/70 text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-                  )}
-                >
-                  {value === 'waiting_approval' ? 'waiting' : value}
-                </button>
-              ))}
-            </div>
+            <FilterChips
+              options={STATUS_FILTERS}
+              value={statusFilter}
+              onChange={setStatusFilter}
+              size="sm"
+              label={(value) => (value === 'waiting_approval' ? 'waiting' : value)}
+            />
           </div>
 
           {executions.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/80 px-4 py-12 text-center">
-              <p className="text-[12px] font-medium text-foreground">No executions match</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Try another status filter or clear the diagram node filter.
-              </p>
-            </div>
+            <EmptyHint
+              title="No executions match"
+              hint="Try another status filter or clear the diagram node filter."
+            />
           ) : (
             <div className="space-y-2">
               {executions.map((execution) => (
@@ -459,7 +428,7 @@ function ExecutionRow({
             </span>
             <StatusBadge
               label={execution.status.replace('_', ' ')}
-              tone={EXEC_TONE[execution.status]}
+              tone={EXECUTION_STATUS_TONE[execution.status]}
             />
             <span className="text-[10.5px] text-muted-foreground">{execution.startedAt}</span>
             <span className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
@@ -578,7 +547,7 @@ function ExecutionRow({
                         <span className="text-[10px] font-medium text-muted-foreground">
                           Step {index + 1}
                         </span>
-                        <StatusBadge label={step.level} tone={LOG_TONE[step.level]} />
+                        <StatusBadge label={step.level} tone={LOG_LEVEL_TONE[step.level]} />
                         {step.nodeLabel && (
                           <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
                             {step.nodeLabel}
@@ -842,17 +811,4 @@ const EXEC_ICON_COLOR = {
 function creditShare(value: number, total: number): number {
   if (total <= 0) return 0
   return (value / total) * 100
-}
-
-function formatCompute(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`
-  const minutes = Math.floor(seconds / 60)
-  const rem = seconds % 60
-  return rem ? `${minutes}m ${rem}s` : `${minutes}m`
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
-  return `${Math.round(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`
 }

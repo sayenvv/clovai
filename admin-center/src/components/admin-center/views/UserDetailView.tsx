@@ -14,33 +14,23 @@ import {
   Play,
   UserRound,
 } from 'lucide-react'
-import { PageBody, PageHeader } from '@/components/admin-center/PageShell'
+import { EmptyHint, PageBody, PageHeader } from '@/components/admin-center/PageShell'
 import { PremiumCard } from '@/components/admin-center/PremiumCard'
 import { StatusBadge } from '@/components/admin-center/StatusBadge'
+import { UserAvatar } from '@/components/admin-center/UserAvatar'
+import {
+  USER_STATUS_TONE,
+  WORKFLOW_STATUS_TONE,
+} from '@/components/admin-center/status-tones'
 import {
   formatCurrency,
   formatNumber,
   getUser,
   getWorkflowsForUser,
-  initials,
   userMonthlyEstimate,
-  type AdminUserStatus,
-  type WorkflowStatus,
 } from '@/components/admin-center/mock-data'
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/constants'
-
-const STATUS_TONE: Record<AdminUserStatus, 'success' | 'warning' | 'danger'> = {
-  active: 'success',
-  invited: 'warning',
-  suspended: 'danger',
-}
-
-const WORKFLOW_TONE: Record<WorkflowStatus, 'success' | 'warning' | 'neutral'> = {
-  published: 'success',
-  draft: 'warning',
-  archived: 'neutral',
-}
 
 export function UserDetailView() {
   const { userId = '' } = useParams()
@@ -72,13 +62,16 @@ export function UserDetailView() {
       <PageBody className="space-y-5">
         <PremiumCard className="p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-start">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-lg font-bold text-primary-foreground shadow-md ring-1 ring-border/40">
-              {initials(user.name)}
-            </div>
+            <UserAvatar
+              name={user.name}
+              size="lg"
+              variant="brand"
+              className="h-16 w-16 rounded-2xl text-lg shadow-md ring-1 ring-border/40"
+            />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-semibold tracking-tight text-foreground">{user.name}</h2>
-                <StatusBadge label={user.status} tone={STATUS_TONE[user.status]} />
+                <StatusBadge label={user.status} tone={USER_STATUS_TONE[user.status]} />
                 <StatusBadge label={user.plan} tone="violet" />
                 <StatusBadge label={user.role} tone="info" />
               </div>
@@ -167,12 +160,10 @@ export function UserDetailView() {
           </div>
 
           {workflows.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/80 px-6 py-12 text-center">
-              <p className="text-sm font-medium text-foreground">No workflows yet</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                This member has not created or been assigned any workflows.
-              </p>
-            </div>
+            <EmptyHint
+              title="No workflows yet"
+              hint="This member has not created or been assigned any workflows."
+            />
           ) : (
             <div className="overflow-hidden rounded-xl border border-border/70">
               <table className="w-full min-w-[760px] text-xs">
@@ -211,7 +202,7 @@ export function UserDetailView() {
                       <td className="px-3 py-3">
                         <StatusBadge
                           label={workflow.status}
-                          tone={WORKFLOW_TONE[workflow.status]}
+                          tone={WORKFLOW_STATUS_TONE[workflow.status]}
                         />
                       </td>
                       <td className="px-3 py-3 font-mono text-[10.5px] text-muted-foreground">
@@ -265,7 +256,7 @@ export function UserDetailView() {
                   </h4>
                   <p className="mt-0.5 text-[10.5px] text-muted-foreground">{workflow.model}</p>
                 </div>
-                <StatusBadge label={workflow.status} tone={WORKFLOW_TONE[workflow.status]} />
+                <StatusBadge label={workflow.status} tone={WORKFLOW_STATUS_TONE[workflow.status]} />
               </div>
               <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
                 {workflow.description}

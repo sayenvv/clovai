@@ -11,26 +11,20 @@ import { PageBody, PageHeader } from '@/components/admin-center/PageShell'
 import { PremiumCard } from '@/components/admin-center/PremiumCard'
 import { StatCard } from '@/components/admin-center/StatCard'
 import { StatusBadge } from '@/components/admin-center/StatusBadge'
+import { UserAvatar } from '@/components/admin-center/UserAvatar'
+import {
+  ACTIVITY_TONE,
+  WORKFLOW_STATUS_TONE,
+} from '@/components/admin-center/status-tones'
 import {
   ADMIN_ACTIVITY,
   ADMIN_USERS,
   ADMIN_WORKFLOWS,
   DASHBOARD_METRICS,
   formatNumber,
-  initials,
 } from '@/components/admin-center/mock-data'
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/constants'
-
-
-const ACTIVITY_TONE = {
-  signup: 'info',
-  login: 'neutral',
-  workflow: 'violet',
-  run: 'success',
-  security: 'danger',
-  invite: 'warning',
-} as const
 
 export function DashboardView() {
   const m = DASHBOARD_METRICS
@@ -125,13 +119,7 @@ export function DashboardView() {
                       <td className="px-3 py-2.5">
                         <StatusBadge
                           label={row.status}
-                          tone={
-                            row.status === 'published'
-                              ? 'success'
-                              : row.status === 'draft'
-                                ? 'warning'
-                                : 'neutral'
-                          }
+                          tone={WORKFLOW_STATUS_TONE[row.status]}
                         />
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono tabular-nums text-foreground">
@@ -191,9 +179,7 @@ export function DashboardView() {
                 key={user.id}
                 className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-background/50 px-3 py-2.5"
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
-                  {initials(user.name)}
-                </span>
+                <UserAvatar name={user.name} />
                 <div className="min-w-0">
                   <p className="truncate text-[12px] font-medium text-foreground">{user.name}</p>
                   <p className="truncate text-[10px] capitalize text-muted-foreground">{user.role}</p>

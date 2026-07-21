@@ -1,29 +1,26 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, Plus, Search, UserPlus } from 'lucide-react'
-import { PageBody, PageHeader } from '@/components/admin-center/PageShell'
+import { ChevronRight, UserPlus } from 'lucide-react'
+import { EmptyHint, PageBody, PageHeader } from '@/components/admin-center/PageShell'
+import { FilterChips } from '@/components/admin-center/FilterChips'
 import { PremiumCard } from '@/components/admin-center/PremiumCard'
+import { SearchInput } from '@/components/admin-center/SearchInput'
 import { StatusBadge } from '@/components/admin-center/StatusBadge'
+import { UserAvatar } from '@/components/admin-center/UserAvatar'
+import { USER_STATUS_TONE } from '@/components/admin-center/status-tones'
 import {
   ADMIN_USERS,
   formatCurrency,
-  initials,
   userMonthlyEstimate,
-  type AdminUserStatus,
 } from '@/components/admin-center/mock-data'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ROUTES } from '@/constants'
 
-const STATUS_TONE: Record<AdminUserStatus, 'success' | 'warning' | 'danger'> = {
-  active: 'success',
-  invited: 'warning',
-  suspended: 'danger',
-}
+const STATUS_FILTERS = ['all', 'active', 'invited', 'suspended'] as const
 
 export function UsersView() {
   const [query, setQuery] = useState('')
-  const [status, setStatus] = useState<'all' | AdminUserStatus>('all')
+  const [status, setStatus] = useState<(typeof STATUS_FILTERS)[number]>('all')
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -54,30 +51,19 @@ export function UsersView() {
       <PageBody className="space-y-4">
         <PremiumCard className="p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative max-w-sm flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search name, email, company…"
-                className="h-9 pl-8 text-xs"
-              />
-            </div>
+            <SearchInput
+              value={query}
+              onChange={setQuery}
+              placeholder="Search name, email, company…"
+              className="max-w-sm flex-1"
+            />
             <div className="flex flex-wrap items-center gap-1.5">
-              {(['all', 'active', 'invited', 'suspended'] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setStatus(value)}
-                  className={
-                    status === value
-                      ? 'rounded-lg bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-primary-foreground'
-                      : 'rounded-lg border border-border/70 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                  }
-                >
-                  {value === 'all' ? 'All' : value}
-                </button>
-              ))}
+              <FilterChips
+                options={STATUS_FILTERS}
+                value={status}
+                onChange={setStatus}
+                label={(value) => (value === 'all' ? 'All' : value)}
+              />
               <span className="ml-1 text-[11px] tabular-nums text-muted-foreground">
                 {filtered.length} shown
               </span>
@@ -115,9 +101,7 @@ export function UsersView() {
                           to={ROUTES.user(user.id)}
                           className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
-                            {initials(user.name)}
-                          </span>
+                          <UserAvatar name={user.name} />
                           <div className="min-w-0">
                             <p className="truncate font-medium text-foreground hover:underline">
                               {user.name}
@@ -131,7 +115,10 @@ export function UsersView() {
                       <td className="px-4 py-3 text-muted-foreground">{user.company}</td>
                       <td className="px-4 py-3 capitalize text-muted-foreground">{user.role}</td>
                       <td className="px-4 py-3">
-                        <StatusBadge label={user.status} tone={STATUS_TONE[user.status]} />
+                        <StatusBadge
+                          label={user.status}
+                          tone={USER_STATUS_TONE[user.status]}
+                        />
                       </td>
                       <td className="px-4 py-3 text-right font-mono tabular-nums">
                         {user.workflows}
@@ -155,11 +142,11 @@ export function UsersView() {
             </table>
           </div>
           {filtered.length === 0 && (
-            <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-              <Plus className="mb-3 h-5 w-5 text-muted-foreground" />
-              <p className="text-sm font-medium">No members match</p>
-              <p className="mt-1 text-xs text-muted-foreground">Try another search or status filter.</p>
-            </div>
+            <EmptyHint
+              title="No members match"
+              hint="Try another search or status filter."
+              className="m-4 rounded-xl border-0 bg-transparent py-10"
+            />
           )}
         </PremiumCard>
       </PageBody>

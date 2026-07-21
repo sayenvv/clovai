@@ -542,26 +542,14 @@ export function userMonthlyEstimate(userId: string): number {
   return getWorkflowsForUser(userId).reduce((sum, workflow) => sum + workflow.estimatedMonthlyUsd, 0)
 }
 
-export function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('')
-}
+export { formatCurrency, formatNumber, initials } from '@/utils/format'
 
-export function formatNumber(value: number): string {
-  return new Intl.NumberFormat('en-US').format(value)
-}
-
-export function formatCurrency(value: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: value >= 100 ? 0 : 2,
-  }).format(value)
-}
+/** Signed-in admin for header chrome (mock). */
+export const CURRENT_ADMIN = {
+  name: 'Aanya Sharma',
+  email: 'aanya@elevennodes.dev',
+  roleLabel: 'Owner',
+} as const
 
 export type DiagramNodeKind = 'trigger' | 'agent' | 'tool' | 'approval' | 'output'
 export type WorkflowLogLevel = 'info' | 'warn' | 'error' | 'success'
