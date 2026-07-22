@@ -1,5 +1,5 @@
-import { useMemo, useState, type ComponentProps, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft,
@@ -24,8 +24,8 @@ import {
   createAccount,
   createInstanceForAccount,
   enterInstance,
-  hasAccounts,
   loginAccount,
+  resetAccountPassword,
   PROJECT_ROLES,
   type ProjectAccount,
   type ProjectAccountType,
@@ -33,7 +33,7 @@ import {
   type ProjectSession,
 } from '@/services/project-auth-store'
 
-type Flow = 'welcome' | 'create-account' | 'login' | 'hub' | 'create-instance'
+type Flow = 'welcome' | 'create-account' | 'login' | 'reset-password' | 'hub' | 'create-instance'
 
 const ACCOUNT_STEPS = [
   { label: 'Profile', title: 'Create your account', subtitle: 'Tell us who you are before provisioning a workspace.' },
@@ -332,8 +332,8 @@ function DarkInput(props: ComponentProps<typeof Input>) {
 }
 
 export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
-  const accountsExist = useMemo(() => hasAccounts(), [])
-  const [flow, setFlow] = useState<Flow>(accountsExist ? 'welcome' : 'create-account')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [flow, setFlow] = useState<Flow>('welcome')
   const [step, setStep] = useState(0)
   const [account, setAccount] = useState<ProjectAccount | null>(null)
 
@@ -347,14 +347,37 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
   const [instanceName, setInstanceName] = useState('')
 
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+
+  useEffect(() => {
+    const auth = searchParams.get('auth')
+    if (!auth) return
+    if (auth === 'login') {
+      setFlow('login')
+      setStep(0)
+      setError(null)
+    } else if (auth === 'create' || auth === 'signup') {
+      setFlow('create-account')
+      setStep(0)
+      setError(null)
+    } else if (auth === 'reset') {
+      setFlow('reset-password')
+      setStep(0)
+      setError(null)
+    }
+    const next = new URLSearchParams(searchParams)
+    next.delete('auth')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
 
   function resetErrors() {
     setError(null)
+    setNotice(null)
   }
 
   function goWelcome() {
-    setFlow(accountsExist || account ? 'welcome' : 'create-account')
+    setFlow('welcome')
     setStep(0)
     resetErrors()
   }
@@ -428,6 +451,26 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
     }
   }
 
+  async function finishResetPassword() {
+    setPending(true)
+    resetErrors()
+    try {
+      const result = await resetAccountPassword(email, password, confirmPassword)
+      if ('error' in result) {
+        setError(result.error)
+        return
+      }
+      setPassword('')
+      setConfirmPassword('')
+      setStep(0)
+      setError(null)
+      setNotice('Password updated. Sign in with your new password.')
+      setFlow('login')
+    } finally {
+      setPending(false)
+    }
+  }
+
   function openInstance() {
     if (!account) return
     resetErrors()
@@ -463,9 +506,19 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
       <WizardShell
         panelKey="welcome"
         title="Provision your workspace"
-        subtitle="Create an account first. Once signed in, open your existing instance or launch a new one."
+        subtitle="Sign in to an existing account, or create one to provision a company or individual instance."
       >
         <div className="space-y-3">
+          <ActionCard
+            icon={Lock}
+            title="Sign in"
+            description="Access your account, then continue to your instance hub."
+            onClick={() => {
+              setFlow('login')
+              resetErrors()
+            }}
+            accent="primary"
+          />
           <ActionCard
             icon={UserPlus}
             title="Create account"
@@ -473,16 +526,6 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
             onClick={() => {
               setFlow('create-account')
               setStep(0)
-              resetErrors()
-            }}
-            accent="primary"
-          />
-          <ActionCard
-            icon={Lock}
-            title="Sign in"
-            description="Access your account, then continue to your instance hub."
-            onClick={() => {
-              setFlow('login')
               resetErrors()
             }}
           />
@@ -526,6 +569,25 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
               autoComplete="current-password"
             />
           </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="text-[12px] font-medium text-white/55 underline-offset-4 hover:text-white/85 hover:underline"
+              onClick={() => {
+                setFlow('reset-password')
+                setPassword('')
+                setConfirmPassword('')
+                resetErrors()
+              }}
+            >
+              Forgot password?
+            </button>
+          </div>
+          {notice && (
+            <p className="rounded-lg border border-emerald-400/25 bg-emerald-500/[0.08] px-3.5 py-2.5 text-[13px] text-emerald-200">
+              {notice}
+            </p>
+          )}
           <FieldError message={error} />
           <FooterActions
             onBack={goWelcome}
@@ -533,6 +595,88 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
             pending={pending}
             onPrimary={() => void finishLogin()}
           />
+          <p className="mt-4 text-center text-[13px] text-white/45">
+            New here?{' '}
+            <button
+              type="button"
+              className="font-medium text-white/85 underline-offset-4 hover:underline"
+              onClick={() => {
+                setFlow('create-account')
+                setStep(0)
+                resetErrors()
+              }}
+            >
+              Create account
+            </button>
+          </p>
+        </div>
+      </WizardShell>
+    )
+  }
+
+  if (flow === 'reset-password') {
+    return (
+      <WizardShell
+        panelKey="reset-password"
+        title="Reset password"
+        subtitle="Set a new password for your account on this device, then sign in."
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="reset-email" className="text-[12px] font-medium text-white/70">
+              Email
+            </Label>
+            <DarkInput
+              id="reset-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@company.com"
+              autoComplete="email"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="reset-password" className="text-[12px] font-medium text-white/70">
+              New password
+            </Label>
+            <DarkInput
+              id="reset-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 6 characters"
+              autoComplete="new-password"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="reset-confirm" className="text-[12px] font-medium text-white/70">
+              Confirm password
+            </Label>
+            <DarkInput
+              id="reset-confirm"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter new password"
+              autoComplete="new-password"
+            />
+          </div>
+          <FieldError message={error} />
+          <FooterActions
+            onBack={() => {
+              setFlow('login')
+              setPassword('')
+              setConfirmPassword('')
+              resetErrors()
+            }}
+            primaryLabel="Update password"
+            pending={pending}
+            onPrimary={() => void finishResetPassword()}
+          />
+          <p className="mt-4 text-center text-[12px] leading-relaxed text-white/40">
+            This updates the password stored in this browser only. No email is sent.
+          </p>
         </div>
       </WizardShell>
     )
@@ -743,9 +887,9 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
             }}
           />
 
-          {accountsExist && step === 0 && (
+          {step === 0 && (
             <p className="mt-4 text-center text-[13px] text-white/45">
-              Already registered?{' '}
+              Already have an account?{' '}
               <button
                 type="button"
                 className="font-medium text-white/85 underline-offset-4 hover:underline"

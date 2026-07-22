@@ -21,8 +21,8 @@
       "ctas": [
         {
           "id": "hero-primary",
-          "label": "Start building",
-          "href": "/tools/agent-workflow",
+          "label": "Create account",
+          "href": "/tools/agent-workflow?auth=create",
           "variant": "gradient",
           "icon": "arrow-right",
           "iconPosition": "right",
@@ -30,10 +30,9 @@
         },
         {
           "id": "hero-secondary",
-          "label": "Explore the platform",
-          "href": "/tools/ai-flowchart",
+          "label": "Log in",
+          "href": "/tools/agent-workflow?auth=login",
           "variant": "outline",
-          "icon": "git-branch",
           "iconPosition": "left",
           "isExternal": false
         }

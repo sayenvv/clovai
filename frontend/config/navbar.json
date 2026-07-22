@@ -16,16 +16,16 @@
   "actions": [
     {
       "id": "nav-signin",
-      "label": "Sign in",
-      "href": "/admin/config",
+      "label": "Log in",
+      "href": "/tools/agent-workflow?auth=login",
       "variant": "ghost",
       "iconPosition": "right",
       "isExternal": false
     },
     {
       "id": "nav-get-started",
-      "label": "Get started",
-      "href": "/#pricing",
+      "label": "Create account",
+      "href": "/tools/agent-workflow?auth=create",
       "variant": "gradient",
       "icon": "arrow-right",
       "iconPosition": "right",

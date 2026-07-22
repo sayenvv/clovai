@@ -227,6 +227,29 @@ export async function loginAccount(
   return { account }
 }
 
+/** Local-only reset — updates the password hash for an account on this device. */
+export async function resetAccountPassword(
+  emailRaw: string,
+  newPassword: string,
+  confirmPassword: string,
+): Promise<{ ok: true } | { error: string }> {
+  const email = normalizeEmail(emailRaw)
+  if (!email || !email.includes('@')) return { error: 'Enter a valid email address.' }
+  if (newPassword.length < 6) return { error: 'Password must be at least 6 characters.' }
+  if (newPassword !== confirmPassword) return { error: 'Passwords do not match.' }
+
+  const accounts = readAccounts()
+  const index = accounts.findIndex((item) => item.email === email)
+  if (index < 0) return { error: 'No account found for this email on this device.' }
+
+  accounts[index] = {
+    ...accounts[index],
+    passwordHash: await hashPassword(newPassword),
+  }
+  writeAccounts(accounts)
+  return { ok: true }
+}
+
 export function createInstanceForAccount(
   accountId: string,
   input: CreateInstanceInput,
