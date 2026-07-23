@@ -1,6 +1,7 @@
 import { memo } from 'react'
-import { Rocket, Save, ShieldCheck, Sparkles } from 'lucide-react'
+import { LayoutDashboard, Rocket, Save, ShieldCheck, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { ConsoleButton } from '@/components/agent-workflow/ConsoleButton'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -22,6 +23,7 @@ interface AgentWorkflowHeaderProps {
   onGenerate?: () => void
   isValidated: boolean
   onNavigateHome?: () => void
+  onViewInstance?: () => void
 }
 
 export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
@@ -37,6 +39,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
   onGenerate,
   isValidated,
   onNavigateHome,
+  onViewInstance,
 }: AgentWorkflowHeaderProps) {
   const session = getSession()
   const projectLabel = session
@@ -44,7 +47,6 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
       ? session.displayName
       : `${session.displayName}`
     : null
-
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card/80 px-3 backdrop-blur-sm">
       {onNavigateHome ? (
@@ -108,6 +110,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        <ConsoleButton />
         {onGenerate ? (
           <Button
             variant="outline"
@@ -127,6 +130,17 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
           <ShieldCheck className="h-3.5 w-3.5" />
           Validate
         </Button>
+        {status === 'deployed' && onViewInstance ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onViewInstance}
+            className="border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            View instance
+          </Button>
+        ) : null}
         <Button size="sm" disabled={!isValidated} onClick={onDeploy} className="bg-red-600 hover:bg-red-700">
           <Rocket className="h-3.5 w-3.5" />
           Deploy

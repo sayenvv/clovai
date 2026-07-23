@@ -1,5 +1,13 @@
 import { memo, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  ExternalLink,
+  Gauge,
+  LayoutDashboard,
+  PenLine,
+  Rocket,
+  Shield,
+} from 'lucide-react'
 import { visibleSorted } from '@/utils/collection'
 import { Icon } from '@/components/shared/Icon'
 import { ConfigBadge } from '@/components/shared/ConfigBadge'
@@ -10,6 +18,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import { ADMIN_CENTER_URL, ROUTES } from '@/constants'
 import type { CtaButton as CtaButtonConfig, MegaMenuConfig, NavItem } from '@/types/config'
 
 interface MobileMenuProps {
@@ -66,6 +75,65 @@ export const MobileMenu = memo(function MobileMenu({
                     ))}
                   </div>
                 ))}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        ) : item.type === 'console' ? (
+          <Accordion key={item.id} type="single" collapsible>
+            <AccordionItem value={item.id} className="border-none">
+              <AccordionTrigger className="rounded-md px-3 py-2.5 text-sm font-medium hover:bg-accent hover:no-underline">
+                <span className="flex items-center gap-2">
+                  <LayoutDashboard className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  {item.label}
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="pb-2">
+                <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Management console
+                </p>
+                <Link
+                  to={ROUTES.agentWorkflowDashboard}
+                  onClick={onNavigate}
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                >
+                  <LayoutDashboard className="h-4 w-4 text-primary" />
+                  My dashboard
+                </Link>
+                <Link
+                  to={ROUTES.agentWorkflowDashboardInstances}
+                  onClick={onNavigate}
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                >
+                  <Rocket className="h-4 w-4 text-primary" />
+                  My instances
+                </Link>
+                <Link
+                  to={ROUTES.agentWorkflowDashboardPerformance}
+                  onClick={onNavigate}
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                >
+                  <Gauge className="h-4 w-4 text-primary" />
+                  Performance
+                </Link>
+                <Link
+                  to={ROUTES.agentWorkflow}
+                  onClick={onNavigate}
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                >
+                  <PenLine className="h-4 w-4 text-primary" />
+                  Workflow designer
+                </Link>
+                <a
+                  href={ADMIN_CENTER_URL}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  onClick={onNavigate}
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                >
+                  <Shield className="h-4 w-4 text-primary" />
+                  Admin Center
+                  <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+                </a>
               </AccordionContent>
             </AccordionItem>
           </Accordion>

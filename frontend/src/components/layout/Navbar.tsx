@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronDown, Menu, X } from 'lucide-react'
+import { ChevronDown, LayoutDashboard, Menu, X } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { visibleSorted } from '@/utils/collection'
 import { useAppConfig } from '@/hooks/use-app-config'
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { CtaButton } from '@/components/shared/CtaButton'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
 import { Logo, LOGO_SIZE } from '@/components/shared/Logo'
+import { ConsoleMenu } from './ConsoleMenu'
 import { MegaMenu } from './MegaMenu'
 import { MobileMenu } from './MobileMenu'
 import type { NavItem } from '@/types/config'
@@ -49,8 +50,9 @@ export const Navbar = memo(function Navbar() {
   }, [])
 
   const renderItem = (item: NavItem) => {
-    if (item.type === 'megaMenu') {
+    if (item.type === 'megaMenu' || item.type === 'console') {
       const isOpen = openMenuId === item.id
+      const isConsole = item.type === 'console'
       return (
         <div
           key={item.id}
@@ -60,13 +62,22 @@ export const Navbar = memo(function Navbar() {
         >
           <button
             className={cn(
-              'flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground',
-              isOpen && 'text-foreground',
+              'flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+              isConsole
+                ? cn(
+                    'border border-border/70 bg-background/60 text-foreground hover:border-red-500/30 hover:bg-red-500/[0.06]',
+                    isOpen && 'border-red-500/30 bg-red-500/[0.08]',
+                  )
+                : cn(
+                    'text-muted-foreground hover:text-foreground',
+                    isOpen && 'text-foreground',
+                  ),
             )}
             aria-expanded={isOpen}
             aria-haspopup="menu"
             onClick={() => (isOpen ? setOpenMenuId(null) : openMenu(item.id))}
           >
+            {isConsole ? <LayoutDashboard className="h-3.5 w-3.5 text-red-600 dark:text-red-400" /> : null}
             {item.label}
             <ChevronDown
               className={cn('h-3.5 w-3.5 transition-transform duration-200', isOpen && 'rotate-180')}
@@ -75,8 +86,19 @@ export const Navbar = memo(function Navbar() {
           </button>
           <AnimatePresence>
             {isOpen && (
-              <div className="absolute left-1/2 top-full z-50 -translate-x-1/2 pt-2">
-                <MegaMenu config={megaMenu} onNavigate={() => setOpenMenuId(null)} />
+              <div
+                className={cn(
+                  'absolute top-full z-50 pt-2',
+                  isConsole ? 'left-0' : 'left-1/2 -translate-x-1/2',
+                )}
+                onMouseEnter={() => openMenu(item.id)}
+                onMouseLeave={scheduleClose}
+              >
+                {isConsole ? (
+                  <ConsoleMenu onNavigate={() => setOpenMenuId(null)} />
+                ) : (
+                  <MegaMenu config={megaMenu} onNavigate={() => setOpenMenuId(null)} />
+                )}
               </div>
             )}
           </AnimatePresence>

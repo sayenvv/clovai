@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
     `eleven-nodes-workflow-build:${workspaceId}:${pageId}`,
   projectAccounts: 'eleven-nodes-project-accounts',
   projectSession: 'eleven-nodes-project-session',
+  publishedInstances: 'eleven-nodes-published-instances',
 } as const
 
 export const QUERY_KEYS = {
@@ -27,6 +28,14 @@ export const ROUTES = {
   tool: (route: string) => route,
   admin: '/admin/config',
   page: (slug: string) => `/${slug}`,
+  agentWorkflow: '/tools/agent-workflow',
+  agentWorkflowDashboard: '/tools/agent-workflow/dashboard',
+  agentWorkflowDashboardInstances: '/tools/agent-workflow/dashboard/instances',
+  agentWorkflowDashboardRuns: '/tools/agent-workflow/dashboard/runs',
+  agentWorkflowDashboardPerformance: '/tools/agent-workflow/dashboard/performance',
+  /** @deprecated use agentWorkflowDashboardPerformance */
+  agentWorkflowDashboardUsage: '/tools/agent-workflow/dashboard/performance',
+  agentWorkflowExecute: '/tools/agent-workflow/execute',
 } as const
 
 /** Standalone Admin Center micro-app (separate Vite process / port). */

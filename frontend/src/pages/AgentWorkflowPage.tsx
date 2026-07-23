@@ -92,7 +92,9 @@ import { UnsavedChangesDialog } from '@/components/agent-workflow/UnsavedChanges
 import type { WorkflowEditorViewMode } from '@/components/agent-workflow/WorkflowEditorViewToggle'
 import { WorkflowBuildCodeView } from '@/components/agent-workflow/WorkflowBuildCodeView'
 import { DevProfiler } from '@/utils/render-profiler'
-import { APP_NAME } from '@/constants'
+import { APP_NAME, ROUTES } from '@/constants'
+import { getSession } from '@/services/project-auth-store'
+import { upsertPublishedInstance } from '@/services/published-instances-store'
 
 const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
 
@@ -589,9 +591,18 @@ export default function AgentWorkflowPage() {
     setSelection(null)
   }, [resetExecution])
 
+  const handleViewInstance = useCallback(() => {
+    navigate(ROUTES.agentWorkflowDashboardInstances)
+  }, [navigate])
+
   const handleDeploy = useCallback(() => {
     if (!isValidated) {
       toast.error('Validate the workflow before deploying')
+      return
+    }
+    const session = getSession()
+    if (!session) {
+      toast.error('Sign in to deploy a workflow instance')
       return
     }
     const deployment: WorkflowDeployment = {
@@ -614,12 +625,32 @@ export default function AgentWorkflowPage() {
         deployment,
       },
     }))
+    upsertPublishedInstance({
+      accountId: session.accountId,
+      workspaceId: session.workspaceId,
+      workflowId: deployment.workflowId,
+      workflowName,
+      instanceName: session.displayName,
+      accountType: session.accountType,
+      endpointUrl: deployment.endpointUrl,
+      version: deployment.version,
+      triggerMethod: deployment.triggerMethod,
+      authType: deployment.authType,
+      status: 'deployed',
+      deployedAt: deployment.deployedAt,
+    })
     setLogs((previous) => [
       ...previous,
       `[${deployment.deployedAt}] Deployed v${deployment.version} → ${deployment.endpointUrl}`,
     ])
-    toast.success('Workflow deployed')
-  }, [isValidated, workflowMeta, testInput, setDoc])
+    toast.success('Workflow deployed', {
+      description: 'Your published instance is ready on the dashboard.',
+      action: {
+        label: 'View instance',
+        onClick: () => navigate(ROUTES.agentWorkflowDashboardInstances),
+      },
+    })
+  }, [isValidated, workflowMeta, testInput, setDoc, workflowName, navigate])
 
   const handleExecute = useCallback(() => {
     if (isPersistingExecution || runState.status === 'running' || runState.status === 'waiting-approval') {
@@ -765,6 +796,7 @@ export default function AgentWorkflowPage() {
         onGenerate={() => setGenerateWorkflowOpen(true)}
         isValidated={isValidated}
         onNavigateHome={handleNavigateHome}
+        onViewInstance={handleViewInstance}
       />
 
       <div className="flex min-h-0 flex-1">

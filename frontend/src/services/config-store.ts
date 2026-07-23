@@ -86,6 +86,7 @@ function migrateRecords(records: ConfigRecord[]): ConfigRecord[] {
         ...record.config,
         meta: { ...record.config.meta, configBundleVersion: targetVersion },
         megaMenu: migrateMegaMenu(record.config.megaMenu),
+        navbar: defaultAppConfig.navbar,
         footer: defaultAppConfig.footer,
       },
     }

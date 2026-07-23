@@ -130,7 +130,7 @@ export const navItemSchema = z.object({
   id: z.string(),
   label: z.string(),
   href: z.string().optional(),
-  type: z.enum(['link', 'megaMenu']).default('link'),
+  type: z.enum(['link', 'megaMenu', 'console']).default('link'),
   order: z.number().int().default(0),
   isVisible: z.boolean().default(true),
 })
