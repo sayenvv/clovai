@@ -57,6 +57,8 @@ interface AgentLibrarySidebarProps {
   collapsed: boolean
   onResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
   onToggleCollapse: () => void
+  /** Fill parent (mobile drawer) — flyout open by default, no resize handle. */
+  embedded?: boolean
 }
 
 const FLYOUT_MIN_WIDTH = 260
@@ -237,8 +239,11 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   collapsed,
   onResizePointerDown,
   onToggleCollapse,
+  embedded = false,
 }: AgentLibrarySidebarProps) {
-  const [section, setSection] = useState<LibrarySection | null>(null)
+  const [section, setSection] = useState<LibrarySection | null>(
+    embedded ? 'blocks' : null,
+  )
   const [query, setQuery] = useState('')
   const [importSourceId, setImportSourceId] = useState<string | null>(null)
   const [focusSearch, setFocusSearch] = useState(false)
@@ -250,9 +255,11 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
     ? [session.fullName || session.email, session.displayName].filter(Boolean).join(' · ')
     : undefined
 
-  const flyoutOpen = section !== null
+  const flyoutOpen = embedded || section !== null
   const flyoutWidth = Math.max(width, FLYOUT_MIN_WIDTH)
-  const totalWidth = SIDE_PANEL_COLLAPSED_WIDTH + (flyoutOpen ? flyoutWidth : 0)
+  const totalWidth = embedded
+    ? '100%'
+    : SIDE_PANEL_COLLAPSED_WIDTH + (flyoutOpen ? flyoutWidth : 0)
 
   const closeFlyout = useCallback(() => {
     setSection(null)
@@ -346,10 +353,11 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
         className={cn(
           'relative flex h-full shrink-0 border-r border-border/70',
           'bg-background',
+          embedded && 'w-full border-r-0',
         )}
         style={{ width: totalWidth }}
       >
-        {flyoutOpen && (
+        {flyoutOpen && !embedded && (
           <DesignerResizeHandle
             side="right"
             onPointerDown={onResizePointerDown}
@@ -358,6 +366,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
         )}
 
         {/* Premium icon rail */}
+        {!embedded && (
         <div
           className={cn(
             'relative flex h-full shrink-0 flex-col',
@@ -441,20 +450,53 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
             </div>
           </TooltipProvider>
         </div>
+        )}
 
         {/* Expandable section */}
         {flyoutOpen && meta ? (
           <div
             className={cn(
               'flex min-w-0 flex-1 flex-col bg-background',
-              'animate-in fade-in-0 slide-in-from-left-1 duration-200',
+              !embedded && 'animate-in fade-in-0 slide-in-from-left-1 duration-200',
             )}
-            style={{ width: flyoutWidth }}
+            style={embedded ? undefined : { width: flyoutWidth }}
           >
+            {!embedded && (
             <div className="shrink-0 border-b border-border/60 px-3 py-2.5">
               <h2 className="truncate text-sm font-semibold text-foreground">{meta.title}</h2>
               <p className="mt-0.5 text-[10px] text-muted-foreground">{meta.subtitle}</p>
             </div>
+            )}
+
+            {embedded && (
+              <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-border/60 px-2 py-2">
+                {(
+                  [
+                    ['blocks', 'Blocks'],
+                    ['workflows', 'Workflows'],
+                    ['store', 'Store'],
+                    ['import', 'Import'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setSection(id)
+                      setQuery('')
+                    }}
+                    className={cn(
+                      'rounded-md px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap',
+                      section === id
+                        ? 'bg-foreground/[0.08] text-foreground'
+                        : 'text-muted-foreground hover:bg-foreground/[0.06]',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {(section === 'blocks' || section === 'store' || section === 'workflows') && (
               <div className="shrink-0 border-b border-border/60 px-3 py-2">

@@ -172,32 +172,37 @@ export const AgentWorkflowCanvas = memo(
       <DevProfiler id="AgentWorkflowCanvas">
         <div ref={canvasAreaRef} className="relative min-h-0 flex-1 touch-none overscroll-none bg-canvas">
           {diagram.nodes.length === 0 && !hideEmptyState && (
-            <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-3xl">
-              <div className="pointer-events-auto w-full max-w-4xl rounded-[1.5rem] border border-red-500/25 bg-card/75 px-5 py-5 shadow-[0_35px_80px_-30px_rgba(139,19,20,0.65)] backdrop-blur-3xl">
+            <div
+              className="pointer-events-none absolute inset-0 z-30 flex items-stretch justify-center overflow-y-auto overscroll-contain bg-black/35 p-0 backdrop-blur-md sm:items-center sm:p-4 sm:backdrop-blur-xl"
+              style={{ touchAction: 'pan-y' }}
+            >
+              <div className="pointer-events-auto flex h-full w-full max-w-4xl flex-col overflow-hidden border-red-500/25 bg-card shadow-[0_35px_80px_-30px_rgba(139,19,20,0.65)] sm:my-auto sm:h-auto sm:max-h-[min(85%,40rem)] sm:rounded-[1.5rem] sm:border sm:bg-card/90 sm:backdrop-blur-xl">
                 {emptyState ?? (
-                  <>
+                  <div className="p-4 sm:px-5 sm:py-5">
                     <p className="text-sm font-medium text-foreground">Build your agent workflow</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Add agents from the sidebar, or use{' '}
+                      Add agents from the Library tab, or use{' '}
                       <span className="font-medium text-red-600 dark:text-red-300">Generate</span>{' '}
                       in the header to draft a full workflow from a prompt.
                     </p>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
           )}
 
-          <div className="absolute bottom-3 left-3 z-20 flex gap-1.5">
-            <Button variant="secondary" size="sm" className="h-8 shadow-md" onClick={onAutoLayout}>
-              <LayoutGrid className="h-3.5 w-3.5" />
-              Auto-layout
-            </Button>
-            <Button variant="secondary" size="sm" className="h-8 shadow-md" onClick={fitView}>
-              <Maximize2 className="h-3.5 w-3.5" />
-              Fit
-            </Button>
-          </div>
+          {(diagram.nodes.length > 0 || hideEmptyState) && (
+            <div className="absolute bottom-3 left-3 z-20 flex gap-1.5">
+              <Button variant="secondary" size="sm" className="h-8 shadow-md" onClick={onAutoLayout}>
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Auto-layout
+              </Button>
+              <Button variant="secondary" size="sm" className="h-8 shadow-md" onClick={fitView}>
+                <Maximize2 className="h-3.5 w-3.5" />
+                Fit
+              </Button>
+            </div>
+          )}
 
           {hasAgents && executionPanelOpen && onBackToDesign && (
             <div className="absolute right-3 top-3 z-20">

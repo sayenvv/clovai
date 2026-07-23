@@ -1,6 +1,7 @@
-import { memo, useState } from 'react'
-import { Loader2, Sparkles, Wand2 } from 'lucide-react'
+import { memo, useEffect, useState } from 'react'
+import { Loader2, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -41,6 +42,10 @@ export const GenerateWorkflowDialog = memo(function GenerateWorkflowDialog({
   const [name, setName] = useState(workflowName)
   const [isGenerating, setIsGenerating] = useState(false)
 
+  useEffect(() => {
+    if (open) setName(workflowName)
+  }, [open, workflowName])
+
   const canGenerate = prompt.trim().length >= 8 && !isGenerating
 
   const handleGenerate = async () => {
@@ -69,29 +74,32 @@ export const GenerateWorkflowDialog = memo(function GenerateWorkflowDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl gap-0 overflow-hidden border-red-500/20 p-0 sm:rounded-2xl">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-400/60 to-transparent" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(139,92,246,0.12),transparent_55%)]" />
-
-        <div className="relative border-b border-red-500/15 bg-gradient-to-br from-red-500/[0.08] via-rose-500/[0.04] to-background px-6 py-5">
-          <DialogHeader className="space-y-3 text-left">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/30">
-                <Wand2 className="h-5 w-5" />
+      <DialogContent className="flex max-h-[min(92dvh,40rem)] max-w-lg flex-col gap-0 overflow-hidden border-border p-0 sm:max-w-xl sm:rounded-xl">
+        <div className="shrink-0 border-b border-border bg-card px-4 py-4 sm:px-5">
+          <DialogHeader className="space-y-2 text-left">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-600 dark:text-red-300">
+                <Sparkles className="h-5 w-5" />
               </div>
-              <div>
-                <DialogTitle className="text-lg tracking-tight">Generate workflow with AI</DialogTitle>
-                <DialogDescription className="text-xs leading-relaxed">
-                  Describe the automation you want. Eleven Nodes will draft agents, connectors, and instructions on your canvas.
+              <div className="min-w-0 space-y-1">
+                <DialogTitle className="text-base font-semibold tracking-tight sm:text-lg">
+                  Generate with AI
+                </DialogTitle>
+                <DialogDescription className="text-[12px] leading-relaxed sm:text-xs">
+                  Describe the automation. Agents, connectors, and instructions are drafted onto your
+                  canvas so you can edit them.
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
         </div>
 
-        <div className="relative space-y-4 px-6 py-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground" htmlFor="generate-workflow-name">
+            <label
+              className="text-[12px] font-medium text-foreground"
+              htmlFor="generate-workflow-name"
+            >
               Workflow name
             </label>
             <Input
@@ -99,47 +107,52 @@ export const GenerateWorkflowDialog = memo(function GenerateWorkflowDialog({
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Customer onboarding automation"
-              className="h-9 border-red-500/15 bg-background/80"
+              className="h-10 border-border bg-background"
             />
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="generate-workflow-prompt">
+              <label
+                className="text-[12px] font-medium text-foreground"
+                htmlFor="generate-workflow-prompt"
+              >
                 Describe your workflow
               </label>
-              <span className="text-[10px] text-muted-foreground/80">
-                {llmConfigured ? 'LLM ready' : 'Template fallback without LLM'}
-              </span>
+              <Badge
+                variant="outline"
+                className={cn(
+                  'h-5 px-1.5 text-[10px] font-medium',
+                  llmConfigured
+                    ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                    : 'border-border bg-muted/50 text-muted-foreground',
+                )}
+              >
+                {llmConfigured ? 'LLM ready' : 'Template fallback'}
+              </Badge>
             </div>
-            <div
-              className={cn(
-                'overflow-hidden rounded-xl border border-red-500/15 bg-gradient-to-b from-red-500/[0.03] to-background',
-                'shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] focus-within:border-red-500/30 focus-within:shadow-[0_0_0_3px_rgba(139,92,246,0.08)]',
-              )}
-            >
-              <Textarea
-                id="generate-workflow-prompt"
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                rows={7}
-                placeholder="Example: When a lead fills a form, enrich the company profile, score fit, draft a personalized outreach email, and pause for sales approval before sending."
-                className="min-h-[9rem] resize-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed shadow-none focus-visible:ring-0"
-              />
-            </div>
+            <Textarea
+              id="generate-workflow-prompt"
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              rows={6}
+              placeholder="Example: When a lead fills a form, enrich the company profile, score fit, draft a personalized outreach email, and pause for sales approval before sending."
+              className="min-h-[8.5rem] resize-none border-border bg-background text-sm leading-relaxed"
+            />
           </div>
 
           <div className="space-y-2">
             <p className="text-[11px] font-medium text-muted-foreground">Try an example</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2">
               {EXAMPLE_PROMPTS.map((example) => (
                 <button
                   key={example}
                   type="button"
                   onClick={() => setPrompt(example)}
                   className={cn(
-                    'rounded-full border border-red-500/15 bg-red-500/[0.04] px-3 py-1.5 text-left text-[11px] leading-snug text-muted-foreground',
-                    'transition-colors hover:border-red-500/30 hover:bg-red-500/[0.08] hover:text-foreground',
+                    'rounded-xl border border-border/80 bg-muted/30 px-3 py-2.5 text-left text-[11px] leading-snug text-muted-foreground',
+                    'transition-colors hover:border-border hover:bg-muted/50 hover:text-foreground',
+                    'active:border-red-500/35 active:bg-red-500/[0.04]',
                   )}
                 >
                   {example}
@@ -149,27 +162,39 @@ export const GenerateWorkflowDialog = memo(function GenerateWorkflowDialog({
           </div>
         </div>
 
-        <DialogFooter className="relative border-t border-border/80 bg-muted/20 px-6 py-4 sm:justify-between">
-          <p className="text-[11px] text-muted-foreground">
-            Output follows the workflow JSON schema — agents, tools, and connectors you can edit after generation.
+        <DialogFooter className="shrink-0 flex-col gap-3 border-t border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
+          <p className="text-[11px] leading-snug text-muted-foreground sm:max-w-[55%]">
+            Output follows the workflow schema — edit agents and connectors after generation.
           </p>
-          <Button
-            onClick={handleGenerate}
-            disabled={!canGenerate}
-            className="bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md shadow-red-500/25 hover:from-red-500 hover:to-rose-500"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Generating…
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Generate workflow
-              </>
-            )}
-          </Button>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 sm:flex-none"
+              onClick={() => onOpenChange(false)}
+              disabled={isGenerating}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleGenerate()}
+              disabled={!canGenerate}
+              className="flex-1 bg-red-600 font-semibold text-white hover:bg-red-700 sm:flex-none"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Generate
+                </>
+              )}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

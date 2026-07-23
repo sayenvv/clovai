@@ -431,6 +431,8 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
         return
       }
       goHub(result.account)
+    } catch {
+      setError('Could not create account. Try again.')
     } finally {
       setPending(false)
     }
@@ -446,6 +448,8 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
         return
       }
       goHub(result.account)
+    } catch {
+      setError('Could not sign in. Try again.')
     } finally {
       setPending(false)
     }
@@ -466,6 +470,8 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
       setError(null)
       setNotice('Password updated. Sign in with your new password.')
       setFlow('login')
+    } catch {
+      setError('Could not update password. Try again.')
     } finally {
       setPending(false)
     }

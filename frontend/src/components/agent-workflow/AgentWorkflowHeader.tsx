@@ -109,8 +109,10 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5">
-        <ConsoleButton />
+      <div className="flex shrink-0 items-center gap-1 overflow-x-auto sm:gap-1.5">
+        <span className="hidden sm:inline-flex">
+          <ConsoleButton />
+        </span>
         {onGenerate ? (
           <Button
             variant="outline"
@@ -119,23 +121,23 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
             className="border-red-500/25 bg-gradient-to-r from-red-500/[0.08] to-rose-500/[0.06] text-red-700 hover:from-red-500/[0.12] hover:to-rose-500/[0.1] dark:text-red-300"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            Generate
+            <span className="hidden sm:inline">Generate</span>
           </Button>
         ) : null}
-        <Button variant="ghost" size="sm" onClick={onSave}>
+        <Button variant="ghost" size="sm" onClick={onSave} className="hidden md:inline-flex">
           <Save className="h-3.5 w-3.5" />
           Save draft
         </Button>
         <Button variant="outline" size="sm" onClick={onValidate}>
           <ShieldCheck className="h-3.5 w-3.5" />
-          Validate
+          <span className="hidden sm:inline">Validate</span>
         </Button>
         {status === 'deployed' && onViewInstance ? (
           <Button
             variant="outline"
             size="sm"
             onClick={onViewInstance}
-            className="border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300"
+            className="hidden border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300 sm:inline-flex"
           >
             <LayoutDashboard className="h-3.5 w-3.5" />
             View instance
@@ -143,7 +145,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
         ) : null}
         <Button size="sm" disabled={!isValidated} onClick={onDeploy} className="bg-red-600 hover:bg-red-700">
           <Rocket className="h-3.5 w-3.5" />
-          Deploy
+          <span className="hidden sm:inline">Deploy</span>
         </Button>
       </div>
     </header>

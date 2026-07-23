@@ -95,7 +95,23 @@ function usePersistedVerticalPanel(config: PersistedPanelConfig) {
     })
   }, [height, setHeight])
 
-  return { size: height, collapsed, onResizePointerDown, toggle }
+  const expand = useCallback(() => {
+    setCollapsed((previous) => {
+      if (!previous) return previous
+      setHeight(sizeRef.current)
+      return false
+    })
+  }, [setHeight])
+
+  const collapse = useCallback(() => {
+    setCollapsed((previous) => {
+      if (previous) return previous
+      sizeRef.current = height
+      return true
+    })
+  }, [height])
+
+  return { size: height, collapsed, onResizePointerDown, toggle, expand, collapse }
 }
 
 /** Persisted left / right / bottom panels for the workflow editor. */

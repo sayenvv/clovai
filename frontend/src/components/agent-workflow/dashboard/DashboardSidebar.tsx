@@ -173,7 +173,7 @@ export function DashboardSidebar() {
   return (
     <aside
       className={cn(
-        'relative hidden h-full shrink-0 border-r border-border/70 bg-background md:flex',
+        'relative flex h-full shrink-0 border-r border-border/70 bg-background',
       )}
       style={{ width: totalWidth }}
     >

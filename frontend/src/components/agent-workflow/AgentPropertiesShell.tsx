@@ -33,6 +33,7 @@ import type {
   WorkflowRunStatus,
 } from '@/types/agent-workflow'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
+import { cn } from '@/utils/cn'
 
 interface ExecutionSidebarOptions {
   testInput: string
@@ -78,6 +79,8 @@ interface AgentPropertiesShellProps {
   serverModelConfig: WorkflowModelConfig
   llmConfigured?: boolean
   executionPanelOpen?: boolean
+  /** Fill parent (mobile drawer) — full width, no resize chrome. */
+  embedded?: boolean
   execution?: ExecutionSidebarOptions
   attachCapability?: AttachCapabilityOptions | null
 }
@@ -101,6 +104,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   executionPanelOpen = false,
   execution,
   attachCapability = null,
+  embedded = false,
 }: AgentPropertiesShellProps) {
   const workflowMeta = doc.workflow
   const modelConfig = serverModelConfig
@@ -159,7 +163,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
     />
   )
 
-  if (collapsed) {
+  if (collapsed && !embedded) {
     return (
       <aside
         className="relative flex h-full shrink-0 flex-col border-l border-border/60 bg-background"
@@ -188,14 +192,19 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
 
   return (
     <aside
-      className="relative flex h-full shrink-0 flex-col border-l border-border/60 bg-background"
-      style={{ width }}
+      className={cn(
+        'relative flex h-full shrink-0 flex-col border-l border-border/60 bg-background',
+        embedded && 'w-full border-l-0',
+      )}
+      style={{ width: embedded ? '100%' : width }}
     >
-      <DesignerResizeHandle
-        side="left"
-        onPointerDown={onResizePointerDown}
-        ariaLabel="Resize right panel"
-      />
+      {!embedded && (
+        <DesignerResizeHandle
+          side="left"
+          onPointerDown={onResizePointerDown}
+          ariaLabel="Resize right panel"
+        />
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-3 py-2">
@@ -232,16 +241,18 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
               </>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            onClick={onToggleCollapse}
-            aria-label="Collapse right panel"
-            title="Collapse panel"
-          >
-            <PanelRightClose className="h-4 w-4" />
-          </Button>
+          {!embedded && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={onToggleCollapse}
+              aria-label="Collapse right panel"
+              title="Collapse panel"
+            >
+              <PanelRightClose className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden">

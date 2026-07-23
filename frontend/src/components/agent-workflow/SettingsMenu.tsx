@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react'
-import { Cpu, Moon, Settings2, Sparkles, Sun, Workflow } from 'lucide-react'
+import { Cpu, Moon, Play, Rocket, Settings2, Sparkles, Sun, Workflow } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,7 +17,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useTheme } from '@/hooks/use-theme'
 import { getSession } from '@/services/project-auth-store'
 import { cn } from '@/utils/cn'
@@ -25,6 +30,10 @@ import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 
 interface SettingsMenuProps {
   onOpenWorkflowSettings?: () => void
+  onExecuteWorkflow?: () => void
+  canExecute?: boolean
+  onDeployWorkflow?: () => void
+  canDeploy?: boolean
   modelConfig?: WorkflowModelConfig
   llmConfigured?: boolean
   side?: 'top' | 'right' | 'bottom' | 'left'
@@ -87,6 +96,10 @@ function UsageMeter({
 /** Settings dropdown — same interaction pattern as the profile menu. */
 export const SettingsMenu = memo(function SettingsMenu({
   onOpenWorkflowSettings,
+  onExecuteWorkflow,
+  canExecute = false,
+  onDeployWorkflow,
+  canDeploy = false,
   modelConfig,
   llmConfigured = false,
   side = 'right',
@@ -100,54 +113,80 @@ export const SettingsMenu = memo(function SettingsMenu({
 
   return (
     <>
-      <DropdownMenu>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 rounded-[11px] text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
-                aria-label="Open settings"
-              >
-                <Settings2 className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent
-            side="right"
-            sideOffset={12}
-            className="border-border/80 bg-popover/95 px-2.5 py-1.5 text-xs font-medium shadow-lg backdrop-blur-sm"
-          >
-            Settings
-          </TooltipContent>
-        </Tooltip>
+      <TooltipProvider delayDuration={300}>
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
+                  aria-label="Open settings"
+                >
+                  <Settings2 className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              sideOffset={8}
+              className="border-border/80 bg-popover/95 px-2.5 py-1.5 text-xs font-medium shadow-lg backdrop-blur-sm"
+            >
+              Settings
+            </TooltipContent>
+          </Tooltip>
 
-        <DropdownMenuContent side={side} align={align} sideOffset={8} className="w-56">
-          <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-            Workspace
-          </DropdownMenuLabel>
-          <DropdownMenuItem onSelect={() => setUsageOpen(true)}>
-            <Sparkles />
-            AI usage
-            <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[9px] font-normal">
-              {usagePct}%
-            </Badge>
-          </DropdownMenuItem>
-          {onOpenWorkflowSettings ? (
-            <DropdownMenuItem onSelect={() => onOpenWorkflowSettings()}>
-              <Workflow />
-              Workflow settings…
+          <DropdownMenuContent side={side} align={align} sideOffset={8} className="w-56">
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+              Workspace
+            </DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => setUsageOpen(true)}>
+              <Sparkles />
+              AI usage
+              <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[9px] font-normal">
+                {usagePct}%
+              </Badge>
             </DropdownMenuItem>
-          ) : null}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={toggleTheme}>
-            {theme === 'dark' ? <Sun /> : <Moon />}
-            Switch to {theme === 'dark' ? 'light' : 'dark'} mode
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            {onOpenWorkflowSettings ? (
+              <DropdownMenuItem onSelect={() => onOpenWorkflowSettings()}>
+                <Workflow />
+                Workflow settings…
+              </DropdownMenuItem>
+            ) : null}
+            {onExecuteWorkflow ? (
+              <DropdownMenuItem
+                disabled={!canExecute}
+                onSelect={() => {
+                  if (!canExecute) return
+                  onExecuteWorkflow()
+                }}
+              >
+                <Play />
+                Execute workflow…
+              </DropdownMenuItem>
+            ) : null}
+            {onDeployWorkflow ? (
+              <DropdownMenuItem
+                disabled={!canDeploy}
+                onSelect={() => {
+                  if (!canDeploy) return
+                  onDeployWorkflow()
+                }}
+              >
+                <Rocket />
+                Deploy workflow…
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={toggleTheme}>
+              {theme === 'dark' ? <Sun /> : <Moon />}
+              Switch to {theme === 'dark' ? 'light' : 'dark'} mode
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TooltipProvider>
 
       <Dialog open={usageOpen} onOpenChange={setUsageOpen}>
         <DialogContent className="max-w-sm gap-0 overflow-hidden p-0 sm:rounded-xl">

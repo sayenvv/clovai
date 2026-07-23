@@ -625,7 +625,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     if (event.button !== 0) return
     const world = toWorld(event.clientX, event.clientY)
 
-    if (event.shiftKey && !selectionDisabled) {
+    if (event.shiftKey && !selectionDisabled && event.pointerType === 'mouse') {
       containerRef.current?.setPointerCapture(event.pointerId)
       sessionRef.current = {
         type: 'marquee',
@@ -641,8 +641,17 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       return
     }
 
-    // Background click clears selection — pan with trackpad / wheel, zoom via buttons.
-    sessionRef.current = null
+    // Drag empty canvas to pan (touch, pen, or mouse). Trackpad / wheel still pans too.
+    event.preventDefault()
+    containerRef.current?.setPointerCapture(event.pointerId)
+    sessionRef.current = {
+      type: 'pan',
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: viewport.x,
+      originY: viewport.y,
+    }
+    setIsGrabbing(true)
     onSelectionChange(null)
     setConnectFrom(null)
     setConnectCursor(null)
@@ -1299,11 +1308,12 @@ export const DesignerCanvas = memo(function DesignerCanvas({
           : undefined,
         backgroundSize: `${gridSize}px ${gridSize}px`,
         backgroundPosition: `${viewport.x}px ${viewport.y}px`,
-        cursor: connectFrom || reconnectEnd ? 'crosshair' : isGrabbing ? 'grabbing' : 'default',
+        cursor: connectFrom || reconnectEnd ? 'crosshair' : isGrabbing ? 'grabbing' : 'grab',
       }}
       onPointerDown={handleBackgroundPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       onDragOver={(event) => {
         event.preventDefault()
         event.dataTransfer.dropEffect = 'copy'
@@ -1977,7 +1987,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
             <MousePointerClick className="h-6 w-6 text-muted-foreground" aria-hidden />
             <p className="text-sm font-medium">Drag shapes from the left to start designing</p>
             <p className="text-xs text-muted-foreground">
-              Scroll to pan · use zoom controls to scale · double-click a shape to rename it
+              Drag or scroll to pan · use zoom controls to scale · double-click a shape to rename it
             </p>
           </div>
         </div>

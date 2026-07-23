@@ -45,7 +45,16 @@ export const router = createBrowserRouter([
           { path: 'usage', element: <AgentWorkflowDashboardPerformance /> },
         ],
       },
-      { path: '/tools/agent-workflow', element: <AgentWorkflowPage /> },
+      {
+        path: '/tools/agent-workflow',
+        element: <AgentWorkflowPage />,
+        children: [
+          { index: true, element: <></> },
+          { path: 'library', element: <></> },
+          { path: 'inspect', element: <></> },
+          { path: 'logs', element: <></> },
+        ],
+      },
       { path: '/tools/agent-workflow/execute', element: <WorkflowExecutePage /> },
       { path: '/tools/:toolId', element: <ToolDetailPage /> },
     ],
