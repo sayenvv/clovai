@@ -32,6 +32,25 @@ class StoredWorkflow:
     saved_at: datetime
 
 
+def _resolve_actor(session: Session, actor: PersistenceActor) -> PersistenceActor:
+    """Prefer a stable DB user when the browser mints a new account id for an existing email."""
+    if session.get(User, actor.user_id) is not None:
+        return actor
+
+    existing = session.scalar(select(User).where(User.email == actor.email))
+    if existing is None:
+        return actor
+
+    return PersistenceActor(
+        user_id=existing.id,
+        email=existing.email,
+        full_name=actor.full_name,
+        role=actor.role,
+        workspace_name=actor.workspace_name,
+        account_type=actor.account_type,
+    )
+
+
 def _ensure_user(session: Session, actor: PersistenceActor) -> User:
     user = session.get(User, actor.user_id)
     if user is None:
@@ -45,7 +64,11 @@ def _ensure_user(session: Session, actor: PersistenceActor) -> User:
         session.flush()
         return user
 
-    user.email = actor.email
+    # Keep email stable when another row already owns it (unique constraint).
+    if user.email != actor.email:
+        email_owner = session.scalar(select(User).where(User.email == actor.email))
+        if email_owner is None or email_owner.id == user.id:
+            user.email = actor.email
     user.full_name = actor.full_name
     user.role = actor.role
     return user
@@ -111,6 +134,7 @@ def save_workflow_definition(
     payload["meta"]["savedAt"] = saved_at.isoformat()
 
     with session.begin():
+        actor = _resolve_actor(session, actor)
         _ensure_user(session, actor)
         _ensure_workspace(session, spec.meta.workspace_id, actor)
         _ensure_page(session, spec, actor)

@@ -51,7 +51,9 @@ export const DeploymentPanel = memo(function DeploymentPanel({
             {deployment.status}
           </Badge>
         </div>
-        <p className="text-xs text-muted-foreground">Version {deployment.version}</p>
+        <p className="text-xs text-muted-foreground">
+          Current version {deployment.version} · each deploy creates a new version
+        </p>
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
@@ -99,7 +101,7 @@ export const DeploymentPanel = memo(function DeploymentPanel({
         )}
 
         <Button className="w-full bg-red-600 hover:bg-red-700" disabled={!canDeploy} onClick={onDeploy}>
-          Redeploy
+          Deploy new version
         </Button>
       </div>
     </div>

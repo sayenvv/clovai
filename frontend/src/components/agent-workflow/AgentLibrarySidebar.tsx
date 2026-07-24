@@ -5,6 +5,7 @@ import {
   GitBranch,
   Plug,
   Plus,
+  Rocket,
   Search,
   Store,
   Terminal,
@@ -34,6 +35,7 @@ import {
 import { countAgentsInPage } from '@/components/agent-workflow/sub-workflow-ops'
 import { SIDE_PANEL_COLLAPSED_WIDTH } from '@/components/agent-workflow/panel-layout'
 import { WorkflowEmptyHint } from '@/components/agent-workflow/workflow-ui'
+import { OPEN_LIBRARY_DEPLOYMENTS_EVENT } from '@/components/agent-workflow/deployments-sidebar-ui'
 import { SettingsMenu } from '@/components/agent-workflow/SettingsMenu'
 import { ProfileMenu } from '@/components/shared/ProfileMenu'
 import { getSession } from '@/services/project-auth-store'
@@ -42,7 +44,7 @@ import type { AgentType } from '@/types/agent-workflow'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 import type { LucideIcon } from 'lucide-react'
 
-type LibrarySection = 'blocks' | 'workflows' | 'store' | 'import'
+export type LibrarySection = 'blocks' | 'workflows' | 'store' | 'import' | 'deployments'
 
 interface AgentLibrarySidebarProps {
   onAddAgent: (paletteId: string) => void
@@ -59,6 +61,9 @@ interface AgentLibrarySidebarProps {
   onToggleCollapse: () => void
   /** Fill parent (mobile drawer) — flyout open by default, no resize handle. */
   embedded?: boolean
+  /** Active library section — used to highlight Deployments when the canvas board is open. */
+  activeSection?: LibrarySection | null
+  onSectionChange?: (section: LibrarySection | null) => void
 }
 
 const FLYOUT_MIN_WIDTH = 260
@@ -79,6 +84,10 @@ const SECTION_META: Record<LibrarySection, { title: string; subtitle: string }> 
   import: {
     title: 'Import agents',
     subtitle: 'Pull agents from external platforms',
+  },
+  deployments: {
+    title: 'Deployments',
+    subtitle: 'Published workflow instances for this account',
   },
 }
 
@@ -240,10 +249,13 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   onResizePointerDown,
   onToggleCollapse,
   embedded = false,
+  activeSection,
+  onSectionChange,
 }: AgentLibrarySidebarProps) {
   const [section, setSection] = useState<LibrarySection | null>(
     embedded ? 'blocks' : null,
   )
+  const resolvedSection = activeSection !== undefined ? activeSection : section
   const [query, setQuery] = useState('')
   const [importSourceId, setImportSourceId] = useState<string | null>(null)
   const [focusSearch, setFocusSearch] = useState(false)
@@ -255,7 +267,8 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
     ? [session.fullName || session.email, session.displayName].filter(Boolean).join(' · ')
     : undefined
 
-  const flyoutOpen = embedded || section !== null
+  // Deployments opens in the main canvas — keep the rail highlighted, no flyout.
+  const flyoutOpen = resolvedSection !== null && resolvedSection !== 'deployments'
   const flyoutWidth = Math.max(width, FLYOUT_MIN_WIDTH)
   const totalWidth = embedded
     ? '100%'
@@ -263,19 +276,20 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
 
   const closeFlyout = useCallback(() => {
     setSection(null)
+    onSectionChange?.(null)
     setQuery('')
     setFocusSearch(false)
     if (!collapsed) onToggleCollapse()
-  }, [collapsed, onToggleCollapse])
+  }, [collapsed, onToggleCollapse, onSectionChange])
 
   useEffect(() => {
-    if (!focusSearch || section !== 'blocks') return
+    if (!focusSearch || resolvedSection !== 'blocks') return
     const id = window.requestAnimationFrame(() => {
       searchInputRef.current?.focus()
       searchInputRef.current?.select()
     })
     return () => window.cancelAnimationFrame(id)
-  }, [focusSearch, section])
+  }, [focusSearch, resolvedSection])
 
   // Collapse the expandable section when clicking outside the library.
   useEffect(() => {
@@ -304,47 +318,68 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
 
   const filteredBlocks = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    if (!needle || section !== 'blocks') return SIDEBAR_BLOCKS
+    if (!needle || resolvedSection !== 'blocks') return SIDEBAR_BLOCKS
     return SIDEBAR_BLOCKS.filter(
       (block) =>
         block.label.toLowerCase().includes(needle) ||
         block.description.toLowerCase().includes(needle),
     )
-  }, [query, section])
+  }, [query, resolvedSection])
 
   const filteredStore = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    if (!needle || section !== 'store') return EXTERNAL_AGENT_BLOCKS
+    if (!needle || resolvedSection !== 'store') return EXTERNAL_AGENT_BLOCKS
     return EXTERNAL_AGENT_BLOCKS.filter(
       (block) =>
         block.label.toLowerCase().includes(needle) ||
         block.provider.toLowerCase().includes(needle) ||
         (block.description?.toLowerCase().includes(needle) ?? false),
     )
-  }, [query, section])
+  }, [query, resolvedSection])
 
   const filteredWorkflows = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    if (!needle || section !== 'workflows') return mountableWorkflows
+    if (!needle || resolvedSection !== 'workflows') return mountableWorkflows
     return mountableWorkflows.filter((page) => page.name.toLowerCase().includes(needle))
-  }, [query, section, mountableWorkflows])
+  }, [query, resolvedSection, mountableWorkflows])
+
+  const setActiveSection = useCallback(
+    (next: LibrarySection | null) => {
+      setSection(next)
+      onSectionChange?.(next)
+    },
+    [onSectionChange],
+  )
 
   const openSection = (next: LibrarySection, options?: { focusSearch?: boolean }) => {
     setQuery('')
     setFocusSearch(Boolean(options?.focusSearch))
-    setSection((previous) => {
-      const closing = previous === next && !options?.focusSearch
-      if (closing) {
-        if (!collapsed) onToggleCollapse()
-        setFocusSearch(false)
-        return null
-      }
-      if (collapsed) onToggleCollapse()
-      return next
-    })
+    const current = resolvedSection
+    const closing = current === next && !options?.focusSearch
+    if (closing) {
+      if (!collapsed && next !== 'deployments') onToggleCollapse()
+      setFocusSearch(false)
+      setActiveSection(null)
+      return
+    }
+    if (next !== 'deployments' && collapsed) onToggleCollapse()
+    setActiveSection(next)
   }
 
-  const meta = section ? SECTION_META[section] : null
+  useEffect(() => {
+    const openDeployments = () => {
+      setQuery('')
+      setFocusSearch(false)
+      setActiveSection('deployments')
+    }
+    window.addEventListener(OPEN_LIBRARY_DEPLOYMENTS_EVENT, openDeployments)
+    return () => window.removeEventListener(OPEN_LIBRARY_DEPLOYMENTS_EVENT, openDeployments)
+  }, [setActiveSection])
+
+  const meta =
+    resolvedSection && resolvedSection !== 'deployments'
+      ? SECTION_META[resolvedSection]
+      : null
 
   return (
     <>
@@ -381,50 +416,58 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
           />
 
           <TooltipProvider delayDuration={180}>
-            <div className="flex flex-1 flex-col items-center px-2 py-3">
-              <div className="flex w-full flex-col items-center gap-1">
+            <div className="flex h-full min-h-0 flex-col items-center px-2 py-3">
+              <div className="flex w-full shrink-0 flex-col items-center gap-1">
                 <RailIconButton
                   label="Add block"
                   icon={Plus}
                   accent
-                  active={section === 'blocks' && !focusSearch}
+                  active={resolvedSection === 'blocks' && !focusSearch}
                   onClick={() => openSection('blocks')}
                 />
                 <RailIconButton
                   label="Search blocks"
                   icon={Search}
-                  active={section === 'blocks' && focusSearch}
+                  active={resolvedSection === 'blocks' && focusSearch}
                   onClick={() => openSection('blocks', { focusSearch: true })}
                 />
               </div>
 
-              <div className="my-3 h-px w-6 bg-gradient-to-r from-transparent via-border to-transparent" aria-hidden />
+              <div className="my-3 h-px w-6 shrink-0 bg-gradient-to-r from-transparent via-border to-transparent" aria-hidden />
 
-              <div className="flex w-full flex-col items-center gap-1">
+              <div className="flex w-full shrink-0 flex-col items-center gap-1">
                 <RailIconButton
                   label="Workflows"
                   icon={GitBranch}
-                  active={section === 'workflows'}
+                  active={resolvedSection === 'workflows'}
                   onClick={() => openSection('workflows')}
                 />
                 {EXTERNAL_AGENT_BLOCKS.length > 0 && (
                   <RailIconButton
                     label="Agent store"
                     icon={Store}
-                    active={section === 'store'}
+                    active={resolvedSection === 'store'}
                     onClick={() => openSection('store')}
                   />
                 )}
                 <RailIconButton
                   label="Import agents"
                   icon={CloudDownload}
-                  active={section === 'import'}
+                  active={resolvedSection === 'import'}
                   onClick={() => openSection('import')}
+                />
+                <RailIconButton
+                  label="Deployments"
+                  icon={Rocket}
+                  active={resolvedSection === 'deployments'}
+                  onClick={() => openSection('deployments')}
                 />
               </div>
 
-              <div className="mt-auto flex w-full flex-col items-center gap-1.5 pt-3">
-                <div className="h-px w-6 bg-gradient-to-r from-transparent via-border to-transparent" aria-hidden />
+              <div className="min-h-2 flex-1" aria-hidden />
+
+              <div className="flex w-full shrink-0 flex-col items-center gap-1.5">
+                <div className="mb-1 h-px w-6 bg-gradient-to-r from-transparent via-border to-transparent" aria-hidden />
                 <SettingsMenu
                   onOpenWorkflowSettings={onOpenSettings}
                   modelConfig={serverModelConfig}
@@ -476,18 +519,19 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                     ['workflows', 'Workflows'],
                     ['store', 'Store'],
                     ['import', 'Import'],
+                    ['deployments', 'Deployments'],
                   ] as const
                 ).map(([id, label]) => (
                   <button
                     key={id}
                     type="button"
                     onClick={() => {
-                      setSection(id)
+                      setActiveSection(id)
                       setQuery('')
                     }}
                     className={cn(
                       'rounded-md px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap',
-                      section === id
+                      resolvedSection === id
                         ? 'bg-foreground/[0.08] text-foreground'
                         : 'text-muted-foreground hover:bg-foreground/[0.06]',
                     )}
@@ -498,7 +542,9 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
               </div>
             )}
 
-            {(section === 'blocks' || section === 'store' || section === 'workflows') && (
+            {(resolvedSection === 'blocks' ||
+              resolvedSection === 'store' ||
+              resolvedSection === 'workflows') && (
               <div className="shrink-0 border-b border-border/60 px-3 py-2">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -514,7 +560,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
             )}
 
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-              {section === 'blocks' && (
+              {resolvedSection === 'blocks' && (
                 <div className="space-y-2">
                   {filteredBlocks.length === 0 ? (
                     <p className="py-6 text-center text-xs text-muted-foreground">No blocks match.</p>
@@ -526,7 +572,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                 </div>
               )}
 
-              {section === 'workflows' &&
+              {resolvedSection === 'workflows' &&
                 (filteredWorkflows.length > 0 ? (
                   <div className="space-y-1.5">
                     {filteredWorkflows.map((page) => (
@@ -545,7 +591,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                   <p className="py-6 text-center text-xs text-muted-foreground">No workflows match.</p>
                 ))}
 
-              {section === 'store' && (
+              {resolvedSection === 'store' && (
                 <div className="space-y-1.5">
                   {filteredStore.length === 0 ? (
                     <p className="py-6 text-center text-xs text-muted-foreground">No agents match.</p>
@@ -562,7 +608,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                 </div>
               )}
 
-              {section === 'import' && (
+              {resolvedSection === 'import' && (
                 <ExternalAgentImportSection
                   onOpenImport={setImportSourceId}
                   collapsed={false}

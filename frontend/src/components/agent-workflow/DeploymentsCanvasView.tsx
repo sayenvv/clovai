@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { memo, useEffect, useMemo, useState } from 'react'
 import {
-  ArrowUpRight,
   ChevronDown,
   Coins,
   Copy,
@@ -9,12 +7,13 @@ import {
   ExternalLink,
   Hash,
   MemoryStick,
+  PenLine,
   Rocket,
   Sparkles,
   Timer,
-  Workflow,
   Wrench,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   formatCurrency,
   formatLatency,
@@ -26,7 +25,6 @@ import {
   DetailRow,
   MetaChip,
   MiniStat,
-  PageIntro,
   RunRow,
   StatusPill,
   UtilizationMeter,
@@ -39,17 +37,22 @@ import {
 import { usePublishedInstances } from '@/components/agent-workflow/dashboard/use-published-instances'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ROUTES } from '@/constants'
 import {
   isLatestPublishedInstance,
   type PublishedWorkflowInstance,
 } from '@/services/published-instances-store'
 import { cn } from '@/utils/cn'
-import { toast } from 'sonner'
 
 const STATUS_FILTERS = ['all', 'deployed', 'failed'] as const
 
-export default function InstancesPage() {
+interface DeploymentsCanvasViewProps {
+  onBackToCanvas: () => void
+}
+
+/** Full-canvas deployments board — metrics, resources, and recent run logs. */
+export const DeploymentsCanvasView = memo(function DeploymentsCanvasView({
+  onBackToCanvas,
+}: DeploymentsCanvasViewProps) {
   const { instances } = usePublishedInstances()
   const [statusFilter, setStatusFilter] =
     useState<(typeof STATUS_FILTERS)[number]>('all')
@@ -75,69 +78,80 @@ export default function InstancesPage() {
   }
 
   return (
-    <div>
-      <PageIntro
-        eyebrow="My instances"
-        title="Track your published instances"
-        description="Each deploy creates a separate version. Open one to inspect success rate, latency, credits, and recent runs."
-        actions={STATUS_FILTERS.map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setStatusFilter(value)}
-            className={cn(
-              'rounded-lg px-2.5 py-1.5 text-[11px] font-medium capitalize transition-colors',
-              statusFilter === value
-                ? 'bg-red-600 font-semibold text-white'
-                : 'border border-border bg-card text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-            )}
-          >
-            {value === 'all' ? 'All' : value}
-          </button>
-        ))}
-      />
-
-      {filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-card px-6 py-16 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-red-500/10">
-            <Rocket className="h-5 w-5 text-red-600 dark:text-red-400" />
-          </div>
-          <p className="mt-4 text-sm font-semibold text-foreground">
-            {instances.length === 0 ? 'No instances in your dashboard yet' : 'No matches'}
-          </p>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            {instances.length === 0
-              ? 'Deploy from the designer — this page is where you track every live instance.'
-              : 'Try another status filter.'}
-          </p>
-          {instances.length === 0 && (
-            <Button asChild size="sm" className="mt-5 bg-red-600 hover:bg-red-700">
-              <Link to={ROUTES.agentWorkflow}>
-                Open designer
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          )}
+    <div className="flex min-h-0 flex-1 flex-col bg-[hsl(var(--canvas))]">
+      <div className="flex shrink-0 items-center gap-3 border-b border-border/70 bg-card px-4 py-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-300">
+          <Rocket className="h-4 w-4" />
         </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((item) => (
-            <InstanceDetailCard
-              key={item.id}
-              item={item}
-              isCurrent={isLatestPublishedInstance(item, instances)}
-              expanded={expandedId === item.id}
-              onToggle={() =>
-                setExpandedId((current) => (current === item.id ? null : item.id))
-              }
-              onCopyEndpoint={() => copyEndpoint(item.endpointUrl)}
-            />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold tracking-tight text-foreground">Deployments</p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            Each deploy creates a new version — older versions stay listed separately
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {STATUS_FILTERS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setStatusFilter(value)}
+              className={cn(
+                'rounded-lg px-2.5 py-1.5 text-[11px] font-medium capitalize transition-colors',
+                statusFilter === value
+                  ? 'bg-red-600 font-semibold text-white'
+                  : 'border border-border bg-background text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+              )}
+            >
+              {value === 'all' ? 'All' : value}
+            </button>
           ))}
         </div>
-      )}
+        <Button type="button" variant="outline" size="sm" onClick={onBackToCanvas}>
+          <PenLine className="h-3.5 w-3.5" />
+          Back to canvas
+        </Button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
+        {filtered.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border bg-card px-6 py-16 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-red-500/10">
+              <Rocket className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
+            <p className="mt-4 text-sm font-semibold text-foreground">
+              {instances.length === 0 ? 'No deployments yet' : 'No matches'}
+            </p>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {instances.length === 0
+                ? 'Validate and deploy a workflow — it will show up here with runs and logs.'
+                : 'Try another status filter.'}
+            </p>
+            <Button type="button" size="sm" className="mt-5 bg-red-600 hover:bg-red-700" onClick={onBackToCanvas}>
+              <PenLine className="h-3.5 w-3.5" />
+              Open canvas
+            </Button>
+          </div>
+        ) : (
+          <div className="w-full space-y-3">
+            {filtered.map((item) => (
+              <InstanceDetailCard
+                key={item.id}
+                item={item}
+                isCurrent={isLatestPublishedInstance(item, instances)}
+                expanded={expandedId === item.id}
+                onToggle={() =>
+                  setExpandedId((current) => (current === item.id ? null : item.id))
+                }
+                onCopyEndpoint={() => copyEndpoint(item.endpointUrl)}
+                onBackToCanvas={onBackToCanvas}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
-}
+})
 
 function InstanceDetailCard({
   item,
@@ -145,12 +159,14 @@ function InstanceDetailCard({
   expanded,
   onToggle,
   onCopyEndpoint,
+  onBackToCanvas,
 }: {
   item: PublishedWorkflowInstance
   isCurrent: boolean
   expanded: boolean
   onToggle: () => void
   onCopyEndpoint: () => void
+  onBackToCanvas: () => void
 }) {
   const estSpend = item.metrics.totalCredits * 0.012
   const health = getInstanceHealth(item)
@@ -160,6 +176,7 @@ function InstanceDetailCard({
       className={cn(
         'overflow-hidden rounded-lg border border-border/70 bg-card transition-colors',
         expanded && 'border-red-500/30 ring-1 ring-red-500/10',
+        !isCurrent && 'opacity-95',
       )}
     >
       <button
@@ -170,9 +187,7 @@ function InstanceDetailCard({
       >
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-sm font-semibold text-foreground">
-              {item.workflowName}
-            </h2>
+            <h2 className="truncate text-sm font-semibold text-foreground">{item.workflowName}</h2>
             <StatusPill status={item.status} />
             {isCurrent ? (
               <Badge className="bg-red-600 text-[10px] font-semibold text-white hover:bg-red-600">
@@ -227,18 +242,16 @@ function InstanceDetailCard({
         />
       </button>
 
-      {expanded && (
+      {expanded ? (
         <div className="space-y-4 border-t border-border bg-muted/20 px-5 py-4">
           <div className="flex flex-wrap gap-1.5">
             <Button type="button" variant="outline" size="sm" onClick={onCopyEndpoint}>
               <Copy className="h-3.5 w-3.5" />
               Copy endpoint
             </Button>
-            <Button asChild size="sm" variant="outline">
-              <Link to={ROUTES.agentWorkflow}>
-                <Workflow className="h-3.5 w-3.5" />
-                Open designer
-              </Link>
+            <Button type="button" variant="outline" size="sm" onClick={onBackToCanvas}>
+              <PenLine className="h-3.5 w-3.5" />
+              Open canvas
             </Button>
             <Button asChild size="sm" className="bg-red-600 hover:bg-red-700">
               <a href={item.endpointUrl} target="_blank" rel="noreferrer">
@@ -353,11 +366,9 @@ function InstanceDetailCard({
           <section className="rounded-lg border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Recent runs
+                Recent runs & logs
               </h3>
-              <p className="text-[11px] text-muted-foreground">
-                {item.recentRuns.length} latest
-              </p>
+              <p className="text-[11px] text-muted-foreground">{item.recentRuns.length} latest</p>
             </div>
             <div className="space-y-2">
               {item.recentRuns.map((run) => (
@@ -366,7 +377,7 @@ function InstanceDetailCard({
             </div>
           </section>
         </div>
-      )}
+      ) : null}
     </article>
   )
 }

@@ -1,7 +1,6 @@
 import { memo } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard,
   PanelsTopLeft,
   PenLine,
   ScrollText,
@@ -35,12 +34,6 @@ const ITEMS = [
     end: true,
     icon: ScrollText,
   },
-  {
-    label: 'Console',
-    to: ROUTES.agentWorkflowDashboard,
-    end: false,
-    icon: LayoutDashboard,
-  },
 ] as const
 
 /** Professional mobile tab bar — route-based pages, safe-area aware. */
@@ -51,7 +44,7 @@ export const MobileWorkspaceNav = memo(function MobileWorkspaceNav() {
       aria-label="Workspace pages"
     >
       <div className="border-t border-border bg-card px-2 pt-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-16px_rgba(0,0,0,0.35)]">
-        <div className="mx-auto grid max-w-lg grid-cols-5">
+        <div className="mx-auto grid max-w-lg grid-cols-4">
           {ITEMS.map((item) => {
             const Icon = item.icon
             return (

@@ -1,7 +1,6 @@
 import { memo } from 'react'
-import { LayoutDashboard, Rocket, Save, ShieldCheck, Sparkles } from 'lucide-react'
+import { Rocket, Save, ShieldCheck, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { ConsoleButton } from '@/components/agent-workflow/ConsoleButton'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -110,9 +109,6 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto sm:gap-1.5">
-        <span className="hidden sm:inline-flex">
-          <ConsoleButton />
-        </span>
         {onGenerate ? (
           <Button
             variant="outline"
@@ -139,8 +135,8 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
             onClick={onViewInstance}
             className="hidden border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300 sm:inline-flex"
           >
-            <LayoutDashboard className="h-3.5 w-3.5" />
-            View instance
+            <Rocket className="h-3.5 w-3.5" />
+            Deployments
           </Button>
         ) : null}
         <Button size="sm" disabled={!isValidated} onClick={onDeploy} className="bg-red-600 hover:bg-red-700">

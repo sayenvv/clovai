@@ -33,6 +33,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { ROUTES } from '@/constants'
+import { isLatestPublishedInstance } from '@/services/published-instances-store'
 import { cn } from '@/utils/cn'
 
 const FLYOUT_MIN_WIDTH = 220
@@ -288,6 +289,7 @@ export function DashboardSidebar() {
                 ) : (
                   instances.map((item) => {
                     const health = getInstanceHealth(item)
+                    const isCurrent = isLatestPublishedInstance(item, instances)
                     return (
                       <Link
                         key={item.id}
@@ -305,6 +307,14 @@ export function DashboardSidebar() {
                             <span className="truncate text-xs font-semibold text-foreground">
                               {item.workflowName}
                             </span>
+                            <Badge variant="outline" className="text-[9px] font-normal">
+                              v{item.version}
+                            </Badge>
+                            {isCurrent ? (
+                              <Badge className="bg-red-600 text-[9px] font-semibold text-white hover:bg-red-600">
+                                Current
+                              </Badge>
+                            ) : null}
                             <Badge
                               variant="outline"
                               className={cn('text-[9px]', HEALTH_TONE[health])}

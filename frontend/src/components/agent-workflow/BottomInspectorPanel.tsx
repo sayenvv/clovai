@@ -1,4 +1,4 @@
-import { memo, type PointerEvent as ReactPointerEvent } from 'react'
+import { memo, useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -61,6 +61,14 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
   const runtimeErrorCount = executionErrors.length
   const runtimeWarningCount = executionWarnings.length
   const logEvents = executionEvents
+  const logsScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (activeTab !== 'logs' || collapsed) return
+    const el = logsScrollRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }, [activeTab, collapsed, logEvents.length, logs.length, isExecuting])
 
   if (collapsed) {
     return (
@@ -228,9 +236,13 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
             )}
           </TabsContent>
 
-          <TabsContent value="logs" className="absolute inset-0 mt-0 overflow-y-auto p-3 font-mono text-xs">
+          <TabsContent
+            value="logs"
+            ref={logsScrollRef}
+            className="absolute inset-0 mt-0 overflow-y-auto p-3 font-mono text-xs"
+          >
             {logEvents.length === 0 && logs.length === 0 ? (
-              <EmptyHint message="Run a simulation or execute the workflow to see runtime logs." />
+              <EmptyHint message="Execute the workflow to see runtime logs in this terminal." />
             ) : (
               <div className="space-y-1">
                 {logs.map((line, index) => (

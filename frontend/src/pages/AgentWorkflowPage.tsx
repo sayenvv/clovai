@@ -102,7 +102,12 @@ import { WorkflowBuildCodeView } from '@/components/agent-workflow/WorkflowBuild
 import { DevProfiler } from '@/utils/render-profiler'
 import { APP_NAME, ROUTES } from '@/constants'
 import { getSession } from '@/services/project-auth-store'
-import { upsertPublishedInstance } from '@/services/published-instances-store'
+import { DeploymentsCanvasView } from '@/components/agent-workflow/DeploymentsCanvasView'
+import type { LibrarySection } from '@/components/agent-workflow/AgentLibrarySidebar'
+import {
+  getNextPublishedVersion,
+  publishWorkflowInstance,
+} from '@/services/published-instances-store'
 
 const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
 
@@ -157,7 +162,9 @@ export default function AgentWorkflowPage() {
   const [generateWorkflowOpen, setGenerateWorkflowOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [appMenuOpen, setAppMenuOpen] = useState(false)
+  const [librarySection, setLibrarySection] = useState<LibrarySection | null>(null)
   const [showCanvasEmptyState, setShowCanvasEmptyState] = useState(true)
+  const showDeploymentsBoard = librarySection === 'deployments'
   const [executionPanelOpen, setExecutionPanelOpen] = useState(false)
   const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('trace')
@@ -673,8 +680,20 @@ export default function AgentWorkflowPage() {
   }, [resetExecution])
 
   const handleViewInstance = useCallback(() => {
-    navigate(ROUTES.agentWorkflowDashboardInstances)
-  }, [navigate])
+    setLibrarySection('deployments')
+    if (isMobile) navigate(ROUTES.agentWorkflow)
+  }, [isMobile, navigate])
+
+  const handleBackFromDeployments = useCallback(() => {
+    setLibrarySection(null)
+  }, [])
+
+  useEffect(() => {
+    const openDeployments = () => setLibrarySection('deployments')
+    window.addEventListener('eleven-nodes-open-library-deployments', openDeployments)
+    return () =>
+      window.removeEventListener('eleven-nodes-open-library-deployments', openDeployments)
+  }, [])
 
   const handleDeploy = useCallback(() => {
     if (!isValidated) {
@@ -686,15 +705,21 @@ export default function AgentWorkflowPage() {
       toast.error('Sign in to deploy a workflow instance')
       return
     }
+    const version = getNextPublishedVersion(
+      session.accountId,
+      session.workspaceId,
+      workflowMeta.workflowId,
+      workflowMeta.version ?? 0,
+    )
     const deployment: WorkflowDeployment = {
       workflowId: workflowMeta.workflowId,
-      endpointUrl: `https://api.elevennodes.app/v1/workflows/${workflowMeta.workflowId}/run`,
+      endpointUrl: `https://api.elevennodes.app/v1/workflows/${workflowMeta.workflowId}/v/${version}/run`,
       triggerMethod: 'POST',
       authType: 'api-key',
       requestSchema: testInput.trim() || '{\n  "input": "string"\n}',
       responseSchema: '{\n  "runId": "string",\n  "status": "completed",\n  "output": {}\n}',
       status: 'deployed',
-      version: (workflowMeta.version ?? 1) + 1,
+      version,
       deployedAt: new Date().toISOString(),
     }
     setDoc((previous) => ({
@@ -706,32 +731,39 @@ export default function AgentWorkflowPage() {
         deployment,
       },
     }))
-    upsertPublishedInstance({
-      accountId: session.accountId,
-      workspaceId: session.workspaceId,
-      workflowId: deployment.workflowId,
-      workflowName,
-      instanceName: session.displayName,
-      accountType: session.accountType,
-      endpointUrl: deployment.endpointUrl,
-      version: deployment.version,
-      triggerMethod: deployment.triggerMethod,
-      authType: deployment.authType,
-      status: 'deployed',
-      deployedAt: deployment.deployedAt,
-    })
+    try {
+      publishWorkflowInstance({
+        accountId: session.accountId,
+        workspaceId: session.workspaceId,
+        workflowId: deployment.workflowId,
+        workflowName,
+        instanceName: session.displayName,
+        accountType: session.accountType,
+        endpointUrl: deployment.endpointUrl,
+        version: deployment.version,
+        triggerMethod: deployment.triggerMethod,
+        authType: deployment.authType,
+        status: 'deployed',
+        deployedAt: deployment.deployedAt,
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not create a new deployment version.'
+      toast.error(message)
+      return
+    }
     setLogs((previous) => [
       ...previous,
       `[${deployment.deployedAt}] Deployed v${deployment.version} → ${deployment.endpointUrl}`,
     ])
-    toast.success('Workflow deployed', {
-      description: 'Your published instance is ready on the dashboard.',
+    toast.success(`Deployed v${deployment.version}`, {
+      description: 'A new deployment version was added under Deployments.',
       action: {
-        label: 'View instance',
-        onClick: () => navigate(ROUTES.agentWorkflowDashboardInstances),
+        label: 'View deployments',
+        onClick: () => handleViewInstance(),
       },
     })
-  }, [isValidated, workflowMeta, testInput, setDoc, workflowName, navigate])
+  }, [isValidated, workflowMeta, testInput, setDoc, workflowName, handleViewInstance])
 
   const handleExecute = useCallback(() => {
     if (isPersistingExecution || runState.status === 'running' || runState.status === 'waiting-approval') {
@@ -741,7 +773,9 @@ export default function AgentWorkflowPage() {
     keepRightOpenRef.current = true
     right.expand()
     setExecutionPanelOpen(true)
-    setInspectorTab('trace')
+    setInspectorTab('logs')
+    bottom.expand()
+    if (isMobile) navigate(ROUTES.agentWorkflowLogs)
 
     if (!isValidWorkflowInput(testInput)) {
       toast.error('Add valid JSON workflow input in the Execution panel before executing.')
@@ -804,6 +838,8 @@ export default function AgentWorkflowPage() {
     serverModelConfig,
     bottom,
     right,
+    isMobile,
+    navigate,
     isPersistingExecution,
     runState.status,
     resetExecution,
@@ -918,7 +954,13 @@ export default function AgentWorkflowPage() {
             : 'flex min-h-0 flex-1'
         }
       >
-        {isMobile && mobileTab === 'library' ? (
+        {isMobile && mobileTab === 'library' && showDeploymentsBoard ? (
+          <MobilePageShell tone="canvas">
+            <DeploymentsCanvasView onBackToCanvas={handleBackFromDeployments} />
+          </MobilePageShell>
+        ) : null}
+
+        {isMobile && mobileTab === 'library' && !showDeploymentsBoard ? (
           <MobilePageShell>
             <AgentLibrarySidebar
               onAddAgent={(paletteId) => {
@@ -935,6 +977,8 @@ export default function AgentWorkflowPage() {
               onOpenSettings={openWorkflowSettings}
               serverModelConfig={serverModelConfig}
               llmConfigured={llmConfigured}
+              activeSection={librarySection ?? 'blocks'}
+              onSectionChange={setLibrarySection}
               width={320}
               collapsed={false}
               onResizePointerDown={noopPointer}
@@ -1030,6 +1074,30 @@ export default function AgentWorkflowPage() {
               : 'flex min-h-0 min-w-0 flex-1 flex-col'
           }
         >
+          {showDeploymentsBoard ? (
+            <div className="flex min-h-0 flex-1">
+              {!isMobile && (
+                <AgentLibrarySidebar
+                  onAddAgent={addBlock}
+                  doc={doc}
+                  activePageId={doc.activePageId}
+                  onMountWorkflow={subWorkflow.mountWorkflow}
+                  onCreateWorkflowTab={handleCreateWorkflowTab}
+                  onOpenSettings={openWorkflowSettings}
+                  serverModelConfig={serverModelConfig}
+                  llmConfigured={llmConfigured}
+                  width={left.size}
+                  collapsed={left.collapsed}
+                  onResizePointerDown={left.onResizePointerDown}
+                  onToggleCollapse={left.toggle}
+                  activeSection={librarySection}
+                  onSectionChange={setLibrarySection}
+                />
+              )}
+              <DeploymentsCanvasView onBackToCanvas={handleBackFromDeployments} />
+            </div>
+          ) : (
+          <>
           {!isMobile && (
           <DesignerMenubar
             selection={selection}
@@ -1088,6 +1156,8 @@ export default function AgentWorkflowPage() {
                 collapsed={left.collapsed}
                 onResizePointerDown={left.onResizePointerDown}
                 onToggleCollapse={left.toggle}
+                activeSection={librarySection}
+                onSectionChange={setLibrarySection}
               />
             )}
 
@@ -1253,10 +1323,12 @@ export default function AgentWorkflowPage() {
               )}
             </div>
           </div>
+          </>
+          )}
         </div>
         )}
 
-        {!isMobile && (
+        {!isMobile && !showDeploymentsBoard && (
           <AgentPropertiesShell
             diagram={diagram}
             doc={doc}

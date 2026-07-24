@@ -170,6 +170,13 @@ function buildTelemetry(
   }
 }
 
+function telemetrySeed(instance: Pick<
+  PublishedWorkflowInstance,
+  'accountId' | 'workspaceId' | 'workflowId' | 'version'
+>): string {
+  return `${instance.accountId}:${instance.workspaceId}:${instance.workflowId}:v${instance.version}`
+}
+
 function normalizeInstance(raw: PublishedWorkflowInstance): PublishedWorkflowInstance {
   if (raw.metrics && raw.recentRuns?.length) {
     return {
@@ -180,10 +187,7 @@ function normalizeInstance(raw: PublishedWorkflowInstance): PublishedWorkflowIns
       environment: raw.environment ?? 'production',
     }
   }
-  const telemetry = buildTelemetry(
-    `${raw.accountId}:${raw.workspaceId}:${raw.workflowId}`,
-    raw.deployedAt,
-  )
+  const telemetry = buildTelemetry(telemetrySeed(raw), raw.deployedAt)
   return {
     ...raw,
     triggerMethod: raw.triggerMethod ?? 'POST',
@@ -247,64 +251,112 @@ export function getPublishedDashboardStats(accountId?: string) {
   }
 }
 
-export function upsertPublishedInstance(
+/** Highest published version for a workflow in this account/workspace (0 if none). */
+export function getLatestPublishedVersion(
+  accountId: string,
+  workspaceId: string,
+  workflowId: string,
+): number {
+  return listPublishedInstances(accountId)
+    .filter(
+      (item) => item.workspaceId === workspaceId && item.workflowId === workflowId,
+    )
+    .reduce((max, item) => Math.max(max, item.version), 0)
+}
+
+/** Next deploy version — always ahead of both the doc version and any published history. */
+export function getNextPublishedVersion(
+  accountId: string,
+  workspaceId: string,
+  workflowId: string,
+  documentVersion = 0,
+): number {
+  const latestPublished = getLatestPublishedVersion(accountId, workspaceId, workflowId)
+  return Math.max(documentVersion, latestPublished) + 1
+}
+
+/** Whether this row is the newest deploy for its workflow. */
+export function isLatestPublishedInstance(
+  item: PublishedWorkflowInstance,
+  catalog: PublishedWorkflowInstance[] = listPublishedInstances(item.accountId),
+): boolean {
+  const latest = catalog
+    .filter(
+      (candidate) =>
+        candidate.accountId === item.accountId &&
+        candidate.workspaceId === item.workspaceId &&
+        candidate.workflowId === item.workflowId,
+    )
+    .reduce((max, candidate) => Math.max(max, candidate.version), 0)
+  return item.version === latest
+}
+
+/**
+ * Create a new versioned deployment. Never overwrites prior deploys —
+ * each call inserts a distinct published instance for (workflow, version).
+ */
+export function publishWorkflowInstance(
   input: UpsertPublishedInstanceInput,
 ): PublishedWorkflowInstance {
   const items = readAll()
   const deployedAt = input.deployedAt ?? new Date().toISOString()
-  const existingIndex = items.findIndex(
+  const version =
+    input.version > 0
+      ? input.version
+      : getNextPublishedVersion(input.accountId, input.workspaceId, input.workflowId)
+
+  const duplicate = items.find(
     (item) =>
       item.accountId === input.accountId &&
       item.workspaceId === input.workspaceId &&
-      item.workflowId === input.workflowId,
+      item.workflowId === input.workflowId &&
+      item.version === version,
   )
+  if (duplicate) {
+    throw new Error(
+      `Deployment v${version} already exists for workflow ${input.workflowId}. Deploy again to create a newer version.`,
+    )
+  }
 
-  const seedKey = `${input.accountId}:${input.workspaceId}:${input.workflowId}`
+  const seedKey = telemetrySeed({
+    accountId: input.accountId,
+    workspaceId: input.workspaceId,
+    workflowId: input.workflowId,
+    version,
+  })
   const telemetry = buildTelemetry(seedKey, deployedAt)
-  const previous = existingIndex >= 0 ? items[existingIndex] : null
+  const endpointUrl =
+    input.endpointUrl ||
+    `https://api.elevennodes.app/v1/workflows/${input.workflowId}/v/${version}/run`
 
   const next: PublishedWorkflowInstance = {
-    id: previous?.id ?? `pub_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    id: `pub_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
     accountId: input.accountId,
     workspaceId: input.workspaceId,
     workflowId: input.workflowId,
     workflowName: input.workflowName.trim() || 'Untitled workflow',
     instanceName: input.instanceName,
     accountType: input.accountType,
-    endpointUrl: input.endpointUrl,
-    triggerMethod: input.triggerMethod ?? previous?.triggerMethod ?? 'POST',
-    authType: input.authType ?? previous?.authType ?? 'api-key',
-    version: input.version,
+    endpointUrl,
+    triggerMethod: input.triggerMethod ?? 'POST',
+    authType: input.authType ?? 'api-key',
+    version,
     status: input.status ?? 'deployed',
     deployedAt,
-    // Keep evolving telemetry on redeploy; bump runs slightly from previous.
-    region: previous?.region ?? telemetry.region,
-    environment: previous?.environment ?? telemetry.environment,
-    metrics: previous
-      ? {
-          ...telemetry.metrics,
-          totalRuns: previous.metrics.totalRuns + 1 + (hashSeed(deployedAt) % 3),
-          succeeded: previous.metrics.succeeded + 1,
-          successRate: Number(
-            (
-              ((previous.metrics.succeeded + 1) /
-                (previous.metrics.totalRuns + 1 + (hashSeed(deployedAt) % 3))) *
-              100
-            ).toFixed(1),
-          ),
-          totalCredits: Number(
-            (previous.metrics.totalCredits + telemetry.metrics.totalCredits * 0.08).toFixed(2),
-          ),
-        }
-      : telemetry.metrics,
+    region: telemetry.region,
+    environment: telemetry.environment,
+    metrics: telemetry.metrics,
     recentRuns: telemetry.recentRuns,
   }
 
-  if (existingIndex >= 0) {
-    items[existingIndex] = next
-  } else {
-    items.unshift(next)
-  }
+  items.unshift(next)
   writeAll(items)
   return next
+}
+
+/** @deprecated Use publishWorkflowInstance — kept for call-site compatibility. */
+export function upsertPublishedInstance(
+  input: UpsertPublishedInstanceInput,
+): PublishedWorkflowInstance {
+  return publishWorkflowInstance(input)
 }
