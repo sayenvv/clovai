@@ -21,6 +21,10 @@ interface PendingExecution {
   input: string
   target: BackendExecutionTarget
   approvedEdgeIds: string[]
+  pendingEdgeIds: string[]
+  reviewerFeedback: string
+  previousOutput: unknown
+  revisionCount: number
 }
 
 function createEventId(): string {
@@ -98,9 +102,28 @@ function backendStatusToTraceStatus(
   }
 }
 
-function findApprovalStep(plan: ExecutionPlanStep[], edgeIds: string[]): ExecutionPlanStep | null {
+function buildApprovalPrompt(
+  plan: ExecutionPlanStep[],
+  edgeIds: string[],
+  revisionCount: number,
+): WorkflowRunState['approvalPrompt'] {
   const required = new Set(edgeIds)
-  return plan.find((step) => step.outgoingEdgeId && required.has(step.outgoingEdgeId)) ?? null
+  const step =
+    plan.find((candidate) => candidate.outgoingEdgeId && required.has(candidate.outgoingEdgeId)) ??
+    plan.find((candidate) => candidate.humanApproval) ??
+    null
+  const edgeId = edgeIds[0] ?? step?.outgoingEdgeId
+  if (!edgeId) return null
+  return {
+    edgeId,
+    message: step?.approvalMessage ?? 'Please review this agent output before continuing.',
+    role: step?.approvalRole ?? 'reviewer',
+    nextAgentName: step?.nextAgentName ?? 'next agent',
+    agentName: step?.agentName,
+    feedbackRevisionsEnabled: Boolean(step?.feedbackRevisionsEnabled),
+    maxFeedbackRevisions: step?.maxFeedbackRevisions ?? 5,
+    revisionCount,
+  }
 }
 
 function resolveActiveEdgeId(plan: ExecutionPlanStep[], stepIndex: number): string | null {
@@ -343,9 +366,10 @@ function responseToStatePatch(
   })
 
   const failed = response.status === 'failed' || Object.keys(response.failures).length > 0
+  const waiting = response.status === 'waiting_approval' || (response.requiredEdgeIds?.length ?? 0) > 0
   return {
     runId: response.runId,
-    status: failed ? 'failed' : 'completed',
+    status: failed ? 'failed' : waiting ? 'waiting-approval' : 'completed',
     currentStepIndex: plan.length - 1,
     activeEdgeId: null,
     activeNodeId: null,
@@ -538,6 +562,9 @@ export function useWorkflowRunner() {
             source: 'workflow-editor',
           },
           approvedEdgeIds,
+          reviewerFeedback: execution.reviewerFeedback || undefined,
+          previousOutput: execution.previousOutput ?? undefined,
+          revisionCount: execution.revisionCount,
           raiseOnError: false,
         })
         clearVisualProgress()
@@ -555,6 +582,55 @@ export function useWorkflowRunner() {
 
         const patch = responseToStatePatch(plan, response)
         const orphanFailures = buildOrphanFailureEvents(plan, response, processedFailureNodes)
+        const requiredEdgeIds = response.requiredEdgeIds ?? []
+
+        if (patch.status === 'waiting-approval' && requiredEdgeIds.length > 0) {
+          const prompt = buildApprovalPrompt(plan, requiredEdgeIds, execution.revisionCount)
+          const sourceOutput =
+            prompt?.agentName
+              ? plan.find((step) => step.agentName === prompt.agentName)?.nodeId
+              : undefined
+          const previousOutput = sourceOutput ? response.nodes[sourceOutput]?.output : undefined
+          const waitingStep = plan.find(
+            (candidate) =>
+              candidate.outgoingEdgeId && requiredEdgeIds.includes(candidate.outgoingEdgeId),
+          )
+          pendingExecutionRef.current = {
+            ...execution,
+            pendingEdgeIds: requiredEdgeIds,
+            previousOutput: previousOutput ?? execution.previousOutput,
+            reviewerFeedback: '',
+          }
+          setState((previous) => ({
+            ...previous,
+            ...patch,
+            approvalPrompt: prompt,
+            activeEdgeId: prompt?.edgeId ?? requiredEdgeIds[0] ?? null,
+            activeNodeId: waitingStep?.nodeId ?? previous.activeNodeId,
+            trace: patch.trace.map((step) =>
+              step.nodeId === waitingStep?.nodeId
+                ? {
+                    ...step,
+                    status: 'waiting-approval' as const,
+                    message: `Waiting for ${prompt?.role ?? 'reviewer'} approval`,
+                  }
+                : step,
+            ),
+            events: [...previous.events, ...orphanFailures.events],
+            errors: [...previous.errors, ...orphanFailures.errors],
+          }))
+          appendEvent({
+            kind: 'approval-wait',
+            level: 'warning',
+            message: execution.reviewerFeedback
+              ? 'Revised output is ready for review.'
+              : 'Review the agent output, then approve or request changes.',
+            edgeId: prompt?.edgeId,
+            agentName: prompt?.agentName,
+          })
+          return
+        }
+
         const errorCount =
           Object.keys(response.failures).length ||
           Object.values(response.nodes).filter((node) => node.status === 'failed').length
@@ -576,6 +652,7 @@ export function useWorkflowRunner() {
             ? [...orphanFailures.errors, workflowEndEvent]
             : orphanFailures.errors
 
+        pendingExecutionRef.current = null
         setState((previous) => ({
           ...previous,
           ...patch,
@@ -588,34 +665,27 @@ export function useWorkflowRunner() {
         if (cancelRef.current) return
 
         if (error instanceof WorkflowExecutionApprovalRequiredError) {
-          const approvalStep = findApprovalStep(plan, error.requiredEdgeIds)
-          const edgeId = error.requiredEdgeIds[0] ?? approvalStep?.outgoingEdgeId ?? null
-          const nextAgentName = approvalStep?.nextAgentName ?? 'next agent'
+          const prompt = buildApprovalPrompt(plan, error.requiredEdgeIds, execution.revisionCount)
           pendingExecutionRef.current = {
             ...execution,
-            approvedEdgeIds: Array.from(
-              new Set([...execution.approvedEdgeIds, ...error.requiredEdgeIds]),
-            ),
+            pendingEdgeIds: error.requiredEdgeIds,
           }
           setState((previous) => ({
             ...previous,
             status: 'waiting-approval',
-            activeEdgeId: edgeId,
-            activeNodeId: approvalStep?.nodeId ?? null,
-            approvalPrompt: edgeId
-              ? {
-                  edgeId,
-                  message: approvalStep?.approvalMessage ?? error.message,
-                  role: approvalStep?.approvalRole ?? 'reviewer',
-                  nextAgentName,
-                }
-              : null,
+            activeEdgeId: prompt?.edgeId ?? error.requiredEdgeIds[0] ?? null,
+            activeNodeId:
+              plan.find((step) => step.outgoingEdgeId && error.requiredEdgeIds.includes(step.outgoingEdgeId))
+                ?.nodeId ?? null,
+            approvalPrompt: prompt,
             trace: previous.trace.map((step) =>
-              step.nodeId === approvalStep?.nodeId
+              step.nodeId ===
+              plan.find((candidate) => candidate.outgoingEdgeId && error.requiredEdgeIds.includes(candidate.outgoingEdgeId))
+                ?.nodeId
                 ? {
                     ...step,
                     status: 'waiting-approval',
-                    message: `Waiting for ${approvalStep?.approvalRole ?? 'reviewer'} approval`,
+                    message: `Waiting for ${prompt?.role ?? 'reviewer'} approval`,
                     timestamp: new Date().toISOString(),
                   }
                 : step,
@@ -624,9 +694,9 @@ export function useWorkflowRunner() {
           appendEvent({
             kind: 'approval-wait',
             level: 'warning',
-            message: 'Backend requires approval before real LLM execution.',
-            edgeId: edgeId ?? undefined,
-            agentName: nextAgentName,
+            message: 'Backend requires approval before continuing.',
+            edgeId: prompt?.edgeId,
+            agentName: prompt?.nextAgentName,
           })
           return
         }
@@ -651,23 +721,57 @@ export function useWorkflowRunner() {
 
   const submitApproval = useCallback(
     (response: string) => {
-      const trimmed = response.trim()
-      if (!trimmed) return
       const pending = pendingExecutionRef.current
       if (!pending) return
+      const note = response.trim()
 
       appendEvent({
         kind: 'approval-received',
         level: 'success',
-        message: `Approval submitted: ${trimmed.slice(0, 80)}`,
+        message: note ? `Approved: ${note.slice(0, 80)}` : 'Approved — continuing workflow.',
       })
       setState((previous) => ({
         ...previous,
         status: 'running',
         approvalPrompt: null,
       }))
-      pendingExecutionRef.current = null
-      void runBackendExecution(pending)
+      const nextExecution: PendingExecution = {
+        ...pending,
+        approvedEdgeIds: Array.from(new Set([...pending.approvedEdgeIds, ...pending.pendingEdgeIds])),
+        pendingEdgeIds: [],
+        reviewerFeedback: '',
+        revisionCount: 0,
+      }
+      pendingExecutionRef.current = nextExecution
+      void runBackendExecution(nextExecution)
+    },
+    [appendEvent, runBackendExecution],
+  )
+
+  const submitFeedback = useCallback(
+    (feedback: string) => {
+      const trimmed = feedback.trim()
+      if (!trimmed) return
+      const pending = pendingExecutionRef.current
+      if (!pending) return
+
+      appendEvent({
+        kind: 'approval-received',
+        level: 'warning',
+        message: `Requested changes: ${trimmed.slice(0, 80)}`,
+      })
+      setState((previous) => ({
+        ...previous,
+        status: 'running',
+        approvalPrompt: null,
+      }))
+      const nextExecution: PendingExecution = {
+        ...pending,
+        reviewerFeedback: trimmed,
+        revisionCount: pending.revisionCount + 1,
+      }
+      pendingExecutionRef.current = nextExecution
+      void runBackendExecution(nextExecution)
     },
     [appendEvent, runBackendExecution],
   )
@@ -741,6 +845,10 @@ export function useWorkflowRunner() {
         input,
         target,
         approvedEdgeIds: [],
+        pendingEdgeIds: [],
+        reviewerFeedback: '',
+        previousOutput: null,
+        revisionCount: 0,
       })
     },
     [appendEvent, runBackendExecution],
@@ -750,6 +858,7 @@ export function useWorkflowRunner() {
     state,
     start,
     submitApproval,
+    submitFeedback,
     cancel,
     reset,
   }

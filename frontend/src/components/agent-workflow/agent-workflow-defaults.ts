@@ -262,6 +262,11 @@ export function defaultAgentConfig(paletteId: string, label: string): AgentNodeC
     tools: defaultToolsForPalette(paletteId),
     inputSchema: '{\n  "input": "string"\n}',
     outputSchema: '{\n  "result": "string"\n}',
+    humanInTheLoop: agentType === 'human',
+    approvalMessage:
+      agentType === 'human' ? 'Please review and approve this step to continue.' : undefined,
+    approvalRole: agentType === 'human' ? 'reviewer' : undefined,
+    approvalTimeoutMinutes: agentType === 'human' ? 60 : undefined,
     memoryEnabled: agentType === 'llm' || agentType === 'specialist',
     memoryScope: 'workflow',
     retryCount: 2,
@@ -280,6 +285,8 @@ export function defaultConnectorConfig(): ConnectorConfig {
     approvalMessage: 'Please review and approve this step to continue.',
     approvalRole: 'reviewer',
     approvalTimeoutMinutes: 60,
+    feedbackRevisionsEnabled: false,
+    maxFeedbackRevisions: 5,
     fallbackPath: '',
     errorPath: '',
   }
@@ -330,9 +337,21 @@ export function enrichDiagram(diagram: Diagram, paletteById: Map<string, Palette
 
   let edgesChanged = false
   const edges = diagram.edges.map((edge) => {
-    if (edge.connector) return edge
-    edgesChanged = true
-    return { ...edge, connector: defaultConnectorConfig() }
+    const from = nodes.find((node) => node.id === edge.from)
+    if (!edge.connector) {
+      edgesChanged = true
+      const connector = defaultConnectorConfig()
+      if (from?.agent?.humanInTheLoop) {
+        connector.humanApproval = true
+        connector.approvalMessage =
+          from.agent.approvalMessage?.trim() || connector.approvalMessage
+        connector.approvalRole = from.agent.approvalRole?.trim() || connector.approvalRole
+        connector.approvalTimeoutMinutes =
+          from.agent.approvalTimeoutMinutes ?? connector.approvalTimeoutMinutes
+      }
+      return { ...edge, connector }
+    }
+    return edge
   })
 
   if (!nodesChanged && !edgesChanged) return diagram

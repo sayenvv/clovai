@@ -29,13 +29,19 @@ function stepForAgent(
     agentName: agent.label || 'Agent',
     agentType: resolveAgentType(agent.paletteId ?? 'aw-agent'),
     tools: listToolsForAgent(diagram, agent.id).map((tool) => tool.label),
-    outgoingEdgeId: outgoing?.id,
-    humanApproval: Boolean(outgoing?.connector?.humanApproval),
-    approvalMessage: outgoing?.connector?.approvalMessage,
-    approvalRole: outgoing?.connector?.approvalRole,
+    outgoingEdgeId: outgoing?.id ?? (agent.agent?.humanInTheLoop ? `hitl-complete:${agent.id}` : undefined),
+    humanApproval: Boolean(outgoing?.connector?.humanApproval || agent.agent?.humanInTheLoop),
+    approvalMessage:
+      outgoing?.connector?.approvalMessage || agent.agent?.approvalMessage,
+    approvalRole: outgoing?.connector?.approvalRole || agent.agent?.approvalRole,
     nextAgentName: nextAgent?.label ?? (outgoing
       ? ordered.find((candidate) => candidate.id === outgoing.to)?.label
       : undefined),
+    feedbackRevisionsEnabled: Boolean(
+      outgoing?.connector?.feedbackRevisionsEnabled || agent.agent?.feedbackRevisionsEnabled,
+    ),
+    maxFeedbackRevisions:
+      outgoing?.connector?.maxFeedbackRevisions ?? agent.agent?.maxFeedbackRevisions ?? 5,
   }
 }
 

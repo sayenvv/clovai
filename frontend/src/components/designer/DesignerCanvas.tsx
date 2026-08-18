@@ -1584,7 +1584,10 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               { fillColor: edge.fillColor, borderColor: edge.borderColor },
               isDark,
             )
-            const approvalEdge = agentMode && edgeNeedsApprovalStyle(edge)
+            const fromAgentHitl = Boolean(
+              diagram.nodes.find((node) => node.id === edge.from)?.agent?.humanInTheLoop,
+            )
+            const approvalEdge = agentMode && edgeNeedsApprovalStyle(edge, fromAgentHitl)
             const quietStroke = isDark ? '#52525b' : '#9ca3af'
             const selectedStroke = isDark ? '#e4e4e7' : '#27272a'
             const hoverStroke = isDark ? '#71717a' : '#52525b'

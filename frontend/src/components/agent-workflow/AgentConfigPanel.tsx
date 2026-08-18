@@ -7,12 +7,18 @@ import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Field, PanelSection } from '@/components/agent-workflow/FormField'
 import { InstructionsEditorField } from '@/components/agent-workflow/InstructionsEditorField'
+import { HumanInTheLoopPanel } from '@/components/agent-workflow/HumanInTheLoopPanel'
+import {
+  applyAgentHumanInTheLoop,
+  listAgentHitlHandoffEdges,
+} from '@/components/agent-workflow/agent-hitl'
 import { generateAgentInstructions } from '@/services/generate-agent-instructions-api'
 import type { Diagram, DiagramNode } from '@/components/designer/diagram-types'
 import type { AgentNodeConfig, AgentStatus, AgentType } from '@/types/agent-workflow'
 
 interface AgentConfigPanelProps {
   node: DiagramNode
+  diagram: Diagram
   onChange: (updater: (previous: Diagram) => Diagram) => void
 }
 
@@ -52,10 +58,12 @@ function updateAgent(
 
 export const AgentConfigPanel = memo(function AgentConfigPanel({
   node,
+  diagram,
   onChange,
 }: AgentConfigPanelProps) {
   const agent = node.agent!
   const toolsText = agent.tools.join(', ')
+  const isReviewAgent = agent.agentType === 'human'
   const [isGenerating, setIsGenerating] = useState(false)
   const [previewToken, setPreviewToken] = useState(0)
 
@@ -88,7 +96,7 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
   return (
     <div className="flex h-full flex-col">
       <Tabs defaultValue="general" className="flex min-h-0 flex-1 flex-col px-4 py-3">
-        <TabsList className="h-8 w-full shrink-0">
+        <TabsList className="flex h-auto min-h-8 w-full shrink-0 flex-wrap gap-0.5">
           <TabsTrigger value="general" className="flex-1 text-xs">
             General
           </TabsTrigger>
@@ -100,6 +108,9 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
           </TabsTrigger>
           <TabsTrigger value="runtime" className="flex-1 text-xs">
             Runtime
+          </TabsTrigger>
+          <TabsTrigger value="hitl" className="flex-1 text-xs">
+            HITL
           </TabsTrigger>
         </TabsList>
 
@@ -132,9 +143,27 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
           <Field label="Agent type">
             <Select
               value={agent.agentType}
-              onChange={(event) =>
-                updateAgent(onChange, node.id, { agentType: event.target.value as AgentType })
-              }
+              onChange={(event) => {
+                const agentType = event.target.value as AgentType
+                if (agentType === 'human') {
+                  onChange((previous) =>
+                    applyAgentHumanInTheLoop(
+                      {
+                        ...previous,
+                        nodes: previous.nodes.map((candidate) =>
+                          candidate.id === node.id && candidate.agent
+                            ? { ...candidate, agent: { ...candidate.agent, agentType } }
+                            : candidate,
+                        ),
+                      },
+                      node.id,
+                      { humanInTheLoop: true },
+                    ),
+                  )
+                  return
+                }
+                updateAgent(onChange, node.id, { agentType })
+              }}
             >
               {AGENT_TYPES.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -266,6 +295,32 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
               }
             />
           </Field>
+        </TabsContent>
+
+        <TabsContent value="hitl" className="mt-3 flex-1 overflow-y-auto space-y-4 pb-4">
+          <HumanInTheLoopPanel
+            agent={agent}
+            agentLabel={node.label.trim() || 'this agent'}
+            handoffCount={listAgentHitlHandoffEdges(
+              diagram,
+              node.id,
+              isReviewAgent ? 'incoming' : 'outgoing',
+            ).length}
+            lockedOn={isReviewAgent}
+            onToggle={(enabled) =>
+              onChange((previous) =>
+                applyAgentHumanInTheLoop(previous, node.id, { humanInTheLoop: enabled }),
+              )
+            }
+            onChange={(patch) =>
+              onChange((previous) =>
+                applyAgentHumanInTheLoop(previous, node.id, {
+                  ...patch,
+                  ...(isReviewAgent ? { humanInTheLoop: true } : {}),
+                }),
+              )
+            }
+          />
         </TabsContent>
       </Tabs>
     </div>

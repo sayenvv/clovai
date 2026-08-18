@@ -1,5 +1,5 @@
 import { memo, type MouseEvent, type PointerEvent } from 'react'
-import { Bot, Plus } from 'lucide-react'
+import { Bot, Plus, ShieldCheck } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import {
   childKindForPalette,
@@ -194,8 +194,19 @@ export const AgentNodeCard = memo(function AgentNodeCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[14px] font-medium leading-none tracking-[-0.01em] text-[#FAFAFA]">
-            {title}
+          <div className="flex min-w-0 items-center gap-1.5">
+            <div className="truncate text-[14px] font-medium leading-none tracking-[-0.01em] text-[#FAFAFA]">
+              {title}
+            </div>
+            {agent?.humanInTheLoop ? (
+              <span
+                className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200"
+                title="Human in the loop enabled"
+              >
+                <ShieldCheck className="size-2.5" />
+                HITL
+              </span>
+            ) : null}
           </div>
         </div>
       </div>

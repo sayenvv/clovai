@@ -59,6 +59,14 @@ export interface AgentNodeConfig {
   contributesToIntermediateOutput?: boolean
   /** Clear mutable executor state between workflow runs. */
   executorResettable?: boolean
+  /** Pause after this agent until a human approves the handoff. */
+  humanInTheLoop?: boolean
+  approvalMessage?: string
+  approvalRole?: string
+  approvalTimeoutMinutes?: number
+  /** Reviewer can send feedback and this agent re-runs until they approve. */
+  feedbackRevisionsEnabled?: boolean
+  maxFeedbackRevisions?: number
   memoryEnabled: boolean
   memoryScope: 'session' | 'workflow' | 'global'
   retryCount: number
@@ -75,6 +83,8 @@ export interface ConnectorConfig {
   approvalMessage: string
   approvalRole: string
   approvalTimeoutMinutes: number
+  feedbackRevisionsEnabled?: boolean
+  maxFeedbackRevisions?: number
   fallbackPath: string
   errorPath: string
 }
@@ -168,6 +178,8 @@ export interface ExecutionPlanStep {
   approvalMessage?: string
   approvalRole?: string
   nextAgentName?: string
+  feedbackRevisionsEnabled?: boolean
+  maxFeedbackRevisions?: number
 }
 
 export type WorkflowRunStatus =
@@ -197,5 +209,9 @@ export interface WorkflowRunState {
     message: string
     role: string
     nextAgentName: string
+    agentName?: string
+    feedbackRevisionsEnabled?: boolean
+    maxFeedbackRevisions?: number
+    revisionCount?: number
   } | null
 }

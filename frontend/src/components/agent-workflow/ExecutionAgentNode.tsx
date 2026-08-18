@@ -111,6 +111,14 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
             >
               {statusLabel}
             </Badge>
+            {agent?.humanInTheLoop ? (
+              <Badge
+                variant="outline"
+                className="h-4 border-amber-500/30 bg-amber-500/10 px-1.5 text-[9px] font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200"
+              >
+                HITL
+              </Badge>
+            ) : null}
           </div>
           <p className="mt-1 truncate font-mono text-sm font-semibold tracking-tight text-foreground">
             {node.label}

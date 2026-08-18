@@ -185,6 +185,35 @@ export const ConnectorConfigPanel = memo(function ConnectorConfigPanel({
                   }
                 />
               </Field>
+              <div className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium">Request changes & re-run</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Send feedback to re-run the previous agent until approved.
+                  </p>
+                </div>
+                <Switch
+                  checked={Boolean(connector.feedbackRevisionsEnabled)}
+                  onCheckedChange={(checked) =>
+                    updateConnector(onChange, edge.id, { feedbackRevisionsEnabled: checked })
+                  }
+                />
+              </div>
+              {connector.feedbackRevisionsEnabled ? (
+                <Field label="Max revision rounds">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={connector.maxFeedbackRevisions ?? 5}
+                    onChange={(event) =>
+                      updateConnector(onChange, edge.id, {
+                        maxFeedbackRevisions: Number(event.target.value),
+                      })
+                    }
+                  />
+                </Field>
+              ) : null}
             </>
           )}
         </TabsContent>

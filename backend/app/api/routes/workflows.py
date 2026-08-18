@@ -34,6 +34,7 @@ from app.modules.workflows.instruction_generator import (
 )
 from app.modules.workflows import (
     ApprovalRequiredError,
+    FeedbackRevisionLimitError,
     RuntimeConfigurationError,
     WorkflowBuildSpec,
     WorkflowDefinitionError,
@@ -249,6 +250,8 @@ async def execute_workflow(
                 "requiredEdgeIds": error.edge_ids,
             },
         ) from error
+    except FeedbackRevisionLimitError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     except RuntimeConfigurationError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     except WorkflowRunFailedError as error:

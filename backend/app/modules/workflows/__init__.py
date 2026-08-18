@@ -3,6 +3,7 @@
 from app.modules.workflows.compiler import WorkflowCompiler, WorkflowDefinitionError
 from app.modules.workflows.runtime import (
     ApprovalRequiredError,
+    FeedbackRevisionLimitError,
     RuntimeConfigurationError,
     WorkflowRunFailedError,
     WorkflowRuntimeService,
@@ -16,6 +17,7 @@ from app.modules.workflows.schemas import (
 
 __all__ = [
     "ApprovalRequiredError",
+    "FeedbackRevisionLimitError",
     "RuntimeConfigurationError",
     "WorkflowBuildSpec",
     "WorkflowCompiler",

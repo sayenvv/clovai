@@ -135,7 +135,7 @@ export default function WorkflowExecutePage() {
   centerPanelWidthRef.current = centerPanelWidth
   rightPanelWidthRef.current = rightPanelWidth
 
-  const { state: runState, start, submitApproval, cancel, reset } = useWorkflowRunner()
+  const { state: runState, start, submitApproval, submitFeedback, cancel, reset } = useWorkflowRunner()
 
   const autoStartRef = useRef(false)
 
@@ -358,6 +358,7 @@ export default function WorkflowExecutePage() {
           onInputChange={setInput}
           onRunAgain={handleExecute}
           onSubmitApproval={submitApproval}
+          onSubmitFeedback={submitFeedback}
           isRunning={isRunning}
           width={centerPanelWidth}
           collapsed={centerPanelCollapsed}

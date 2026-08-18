@@ -15,6 +15,9 @@ export interface WorkflowExecutionRequest {
   inputs: Record<string, unknown>
   metadata?: Record<string, unknown>
   approvedEdgeIds?: string[]
+  reviewerFeedback?: string
+  previousOutput?: unknown
+  revisionCount?: number
   raiseOnError?: boolean
 }
 
@@ -36,6 +39,7 @@ export interface WorkflowRunResponse {
   outputs: Record<string, unknown>
   failures: Record<string, string>
   nodes: Record<string, WorkflowNodeRun>
+  requiredEdgeIds?: string[]
   startedAt: string
   completedAt: string
 }

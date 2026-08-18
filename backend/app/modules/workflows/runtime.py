@@ -31,6 +31,7 @@ from app.modules.workflows.compiler import (
 from app.modules.workflows.schemas import (
     WorkflowAgentSpec,
     WorkflowBuildSpec,
+    WorkflowEdgeSpec,
     WorkflowExecutionRequest,
     WorkflowModelConfig,
     WorkflowNodeRun,
@@ -50,6 +51,17 @@ class ApprovalRequiredError(RuntimeError):
     def __init__(self, edge_ids: list[str]) -> None:
         self.edge_ids = edge_ids
         super().__init__("Workflow execution requires human approval")
+
+
+class FeedbackRevisionLimitError(RuntimeError):
+    """Raised when a reviewer has exceeded the allowed revision rounds."""
+
+    def __init__(self, limit: int) -> None:
+        self.limit = limit
+        super().__init__(f"Human feedback revisions exceeded the limit of {limit}")
+
+
+COMPLETION_GATE_PREFIX = "hitl-complete:"
 
 
 class WorkflowRunFailedError(RuntimeError):
@@ -196,17 +208,40 @@ class WorkflowRuntimeService:
         spec: WorkflowBuildSpec,
         request: WorkflowExecutionRequest,
     ) -> WorkflowRunResponse:
-        definition = self._compiler.prepare(spec)
-        required_approvals = {
-            edge.id for edge in spec.edges if edge.human_approval
-        } - request.approved_edge_ids
-        if required_approvals:
-            raise ApprovalRequiredError(sorted(required_approvals))
+        pending_edges = [
+            edge
+            for edge in spec.edges
+            if edge.human_approval and edge.id not in request.approved_edge_ids
+        ]
+        completion_gates = _pending_completion_gates(spec, request.approved_edge_ids)
+        _assert_revision_limit(pending_edges, request.revision_count)
+
+        runnable_spec = _slice_spec_before_gates(spec, request.approved_edge_ids)
+        if not runnable_spec.agents:
+            raise ApprovalRequiredError(
+                sorted({edge.id for edge in pending_edges} | set(completion_gates))
+            )
+
+        definition = self._compiler.prepare(_with_reviewer_prompt(runnable_spec, request, pending_edges))
         factory = self._with_retries(
             definition,
             self._execution_factory_builder(llm_settings_to_workflow_model_config()),
         )
-        return await self._run(definition, factory, request, mode="execute")
+        response = await self._run(
+            definition,
+            factory,
+            _with_reviewer_inputs(request),
+            mode="execute",
+        )
+        waiting_for = _gates_after_run(spec, request.approved_edge_ids, response)
+        if waiting_for and response.status != "failed":
+            return response.model_copy(
+                update={
+                    "status": "waiting_approval",
+                    "required_edge_ids": waiting_for,
+                }
+            )
+        return response
 
     def _with_retries(
         self,
@@ -312,3 +347,124 @@ def _microsoft_tool_definition(tool: WorkflowToolSpec) -> MicrosoftToolDefinitio
         configuration=tool.configuration,
         metadata=tool.metadata,
     )
+
+
+def _pending_completion_gates(spec: WorkflowBuildSpec, approved: set[str]) -> list[str]:
+    outgoing = {edge.from_agent_id for edge in spec.edges}
+    gates: list[str] = []
+    for agent in spec.agents:
+        if not agent.metadata.get("humanInTheLoop"):
+            continue
+        if agent.id in outgoing:
+            continue
+        gate_id = f"{COMPLETION_GATE_PREFIX}{agent.id}"
+        if gate_id not in approved:
+            gates.append(gate_id)
+    return gates
+
+
+def _blocked_agent_ids(spec: WorkflowBuildSpec, approved: set[str]) -> set[str]:
+    return {
+        edge.to_agent_id
+        for edge in spec.edges
+        if edge.human_approval and edge.id not in approved
+    }
+
+
+def _slice_spec_before_gates(
+    spec: WorkflowBuildSpec,
+    approved: set[str],
+) -> WorkflowBuildSpec:
+    blocked = _blocked_agent_ids(spec, approved)
+    agents = [agent for agent in spec.agents if agent.id not in blocked]
+    allowed = {agent.id for agent in agents}
+    tools = [tool for tool in spec.tools if tool.agent_id in allowed]
+    edges = [
+        edge
+        for edge in spec.edges
+        if edge.from_agent_id in allowed and edge.to_agent_id in allowed
+    ]
+    return spec.model_copy(update={"agents": agents, "tools": tools, "edges": edges})
+
+
+def _assert_revision_limit(pending_edges: list[WorkflowEdgeSpec], revision_count: int) -> None:
+    limits = [
+        edge.max_feedback_revisions
+        for edge in pending_edges
+        if edge.feedback_revisions_enabled
+    ]
+    if not limits:
+        return
+    limit = min(limits)
+    if revision_count > limit:
+        raise FeedbackRevisionLimitError(limit)
+
+
+def _with_reviewer_inputs(request: WorkflowExecutionRequest) -> WorkflowExecutionRequest:
+    feedback = request.reviewer_feedback.strip()
+    if not feedback and request.previous_output is None:
+        return request
+    inputs = dict(request.inputs)
+    if feedback:
+        inputs["reviewerFeedback"] = feedback
+        inputs["revisionCount"] = request.revision_count
+    if request.previous_output is not None:
+        inputs["previousAgentOutput"] = request.previous_output
+    return request.model_copy(update={"inputs": inputs})
+
+
+def _with_reviewer_prompt(
+    spec: WorkflowBuildSpec,
+    request: WorkflowExecutionRequest,
+    pending_edges: list[WorkflowEdgeSpec],
+) -> WorkflowBuildSpec:
+    feedback = request.reviewer_feedback.strip()
+    if not feedback:
+        return spec
+    revision_ids = {
+        edge.from_agent_id
+        for edge in pending_edges
+        if edge.feedback_revisions_enabled
+    }
+    if not revision_ids:
+        revision_ids = {
+            agent.id
+            for agent in spec.agents
+            if agent.metadata.get("humanInTheLoop")
+            and agent.metadata.get("feedbackRevisionsEnabled")
+        }
+    if not revision_ids:
+        return spec
+    note = (
+        "\n\nHuman reviewer requested changes. Revise your previous answer until it "
+        f"addresses this feedback:\n{feedback}"
+    )
+    if request.previous_output is not None:
+        note += f"\n\nYour previous output:\n{request.previous_output}"
+    agents = [
+        agent.model_copy(update={"user_prompt": f"{agent.user_prompt}{note}".strip()})
+        if agent.id in revision_ids
+        else agent
+        for agent in spec.agents
+    ]
+    return spec.model_copy(update={"agents": agents})
+
+
+def _gates_after_run(
+    spec: WorkflowBuildSpec,
+    approved: set[str],
+    response: WorkflowRunResponse,
+) -> list[str]:
+    waiting: list[str] = []
+    for edge in spec.edges:
+        if not edge.human_approval or edge.id in approved:
+            continue
+        source = response.nodes.get(edge.from_agent_id)
+        if source and source.status == "completed":
+            waiting.append(edge.id)
+    for gate_id in _pending_completion_gates(spec, approved):
+        agent_id = gate_id.removeprefix(COMPLETION_GATE_PREFIX)
+        source = response.nodes.get(agent_id)
+        if source and source.status == "completed":
+            waiting.append(gate_id)
+    return waiting

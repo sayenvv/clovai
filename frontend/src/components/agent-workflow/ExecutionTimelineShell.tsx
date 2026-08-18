@@ -16,6 +16,7 @@ import { Select } from '@/components/ui/select'
 import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
 import { SIDE_PANEL_COLLAPSED_WIDTH } from '@/components/agent-workflow/panel-layout'
 import { ExecutionFileUploadButton } from '@/components/agent-workflow/ExecutionFileUploadButton'
+import { ReviewDecisionBar } from '@/components/agent-workflow/ReviewDecisionBar'
 import { cn } from '@/utils/cn'
 import type { ExecutionPlanStep, WorkflowRunState } from '@/types/agent-workflow'
 
@@ -28,6 +29,7 @@ interface ExecutionTimelineShellProps {
   onInputChange: (value: string) => void
   onRunAgain: () => void
   onSubmitApproval: (value: string) => void
+  onSubmitFeedback?: (value: string) => void
   isRunning: boolean
   width: number
   collapsed: boolean
@@ -44,6 +46,7 @@ export const ExecutionTimelineShell = memo(function ExecutionTimelineShell({
   onInputChange,
   onRunAgain,
   onSubmitApproval,
+  onSubmitFeedback,
   isRunning,
   width,
   collapsed,
@@ -164,24 +167,15 @@ export const ExecutionTimelineShell = memo(function ExecutionTimelineShell({
               <p className="text-xs font-semibold">Human approval</p>
             </div>
             <p className="text-[11px] text-muted-foreground">{runState.approvalPrompt.message}</p>
-            <Textarea
-              rows={2}
-              value={approvalInput}
-              onChange={(event) => setApprovalInput(event.target.value)}
-              placeholder="Enter decision…"
-              className="mt-2 text-xs"
-            />
-            <Button
-              size="sm"
-              className="mt-2 w-full"
-              disabled={!approvalInput.trim()}
-              onClick={() => {
-                onSubmitApproval(approvalInput)
-                setApprovalInput('')
-              }}
-            >
-              Approve & continue
-            </Button>
+            <div className="mt-2">
+              <ReviewDecisionBar
+                approvalPrompt={runState.approvalPrompt}
+                value={approvalInput}
+                onChange={setApprovalInput}
+                onApprove={onSubmitApproval}
+                onRequestChanges={onSubmitFeedback}
+              />
+            </div>
           </div>
         )}
 

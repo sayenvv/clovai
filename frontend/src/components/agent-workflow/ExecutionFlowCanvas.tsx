@@ -124,12 +124,16 @@ function resolveDisplayEdges(diagram: Diagram): DisplayEdge[] {
   }))
 }
 
-function edgeStyle(edge: DisplayEdge, runState: WorkflowRunState): EdgeRenderStyle {
+function edgeStyle(
+  edge: DisplayEdge,
+  runState: WorkflowRunState,
+  fromAgentHitl = false,
+): EdgeRenderStyle {
   const isActive = runState.activeEdgeId === edge.id
   const isCompleted =
     runState.completedNodeIds.includes(edge.from) &&
     (runState.completedNodeIds.includes(edge.to) || runState.activeNodeId === edge.to)
-  const approval = !edge.inferred && edgeNeedsApprovalStyle(edge)
+  const approval = !edge.inferred && edgeNeedsApprovalStyle(edge, fromAgentHitl)
 
   if (isActive) {
     return { stroke: EDGE_COLORS.active, width: 2.5, opacity: 1, marker: 'active' }
@@ -499,7 +503,7 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
         { obstacles: routeObstacles, fromNodeId: edge.from, toNodeId: edge.to },
       )
 
-      const style = edgeStyle(edge, runState)
+      const style = edgeStyle(edge, runState, Boolean(fromNode.agent?.humanInTheLoop))
       return [{
         edge,
         path,

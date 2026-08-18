@@ -83,6 +83,8 @@ export interface WorkflowBuildEdge {
   humanApproval: boolean
   approvalRole: string
   approvalMessage: string
+  feedbackRevisionsEnabled?: boolean
+  maxFeedbackRevisions?: number
 }
 
 export interface WorkflowRetryPolicy {

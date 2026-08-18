@@ -169,7 +169,7 @@ export default function AgentWorkflowPage() {
   const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('trace')
   const [isPersistingExecution, setIsPersistingExecution] = useState(false)
-  const { state: runState, start: startExecution, submitApproval, cancel: cancelExecution, reset: resetExecution } =
+  const { state: runState, start: startExecution, submitApproval, submitFeedback, cancel: cancelExecution, reset: resetExecution } =
     useWorkflowRunner()
   const { modelConfig: serverModelConfig, configured: llmConfigured, isLoading: llmConfigLoading } =
     useServerLlmConfig()
@@ -1035,6 +1035,7 @@ export default function AgentWorkflowPage() {
                 onCancel: cancelExecution,
                 approvalPrompt: runState.approvalPrompt,
                 onSubmitApproval: submitApproval,
+                onSubmitFeedback: submitFeedback,
                 stepOutputs: runState.stepOutputs,
                 trace: displayTrace,
                 needsReview: Boolean(runState.approvalPrompt),
@@ -1373,6 +1374,7 @@ export default function AgentWorkflowPage() {
               onCancel: cancelExecution,
               approvalPrompt: runState.approvalPrompt,
               onSubmitApproval: submitApproval,
+              onSubmitFeedback: submitFeedback,
               stepOutputs: runState.stepOutputs,
               trace: displayTrace,
               needsReview: Boolean(runState.approvalPrompt),

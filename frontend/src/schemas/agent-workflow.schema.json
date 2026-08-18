@@ -172,7 +172,9 @@
           "label": { "type": "string" },
           "humanApproval": { "type": "boolean" },
           "approvalRole": { "type": "string" },
-          "approvalMessage": { "type": "string" }
+          "approvalMessage": { "type": "string" },
+          "feedbackRevisionsEnabled": { "type": "boolean" },
+          "maxFeedbackRevisions": { "type": "integer" }
         },
         "additionalProperties": false
       }

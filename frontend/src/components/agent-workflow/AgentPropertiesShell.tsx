@@ -46,6 +46,7 @@ interface ExecutionSidebarOptions {
   onCancel?: () => void
   approvalPrompt?: WorkflowRunState['approvalPrompt']
   onSubmitApproval?: (value: string) => void
+  onSubmitFeedback?: (value: string) => void
   stepOutputs?: Record<string, string>
   trace?: ExecutionTraceStep[]
   needsReview?: boolean
@@ -269,6 +270,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 onCancel={execution.onCancel}
                 approvalPrompt={execution.approvalPrompt}
                 onSubmitApproval={execution.onSubmitApproval}
+                onSubmitFeedback={execution.onSubmitFeedback}
                 stepOutputs={execution.stepOutputs}
                 trace={execution.trace}
               />
@@ -358,7 +360,7 @@ function DetailsPanelContent({
   }
 
   if (selection?.kind === 'node' && selectedNode?.agent) {
-    return <AgentConfigPanel node={selectedNode} onChange={onChange} />
+    return <AgentConfigPanel node={selectedNode} diagram={diagram} onChange={onChange} />
   }
 
   if (selection?.kind === 'edge' && selectedEdge) {

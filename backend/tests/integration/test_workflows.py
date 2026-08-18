@@ -189,16 +189,58 @@ def test_test_endpoint_executes_dependencies_without_model_calls() -> None:
     assert writer_dependencies["research"]["agentId"] == "research"
 
 
-def test_execute_requires_human_approval_before_creating_provider() -> None:
+def test_execute_pauses_for_human_approval_after_source_agent(monkeypatch) -> None:
     save_executable_spec(client)
+    runtime = WorkflowRuntimeService(
+        execution_factory_builder=lambda model_config: DryRunAgentFactory()
+    )
+    monkeypatch.setattr("app.api.routes.workflows.RUNTIME_SERVICE", runtime)
 
     response = client.post(
         "/api/workflows/ws_test/pages/page_test/execute",
         json={"inputs": {"prompt": "Run"}},
     )
 
-    assert response.status_code == 409
-    assert response.json()["detail"]["requiredEdgeIds"] == ["research-to-writer"]
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "waiting_approval"
+    assert body["requiredEdgeIds"] == ["research-to-writer"]
+    assert "research" in body["nodes"]
+    assert "writer" not in body["nodes"]
+
+
+def test_execute_reruns_source_agent_when_reviewer_sends_feedback(monkeypatch) -> None:
+    spec = executable_spec()
+    spec["edges"][0]["feedbackRevisionsEnabled"] = True
+    spec["edges"][0]["maxFeedbackRevisions"] = 3
+    put = client.put("/api/workflows/ws_test/pages/page_test", json=spec)
+    assert put.status_code == 200
+
+    runtime = WorkflowRuntimeService(
+        execution_factory_builder=lambda model_config: DryRunAgentFactory()
+    )
+    monkeypatch.setattr("app.api.routes.workflows.RUNTIME_SERVICE", runtime)
+
+    first = client.post(
+        "/api/workflows/ws_test/pages/page_test/execute",
+        json={"inputs": {"prompt": "Run"}},
+    )
+    assert first.status_code == 200
+    assert first.json()["status"] == "waiting_approval"
+
+    revised = client.post(
+        "/api/workflows/ws_test/pages/page_test/execute",
+        json={
+            "inputs": {"prompt": "Run"},
+            "reviewerFeedback": "Add more sources",
+            "revisionCount": 1,
+            "previousOutput": first.json()["nodes"]["research"]["output"],
+        },
+    )
+    assert revised.status_code == 200
+    body = revised.json()
+    assert body["status"] == "waiting_approval"
+    assert "reviewerFeedback" in str(body["nodes"]["research"]["output"])
 
 
 def test_execute_uses_compiled_workflow_with_injected_agent_factory(monkeypatch) -> None:

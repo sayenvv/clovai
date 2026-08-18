@@ -152,6 +152,16 @@ function agentMetadata(node: DiagramNode): Record<string, unknown> {
     if (external) metadata.externalProvider = external.provider
   }
 
+  if (node.agent?.humanInTheLoop) {
+    metadata.humanInTheLoop = true
+    metadata.approvalRole = node.agent.approvalRole ?? 'reviewer'
+    metadata.approvalMessage =
+      node.agent.approvalMessage ?? 'Please review and approve this step to continue.'
+    metadata.approvalTimeoutMinutes = node.agent.approvalTimeoutMinutes ?? 60
+    metadata.feedbackRevisionsEnabled = Boolean(node.agent.feedbackRevisionsEnabled)
+    metadata.maxFeedbackRevisions = node.agent.maxFeedbackRevisions ?? 5
+  }
+
   if (isExecutorNode(node)) {
     const executor = node.agent
     metadata.isExecutor = true
@@ -237,20 +247,33 @@ function buildToolSpecs(diagram: Diagram): WorkflowBuildTool[] {
 
 function buildEdgeSpecs(diagram: Diagram): WorkflowBuildEdge[] {
   const agentIds = new Set(listAgentNodes(diagram).map((agent) => agent.id))
+  const nodesById = new Map(diagram.nodes.map((node) => [node.id, node]))
 
   return diagram.edges
     .filter((edge) => agentIds.has(edge.from) && agentIds.has(edge.to))
-    .map((edge) => ({
-      id: edge.id,
-      fromAgentId: edge.from,
-      toAgentId: edge.to,
-      label: edge.label ?? '',
-      humanApproval: Boolean(edge.connector?.humanApproval),
-      approvalRole: edge.connector?.approvalRole ?? 'reviewer',
-      approvalMessage:
-        edge.connector?.approvalMessage ??
-        'Please review and approve this step to continue.',
-    }))
+    .map((edge) => {
+      const fromAgent = nodesById.get(edge.from)?.agent
+      const humanApproval =
+        Boolean(edge.connector?.humanApproval) || Boolean(fromAgent?.humanInTheLoop)
+      return {
+        id: edge.id,
+        fromAgentId: edge.from,
+        toAgentId: edge.to,
+        label: edge.label ?? '',
+        humanApproval,
+        approvalRole:
+          edge.connector?.approvalRole || fromAgent?.approvalRole || 'reviewer',
+        approvalMessage:
+          edge.connector?.approvalMessage ||
+          fromAgent?.approvalMessage ||
+          'Please review and approve this step to continue.',
+        feedbackRevisionsEnabled:
+          Boolean(edge.connector?.feedbackRevisionsEnabled) ||
+          Boolean(fromAgent?.feedbackRevisionsEnabled),
+        maxFeedbackRevisions:
+          edge.connector?.maxFeedbackRevisions ?? fromAgent?.maxFeedbackRevisions ?? 5,
+      }
+    })
 }
 
 function resolveExecutionMode(

@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Loader2,
   Play,
-  Send,
   Square,
   User,
   UserCheck,
@@ -15,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ExecutionFileUploadButton } from '@/components/agent-workflow/ExecutionFileUploadButton'
+import { ReviewDecisionBar } from '@/components/agent-workflow/ReviewDecisionBar'
 import { cn } from '@/utils/cn'
 import type {
   ExecutionTraceStep,
@@ -33,6 +33,7 @@ interface ExecutionSidebarPanelProps {
   onCancel?: () => void
   approvalPrompt?: WorkflowRunState['approvalPrompt']
   onSubmitApproval?: (value: string) => void
+  onSubmitFeedback?: (value: string) => void
   stepOutputs?: Record<string, string>
   trace?: ExecutionTraceStep[]
 }
@@ -66,6 +67,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
   onCancel,
   approvalPrompt,
   onSubmitApproval,
+  onSubmitFeedback,
   stepOutputs = {},
   trace = [],
 }: ExecutionSidebarPanelProps) {
@@ -167,37 +169,13 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
 
       <div className="shrink-0 space-y-2 border-t border-border/60 bg-background p-3 backdrop-blur-sm">
         {awaitingApproval && approvalPrompt ? (
-          <>
-            <Textarea
-              rows={2}
-              value={approvalInput}
-              onChange={(event) => setApprovalInput(event.target.value)}
-              placeholder={`Approval note for ${approvalPrompt.role}…`}
-              className="min-h-[80px] resize-none text-xs"
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-                  event.preventDefault()
-                  if (!approvalInput.trim()) return
-                  onSubmitApproval?.(approvalInput)
-                  setApprovalInput('')
-                }
-              }}
-            />
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 w-full gap-1.5 bg-amber-600 text-xs text-white hover:bg-amber-700"
-              disabled={!approvalInput.trim()}
-              onClick={() => {
-                if (!approvalInput.trim()) return
-                onSubmitApproval?.(approvalInput)
-                setApprovalInput('')
-              }}
-            >
-              <Send className="h-3.5 w-3.5" />
-              Approve &amp; continue
-            </Button>
-          </>
+          <ReviewDecisionBar
+            approvalPrompt={approvalPrompt}
+            value={approvalInput}
+            onChange={setApprovalInput}
+            onApprove={(note) => onSubmitApproval?.(note)}
+            onRequestChanges={onSubmitFeedback}
+          />
         ) : (
           <>
             <div className="rounded-[22px] border border-border/60 bg-background p-2.5 shadow-sm transition-colors focus-within:border-ring/40 focus-within:ring-2 focus-within:ring-ring/10 dark:border-zinc-700/70 dark:focus-within:border-zinc-600 dark:focus-within:ring-zinc-500/10">

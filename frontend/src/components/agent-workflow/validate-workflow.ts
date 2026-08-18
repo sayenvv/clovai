@@ -8,7 +8,8 @@ export { autoLayoutNodes, layoutWorkflowAgents } from './workflow-layout'
 
 export function inferWorkflowType(diagram: Diagram): WorkflowExecutionType {
   const hasHumanEdge = diagram.edges.some((edge) => edge.connector?.humanApproval)
-  if (hasHumanEdge) return 'human-in-the-loop'
+  const hasAgentHitl = diagram.nodes.some((node) => node.agent?.humanInTheLoop)
+  if (hasHumanEdge || hasAgentHitl) return 'human-in-the-loop'
 
   const hasRouter = diagram.nodes.some((node) => resolveAgentType(node.paletteId) === 'router')
   if (hasRouter) return 'conditional'
@@ -72,6 +73,14 @@ export function validateWorkflow(
       }
       return
     }
+    if (node.agent?.humanInTheLoop && !node.agent.approvalRole?.trim()) {
+      issues.push({
+        id: `hitl-role-${node.id}`,
+        severity: 'error',
+        message: `${node.label} has human-in-the-loop enabled but no approval role.`,
+        nodeId: node.id,
+      })
+    }
     if (node.agent?.status === 'inactive') {
       issues.push({
         id: `inactive-${node.id}`,
@@ -125,6 +134,6 @@ export function isAgentPaletteId(paletteId: string): boolean {
   return paletteId.startsWith('aw-')
 }
 
-export function edgeNeedsApprovalStyle(edge: DiagramEdge): boolean {
-  return Boolean(edge.connector?.humanApproval)
+export function edgeNeedsApprovalStyle(edge: DiagramEdge, fromAgentHitl = false): boolean {
+  return Boolean(edge.connector?.humanApproval || fromAgentHitl)
 }

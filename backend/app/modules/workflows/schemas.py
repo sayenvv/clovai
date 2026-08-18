@@ -88,6 +88,8 @@ class WorkflowEdgeSpec(WorkflowModel):
     human_approval: bool = False
     approval_role: str = "reviewer"
     approval_message: str = "Please review and approve this step to continue."
+    feedback_revisions_enabled: bool = False
+    max_feedback_revisions: int = Field(default=5, ge=1, le=20)
 
 
 class WorkflowRetryPolicy(WorkflowModel):
@@ -144,6 +146,9 @@ class WorkflowExecutionRequest(WorkflowModel):
     inputs: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
     approved_edge_ids: set[str] = Field(default_factory=set)
+    reviewer_feedback: str = ""
+    previous_output: Any = None
+    revision_count: int = Field(default=0, ge=0)
     raise_on_error: bool = False
 
 
@@ -165,5 +170,6 @@ class WorkflowRunResponse(WorkflowModel):
     outputs: dict[str, Any]
     failures: dict[str, str]
     nodes: dict[str, WorkflowNodeRun]
+    required_edge_ids: list[str] = Field(default_factory=list)
     started_at: datetime
     completed_at: datetime
