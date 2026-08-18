@@ -159,7 +159,7 @@ export function AgentNodeAvatar({
     return (
       <div
         className={cn(
-          'flex shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-300',
+          'flex shrink-0 items-center justify-center rounded-lg bg-sky-500/12 text-sky-600 ring-1 ring-inset ring-sky-500/20 dark:text-sky-300',
           size === 'xs' ? 'h-7 w-7' : 'h-9 w-9',
         )}
       >
@@ -225,7 +225,7 @@ export function AgentNodeAvatar({
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center justify-center rounded-lg bg-red-500/15 text-red-600 ring-1 ring-red-500/15 dark:text-red-300',
+        'flex shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-inset ring-primary/20',
         size === 'xs' ? 'h-7 w-7' : 'h-9 w-9',
       )}
     >

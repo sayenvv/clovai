@@ -1,5 +1,6 @@
 import { memo, type MouseEvent, type PointerEvent } from 'react'
-import { Bot, Plus, ShieldCheck } from 'lucide-react'
+import { Bot, Boxes, Database, Plug, Plus, ShieldCheck, Sparkles, Terminal, Wrench } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import {
   childKindForPalette,
@@ -7,7 +8,7 @@ import {
   resolveExternalAgent,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { AgentNodeAvatar } from '@/components/agent-workflow/external-agent-ui'
-import { isExecutorNode, isMcpToolNode, isToolNode } from '@/components/agent-workflow/tool-agent-mapping'
+import { isExecutorNode, isToolNode } from '@/components/agent-workflow/tool-agent-mapping'
 import type { DiagramNode } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 
@@ -72,20 +73,57 @@ function stopCanvas(event: MouseEvent | PointerEvent) {
   event.preventDefault()
 }
 
-function childKindLabel(paletteId: string): string {
-  const kind = childKindForPalette(paletteId)
-  switch (kind) {
-    case 'mcp':
-      return 'MCP'
-    case 'skill':
-      return 'Skill'
-    case 'integration':
-      return 'Integration'
-    case 'memory':
-      return 'Memory'
-    default:
-      return 'Tool'
-  }
+type ChildKind = 'tool' | 'mcp' | 'skill' | 'integration' | 'memory' | 'executor'
+
+function resolveChildKind(node: DiagramNode, executorNode: boolean): ChildKind {
+  if (executorNode) return 'executor'
+  return childKindForPalette(node.paletteId) ?? 'tool'
+}
+
+/** One accent + icon per capability kind, so tool/mcp/skill/integration/memory/executor read apart at a glance. */
+const CHILD_KIND_STYLES: Record<ChildKind, { label: string; icon: LucideIcon; rail: string; iconBg: string; iconRing: string }> = {
+  tool: {
+    label: 'Tool',
+    icon: Wrench,
+    rail: 'bg-sky-500/70',
+    iconBg: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
+    iconRing: 'ring-sky-500/20',
+  },
+  mcp: {
+    label: 'MCP',
+    icon: Plug,
+    rail: 'bg-emerald-500/70',
+    iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+    iconRing: 'ring-emerald-500/20',
+  },
+  skill: {
+    label: 'Skill',
+    icon: Sparkles,
+    rail: 'bg-violet-500/70',
+    iconBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
+    iconRing: 'ring-violet-500/20',
+  },
+  integration: {
+    label: 'Integration',
+    icon: Boxes,
+    rail: 'bg-amber-500/70',
+    iconBg: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    iconRing: 'ring-amber-500/20',
+  },
+  memory: {
+    label: 'Memory',
+    icon: Database,
+    rail: 'bg-indigo-500/70',
+    iconBg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300',
+    iconRing: 'ring-indigo-500/20',
+  },
+  executor: {
+    label: 'Executor',
+    icon: Terminal,
+    rail: 'bg-orange-500/70',
+    iconBg: 'bg-orange-500/10 text-orange-600 dark:text-orange-300',
+    iconRing: 'ring-orange-500/20',
+  },
 }
 
 interface AgentNodeCardProps {
@@ -110,7 +148,6 @@ export const AgentNodeCard = memo(function AgentNodeCard({
 }: AgentNodeCardProps) {
   const agent = node.agent
   const toolNode = isToolNode(node)
-  const mcpTool = isMcpToolNode(node)
   const executorNode = isExecutorNode(node)
   const externalAgent = resolveExternalAgent(node.paletteId)
   const title =
@@ -118,29 +155,40 @@ export const AgentNodeCard = memo(function AgentNodeCard({
     (externalAgent ? externalAgent.label : TYPE_LABELS[agent?.agentType ?? 'llm'] ?? item.label)
 
   if (toolNode || executorNode) {
-    const kind = executorNode ? 'Executor' : childKindLabel(node.paletteId)
+    const kind = resolveChildKind(node, executorNode)
+    const kindStyle = CHILD_KIND_STYLES[kind]
+    const KindIcon = kindStyle.icon
 
     return (
       <div
         className={cn(
-          'flex h-full w-full items-center gap-2 overflow-hidden rounded-[10px]',
-          'border border-[#3F3F46] bg-[#27272A] px-2.5',
-          'transition-[border-color,box-shadow] duration-150',
-          isSelected && 'border-[#71717A] shadow-[0_0_0_1px_rgba(113,113,122,0.35)]',
+          'relative flex h-full w-full items-center gap-2.5 overflow-hidden rounded-lg',
+          'border border-border bg-card pl-3 pr-2.5 shadow-sm',
+          'transition-[border-color,box-shadow,background-color] duration-150',
+          'hover:border-foreground/20 hover:shadow',
+          isSelected && 'border-primary/70 shadow-md ring-2 ring-primary/20',
           className,
         )}
         title={mappedUnderLabel ? `${title} · under ${mappedUnderLabel}` : title}
       >
-        <div className="flex size-6 shrink-0 items-center justify-center text-[#A1A1AA]">
-          <AgentNodeAvatar
-            paletteId={node.paletteId}
-            toolNode={toolNode && !mcpTool}
-            size="xs"
-          />
+        <span className={cn('absolute inset-y-0 left-0 w-[3px]', kindStyle.rail)} aria-hidden />
+
+        <div
+          className={cn(
+            'flex size-6 shrink-0 items-center justify-center rounded-md ring-1 ring-inset',
+            kindStyle.iconBg,
+            kindStyle.iconRing,
+          )}
+        >
+          <KindIcon className="size-3.5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[12px] font-medium leading-tight text-[#F4F4F5]">{title}</p>
-          <p className="mt-px truncate text-[10px] leading-tight text-[#71717A]">{kind}</p>
+          <p className="truncate text-[12px] font-medium leading-tight tracking-[-0.01em] text-card-foreground">
+            {title}
+          </p>
+          <p className="mt-0.5 truncate text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground">
+            {kindStyle.label}
+          </p>
         </div>
       </div>
     )
@@ -177,30 +225,40 @@ export const AgentNodeCard = memo(function AgentNodeCard({
       {/* Card — icon + title only */}
       <div
         className={cn(
-          'flex h-full w-full items-center gap-2.5 overflow-hidden rounded-[12px]',
-          'border border-[#3F3F46] bg-[#27272A] px-3',
-          'shadow-[0_2px_10px_rgba(0,0,0,0.28)]',
-          'transition-[border-color,box-shadow] duration-150',
-          'hover:border-[#52525B]',
-          isSelected && 'border-[#71717A] shadow-[0_0_0_1px_rgba(161,161,170,0.35),0_4px_14px_rgba(0,0,0,0.35)]',
+          'relative flex h-full w-full items-center gap-2.5 overflow-hidden rounded-xl',
+          'border border-border bg-card pl-3 pr-3 shadow-sm',
+          'transition-[border-color,box-shadow,background-color] duration-150',
+          'hover:border-foreground/20 hover:shadow-md',
+          isSelected && 'border-primary/70 shadow-md ring-2 ring-primary/20',
         )}
       >
-        <div className="flex size-9 shrink-0 items-center justify-center text-[#E4E4E7]" aria-hidden>
+        {/* Status rail — brand accent when a model is set, muted while unconfigured. */}
+        <span
+          className={cn(
+            'absolute inset-y-0 left-0 w-[3px] transition-colors duration-150',
+            configured ? 'bg-primary/70' : 'bg-border',
+          )}
+          aria-hidden
+        />
+
+        <div className="flex shrink-0 items-center justify-center" aria-hidden>
           {isExternalAgentPalette(node.paletteId) ? (
-            <AgentNodeAvatar paletteId={node.paletteId} size="sm" />
+            <AgentNodeAvatar paletteId={node.paletteId} size="md" />
           ) : (
-            <Bot className="size-5 stroke-[1.5]" />
+            <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground ring-1 ring-inset ring-border/70">
+              <Bot className="size-[18px] stroke-[1.75]" />
+            </span>
           )}
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
-            <div className="truncate text-[14px] font-medium leading-none tracking-[-0.01em] text-[#FAFAFA]">
+            <div className="truncate text-[13px] font-semibold leading-tight tracking-[-0.01em] text-card-foreground">
               {title}
             </div>
             {agent?.humanInTheLoop ? (
               <span
-                className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200"
+                className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300"
                 title="Human in the loop enabled"
               >
                 <ShieldCheck className="size-2.5" />
@@ -224,11 +282,23 @@ export const AgentNodeCard = memo(function AgentNodeCard({
               className="pointer-events-none absolute top-0 -translate-x-1/2"
               style={{ left: `${slot.x * 100}%` }}
             >
+              {/* Continuous connector — spans from the diamond straight through to
+                  the + control (or just past the label when there's no +), so the
+                  dock always reads as one unbroken line instead of floating pieces. */}
+              <span
+                className={cn(
+                  'pointer-events-none absolute left-1/2 top-[5px] z-0 w-px -translate-x-1/2 transition-colors duration-150',
+                  connected ? 'bg-primary/40' : 'bg-border',
+                )}
+                style={{ height: plus ? 37 : 10 }}
+                aria-hidden
+              />
+
               <button
                 type="button"
                 disabled={!onAttachAction}
                 className={cn(
-                  'pointer-events-auto absolute top-0 left-1/2 flex size-3.5 -translate-x-1/2 -translate-y-1/2',
+                  'pointer-events-auto absolute top-0 left-1/2 z-10 flex size-3.5 -translate-x-1/2 -translate-y-1/2',
                   'items-center justify-center',
                   'focus-visible:outline-none',
                   !onAttachAction && 'cursor-default',
@@ -249,10 +319,11 @@ export const AgentNodeCard = memo(function AgentNodeCard({
               >
                 <span
                   className={cn(
-                    'block size-2 rotate-45 border transition-colors duration-150',
+                    'block size-2 rotate-45 rounded-[1px] border transition-colors duration-150',
                     connected
-                      ? 'border-[#A1A1AA] bg-[#27272A]'
-                      : 'border-[#52525B] bg-[#27272A] group-hover:border-[#71717A]',
+                      ? 'border-primary bg-primary'
+                      : 'border-border bg-card group-hover:border-muted-foreground',
+                    !connected && slot.required && 'border-amber-500/70',
                   )}
                   aria-hidden
                 />
@@ -260,38 +331,39 @@ export const AgentNodeCard = memo(function AgentNodeCard({
 
               <span
                 className={cn(
-                  'pointer-events-none absolute top-[8px] left-1/2 -translate-x-1/2 whitespace-nowrap',
-                  'text-[9px] font-medium leading-none tracking-wide',
-                  connected ? 'text-[#A1A1AA]' : 'text-[#52525B]',
+                  'pointer-events-none absolute top-[8px] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap bg-[hsl(var(--canvas))] px-1',
+                  'text-[9px] font-medium leading-none tracking-wide transition-colors duration-150',
+                  connected ? 'text-foreground/70' : 'text-muted-foreground/70',
                 )}
               >
                 {slot.label}
-                {slot.required ? <span className="text-[#737373]">*</span> : null}
+                {slot.required ? (
+                  <span className={connected ? 'text-muted-foreground/60' : 'text-amber-600 dark:text-amber-400'}>
+                    *
+                  </span>
+                ) : null}
               </span>
 
               {plus ? (
-                <div className="pointer-events-none absolute top-[22px] left-1/2 flex -translate-x-1/2 flex-col items-center">
-                  <span className="h-2.5 w-px bg-[#3F3F46]" aria-hidden />
-                  <button
-                    type="button"
-                    className={cn(
-                      'pointer-events-auto flex size-5 items-center justify-center rounded-[4px]',
-                      'border border-[#3F3F46] bg-[#18181B] text-[#A1A1AA]',
-                      'transition-[border-color,color,background-color] duration-150',
-                      'hover:border-[#71717A] hover:bg-[#27272A] hover:text-[#E4E4E7]',
-                      'focus-visible:outline-none',
-                    )}
-                    title={`Add ${slot.label.toLowerCase()}`}
-                    aria-label={`Add ${slot.label}`}
-                    onPointerDown={stopCanvas}
-                    onClick={(event) => {
-                      stopCanvas(event)
-                      onAttachAction?.(node.id, slot.action)
-                    }}
-                  >
-                    <Plus className="size-3" strokeWidth={2} />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className={cn(
+                    'pointer-events-auto absolute top-[32px] left-1/2 z-10 flex size-5 -translate-x-1/2 items-center justify-center rounded-md',
+                    'border border-dashed border-border bg-[hsl(var(--canvas))] text-muted-foreground shadow-sm',
+                    'transition-[border-color,color,background-color] duration-150',
+                    'hover:border-solid hover:border-primary/60 hover:bg-primary/10 hover:text-primary',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                  )}
+                  title={`Add ${slot.label.toLowerCase()}`}
+                  aria-label={`Add ${slot.label}`}
+                  onPointerDown={stopCanvas}
+                  onClick={(event) => {
+                    stopCanvas(event)
+                    onAttachAction?.(node.id, slot.action)
+                  }}
+                >
+                  <Plus className="size-3" strokeWidth={2} />
+                </button>
               ) : null}
             </div>
           )

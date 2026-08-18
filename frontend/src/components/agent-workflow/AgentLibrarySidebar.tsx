@@ -3,6 +3,9 @@ import {
   Bot,
   CloudDownload,
   GitBranch,
+  GripVertical,
+  LayoutGrid,
+  List,
   Plug,
   Plus,
   Rocket,
@@ -105,40 +108,43 @@ const BLOCK_ICONS: Record<AgentType, LucideIcon> = {
   executor: Terminal,
 }
 
-const BLOCK_STYLES: Record<string, { icon: string; hover: string }> = {
+const BLOCK_STYLES: Record<string, { icon: string; ring: string }> = {
   agent: {
     icon: 'bg-red-500/10 text-red-600 dark:text-red-300',
-    hover: 'hover:border-red-400/50 hover:bg-red-500/5',
+    ring: 'ring-red-500/20',
   },
   tool: {
-    icon: 'bg-blue-500/10 text-blue-600 dark:text-blue-300',
-    hover: 'hover:border-blue-400/50 hover:bg-blue-500/5',
+    icon: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
+    ring: 'ring-sky-500/20',
   },
   mcp: {
     icon: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-    hover: 'hover:border-emerald-400/50 hover:bg-emerald-500/5',
+    ring: 'ring-emerald-500/20',
   },
   skill: {
     icon: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
-    hover: 'hover:border-violet-400/50 hover:bg-violet-500/5',
+    ring: 'ring-violet-500/20',
   },
   integration: {
     icon: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-    hover: 'hover:border-amber-400/50 hover:bg-amber-500/5',
+    ring: 'ring-amber-500/20',
   },
   executor: {
     icon: 'bg-orange-500/10 text-orange-600 dark:text-orange-300',
-    hover: 'hover:border-orange-400/50 hover:bg-orange-500/5',
+    ring: 'ring-orange-500/20',
   },
 }
 
-function BlockTile({
-  block,
-  onAddAgent,
-}: {
-  block: SidebarBlock
-  onAddAgent: (paletteId: string) => void
-}) {
+const BLOCK_KIND_LABELS: Record<string, string> = {
+  agent: 'Agent',
+  tool: 'Tool',
+  'mcp-tool': 'MCP',
+  skill: 'Skill',
+  integration: 'Integration',
+  executor: 'Executor',
+}
+
+function resolveBlockVisual(block: SidebarBlock) {
   const styles = BLOCK_STYLES[block.id === 'mcp-tool' ? 'mcp' : block.id] ?? BLOCK_STYLES.agent
   const Icon =
     block.paletteId === MCP_TOOL_PALETTE_ID
@@ -148,6 +154,18 @@ function BlockTile({
         : block.id === 'tool'
           ? Wrench
           : (BLOCK_ICONS[block.agentType] ?? Bot)
+  const kindLabel = BLOCK_KIND_LABELS[block.id] ?? block.label
+  return { styles, Icon, kindLabel }
+}
+
+function BlockTile({
+  block,
+  onAddAgent,
+}: {
+  block: SidebarBlock
+  onAddAgent: (paletteId: string) => void
+}) {
+  const { styles, Icon, kindLabel } = resolveBlockVisual(block)
 
   return (
     <button
@@ -158,22 +176,83 @@ function BlockTile({
         event.dataTransfer.effectAllowed = 'copy'
       }}
       onClick={() => onAddAgent(block.paletteId)}
-      title={block.description}
+      title={`Add ${block.label} · ${block.description}`}
       className={cn(
-        'flex items-start gap-2.5 rounded-lg border border-border/70 bg-background p-2.5 text-left transition-colors',
-        'cursor-grab active:cursor-grabbing',
-        styles.hover,
+        'group relative flex w-full items-start gap-2.5 rounded-lg border border-border bg-card p-2.5 text-left shadow-sm',
+        'cursor-grab transition-all duration-150 active:cursor-grabbing',
+        'hover:border-foreground/20 hover:shadow-md',
       )}
     >
-      <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md', styles.icon)}>
-        <Icon className="h-3.5 w-3.5" />
+      <div
+        className={cn(
+          'flex size-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset',
+          styles.icon,
+          styles.ring,
+        )}
+      >
+        <Icon className="size-3.5" />
       </div>
-      <div className="min-w-0 flex-1">
-        <span className="text-xs font-semibold text-foreground">{block.label}</span>
-        <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+      <div className="min-w-0 flex-1 pr-4">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate text-[12.5px] font-semibold leading-tight text-foreground">
+            {block.label}
+          </span>
+        </div>
+        <p className="mt-1 line-clamp-2 text-[10.5px] leading-snug text-muted-foreground">
           {block.description}
         </p>
+        <span className="mt-1.5 inline-flex items-center rounded border border-border/60 bg-muted/60 px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+          {kindLabel}
+        </span>
       </div>
+      <GripVertical
+        className="absolute right-2 top-2.5 size-3.5 text-muted-foreground/0 transition-colors duration-150 group-hover:text-muted-foreground/50"
+        aria-hidden
+      />
+    </button>
+  )
+}
+
+function GridBlockTile({
+  block,
+  onAddAgent,
+}: {
+  block: SidebarBlock
+  onAddAgent: (paletteId: string) => void
+}) {
+  const { styles, Icon, kindLabel } = resolveBlockVisual(block)
+
+  return (
+    <button
+      type="button"
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData(DND_MIME, block.paletteId)
+        event.dataTransfer.effectAllowed = 'copy'
+      }}
+      onClick={() => onAddAgent(block.paletteId)}
+      title={`Add ${block.label} · ${block.description}`}
+      className={cn(
+        'flex flex-col items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-3 text-center shadow-sm',
+        'cursor-grab transition-all duration-150 active:cursor-grabbing',
+        'hover:border-foreground/20 hover:shadow-md',
+      )}
+    >
+      <div
+        className={cn(
+          'flex size-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset',
+          styles.icon,
+          styles.ring,
+        )}
+      >
+        <Icon className="size-4" />
+      </div>
+      <span className="line-clamp-1 w-full text-[11px] font-semibold leading-tight text-foreground">
+        {block.label}
+      </span>
+      <span className="text-[8.5px] font-medium uppercase tracking-wide text-muted-foreground">
+        {kindLabel}
+      </span>
     </button>
   )
 }
@@ -257,6 +336,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   )
   const resolvedSection = activeSection !== undefined ? activeSection : section
   const [query, setQuery] = useState('')
+  const [blocksView, setBlocksView] = useState<'list' | 'grid'>('grid')
   const [importSourceId, setImportSourceId] = useState<string | null>(null)
   const [focusSearch, setFocusSearch] = useState(false)
   const rootRef = useRef<HTMLElement | null>(null)
@@ -546,30 +626,70 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
               resolvedSection === 'store' ||
               resolvedSection === 'workflows') && (
               <div className="shrink-0 border-b border-border/60 px-3 py-2">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    ref={searchInputRef}
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search…"
-                    className="h-8 pl-8 text-xs"
-                  />
+                <div className="flex items-center gap-1.5">
+                  <div className="relative min-w-0 flex-1">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      ref={searchInputRef}
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Search…"
+                      className="h-8 pl-8 text-xs"
+                    />
+                  </div>
+                  {resolvedSection === 'blocks' && (
+                    <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5">
+                      <button
+                        type="button"
+                        aria-label="List view"
+                        aria-pressed={blocksView === 'list'}
+                        onClick={() => setBlocksView('list')}
+                        className={cn(
+                          'flex size-6 items-center justify-center rounded transition-colors duration-150',
+                          blocksView === 'list'
+                            ? 'bg-card text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        <List className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Grid view"
+                        aria-pressed={blocksView === 'grid'}
+                        onClick={() => setBlocksView('grid')}
+                        className={cn(
+                          'flex size-6 items-center justify-center rounded transition-colors duration-150',
+                          blocksView === 'grid'
+                            ? 'bg-card text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        <LayoutGrid className="size-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
               {resolvedSection === 'blocks' && (
-                <div className="space-y-2">
-                  {filteredBlocks.length === 0 ? (
-                    <p className="py-6 text-center text-xs text-muted-foreground">No blocks match.</p>
-                  ) : (
-                    filteredBlocks.map((block) => (
+                filteredBlocks.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-muted-foreground">No blocks match.</p>
+                ) : blocksView === 'grid' ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {filteredBlocks.map((block) => (
+                      <GridBlockTile key={block.id} block={block} onAddAgent={onAddAgent} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {filteredBlocks.map((block) => (
                       <BlockTile key={block.id} block={block} onAddAgent={onAddAgent} />
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )
               )}
 
               {resolvedSection === 'workflows' &&

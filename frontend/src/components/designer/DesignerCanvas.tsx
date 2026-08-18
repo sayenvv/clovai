@@ -1431,14 +1431,14 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                         'absolute z-10 -translate-x-1/2 -translate-y-1/2 cursor-crosshair rounded-full transition-all duration-150',
                         agentMode
                           ? cn(
-                              'border-[1.5px] border-[#52525B] bg-[#27272A]',
+                              'border-[1.5px] border-border bg-card',
                               isFlowSide
                                 ? 'h-2.5 w-2.5 opacity-100'
                                 : 'h-2 w-2 opacity-0 group-hover/node:opacity-100',
-                              'hover:scale-125 hover:border-[#A1A1AA]',
-                              isConnectTarget && 'opacity-100 scale-125 border-[#A1A1AA]',
+                              'hover:scale-125 hover:border-primary hover:bg-primary/20',
+                              isConnectTarget && 'opacity-100 scale-125 border-primary',
                               (side === 'left' || side === 'right') &&
-                                'shadow-[0_0_0_2px_rgba(39,39,42,0.95)]',
+                                'shadow-[0_0_0_2px_hsl(var(--card))]',
                             )
                           : cn(
                               'h-2.5 w-2.5 border-2 border-background bg-muted-foreground/60 opacity-0',
@@ -1471,11 +1471,11 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                       style={{ left: `${anchor.x * 100}%`, top: `${anchor.y * 100}%` }}
                       className={cn(
                         'absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] transition-colors',
-                        agentMode ? 'h-2.5 w-2.5 border-[1.5px] border-[#52525B] bg-[#27272A]' : 'h-3 w-3 border-background',
+                        agentMode ? 'h-2.5 w-2.5 border-[1.5px] border-border bg-card' : 'h-3 w-3 border-background',
                         isConnected
-                          ? 'border-[#A1A1AA] bg-[#A1A1AA]'
+                          ? 'border-primary bg-primary'
                           : agentMode
-                            ? 'bg-[#27272A]'
+                            ? 'bg-card'
                             : 'bg-muted-foreground/80',
                       )}
                     />
@@ -1564,9 +1564,9 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               key={line.id}
               d={line.d}
               fill="none"
-              stroke={isDark ? '#71717a' : '#a1a1aa'}
+              stroke="hsl(var(--muted-foreground))"
               strokeWidth={1.25 / viewport.scale}
-              strokeOpacity={0.9}
+              strokeOpacity={0.65}
               strokeLinecap="round"
               strokeDasharray={`${4 / viewport.scale} ${4 / viewport.scale}`}
               className="pointer-events-none"
