@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { createPage, type Diagram, type DiagramDocument } from '@/components/designer/diagram-types'
+import { createPage, resolveActiveMainPageId, type Diagram, type DiagramDocument } from '@/components/designer/diagram-types'
 import { createDiagramHistoryStack } from '@/components/designer/diagram-history'
 import type { PaletteItem } from '@/types/config'
 import { enrichDiagram } from '@/components/agent-workflow/agent-workflow-defaults'
@@ -17,6 +17,11 @@ import {
 } from '@/components/agent-workflow/tool-agent-mapping'
 import { persistWorkflowBuildSpec } from '@/components/agent-workflow/workflow-build-storage'
 import { getSession } from '@/services/project-auth-store'
+import {
+  addSubWorkflowToActiveMain,
+  pageIdsRemovedWith,
+  stripMountNodesForPages,
+} from '@/components/agent-workflow/sub-workflow-ops'
 
 export function useWorkflowDocument(
   paletteById: Map<string, PaletteItem>,
@@ -131,15 +136,38 @@ export function useWorkflowDocument(
     setDoc((previous) => ({ ...previous, activePageId: pageId }))
   }, [])
 
-  const addPage = useCallback(() => {
+  const addMainPage = useCallback(() => {
     onInvalidate?.()
     setDoc((previous) => {
-      const page = createPage(`Workflow ${previous.pages.length + 1}`)
+      const mains = previous.pages.filter((page) => page.kind !== 'sub' && !page.parentPageId)
+      const page = createPage(`Workflow ${mains.length + 1}`, { kind: 'main' })
       historyRef.current.clear()
       historyPageIdRef.current = page.id
       return { ...previous, pages: [...previous.pages, page], activePageId: page.id }
     })
+    toast.success('New main workflow tab created.')
   }, [onInvalidate])
+
+  const addSubPage = useCallback((parentPageId?: string) => {
+    onInvalidate?.()
+    let error: string | undefined
+    let created = false
+    setDoc((previous) => {
+      const result = addSubWorkflowToActiveMain(previous, undefined, parentPageId)
+      if ('error' in result) {
+        error = result.error
+        return previous
+      }
+      historyRef.current.clear()
+      historyPageIdRef.current = result.pageId
+      created = true
+      return result.doc
+    })
+    if (error) toast.error(error)
+    else if (created) toast.success('Sub-workflow added to that main workflow.')
+  }, [onInvalidate])
+
+  const addPage = addMainPage
 
   const createNewWorkspace = useCallback(() => {
     const nextDoc = createWorkflowWorkspaceDocument()
@@ -161,9 +189,8 @@ export function useWorkflowDocument(
   }, [onInvalidate])
 
   const createWorkflowTab = useCallback(() => {
-    addPage()
-    toast.success('New workflow tab created. Build it here, then attach it with Insert → Workflow.')
-  }, [addPage])
+    addMainPage()
+  }, [addMainPage])
 
   const renamePage = useCallback(
     (pageId: string, name: string) => {
@@ -176,15 +203,36 @@ export function useWorkflowDocument(
     [doc.activePageId],
   )
 
+  const setActiveMainPage = useCallback((pageId: string) => {
+    let updated = false
+    setDoc((previous) => {
+      const activeMainPageId = resolveActiveMainPageId(previous.pages, pageId)
+      if (!activeMainPageId || activeMainPageId === previous.activeMainPageId) return previous
+      updated = true
+      return {
+        ...previous,
+        activeMainPageId,
+      }
+    })
+    if (updated) toast.success('Active main workflow updated.')
+  }, [])
+
   const deletePage = useCallback((pageId: string) => {
     setDoc((previous) => {
-      if (previous.pages.length <= 1) return previous
-      const pages = previous.pages.filter((page) => page.id !== pageId)
+      const removedIds = new Set(pageIdsRemovedWith(previous, pageId))
+      if (removedIds.size >= previous.pages.length) return previous
+      const pages = previous.pages
+        .filter((page) => !removedIds.has(page.id))
+        .map((page) => ({
+          ...page,
+          diagram: stripMountNodesForPages(page.diagram, removedIds),
+        }))
+      const activeStillExists = pages.some((page) => page.id === previous.activePageId)
       return {
         ...previous,
         pages,
-        activePageId:
-          previous.activePageId === pageId ? pages[pages.length - 1].id : previous.activePageId,
+        activePageId: activeStillExists ? previous.activePageId : pages[pages.length - 1].id,
+        activeMainPageId: resolveActiveMainPageId(pages, previous.activeMainPageId),
       }
     })
   }, [])
@@ -201,9 +249,12 @@ export function useWorkflowDocument(
     handleRedo,
     selectPage,
     addPage,
+    addMainPage,
+    addSubPage,
     createWorkflowTab,
     createNewWorkspace,
     renamePage,
+    setActiveMainPage,
     deletePage,
   }
 }

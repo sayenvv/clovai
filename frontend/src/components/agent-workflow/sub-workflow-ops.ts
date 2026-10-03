@@ -1,6 +1,10 @@
 import {
   createNodeId,
   createPage,
+  inferPageParents,
+  resolveActiveMainPageId,
+  resolveMainPageId,
+  resolvePageKind,
   type Diagram,
   type DiagramDocument,
   type DiagramEdge,
@@ -173,7 +177,10 @@ export function convertAgentsToSubWorkflow(
     y: node.y - bounds.minY + 48,
   }))
 
-  const subPage = createPage(subWorkflowName.trim() || 'Sub-workflow')
+  const subPage = createPage(subWorkflowName.trim() || 'Sub-workflow', {
+    kind: 'sub',
+    parentPageId: resolveMainPageId(doc.pages, activePageId),
+  })
   subPage.diagram = {
     nodes: normalizedNodes,
     edges: clusterEdges.map((edge) => ({ ...edge })),
@@ -234,17 +241,19 @@ export function mountPageAsSubWorkflow(
   const page = doc.pages.find((candidate) => candidate.id === activePageId)
   if (!page) return { error: 'Active page not found.' }
 
-  const updatedPages = doc.pages.map((candidate) =>
-    candidate.id === activePageId
-      ? {
-          ...candidate,
-          diagram: {
-            ...candidate.diagram,
-            nodes: [...candidate.diagram.nodes, subNode],
-          },
-        }
-      : candidate,
-  )
+  const updatedPages = doc.pages.map((candidate) => {
+    if (candidate.id === activePageId) {
+      return { ...candidate, diagram: updatedDiagram }
+    }
+    if (candidate.id === sourcePageId) {
+      return {
+        ...candidate,
+        kind: 'sub' as const,
+        parentPageId: resolveMainPageId(doc.pages, activePageId),
+      }
+    }
+    return candidate
+  })
 
   return {
     doc: { ...doc, pages: updatedPages },
@@ -269,6 +278,78 @@ export function offsetToPlaceDiagram(
   return {
     x: anchor.x - sourceCenter.x,
     y: anchor.y - sourceCenter.y,
+  }
+}
+
+export function stripMountNodesForPages(diagram: Diagram, deletedPageIds: Set<string>): Diagram {
+  const removedNodeIds = new Set(
+    diagram.nodes
+      .filter((node) => node.subWorkflowPageId && deletedPageIds.has(node.subWorkflowPageId))
+      .map((node) => node.id),
+  )
+  if (removedNodeIds.size === 0) return diagram
+  return {
+    nodes: diagram.nodes.filter((node) => !removedNodeIds.has(node.id)),
+    edges: diagram.edges.filter(
+      (edge) => !removedNodeIds.has(edge.from) && !removedNodeIds.has(edge.to),
+    ),
+  }
+}
+
+export function pageIdsRemovedWith(
+  doc: DiagramDocument,
+  pageId: string,
+): string[] {
+  const resolved = inferPageParents(doc.pages)
+  const page = resolved.find((candidate) => candidate.id === pageId)
+  if (!page) return []
+  const hasChildren = resolved.some((candidate) => candidate.parentPageId === pageId)
+  if (hasChildren && resolvePageKind(page) !== 'sub') return []
+  return [pageId]
+}
+
+/** Create an empty sub-workflow tab grouped under a main, and mount it there. */
+export function addSubWorkflowToActiveMain(
+  doc: DiagramDocument,
+  name?: string,
+  parentPageId?: string,
+): { doc: DiagramDocument; pageId: string } | { error: string } {
+  const parentId = resolveActiveMainPageId(
+    doc.pages,
+    parentPageId ?? doc.activeMainPageId ?? doc.activePageId,
+  )
+  const parent = doc.pages.find((page) => page.id === parentId)
+  if (!parent) return { error: 'Parent workflow not found.' }
+  if (resolvePageKind(parent) === 'sub') {
+    return { error: 'Sub-workflows can only be added to a main workflow.' }
+  }
+
+  const subCount = doc.pages.filter((page) => page.parentPageId === parentId).length
+  const label = name?.trim() || `Sub-workflow ${subCount + 1}`
+  const subPage = createPage(label, { kind: 'sub', parentPageId: parentId })
+  const position = diagramContentCenter(parent.diagram)
+  const subNode = createSubWorkflowNode(subPage.id, label, {
+    x: position.x + 80,
+    y: position.y + 80,
+  })
+
+  const pages = doc.pages.flatMap((candidate) => {
+    if (candidate.id !== parentId) return [candidate]
+    return [
+      {
+        ...candidate,
+        diagram: {
+          ...candidate.diagram,
+          nodes: [...candidate.diagram.nodes, subNode],
+        },
+      },
+      subPage,
+    ]
+  })
+
+  return {
+    doc: { ...doc, pages, activePageId: subPage.id },
+    pageId: subPage.id,
   }
 }
 

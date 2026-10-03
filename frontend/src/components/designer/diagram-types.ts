@@ -132,10 +132,16 @@ export interface Diagram {
   edges: DiagramEdge[]
 }
 
+export type WorkflowPageKind = 'main' | 'sub'
+
 export interface DiagramPage {
   id: string
   name: string
   diagram: Diagram
+  /** Top-level workflow vs nested sub-workflow tab. Defaults to main. */
+  kind?: WorkflowPageKind
+  /** Parent main tab id when `kind` is `sub`. */
+  parentPageId?: string
 }
 
 /** A tool draft: multiple pages, one active at a time (like sheet tabs). */
@@ -144,6 +150,8 @@ export interface DiagramDocument {
   workspaceId?: string
   pages: DiagramPage[]
   activePageId: string
+  /** Designated top-level workflow; independent of the open tab. */
+  activeMainPageId?: string
   /** Agent workflow metadata (agent-workflow tool only). */
   workflow?: AgentWorkflowMeta
 }
@@ -161,11 +169,14 @@ interface StoredPage {
   id?: string
   name?: string
   diagram?: StoredDiagram
+  kind?: WorkflowPageKind
+  parentPageId?: string
 }
 
 interface StoredDocument {
   pages?: StoredPage[]
   activePageId?: string
+  activeMainPageId?: string
   workspaceId?: string
   workflow?: AgentWorkflowMeta
 }
@@ -187,12 +198,124 @@ export function createNodeId(): string {
   return `node-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
 }
 
-export function createPage(name: string): DiagramPage {
+export function createPage(
+  name: string,
+  options?: { kind?: WorkflowPageKind; parentPageId?: string },
+): DiagramPage {
+  const kind = options?.kind ?? 'main'
   return {
     id: `page-${Date.now().toString(36)}-${pageCounter++}`,
     name,
     diagram: { nodes: [], edges: [] },
+    kind,
+    parentPageId: kind === 'sub' ? options?.parentPageId : undefined,
   }
+}
+
+export function resolvePageKind(page: DiagramPage): WorkflowPageKind {
+  if (page.kind === 'sub' || page.parentPageId) return 'sub'
+  return 'main'
+}
+
+function mountedSubPageIds(page: DiagramPage): string[] {
+  return page.diagram.nodes
+    .map((node) => node.subWorkflowPageId)
+    .filter((pageId): pageId is string => Boolean(pageId))
+}
+
+/** Infer `parentPageId` from canvas mount nodes when it was never stored. */
+export function inferPageParents(pages: DiagramPage[]): DiagramPage[] {
+  const ids = new Set(pages.map((page) => page.id))
+  const inferred = new Map<string, string>()
+
+  for (const page of pages) {
+    for (const childId of mountedSubPageIds(page)) {
+      if (!ids.has(childId) || childId === page.id) continue
+      if (inferred.has(childId)) continue
+      const parentIsSub = Boolean(page.parentPageId) || page.kind === 'sub'
+      const parentId = parentIsSub && page.parentPageId && ids.has(page.parentPageId)
+        ? page.parentPageId
+        : page.id
+      if (parentId !== childId) inferred.set(childId, parentId)
+    }
+  }
+
+  const withParents = pages.map((page) => {
+    const storedParent =
+      page.parentPageId && ids.has(page.parentPageId) && page.parentPageId !== page.id
+        ? page.parentPageId
+        : undefined
+    const parentPageId = storedParent ?? inferred.get(page.id)
+    if (!parentPageId) {
+      return { ...page, kind: page.kind === 'sub' ? 'main' : page.kind ?? 'main', parentPageId: undefined }
+    }
+    return { ...page, kind: 'sub' as const, parentPageId }
+  })
+
+  const byId = new Map(withParents.map((page) => [page.id, page]))
+  return withParents.map((page) => {
+    if (!page.parentPageId) return page
+    const seen = new Set<string>([page.id])
+    let parentId = page.parentPageId
+    while (parentId && byId.has(parentId) && !seen.has(parentId)) {
+      seen.add(parentId)
+      const parent = byId.get(parentId)!
+      if (!parent.parentPageId) {
+        return { ...page, kind: 'sub' as const, parentPageId: parentId }
+      }
+      parentId = parent.parentPageId
+    }
+    return { ...page, kind: 'main' as const, parentPageId: undefined }
+  })
+}
+
+export interface WorkflowPageGroup {
+  main: DiagramPage
+  subs: DiagramPage[]
+}
+
+/** Cluster pages as main tabs with their attached sub-workflow tabs. */
+export function groupWorkflowPages(pages: DiagramPage[]): WorkflowPageGroup[] {
+  const resolved = inferPageParents(pages)
+  const byId = new Map(resolved.map((page) => [page.id, page]))
+  const children = new Map<string, DiagramPage[]>()
+  const mains: DiagramPage[] = []
+
+  for (const page of resolved) {
+    if (resolvePageKind(page) === 'sub' && page.parentPageId && byId.has(page.parentPageId)) {
+      const list = children.get(page.parentPageId) ?? []
+      list.push(page)
+      children.set(page.parentPageId, list)
+    } else {
+      mains.push(page)
+    }
+  }
+
+  return mains.map((main) => ({
+    main,
+    subs: children.get(main.id) ?? [],
+  }))
+}
+
+/** Active main: the page itself, or its parent if it is a sub. */
+export function resolveMainPageId(pages: DiagramPage[], activePageId: string): string {
+  const resolved = inferPageParents(pages)
+  const active = resolved.find((page) => page.id === activePageId) ?? resolved[0]
+  if (!active) return activePageId
+  if (resolvePageKind(active) === 'sub' && active.parentPageId) return active.parentPageId
+  return active.id
+}
+
+/** Designated active main tab. Ignores subs and missing ids. */
+export function resolveActiveMainPageId(pages: DiagramPage[], designatedId?: string): string {
+  const groups = groupWorkflowPages(pages)
+  if (groups.length === 0) return designatedId ?? ''
+  if (designatedId && groups.some((group) => group.main.id === designatedId)) {
+    return designatedId
+  }
+  const fromPage = designatedId ? resolveMainPageId(pages, designatedId) : ''
+  if (fromPage && groups.some((group) => group.main.id === fromPage)) return fromPage
+  return groups[0].main.id
 }
 
 /** Accepts the current multi-page document format, a legacy single-diagram
@@ -201,17 +324,22 @@ export function normalizeDocument(parsed: unknown): DiagramDocument {
   if (parsed && typeof parsed === 'object') {
     const asDocument = parsed as StoredDocument
     if (Array.isArray(asDocument.pages) && asDocument.pages.length > 0) {
-      const pages: DiagramPage[] = asDocument.pages.map((page, index) => ({
-        id: page.id ?? `page-migrated-${index}`,
-        name: page.name ?? `Page ${index + 1}`,
-        diagram: normalizeDiagram(page.diagram ?? {}),
-      }))
+      const pages: DiagramPage[] = inferPageParents(
+        asDocument.pages.map((page, index) => ({
+          id: page.id ?? `page-migrated-${index}`,
+          name: page.name ?? `Page ${index + 1}`,
+          diagram: normalizeDiagram(page.diagram ?? {}),
+          kind: page.kind,
+          parentPageId: page.parentPageId,
+        })),
+      )
       const activePageId = pages.some((page) => page.id === asDocument.activePageId)
         ? (asDocument.activePageId as string)
         : pages[0].id
       return {
         pages,
         activePageId,
+        activeMainPageId: resolveActiveMainPageId(pages, asDocument.activeMainPageId ?? activePageId),
         workspaceId: asDocument.workspaceId,
         workflow: asDocument.workflow,
       }
@@ -222,6 +350,7 @@ export function normalizeDocument(parsed: unknown): DiagramDocument {
         id: 'page-migrated-0',
         name: 'Page 1',
         diagram: normalizeDiagram(parsed as StoredDiagram),
+        kind: 'main',
       }
       return { pages: [page], activePageId: page.id }
     }

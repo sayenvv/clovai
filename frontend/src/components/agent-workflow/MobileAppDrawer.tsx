@@ -58,6 +58,8 @@ interface MobileAppDrawerProps {
   codeViewActive?: boolean
   canConvertToSubWorkflow?: boolean
   onNewPage: () => void
+  onNewMainPage?: () => void
+  onNewSubPage?: () => void
   onNewWorkspace: () => void
   onSave: () => void
   onSaveAs: () => void
@@ -158,6 +160,8 @@ export const MobileAppDrawer = memo(function MobileAppDrawer({
   codeViewActive = false,
   canConvertToSubWorkflow = false,
   onNewPage,
+  onNewMainPage,
+  onNewSubPage,
   onNewWorkspace,
   onSave,
   onSaveAs,
@@ -187,7 +191,12 @@ export const MobileAppDrawer = memo(function MobileAppDrawer({
   const hasSelection = Boolean(selection)
 
   const fileActions: DrawerAction[] = [
-    { id: 'new-page', label: 'New page', icon: FilePlus2, onSelect: onNewPage },
+    ...(onNewMainPage
+      ? [{ id: 'new-main', label: 'New main workflow', icon: Layers, onSelect: onNewMainPage }]
+      : [{ id: 'new-page', label: 'New page', icon: FilePlus2, onSelect: onNewPage }]),
+    ...(onNewSubPage
+      ? [{ id: 'new-sub', label: 'New sub-workflow', icon: GitBranch, onSelect: onNewSubPage }]
+      : []),
     { id: 'new-workspace', label: 'New workspace', icon: Layers, onSelect: onNewWorkspace },
     { id: 'save', label: 'Save', icon: Save, onSelect: onSave },
     { id: 'save-as', label: 'Save as…', icon: Download, onSelect: onSaveAs },

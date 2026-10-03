@@ -212,10 +212,12 @@ export default function AgentWorkflowPage() {
     handleUndo,
     handleRedo,
     selectPage,
-    addPage,
+    addMainPage,
+    addSubPage,
     createWorkflowTab,
     createNewWorkspace,
     renamePage,
+    setActiveMainPage,
     deletePage,
   } = useWorkflowDocument(paletteById, invalidateValidation)
 
@@ -339,10 +341,22 @@ export default function AgentWorkflowPage() {
     createWorkflowTab()
   }, [createWorkflowTab])
 
-  const handleAddPage = useCallback(() => {
-    addPage()
+  const handleAddMainPage = useCallback(() => {
+    addMainPage()
     setSelection(null)
-  }, [addPage])
+  }, [addMainPage])
+
+  const handleAddSubToMain = useCallback(
+    (pageId: string) => {
+      addSubPage(pageId)
+      setSelection(null)
+    },
+    [addSubPage],
+  )
+
+  const handleAddPage = useCallback(() => {
+    handleAddMainPage()
+  }, [handleAddMainPage])
 
   const handleCreateNewWorkspace = useCallback(() => {
     createNewWorkspace()
@@ -358,6 +372,14 @@ export default function AgentWorkflowPage() {
       setSelection(null)
     },
     [deletePage],
+  )
+
+  const handleSetActiveMain = useCallback(
+    (pageId: string) => {
+      setActiveMainPage(pageId)
+      setSelection(null)
+    },
+    [setActiveMainPage],
   )
 
   const addToolForAgent = useCallback(
@@ -1297,10 +1319,13 @@ export default function AgentWorkflowPage() {
               <PagesBar
                 pages={doc.pages}
                 activePageId={doc.activePageId}
+                activeMainPageId={doc.activeMainPageId}
                 onSelect={handleSelectPage}
-                onAdd={handleAddPage}
+                onAdd={handleAddMainPage}
                 onRename={renamePage}
                 onDelete={handleDeletePage}
+                onSetActiveMain={handleSetActiveMain}
+                onAddSubToMain={handleAddSubToMain}
                 density={isMobile ? 'comfortable' : 'compact'}
               />
 

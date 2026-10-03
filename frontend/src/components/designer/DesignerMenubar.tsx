@@ -72,6 +72,8 @@ interface DesignerMenubarProps {
   showGrid: boolean
   onNew: () => void
   onNewPage?: () => void
+  onNewMainPage?: () => void
+  onNewSubPage?: () => void
   onNewWorkspace?: () => void
   onImport: () => void
   onExportJson: () => void
@@ -141,6 +143,8 @@ export const DesignerMenubar = memo(function DesignerMenubar({
   showGrid,
   onNew,
   onNewPage,
+  onNewMainPage,
+  onNewSubPage,
   onNewWorkspace,
   onImport,
   onExportJson,
@@ -186,13 +190,23 @@ export const DesignerMenubar = memo(function DesignerMenubar({
       <DropdownMenu>
         <MenuTrigger label="File" />
         <DropdownMenuContent align="start">
-          {onNewPage || onNewWorkspace ? (
+          {onNewPage || onNewMainPage || onNewSubPage || onNewWorkspace ? (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <FilePlus2 /> New
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
-                {onNewPage && (
+                {onNewMainPage && (
+                  <DropdownMenuItem onSelect={onNewMainPage}>
+                    <Layers /> Main workflow
+                  </DropdownMenuItem>
+                )}
+                {onNewSubPage && (
+                  <DropdownMenuItem onSelect={onNewSubPage}>
+                    <GitBranch /> Sub-workflow
+                  </DropdownMenuItem>
+                )}
+                {onNewPage && !onNewMainPage && (
                   <DropdownMenuItem onSelect={onNewPage}>
                     <FilePlus2 /> New page
                   </DropdownMenuItem>

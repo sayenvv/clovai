@@ -1,39 +1,63 @@
 import { memo, useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Check, GitBranch, MoreHorizontal, Plus, X } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import { Button } from '@/components/ui/button'
-import type { DiagramPage } from './diagram-types'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  groupWorkflowPages,
+  resolveActiveMainPageId,
+  type DiagramPage,
+} from './diagram-types'
 
 interface PagesBarProps {
   pages: DiagramPage[]
   activePageId: string
   onSelect: (pageId: string) => void
-  onAdd: () => void
+  onAdd?: () => void
   onRename: (pageId: string, name: string) => void
   onDelete: (pageId: string) => void
-  /** Larger touch targets + clearer chrome for phone layouts. */
+  onSetActiveMain?: (pageId: string) => void
+  onAddSubToMain?: (pageId: string) => void
+  activeMainPageId?: string
   density?: 'compact' | 'comfortable'
 }
 
 const PageTab = memo(function PageTab({
   page,
   isActive,
+  isCurrentMain,
   canDelete,
   density,
+  variant,
+  inGroup = false,
   onSelect,
   onRename,
   onDelete,
+  onSetActive,
+  onAddSubToMain,
 }: {
   page: DiagramPage
   isActive: boolean
+  isCurrentMain?: boolean
   canDelete: boolean
   density: 'compact' | 'comfortable'
+  variant: 'main' | 'sub'
+  inGroup?: boolean
   onSelect: () => void
   onRename: (name: string) => void
   onDelete: () => void
+  onSetActive?: () => void
+  onAddSubToMain?: () => void
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const comfortable = density === 'comfortable'
+  const isSub = variant === 'sub'
+  const showAsMain = !isSub && Boolean(isCurrentMain)
+  const hasMenu = Boolean(onSetActive || onAddSubToMain)
 
   const commit = (value: string) => {
     const name = value.trim()
@@ -52,8 +76,8 @@ const PageTab = memo(function PageTab({
           if (event.key === 'Escape') setIsEditing(false)
         }}
         className={cn(
-          'rounded-md border bg-background px-2 focus:outline-none focus:ring-1 focus:ring-primary',
-          comfortable ? 'h-9 w-32 text-sm' : 'h-6 w-24 text-xs',
+          'rounded-md border border-border bg-background px-2.5 text-xs text-foreground outline-none ring-1 ring-foreground/10',
+          comfortable ? 'h-8 w-36' : 'h-7 w-32',
         )}
         aria-label="Page name"
       />
@@ -63,41 +87,88 @@ const PageTab = memo(function PageTab({
   return (
     <div
       className={cn(
-        'group flex cursor-pointer select-none items-center gap-1.5 rounded-lg transition-colors',
-        comfortable ? 'min-h-9 px-3 py-1.5 text-sm' : 'rounded-md px-2.5 py-1 text-xs',
+        'relative flex shrink-0 cursor-pointer select-none items-center gap-1.5 px-2.5 transition-colors',
+        comfortable ? 'text-[13px]' : 'text-xs',
+        inGroup ? 'h-7 rounded-md' : 'h-full',
         isActive
-          ? 'bg-accent font-semibold text-foreground shadow-sm'
-          : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+          ? inGroup
+            ? 'bg-background font-medium text-foreground shadow-sm ring-1 ring-border'
+            : 'h-full bg-background font-medium text-foreground after:absolute after:inset-x-3 after:top-0 after:h-0.5 after:rounded-b-full after:bg-foreground'
+          : inGroup
+            ? 'text-muted-foreground hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/[0.08]'
+            : 'text-muted-foreground/70 hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]',
       )}
       onClick={onSelect}
       onDoubleClick={() => setIsEditing(true)}
       role="tab"
       aria-selected={isActive}
+      aria-current={showAsMain ? 'true' : undefined}
       title="Double-click to rename"
     >
-      <span className={cn('truncate', comfortable ? 'max-w-40' : 'max-w-32')}>{page.name}</span>
-      <span className="text-[10px] tabular-nums opacity-60">{page.diagram.nodes.length}</span>
-      {canDelete && (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation()
-            onDelete()
-          }}
-          aria-label={`Delete ${page.name}`}
+      {isSub ? (
+        <GitBranch className="h-3 w-3 shrink-0 opacity-60" />
+      ) : (
+        <span
           className={cn(
-            'ml-0.5 rounded p-0.5 transition-opacity hover:bg-background hover:text-destructive',
-            comfortable
-              ? 'opacity-70'
-              : 'opacity-0 group-hover:opacity-100',
+            'h-1.5 w-1.5 shrink-0 rounded-full',
+            showAsMain ? 'bg-foreground' : isActive ? 'bg-foreground/50' : 'bg-muted-foreground/35',
           )}
-        >
-          <X className={comfortable ? 'h-3.5 w-3.5' : 'h-3 w-3'} />
-        </button>
+          aria-hidden
+        />
       )}
+      <span className="max-w-32 truncate">{page.name}</span>
+      {(canDelete || hasMenu) ? (
+        <div className="flex shrink-0 items-center">
+          {hasMenu ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(event) => event.stopPropagation()}
+                  aria-label={`Actions for ${page.name}`}
+                  className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="top" onClick={(event) => event.stopPropagation()}>
+                {onSetActive ? (
+                  <DropdownMenuItem disabled={showAsMain} onSelect={() => onSetActive()}>
+                    <Check /> Set as active
+                  </DropdownMenuItem>
+                ) : null}
+                {onAddSubToMain ? (
+                  <DropdownMenuItem onSelect={() => onAddSubToMain()}>
+                    <GitBranch /> Add sub-workflow
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onDelete()
+              }}
+              aria-label={`Delete ${page.name}`}
+              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      ) : null}
     </div>
   )
 })
+
+function canDeletePage(page: DiagramPage, group: { main: DiagramPage; subs: DiagramPage[] }, totalPages: number): boolean {
+  if (totalPages <= 1) return false
+  if (page.id === group.main.id && group.subs.length > 0) return false
+  return true
+}
 
 /** Bottom sheet-tab bar for switching between diagram pages. */
 export const PagesBar = memo(function PagesBar({
@@ -107,54 +178,86 @@ export const PagesBar = memo(function PagesBar({
   onAdd,
   onRename,
   onDelete,
+  onSetActiveMain,
+  onAddSubToMain,
+  activeMainPageId,
   density = 'compact',
 }: PagesBarProps) {
   const comfortable = density === 'comfortable'
+  const groups = groupWorkflowPages(pages)
+  const currentMainId = onSetActiveMain
+    ? resolveActiveMainPageId(pages, activeMainPageId)
+    : resolveActiveMainPageId(pages, activePageId)
 
   return (
     <div
       className={cn(
-        'relative z-20 flex shrink-0 items-center gap-1.5 overflow-x-auto border-t bg-card',
-        comfortable
-          ? 'gap-2 border-border/80 px-3 py-2.5 shadow-[0_-6px_18px_-12px_rgba(0,0,0,0.35)]'
-          : 'bg-background px-2 py-1',
+        'relative z-20 flex shrink-0 items-center gap-2 overflow-x-auto border-t border-border bg-muted/70 px-2',
+        comfortable ? 'h-12' : 'h-10',
       )}
       role="tablist"
       aria-label="Workflow tabs"
     >
-      {pages.map((page) => (
-        <PageTab
-          key={page.id}
-          page={page}
-          isActive={page.id === activePageId}
-          canDelete={pages.length > 1}
-          density={density}
-          onSelect={() => onSelect(page.id)}
-          onRename={(name) => onRename(page.id, name)}
-          onDelete={() => onDelete(page.id)}
-        />
-      ))}
+      {groups.map((group) => {
+        const grouped = group.subs.length > 0
+        return (
+          <div
+            key={group.main.id}
+            className={cn(
+              'flex min-w-0 shrink-0 items-center',
+              grouped
+                ? 'gap-0.5 rounded-lg border border-border bg-muted px-0.5 py-0.5'
+                : 'h-full',
+            )}
+            role="group"
+            aria-label={
+              grouped ? `${group.main.name} with nested sub-workflows` : group.main.name
+            }
+          >
+            <PageTab
+              page={group.main}
+              isActive={group.main.id === activePageId}
+              isCurrentMain={group.main.id === currentMainId}
+              canDelete={canDeletePage(group.main, group, pages.length)}
+              density={density}
+              variant="main"
+              inGroup={grouped}
+              onSelect={() => onSelect(group.main.id)}
+              onRename={(name) => onRename(group.main.id, name)}
+              onDelete={() => onDelete(group.main.id)}
+              onSetActive={onSetActiveMain ? () => onSetActiveMain(group.main.id) : undefined}
+              onAddSubToMain={onAddSubToMain ? () => onAddSubToMain(group.main.id) : undefined}
+            />
+            {grouped ? (
+              <span className="mx-0.5 h-4 w-px shrink-0 bg-border" aria-hidden />
+            ) : null}
+            {group.subs.map((sub) => (
+              <PageTab
+                key={sub.id}
+                page={sub}
+                isActive={sub.id === activePageId}
+                canDelete={canDeletePage(sub, group, pages.length)}
+                density={density}
+                variant="sub"
+                inGroup
+                onSelect={() => onSelect(sub.id)}
+                onRename={(name) => onRename(sub.id, name)}
+                onDelete={() => onDelete(sub.id)}
+              />
+            ))}
+          </div>
+        )
+      })}
 
-      <Button
+      <button
         type="button"
-        variant={comfortable ? 'secondary' : 'ghost'}
-        size="icon"
-        className={cn('shrink-0', comfortable ? 'h-9 w-9 rounded-lg' : 'h-6 w-6')}
         onClick={onAdd}
-        aria-label="Add workflow tab"
-        title="New workflow tab"
+        aria-label="Add main workflow"
+        title="New main workflow"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/70 hover:bg-background hover:text-foreground"
       >
-        <Plus className={comfortable ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
-      </Button>
-
-      <span
-        className={cn(
-          'ml-auto shrink-0 pr-1 text-muted-foreground',
-          comfortable ? 'text-xs font-medium' : 'text-[11px]',
-        )}
-      >
-        {pages.length} {pages.length === 1 ? 'workflow' : 'workflows'}
-      </span>
+        <Plus className="h-3.5 w-3.5" />
+      </button>
     </div>
   )
 })
