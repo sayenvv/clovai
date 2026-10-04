@@ -97,6 +97,12 @@ export interface WorkflowLoggingSettings {
   level: WorkflowLogLevel
 }
 
+export interface WorkflowOrchestrationSettings {
+  startAgentId?: string | null
+  managerAgentId?: string | null
+  maxRounds?: number
+}
+
 export interface WorkflowSubWorkflowExport {
   mountAgentId: string
   pageId: string
@@ -114,6 +120,7 @@ export interface WorkflowSettings {
   retryPolicy: WorkflowRetryPolicy
   logging: WorkflowLoggingSettings
   metadata: Record<string, unknown>
+  orchestration?: WorkflowOrchestrationSettings
 }
 
 export interface WorkflowBuildSpec {

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
-from app.db.models import Page, User, Workflow, Workspace, WorkspaceMember  # noqa: F401
+from app.db.models import OrchestrationApiKey, Page, User, Workflow, Workspace, WorkspaceMember  # noqa: F401
 from app.db.session import get_db_session
 from app.main import app
 

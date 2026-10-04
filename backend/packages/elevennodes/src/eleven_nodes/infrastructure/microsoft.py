@@ -339,15 +339,22 @@ class MicrosoftOpenAIClientFactory:
         try:
             if provider == "openai":
                 return OpenAIChatClient(model=model_config.model)
-            if provider in {"azure-openai", "azure_openai"}:
+            if provider in {"azure-openai", "azure_openai", "azure"}:
                 azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+                azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
                 if not azure_endpoint:
                     raise MicrosoftAgentConfigurationError(
                         "AZURE_OPENAI_ENDPOINT is required for Azure OpenAI workflows."
                     )
+                if not azure_api_key:
+                    raise MicrosoftAgentConfigurationError(
+                        "AZURE_OPENAI_API_KEY is required for Azure OpenAI workflows."
+                    )
                 return OpenAIChatClient(
                     model=model_config.model,
                     azure_endpoint=azure_endpoint,
+                    api_key=azure_api_key,
+                    api_version=os.getenv("AZURE_OPENAI_API_VERSION") or "2024-08-01-preview",
                 )
         except MicrosoftAgentConfigurationError:
             raise

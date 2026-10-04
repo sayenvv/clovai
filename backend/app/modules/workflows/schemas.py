@@ -102,12 +102,19 @@ class WorkflowLoggingSettings(WorkflowModel):
     level: Literal["debug", "info", "warning", "error"] = "info"
 
 
+class WorkflowOrchestrationSettings(WorkflowModel):
+    start_agent_id: str | None = None
+    manager_agent_id: str | None = None
+    max_rounds: int = Field(default=8, ge=1, le=100)
+
+
 class WorkflowSettings(WorkflowModel):
     timeout_seconds: float = Field(gt=0, le=3600)
     stream_response: bool = False
     retry_policy: WorkflowRetryPolicy
     logging: WorkflowLoggingSettings
     metadata: dict[str, Any] = Field(default_factory=dict)
+    orchestration: WorkflowOrchestrationSettings | None = None
 
 
 class WorkflowBuildSpec(WorkflowModel):

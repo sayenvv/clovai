@@ -193,3 +193,15 @@ def load_workflow_definition(
             Workflow.page_id == page_id,
         )
     )
+
+
+def list_workspace_workflow_definitions(
+    session: Session,
+    workspace_id: str,
+) -> list[tuple[str, dict]]:
+    rows = session.execute(
+        select(Workflow.page_id, Workflow.definition).where(
+            Workflow.workspace_id == workspace_id,
+        )
+    ).all()
+    return [(page_id, definition) for page_id, definition in rows if definition]

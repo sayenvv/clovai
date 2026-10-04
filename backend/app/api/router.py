@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routes.health import router as health_router
 from app.api.routes.llm import router as llm_router
 from app.api.routes.workflows import router as workflows_router
+from app.api.routes.orchestrate import router as orchestrate_router
 from app.api.routes.diagrams import router as diagrams_router
 
 
@@ -10,4 +11,5 @@ api_router = APIRouter()
 api_router.include_router(health_router)
 api_router.include_router(llm_router)
 api_router.include_router(workflows_router)
+api_router.include_router(orchestrate_router)
 api_router.include_router(diagrams_router)
