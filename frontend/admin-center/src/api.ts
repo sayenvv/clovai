@@ -11,6 +11,19 @@ export type AdminDocument = DocumentSummary & {
   document: unknown
 }
 
+export type Application = {
+  ai_integration_id: string
+  name: string
+  location: string
+}
+
+export type VariableRow = {
+  id: string
+  ai_integration_id: string
+  name: string
+  value: string
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -33,19 +46,36 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export function listDocuments(collection: string): Promise<DocumentSummary[]> {
-  return request(`/api/v1/admin/${collection}`)
+function withApplication(path: string, aiIntegrationId: string): string {
+  const join = path.includes('?') ? '&' : '?'
+  return `${path}${join}ai_integration_id=${encodeURIComponent(aiIntegrationId)}`
 }
 
-export function getDocument(collection: string, id: string): Promise<AdminDocument> {
-  return request(`/api/v1/admin/${collection}/${id}`)
+export function listApplications(): Promise<Application[]> {
+  return request('/api/v1/applications')
+}
+
+export function createApplication(body: {
+  name: string
+  location: string
+}): Promise<Application> {
+  return request('/api/v1/applications', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function listDocuments(collection: string, aiIntegrationId: string): Promise<DocumentSummary[]> {
+  return request(withApplication(`/api/v1/admin/${collection}`, aiIntegrationId))
+}
+
+export function getDocument(collection: string, id: string, aiIntegrationId: string): Promise<AdminDocument> {
+  return request(withApplication(`/api/v1/admin/${collection}/${id}`, aiIntegrationId))
 }
 
 export function createDocument(
   collection: string,
+  aiIntegrationId: string,
   body: { name: string; document: unknown; is_active?: boolean },
 ): Promise<AdminDocument> {
-  return request(`/api/v1/admin/${collection}`, {
+  return request(withApplication(`/api/v1/admin/${collection}`, aiIntegrationId), {
     method: 'POST',
     body: JSON.stringify(body),
   })
@@ -54,14 +84,31 @@ export function createDocument(
 export function updateDocument(
   collection: string,
   id: string,
+  aiIntegrationId: string,
   body: { name?: string; document?: unknown; is_active?: boolean },
 ): Promise<AdminDocument> {
-  return request(`/api/v1/admin/${collection}/${id}`, {
+  return request(withApplication(`/api/v1/admin/${collection}/${id}`, aiIntegrationId), {
     method: 'PUT',
     body: JSON.stringify(body),
   })
 }
 
-export function deleteDocument(collection: string, id: string): Promise<void> {
-  return request(`/api/v1/admin/${collection}/${id}`, { method: 'DELETE' })
+export function deleteDocument(collection: string, id: string, aiIntegrationId: string): Promise<void> {
+  return request(withApplication(`/api/v1/admin/${collection}/${id}`, aiIntegrationId), {
+    method: 'DELETE',
+  })
+}
+
+export function listVariables(aiIntegrationId: string): Promise<VariableRow[]> {
+  return request(withApplication('/api/v1/variables', aiIntegrationId))
+}
+
+export function replaceVariables(
+  aiIntegrationId: string,
+  variables: { name: string; value: string }[],
+): Promise<VariableRow[]> {
+  return request(withApplication('/api/v1/variables', aiIntegrationId), {
+    method: 'PUT',
+    body: JSON.stringify({ variables }),
+  })
 }

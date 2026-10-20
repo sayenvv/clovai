@@ -1,32 +1,27 @@
 import { useEffect, useState } from 'react'
-import type { AdminDocument } from './api'
-import { asRecord, loadActiveConfig, saveSection } from './configDocument'
+import { listVariables, replaceVariables } from './api'
+import { useApplication } from './application'
 
 type Variable = { name: string; value: string }
 
-function readVariables(document: AdminDocument): Variable[] {
-  const envConfig = asRecord(asRecord(document.document).envConfig)
-  return Object.entries(envConfig).map(([name, value]) => ({
-    name,
-    value: typeof value === 'string' ? value : JSON.stringify(value),
-  }))
-}
-
 export function VariablesPage() {
-  const [current, setCurrent] = useState<AdminDocument | null>(null)
   const [variables, setVariables] = useState<Variable[]>([])
   const [name, setName] = useState('')
   const [value, setValue] = useState('')
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
+  const { current } = useApplication()
+  const aiIntegrationId = current?.ai_integration_id ?? ''
 
   useEffect(() => {
     let live = true
-    loadActiveConfig()
-      .then((document) => {
+    if (!aiIntegrationId) return () => {
+      live = false
+    }
+    listVariables(aiIntegrationId)
+      .then((rows) => {
         if (!live) return
-        setCurrent(document)
-        setVariables(readVariables(document))
+        setVariables(rows.map((row) => ({ name: row.name, value: row.value })))
       })
       .catch((reason: unknown) => {
         if (live) setError(reason instanceof Error ? reason.message : 'Could not load variables.')
@@ -34,7 +29,7 @@ export function VariablesPage() {
     return () => {
       live = false
     }
-  }, [])
+  }, [aiIntegrationId])
 
   function addVariable() {
     setError('')
@@ -54,7 +49,7 @@ export function VariablesPage() {
   }
 
   async function save() {
-    if (!current) return
+    if (!aiIntegrationId) return
     setError('')
     setStatus('')
     const envConfig: Record<string, string> = {}
@@ -71,9 +66,11 @@ export function VariablesPage() {
       envConfig[key] = item.value
     }
     try {
-      const saved = await saveSection(current, 'envConfig', envConfig)
-      setCurrent(saved)
-      setVariables(readVariables(saved))
+      const saved = await replaceVariables(aiIntegrationId, variables.map((item) => ({
+        name: item.name.trim(),
+        value: item.value,
+      })))
+      setVariables(saved.map((row) => ({ name: row.name, value: row.value })))
       setStatus('Saved')
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : 'Could not save variables.')
@@ -84,9 +81,14 @@ export function VariablesPage() {
     <>
       <h1>Variables</h1>
       <p className="lede">
-        Environment variables for the active configuration. Adding one stores it in envConfig.
+        Environment variables for this application. Adding one saves it in the variables table.
       </p>
-      {current ? <p className="meta">Active configuration: {current.name}</p> : null}
+      {current ? (
+        <p className="meta">
+          {current.name}
+          {current.location ? ` · ${current.location}` : ''} · {current.ai_integration_id}
+        </p>
+      ) : null}
       {error ? <p className="error">{error}</p> : null}
       {status ? <p className="status">{status}</p> : null}
       <div className="toolbar">
@@ -105,7 +107,7 @@ export function VariablesPage() {
         <button type="button" onClick={addVariable}>
           Add
         </button>
-        <button type="button" onClick={save} disabled={!current}>
+        <button type="button" onClick={save} disabled={!aiIntegrationId}>
           Save
         </button>
       </div>

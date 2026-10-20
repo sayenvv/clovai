@@ -1,9 +1,27 @@
+import { useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router-dom'
+import { useApplication } from './application'
 import { ConfigSectionPage } from './ConfigSectionPage'
 import { DocumentPage } from './DocumentPage'
 import { VariablesPage } from './VariablesPage'
 
 export function App() {
+  const { applications, current, error, select, create } = useApplication()
+  const [name, setName] = useState('')
+  const [location, setLocation] = useState('')
+  const [createError, setCreateError] = useState('')
+
+  async function addApplication() {
+    setCreateError('')
+    try {
+      await create(name, location)
+      setName('')
+      setLocation('')
+    } catch (reason: unknown) {
+      setCreateError(reason instanceof Error ? reason.message : 'Could not create the application.')
+    }
+  }
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -11,6 +29,44 @@ export function App() {
           Admin Center
           <span>Eleven Nodes</span>
         </p>
+        <label className="app-switch">
+          Application
+          <select
+            aria-label="Application"
+            value={current?.ai_integration_id ?? ''}
+            onChange={(event) => select(event.target.value)}
+          >
+            {applications.map((item) => (
+              <option key={item.ai_integration_id} value={item.ai_integration_id}>
+                {item.name}
+                {item.location ? ` · ${item.location}` : ''}
+              </option>
+            ))}
+          </select>
+          {current ? <span className="app-id">{current.ai_integration_id}</span> : null}
+        </label>
+        <form
+          className="app-create"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void addApplication()
+          }}
+        >
+          <input
+            aria-label="Application name"
+            placeholder="Name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+          <input
+            aria-label="Location"
+            placeholder="Location"
+            value={location}
+            onChange={(event) => setLocation(event.target.value)}
+          />
+          <button type="submit">Add application</button>
+        </form>
+        {createError || error ? <p className="error">{createError || error}</p> : null}
         <nav className="nav">
           <NavLink to="/" end>
             Configuration
@@ -49,7 +105,7 @@ export function App() {
             element={
               <ConfigSectionPage
                 title="Environment config"
-                description="Environment config for the active configuration. Variable names are added on the Variables tab."
+                description="Environment variables for this application, stored in the variables table. Add names on the Variables tab."
                 section="envConfig"
               />
             }

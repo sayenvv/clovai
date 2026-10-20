@@ -1,10 +1,10 @@
 import { getDocument, listDocuments, updateDocument, type AdminDocument } from './api'
 
-export async function loadActiveConfig(): Promise<AdminDocument> {
-  const rows = await listDocuments('configs')
+export async function loadActiveConfig(aiIntegrationId: string): Promise<AdminDocument> {
+  const rows = await listDocuments('configs', aiIntegrationId)
   const active = rows.find((row) => row.is_active) ?? rows[0]
-  if (!active) throw new Error('No configuration is saved.')
-  return getDocument('configs', active.id)
+  if (!active) throw new Error('No configuration is saved for this application.')
+  return getDocument('configs', active.id, aiIntegrationId)
 }
 
 export function asRecord(value: unknown): Record<string, unknown> {
@@ -20,5 +20,5 @@ export function saveSection(
   value: unknown,
 ): Promise<AdminDocument> {
   const document = { ...asRecord(current.document), [section]: value }
-  return updateDocument('configs', current.id, { document })
+  return updateDocument('configs', current.id, current.ai_integration_id, { document })
 }
