@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { motion } from 'framer-motion'
-import { RotateCcw } from 'lucide-react'
+import { Play, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
 import { ExecutionAgentNode } from '@/components/agent-workflow/ExecutionAgentNode'
@@ -42,6 +42,7 @@ interface ExecutionFlowCanvasProps {
   workflowDescription?: string
   onDiagramChange?: (updater: (diagram: Diagram) => Diagram) => void
   onBackToDesign?: () => void
+  onRunAgain?: () => void
 }
 
 type NodeDragSession = {
@@ -129,7 +130,9 @@ function edgeStyle(
   runState: WorkflowRunState,
   fromAgentHitl = false,
 ): EdgeRenderStyle {
-  const isActive = runState.activeEdgeId === edge.id
+  const isActive =
+    runState.activeEdgeId === edge.id ||
+    (runState.activeNodeId === edge.to && runState.completedNodeIds.includes(edge.from))
   const isCompleted =
     runState.completedNodeIds.includes(edge.from) &&
     (runState.completedNodeIds.includes(edge.to) || runState.activeNodeId === edge.to)
@@ -169,6 +172,7 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
   workflowDescription,
   onDiagramChange,
   onBackToDesign,
+  onRunAgain,
 }: ExecutionFlowCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const sessionRef = useRef<CanvasSession | null>(null)
@@ -185,6 +189,9 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
   const scale = viewport.scale
   const isActive = runState.status === 'running' || runState.status === 'waiting-approval'
   const showBackToDesign = Boolean(onBackToDesign) && !isActive
+  const showRunAgain =
+    Boolean(onRunAgain) &&
+    (runState.status === 'completed' || runState.status === 'failed' || runState.status === 'cancelled')
 
   const commitNodePosition = useCallback(
     (nodeId: string, x: number, y: number) => {
@@ -508,25 +515,40 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
         edge,
         path,
         style,
-        isActive: runState.activeEdgeId === edge.id,
+        isActive:
+          runState.activeEdgeId === edge.id ||
+          (runState.activeNodeId === edge.to && runState.completedNodeIds.includes(edge.from)),
       }]
     })
   }, [diagram.nodes, displayEdges, routeObstacles, runState, nodePosition])
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[hsl(var(--canvas))]">
-      {showBackToDesign && (
-        <div className="pointer-events-none absolute right-3 top-3 z-30">
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            className="pointer-events-auto h-9 gap-1.5 px-4 text-xs shadow-md"
-            onClick={onBackToDesign}
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Back to design
-          </Button>
+      {(showRunAgain || showBackToDesign) && (
+        <div className="pointer-events-none absolute right-3 top-3 z-30 flex gap-2">
+          {showRunAgain && (
+            <Button
+              type="button"
+              size="sm"
+              className="pointer-events-auto h-9 gap-1.5 bg-emerald-600 px-4 text-xs text-white shadow-md hover:bg-emerald-700"
+              onClick={onRunAgain}
+            >
+              <Play className="h-3.5 w-3.5" />
+              Run again
+            </Button>
+          )}
+          {showBackToDesign && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="pointer-events-auto h-9 gap-1.5 px-4 text-xs shadow-md"
+              onClick={onBackToDesign}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Back to design
+            </Button>
+          )}
         </div>
       )}
       <div

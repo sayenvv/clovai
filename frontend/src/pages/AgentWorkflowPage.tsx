@@ -85,6 +85,12 @@ import {
 import { useWorkflowEditorPanels } from '@/components/agent-workflow/hooks/use-workflow-editor-panels'
 import { useWorkflowDocument } from '@/components/agent-workflow/hooks/use-workflow-document'
 import { persistWorkflowBuildSpec } from '@/components/agent-workflow/workflow-build-storage'
+import { buildOrchestrationDocument } from '@/components/agent-workflow/build-orchestration-document'
+import {
+  orchestrationIdentity,
+  saveOrchestration,
+  validateOrchestration,
+} from '@/services/orchestration-api'
 import { MobileAppDrawer } from '@/components/agent-workflow/MobileAppDrawer'
 import { MobilePageShell } from '@/components/agent-workflow/MobilePageShell'
 import { MobileWorkspaceHeader } from '@/components/agent-workflow/MobileWorkspaceHeader'
@@ -112,13 +118,7 @@ import {
 const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
 
 function isValidWorkflowInput(raw: string): boolean {
-  if (!raw.trim()) return false
-  try {
-    JSON.parse(raw)
-    return true
-  } catch {
-    return false
-  }
+  return raw.trim().length > 0
 }
 
 function defaultWorkflowMeta(): AgentWorkflowMeta {
@@ -153,7 +153,7 @@ export default function AgentWorkflowPage() {
   const [validationIssues, setValidationIssues] = useState<WorkflowValidationIssue[]>([])
   const [isValidated, setIsValidated] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
-  const [testInput, setTestInput] = useState('{\n  "query": "Summarize the quarterly report"\n}')
+  const [testInput, setTestInput] = useState('Summarize the quarterly report')
   const [agentPickOpen, setAgentPickOpen] = useState(false)
   const [attachTarget, setAttachTarget] = useState<{
     agentId: string
@@ -168,7 +168,6 @@ export default function AgentWorkflowPage() {
   const [executionPanelOpen, setExecutionPanelOpen] = useState(false)
   const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('trace')
-  const [isPersistingExecution, setIsPersistingExecution] = useState(false)
   const { state: runState, start: startExecution, submitApproval, submitFeedback, cancel: cancelExecution, reset: resetExecution } =
     useWorkflowRunner()
   const { modelConfig: serverModelConfig, configured: llmConfigured, isLoading: llmConfigLoading } =
@@ -284,16 +283,19 @@ export default function AgentWorkflowPage() {
     if (tool) document.title = `${tool.title} — ${APP_NAME}`
   }, [tool])
 
+  const showExecutionLogs = useCallback(() => {
+    setInspectorTab('logs')
+    bottom.expand()
+    if (isMobile) navigate(ROUTES.agentWorkflowLogs)
+  }, [bottom, isMobile, navigate])
+
   useEffect(() => {
-    if (runState.status === 'failed' && runState.errors.length > 0) {
-      setInspectorTab('errors')
-      if (bottom.collapsed) bottom.toggle()
-    } else if (runState.status === 'waiting-approval') {
+    if (runState.status === 'waiting-approval') {
       keepRightOpenRef.current = true
       setExecutionPanelOpen(true)
       right.expand()
     }
-  }, [runState.status, runState.errors.length, bottom.collapsed, bottom.toggle, right.expand])
+  }, [runState.status, right.expand])
 
   const handleSelectionChange = useCallback((next: Selection) => {
     setSelection(next)
@@ -606,6 +608,7 @@ export default function AgentWorkflowPage() {
       },
     }
     setDoc(nextDoc)
+    setIsValidated(false)
     const result = await persistWorkflowBuildSpec({
       doc: nextDoc,
       pageId: activePage.id,
@@ -667,21 +670,70 @@ export default function AgentWorkflowPage() {
     const issues = validateWorkflow(diagram, paletteById)
     setValidationIssues(issues)
     const hasErrors = issues.some((issue) => issue.severity === 'error')
-    setIsValidated(!hasErrors && diagram.nodes.length > 0)
-    setDoc((previous) => ({
-      ...previous,
-      workflow: {
-        ...(previous.workflow ?? defaultWorkflowMeta()),
-        executionType: inferredType,
-        status: hasErrors ? 'draft' : 'validated',
-      },
-    }))
-    if (hasErrors) {
-      toast.error(`Validation found ${issues.filter((issue) => issue.severity === 'error').length} error(s)`)
-    } else {
-      toast.success('Workflow validated successfully')
+    if (hasErrors || diagram.nodes.length === 0) {
+      setIsValidated(false)
+      setDoc((previous) => ({
+        ...previous,
+        workflow: {
+          ...(previous.workflow ?? defaultWorkflowMeta()),
+          executionType: inferredType,
+          status: 'draft',
+        },
+      }))
+      toast.error(
+        diagram.nodes.length === 0
+          ? 'Add at least one block before validating.'
+          : `Validation found ${issues.filter((issue) => issue.severity === 'error').length} error(s)`,
+      )
+      return
     }
-  }, [diagram, paletteById, inferredType, setDoc])
+
+    const session = getSession()
+    if (!session) {
+      toast.error('Sign in before validating the workflow.')
+      return
+    }
+    const page = doc.pages.find((candidate) => candidate.id === doc.activePageId) ?? doc.pages[0]
+    if (!page) {
+      toast.error('No workflow page found.')
+      return
+    }
+
+    const document = buildOrchestrationDocument({
+      doc,
+      pageId: page.id,
+      diagram,
+      workspaceId: session.workspaceId,
+      userId: session.accountId,
+    })
+    void saveOrchestration({
+      identity: orchestrationIdentity(page.id),
+      name: page.name,
+      document,
+    })
+      .then(() =>
+        validateOrchestration({
+          identity: orchestrationIdentity(page.id),
+          inputs: {},
+        }),
+      )
+      .then(() => {
+        setIsValidated(true)
+        setDoc((previous) => ({
+          ...previous,
+          workflow: {
+            ...(previous.workflow ?? defaultWorkflowMeta()),
+            executionType: inferredType,
+            status: 'validated',
+          },
+        }))
+        toast.success('Workflow validated and draft saved')
+      })
+      .catch((error: unknown) => {
+        setIsValidated(false)
+        toast.error(error instanceof Error ? error.message : 'Could not validate the workflow.')
+      })
+  }, [diagram, paletteById, inferredType, setDoc, doc])
 
   const openExecutionPanel = useCallback(() => {
     keepRightOpenRef.current = true
@@ -738,7 +790,7 @@ export default function AgentWorkflowPage() {
       endpointUrl: `https://api.elevennodes.app/v1/workflows/${workflowMeta.workflowId}/v/${version}/run`,
       triggerMethod: 'POST',
       authType: 'api-key',
-      requestSchema: testInput.trim() || '{\n  "input": "string"\n}',
+      requestSchema: '{\n  "prompt": "string"\n}',
       responseSchema: '{\n  "runId": "string",\n  "status": "completed",\n  "output": {}\n}',
       status: 'deployed',
       version,
@@ -788,7 +840,16 @@ export default function AgentWorkflowPage() {
   }, [isValidated, workflowMeta, testInput, setDoc, workflowName, handleViewInstance])
 
   const handleExecute = useCallback(() => {
-    if (isPersistingExecution || runState.status === 'running' || runState.status === 'waiting-approval') {
+    if (runState.status === 'running' || runState.status === 'waiting-approval') {
+      return
+    }
+    if (!isValidated) {
+      toast.error('Validate the workflow before executing.')
+      return
+    }
+    const session = getSession()
+    if (!session) {
+      toast.error('Sign in before executing the workflow.')
       return
     }
 
@@ -800,7 +861,7 @@ export default function AgentWorkflowPage() {
     if (isMobile) navigate(ROUTES.agentWorkflowLogs)
 
     if (!isValidWorkflowInput(testInput)) {
-      toast.error('Add valid JSON workflow input in the Execution panel before executing.')
+      toast.error('Enter a message in the Execution panel before executing.')
       return
     }
 
@@ -828,42 +889,21 @@ export default function AgentWorkflowPage() {
       return
     }
 
-    setIsPersistingExecution(true)
-    void persistWorkflowBuildSpec({
-      doc: docToSave,
+    startExecution(executionPlan, testInput, {
+      workspaceId: session.workspaceId,
       pageId: page.id,
-      diagram: diagramSnapshot,
-      paletteById,
-      serverModelConfig,
-      syncToDisk: true,
-      requireApi: true,
+      userId: session.accountId,
     })
-      .then((saved) =>
-        startExecution(executionPlan, testInput, {
-          workspaceId: saved.workspaceId,
-          pageId: saved.pageId,
-        }),
-      )
-      .catch((error: unknown) => {
-        const message =
-          error instanceof Error ? error.message : 'Failed to save workflow before execution.'
-        toast.error(message)
-      })
-      .finally(() => {
-        setIsPersistingExecution(false)
-      })
   }, [
     doc,
     diagram,
     testInput,
-    paletteById,
-    serverModelConfig,
+    isValidated,
+    runState.status,
     bottom,
     right,
     isMobile,
     navigate,
-    isPersistingExecution,
-    runState.status,
     resetExecution,
     startExecution,
   ])
@@ -908,8 +948,7 @@ export default function AgentWorkflowPage() {
   const agentNodes = useMemo(() => listAgentNodes(diagram), [diagram])
   const errorCount = validationIssues.filter((issue) => issue.severity === 'error').length
   const isExecutionMode = runState.status !== 'idle'
-  const isExecuting =
-    isPersistingExecution || runState.status === 'running' || runState.status === 'waiting-approval'
+  const isExecuting = runState.status === 'running' || runState.status === 'waiting-approval'
   const displayTrace = runState.trace
   const workflowDescription = useMemo(() => {
     const plan = getExecutablePlan(diagram)
@@ -1051,7 +1090,7 @@ export default function AgentWorkflowPage() {
                 onTestInputChange: setTestInput,
                 onExecute: handleExecute,
                 isExecuting,
-                canExecute: agentNodes.length > 0 && !isExecutionMode,
+                canExecute: agentNodes.length > 0,
                 runStatus: runState.status,
                 runId: runState.runId,
                 onCancel: cancelExecution,
@@ -1060,6 +1099,9 @@ export default function AgentWorkflowPage() {
                 onSubmitFeedback: submitFeedback,
                 stepOutputs: runState.stepOutputs,
                 trace: displayTrace,
+                finalResponse: runState.finalResponse,
+                errors: runState.errors,
+                onShowDetails: showExecutionLogs,
                 needsReview: Boolean(runState.approvalPrompt),
               }}
             />
@@ -1194,6 +1236,7 @@ export default function AgentWorkflowPage() {
                     workflowName={workflowName}
                     workflowDescription={workflowDescription}
                     onBackToDesign={handleBackToDesign}
+                    onRunAgain={handleExecute}
                   />
                 </div>
               ) : (
@@ -1273,7 +1316,7 @@ export default function AgentWorkflowPage() {
                                   Start from a workflow template
                                 </p>
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                  Sequential, Parallel, Handoff, Group chat, Magnetic, or
+                                  Sequential, Parallel, Handoff, Group chat, Magentic, or
                                   Human-in-the-loop — then customize on the canvas. Or{' '}
                                   <button
                                     type="button"
@@ -1393,7 +1436,7 @@ export default function AgentWorkflowPage() {
               onTestInputChange: setTestInput,
               onExecute: handleExecute,
               isExecuting,
-              canExecute: agentNodes.length > 0 && !isExecutionMode,
+              canExecute: agentNodes.length > 0,
               runStatus: runState.status,
               runId: runState.runId,
               onCancel: cancelExecution,
@@ -1402,6 +1445,9 @@ export default function AgentWorkflowPage() {
               onSubmitFeedback: submitFeedback,
               stepOutputs: runState.stepOutputs,
               trace: displayTrace,
+              finalResponse: runState.finalResponse,
+              errors: runState.errors,
+              onShowDetails: showExecutionLogs,
               needsReview: Boolean(runState.approvalPrompt),
             }}
           />

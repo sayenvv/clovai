@@ -92,6 +92,7 @@ export function resolveExecutionContext(
   }
 
   const doc = loadWorkflowDocument(getSession()?.workspaceId)
+  const page = resolveWorkflowPage(doc, pageId)
   if (!page) return null
 
   const diagram = enrichDiagram(page.diagram, paletteById)

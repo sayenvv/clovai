@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Loader2,
   Play,
+  RotateCcw,
   Square,
   User,
   UserCheck,
@@ -16,8 +17,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { ExecutionFileUploadButton } from '@/components/agent-workflow/ExecutionFileUploadButton'
 import { ReviewDecisionBar } from '@/components/agent-workflow/ReviewDecisionBar'
 import { cn } from '@/utils/cn'
+import {
+  primaryExecutionError,
+  summarizeExecutionError,
+} from '@/components/agent-workflow/execution-error-summary'
 import type {
   ExecutionTraceStep,
+  WorkflowExecutionEvent,
   WorkflowRunState,
   WorkflowRunStatus,
 } from '@/types/agent-workflow'
@@ -36,6 +42,9 @@ interface ExecutionSidebarPanelProps {
   onSubmitFeedback?: (value: string) => void
   stepOutputs?: Record<string, string>
   trace?: ExecutionTraceStep[]
+  finalResponse?: string | null
+  errors?: WorkflowExecutionEvent[]
+  onShowDetails?: () => void
 }
 
 const STATUS_LABELS: Record<WorkflowRunStatus, string> = {
@@ -70,16 +79,20 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
   onSubmitFeedback,
   stepOutputs = {},
   trace = [],
+  finalResponse = null,
+  errors = [],
+  onShowDetails,
 }: ExecutionSidebarPanelProps) {
   const [approvalInput, setApprovalInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const isActive = runStatus === 'running' || runStatus === 'waiting-approval'
+  const canRerun = runStatus === 'completed' || runStatus === 'failed' || runStatus === 'cancelled'
   const awaitingApproval = Boolean(approvalPrompt)
 
   useEffect(() => {
     const element = scrollRef.current
     if (element) element.scrollTop = element.scrollHeight
-  }, [trace.length, runStatus, approvalPrompt])
+  }, [trace.length, runStatus, approvalPrompt, errors.length])
 
   const completedSteps = trace.filter(
     (step) => step.status === 'completed' || step.output || (step.nodeId && stepOutputs[step.nodeId]),
@@ -90,8 +103,8 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {runStatus === 'idle' && trace.length === 0 && (
           <p className="rounded-lg border border-dashed border-border/80 px-3 py-6 text-center text-xs leading-relaxed text-muted-foreground">
-            Send a JSON payload below to run this workflow. Trace, logs, and errors appear in the
-            output panel under the canvas.
+            Type a message below to run this workflow. The model reply appears here, and trace,
+            logs, and errors stay in the output panel under the canvas.
           </p>
         )}
 
@@ -129,7 +142,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
         )}
 
         {testInput.trim() && runStatus !== 'idle' && (
-          <ChatBubble role="user" content={testInput} label="Workflow input" />
+          <ChatBubble role="user" content={testInput} label="You" />
         )}
 
         {completedSteps.map((step) => {
@@ -144,6 +157,19 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
             />
           )
         })}
+
+        {finalResponse &&
+          !completedSteps.some((step) => {
+            const output = step.output ?? (step.nodeId ? stepOutputs[step.nodeId] : undefined)
+            return output === finalResponse
+          }) && <ChatBubble role="assistant" content={finalResponse} label="Assistant" />}
+
+        {runStatus === 'failed' && errors.length > 0 && (
+          <FailureNotice
+            message={primaryExecutionError(errors.map((event) => event.message))}
+            onShowDetails={onShowDetails}
+          />
+        )}
 
         {approvalPrompt && (
           <div className="space-y-2">
@@ -184,7 +210,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
                 value={testInput}
                 onChange={(event) => onTestInputChange(event.target.value)}
                 disabled={isExecuting}
-                placeholder="Ask for workflow changes"
+                placeholder="Type a message"
                 className="min-h-[52px] resize-none border-0 bg-transparent px-2 py-1.5 text-sm leading-relaxed text-foreground shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-0 dark:text-white dark:placeholder:text-zinc-500"
                 spellCheck={false}
                 onKeyDown={(event) => {
@@ -207,24 +233,64 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
                   disabled={!canExecute || isExecuting}
                   onClick={onExecute}
                   className="ml-auto h-9 gap-1.5 px-4 text-xs shadow-md dark:bg-black dark:text-white dark:hover:bg-zinc-950"
-                  aria-label={isExecuting ? 'Executing workflow' : 'Execute workflow'}
-                  title={isExecuting ? 'Executing workflow' : 'Execute workflow'}
+                  aria-label={isExecuting ? 'Executing workflow' : canRerun ? 'Run again' : 'Execute workflow'}
+                  title={isExecuting ? 'Executing workflow' : canRerun ? 'Run again' : 'Execute workflow'}
                 >
                   {isExecuting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : canRerun ? (
+                    <>
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Run again
+                    </>
                   ) : (
                     <Play className="h-3.5 w-3.5 fill-current" />
                   )}
                 </Button>
               </div>
             </div>
-            <p className="text-[10px] text-muted-foreground">⌘/Ctrl + Enter to execute</p>
+            <p className="text-[10px] text-muted-foreground">
+              {canRerun ? '⌘/Ctrl + Enter to run again' : '⌘/Ctrl + Enter to execute'}
+            </p>
           </>
         )}
       </div>
     </div>
   )
 })
+
+function FailureNotice({
+  message,
+  onShowDetails,
+}: {
+  message: string
+  onShowDetails?: () => void
+}) {
+  const summary = summarizeExecutionError(message)
+
+  return (
+    <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2.5">
+      <div className="flex items-start gap-2">
+        <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-red-900 dark:text-red-100">{summary.title}</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{summary.summary}</p>
+          {onShowDetails && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2 h-7 text-[11px]"
+              onClick={onShowDetails}
+            >
+              View logs
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function ChatBubble({
   role,
@@ -262,8 +328,7 @@ function ChatBubble({
         )}
         <pre
           className={cn(
-            'max-h-48 overflow-auto whitespace-pre-wrap',
-            isUser && content.trimStart().startsWith('{') && 'font-mono text-[11px]',
+            'whitespace-pre-wrap',
           )}
         >
           {content}

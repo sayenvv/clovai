@@ -201,7 +201,7 @@ export const ExecutionTimelineShell = memo(function ExecutionTimelineShell({
             rows={2}
             value={input}
             onChange={(event) => onInputChange(event.target.value)}
-            placeholder="Ask for workflow changes"
+            placeholder="Type a message"
             className="min-h-[52px] resize-none border-0 bg-transparent px-2 py-1.5 text-sm leading-relaxed text-foreground shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-0 dark:text-white dark:placeholder:text-zinc-500"
             disabled={isRunning}
             spellCheck={false}
@@ -293,7 +293,7 @@ function tryParseSummary(finalResponse: string): string | null {
       }
     }
   } catch {
-    return finalResponse.slice(0, 200)
+    return finalResponse
   }
   return null
 }

@@ -31,8 +31,9 @@ const EXECUTION_TYPES: { value: WorkflowExecutionType; label: string; descriptio
   { value: 'group-chat', label: 'Group chat', description: 'Agents collaborate in a shared thread.' },
   {
     value: 'dependency',
-    label: 'Magnetic / dependency',
-    description: 'Upstream producers gate downstream agents.',
+    label: 'Magentic',
+    description:
+      'A planner creates the plan, selects each agent once, and returns the final answer.',
   },
   {
     value: 'human-in-the-loop',

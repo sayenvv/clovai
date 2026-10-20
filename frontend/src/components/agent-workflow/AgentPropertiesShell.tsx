@@ -28,6 +28,7 @@ import type { Diagram, DiagramDocument, DiagramEdge, DiagramNode } from '@/compo
 import type {
   AgentWorkflowMeta,
   ExecutionTraceStep,
+  WorkflowExecutionEvent,
   WorkflowExecutionType,
   WorkflowRunState,
   WorkflowRunStatus,
@@ -49,6 +50,9 @@ interface ExecutionSidebarOptions {
   onSubmitFeedback?: (value: string) => void
   stepOutputs?: Record<string, string>
   trace?: ExecutionTraceStep[]
+  finalResponse?: string | null
+  errors?: WorkflowExecutionEvent[]
+  onShowDetails?: () => void
   needsReview?: boolean
 }
 
@@ -273,6 +277,9 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 onSubmitFeedback={execution.onSubmitFeedback}
                 stepOutputs={execution.stepOutputs}
                 trace={execution.trace}
+                finalResponse={execution.finalResponse}
+                errors={execution.errors}
+                onShowDetails={execution.onShowDetails}
               />
             ) : (
               <div className="p-4 text-xs text-muted-foreground">Execution controls unavailable.</div>

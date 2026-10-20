@@ -25,6 +25,7 @@ import {
   createInstanceForAccount,
   enterInstance,
   loginAccount,
+  loginWithGoogle,
   resetAccountPassword,
   PROJECT_ROLES,
   type ProjectAccount,
@@ -401,7 +402,7 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
         return false
       }
       if (password.length < 6) {
-        setError('Password must be at least 6 characters.')
+        setError('Password must be at least 8 characters.')
         return false
       }
       if (password !== confirmPassword) {
@@ -455,6 +456,29 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
     }
   }
 
+  async function finishGoogle() {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
+    if (!clientId) {
+      setError('Google sign-in is not configured.')
+      return
+    }
+    setPending(true)
+    resetErrors()
+    try {
+      const code = await requestGoogleAuthCode(clientId)
+      const result = await loginWithGoogle(code)
+      if ('error' in result) {
+        setError(result.error)
+        return
+      }
+      goHub(result.account)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not sign in with Google.')
+    } finally {
+      setPending(false)
+    }
+  }
+
   async function finishResetPassword() {
     setPending(true)
     resetErrors()
@@ -488,12 +512,12 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
     onAuthenticated(result.session)
   }
 
-  function finishCreateInstance() {
+  async function finishCreateInstance() {
     if (!account) return
     setPending(true)
     resetErrors()
     try {
-      const result = createInstanceForAccount(account.id, {
+      const result = await createInstanceForAccount(account.id, {
         accountType,
         displayName: instanceName,
       })
@@ -535,6 +559,15 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
               resetErrors()
             }}
           />
+          <button
+            type="button"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[13px] font-medium text-white/80 hover:bg-white/[0.06]"
+            onClick={() => void finishGoogle()}
+            disabled={pending}
+          >
+            Continue with Google
+          </button>
+          <FieldError message={error} />
         </div>
       </WizardShell>
     )
@@ -601,6 +634,14 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
             pending={pending}
             onPrimary={() => void finishLogin()}
           />
+          <button
+            type="button"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[13px] font-medium text-white/80 hover:bg-white/[0.06]"
+            onClick={() => void finishGoogle()}
+            disabled={pending}
+          >
+            Continue with Google
+          </button>
           <p className="mt-4 text-center text-[13px] text-white/45">
             New here?{' '}
             <button
@@ -651,7 +692,7 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 6 characters"
+              placeholder="At least 8 characters"
               autoComplete="new-password"
             />
           </div>
@@ -829,7 +870,7 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min. 6 characters"
+                    placeholder="Min. 8 characters"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1047,4 +1088,58 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
       </div>
     </WizardShell>
   )
+}
+
+function requestGoogleAuthCode(clientId: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const start = () => {
+      const oauth = (window as GoogleWindow).google?.accounts?.oauth2
+      if (!oauth) {
+        reject(new Error('Google sign-in failed to load.'))
+        return
+      }
+      const client = oauth.initCodeClient({
+        client_id: clientId,
+        scope: 'openid email profile',
+        ux_mode: 'popup',
+        callback: (response) => {
+          if (response.error) {
+            reject(new Error('Google sign-in was cancelled.'))
+            return
+          }
+          if (!response.code) {
+            reject(new Error('Google did not return a sign-in code.'))
+            return
+          }
+          resolve(response.code)
+        },
+      })
+      client.requestCode()
+    }
+    if ((window as GoogleWindow).google?.accounts?.oauth2) {
+      start()
+      return
+    }
+    const script = document.createElement('script')
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.async = true
+    script.onload = start
+    script.onerror = () => reject(new Error('Could not load Google sign-in.'))
+    document.head.appendChild(script)
+  })
+}
+
+interface GoogleWindow extends Window {
+  google?: {
+    accounts: {
+      oauth2: {
+        initCodeClient: (config: {
+          client_id: string
+          scope: string
+          ux_mode: 'popup'
+          callback: (response: { code?: string; error?: string }) => void
+        }) => { requestCode: () => void }
+      }
+    }
+  }
 }

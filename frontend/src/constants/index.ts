@@ -13,6 +13,8 @@ export const STORAGE_KEYS = {
     `eleven-nodes-workflow-build:${workspaceId}:${pageId}`,
   projectAccounts: 'eleven-nodes-project-accounts',
   projectSession: 'eleven-nodes-project-session',
+  accessToken: 'eleven-nodes-access-token',
+  refreshToken: 'eleven-nodes-refresh-token',
   publishedInstances: 'eleven-nodes-published-instances',
 } as const
 

@@ -71,12 +71,19 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
       className={cn(
         'relative flex w-full flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm',
         'transition-[border-color,box-shadow] duration-300',
-        isRunning && 'border-primary/70 shadow-lg ring-2 ring-primary/25',
+        isRunning && 'border-primary/70 shadow-lg ring-2 ring-primary/40',
         isWaiting && 'border-amber-500/50 ring-1 ring-amber-500/20',
         isCompleted && !isRunning && 'border-emerald-500/45 ring-1 ring-emerald-500/15',
         isPending && !isCompleted && !isRunning && 'border-border',
       )}
     >
+      {isRunning ? (
+        <span
+          className="pointer-events-none absolute inset-0 animate-ping rounded-xl bg-primary/15"
+          aria-hidden
+        />
+      ) : null}
+
       {/* State rail — the node's status readable at any zoom level. */}
       <span
         className={cn(

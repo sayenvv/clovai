@@ -51,7 +51,7 @@ const TEMPLATE_VISUALS: Record<string, TemplateVisual> = {
     tile: 'bg-gradient-to-br from-emerald-500/20 to-teal-600/10 ring-1 ring-emerald-500/25',
     iconClass: 'text-emerald-700 dark:text-emerald-300',
   },
-  magnetic: {
+  magentic: {
     icon: Magnet,
     tile: 'bg-gradient-to-br from-rose-500/20 to-red-600/10 ring-1 ring-rose-500/25',
     iconClass: 'text-rose-600 dark:text-rose-300',
@@ -209,7 +209,7 @@ export const WorkflowTemplatesDialog = memo(function WorkflowTemplatesDialog({
           <DialogHeader className="space-y-2 text-left">
             <DialogTitle className="text-lg tracking-tight">Workflow templates</DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">
-              Start from Sequential, Parallel, Handoff, Group chat, Magnetic, or Human-in-the-loop —
+              Start from Sequential, Parallel, Handoff, Group chat, Magentic, or Human-in-the-loop —
               then edit agents and connectors on the canvas.
             </DialogDescription>
           </DialogHeader>

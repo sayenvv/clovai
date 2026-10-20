@@ -17,10 +17,6 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function isJsonFile(file: File): boolean {
-  return file.type === 'application/json' || file.name.toLowerCase().endsWith('.json')
-}
-
 function isTextFile(file: File): boolean {
   return (
     file.type.startsWith('text/') ||
@@ -29,29 +25,7 @@ function isTextFile(file: File): boolean {
 }
 
 async function readFileInput(file: File): Promise<string> {
-  const content = await file.text()
-
-  if (isJsonFile(file)) {
-    try {
-      return JSON.stringify(JSON.parse(content), null, 2)
-    } catch {
-      // Fall through and wrap invalid JSON as file content.
-    }
-  }
-
-  return JSON.stringify(
-    {
-      file: {
-        name: file.name,
-        type: file.type || 'text/plain',
-        size: file.size,
-        sizeLabel: formatFileSize(file.size),
-        content,
-      },
-    },
-    null,
-    2,
-  )
+  return file.text()
 }
 
 export const ExecutionFileUploadButton = memo(function ExecutionFileUploadButton({

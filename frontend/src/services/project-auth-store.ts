@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from '@/constants'
+import { authorizedFetch, clearAuthTokens, storeAuthTokens } from '@/services/api-auth'
 import {
   AGENT_WORKFLOW_TOOL_ID,
   createWorkflowWorkspaceDocument,
@@ -66,90 +67,91 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
-}
-
-/** Pure JS SHA-256 — used when SubtleCrypto is unavailable (HTTP over LAN IP). */
-function sha256Hex(bytes: Uint8Array): string {
-  const K = new Uint32Array([
-    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
-  ])
-  const H = new Uint32Array([
-    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
-  ])
-  const bitLen = bytes.length * 8
-  const withOne = bytes.length + 1
-  const padLen = (withOne % 64 <= 56 ? 56 : 120) - (withOne % 64)
-  const total = withOne + padLen + 8
-  const msg = new Uint8Array(total)
-  msg.set(bytes)
-  msg[bytes.length] = 0x80
-  const view = new DataView(msg.buffer)
-  view.setUint32(total - 4, bitLen >>> 0, false)
-  view.setUint32(total - 8, Math.floor(bitLen / 0x100000000), false)
-
-  const w = new Uint32Array(64)
-  const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n))
-
-  for (let i = 0; i < total; i += 64) {
-    for (let j = 0; j < 16; j++) w[j] = view.getUint32(i + j * 4, false)
-    for (let j = 16; j < 64; j++) {
-      const s0 = rotr(w[j - 15], 7) ^ rotr(w[j - 15], 18) ^ (w[j - 15] >>> 3)
-      const s1 = rotr(w[j - 2], 17) ^ rotr(w[j - 2], 19) ^ (w[j - 2] >>> 10)
-      w[j] = (w[j - 16] + s0 + w[j - 7] + s1) >>> 0
-    }
-    let [a, b, c, d, e, f, g, h] = H
-    for (let j = 0; j < 64; j++) {
-      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)
-      const ch = (e & f) ^ (~e & g)
-      const t1 = (h + S1 + ch + K[j] + w[j]) >>> 0
-      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)
-      const maj = (a & b) ^ (a & c) ^ (b & c)
-      const t2 = (S0 + maj) >>> 0
-      h = g
-      g = f
-      f = e
-      e = (d + t1) >>> 0
-      d = c
-      c = b
-      b = a
-      a = (t1 + t2) >>> 0
-    }
-    H[0] = (H[0] + a) >>> 0
-    H[1] = (H[1] + b) >>> 0
-    H[2] = (H[2] + c) >>> 0
-    H[3] = (H[3] + d) >>> 0
-    H[4] = (H[4] + e) >>> 0
-    H[5] = (H[5] + f) >>> 0
-    H[6] = (H[6] + g) >>> 0
-    H[7] = (H[7] + h) >>> 0
+async function authRequest(
+  path: string,
+  body: unknown,
+): Promise<{ body: Record<string, unknown> } | { error: string }> {
+  let response: Response
+  try {
+    response = await authorizedFetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    return { error: 'Could not reach the Eleven Nodes API.' }
   }
-
-  const out = new Uint8Array(32)
-  const outView = new DataView(out.buffer)
-  for (let i = 0; i < 8; i++) outView.setUint32(i * 4, H[i], false)
-  return bytesToHex(out)
-}
-
-async function hashPassword(password: string): Promise<string> {
-  const data = new TextEncoder().encode(`eleven-nodes:v1:${password}`)
-  // SubtleCrypto is missing on non-secure origins (e.g. http://192.168.x.x).
-  if (globalThis.crypto?.subtle) {
-    const digest = await crypto.subtle.digest('SHA-256', data)
-    return bytesToHex(new Uint8Array(digest))
+  const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null
+  if (!response.ok) {
+    return { error: apiError(payload) || `Request failed (${response.status}).` }
   }
-  return sha256Hex(data)
+  if (payload) storeAuthTokens(payload)
+  return { body: payload ?? {} }
 }
+
+function apiError(payload: Record<string, unknown> | null): string {
+  const detail = payload?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const first = detail[0] as { msg?: string } | undefined
+    if (first?.msg) return first.msg
+  }
+  return ''
+}
+
+function rememberAccount(account: ProjectAccount) {
+  const accounts = readAccounts().filter((item) => item.email !== account.email && item.id !== account.id)
+  writeAccounts([...accounts, account])
+}
+
+function accountFromBody(body: Record<string, unknown>): ProjectAccount | null {
+  const raw = (body.account ?? null) as Record<string, unknown> | null
+  if (!raw || typeof raw.email !== 'string' || typeof raw.id !== 'string') return null
+  const instance = instanceFromBody({ instance: raw.instance })
+  return {
+    id: raw.id,
+    email: raw.email,
+    fullName: typeof raw.fullName === 'string' ? raw.fullName : raw.email,
+    role: (typeof raw.role === 'string' ? raw.role : 'developer') as ProjectRole,
+    passwordHash: '',
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+    instance,
+  }
+}
+
+function instanceFromBody(body: Record<string, unknown>): ProjectInstance | null {
+  const raw = body.instance as Record<string, unknown> | null | undefined
+  if (!raw || typeof raw.workspaceId !== 'string') return null
+  const accountType = raw.accountType === 'company' ? 'company' : 'individual'
+  return {
+    accountType,
+    displayName: typeof raw.displayName === 'string' ? raw.displayName : 'Workspace',
+    workspaceId: raw.workspaceId,
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+  }
+}
+
+function cacheAccount(
+  body: Record<string, unknown>,
+): { account: ProjectAccount } | { error: string } {
+  const account = accountFromBody(body)
+  if (!account) return { error: 'The API did not return an account.' }
+  rememberAccount(account)
+  return { account }
+}
+
+async function loadCurrentAccount(): Promise<{ account: ProjectAccount } | { error: string }> {
+  let response: Response
+  try {
+    response = await authorizedFetch('/api/v1/auth/me')
+  } catch {
+    return { error: 'Could not reach the Eleven Nodes API.' }
+  }
+  const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null
+  if (!response.ok) return { error: apiError(payload) || 'Could not load your account.' }
+  return cacheAccount(payload ?? {})
+}
+
 
 function migrateAccount(raw: ProjectAccount): ProjectAccount {
   if (raw.instance !== undefined) {
@@ -235,6 +237,7 @@ export function setSession(session: ProjectSession): void {
 }
 
 export function logout(): void {
+  clearAuthTokens()
   try {
     sessionStorage.removeItem(STORAGE_KEYS.projectSession)
   } catch {
@@ -265,25 +268,16 @@ export async function createAccount(
 
   if (!fullName) return { error: 'Enter your full name.' }
   if (!email || !email.includes('@')) return { error: 'Enter a valid email address.' }
-  if (password.length < 6) return { error: 'Password must be at least 6 characters.' }
+  if (password.length < 8) return { error: 'Password must be at least 8 characters.' }
 
-  const accounts = readAccounts()
-  if (accounts.some((account) => account.email === email)) {
-    return { error: 'An account with this email already exists. Sign in instead.' }
-  }
-
-  const account: ProjectAccount = {
-    id: `acct_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+  const result = await authRequest('/api/v1/auth/register', {
+    email,
+    password,
     fullName,
     role: input.role,
-    email,
-    passwordHash: await hashPassword(password),
-    createdAt: new Date().toISOString(),
-    instance: null,
-  }
-
-  writeAccounts([...accounts, account])
-  return { account }
+  })
+  if ('error' in result) return result
+  return cacheAccount(result.body)
 }
 
 export async function loginAccount(
@@ -293,18 +287,23 @@ export async function loginAccount(
   const email = normalizeEmail(emailRaw)
   if (!email || !password) return { error: 'Enter email and password.' }
 
-  const account = readAccounts().find((item) => item.email === email)
-  if (!account) return { error: 'No account found for this email. Create an account first.' }
+  const result = await authRequest('/api/v1/auth/login', { userId: email, password })
+  if ('error' in result) return result
+  return loadCurrentAccount()
+}
 
-  const passwordHash = await hashPassword(password)
-  if (passwordHash !== account.passwordHash) {
-    return { error: 'Incorrect password.' }
-  }
-
+export async function loginWithGoogle(
+  code: string,
+): Promise<{ account: ProjectAccount } | { error: string }> {
+  const result = await authRequest('/api/v1/auth/google', { code })
+  if ('error' in result) return result
+  const account = accountFromBody(result.body)
+  if (!account) return { error: 'Google sign-in did not return an account.' }
+  rememberAccount(account)
   return { account }
 }
 
-/** Local-only reset — updates the password hash for an account on this device. */
+/** Updates the password on the Eleven Nodes API. */
 export async function resetAccountPassword(
   emailRaw: string,
   newPassword: string,
@@ -312,25 +311,21 @@ export async function resetAccountPassword(
 ): Promise<{ ok: true } | { error: string }> {
   const email = normalizeEmail(emailRaw)
   if (!email || !email.includes('@')) return { error: 'Enter a valid email address.' }
-  if (newPassword.length < 6) return { error: 'Password must be at least 6 characters.' }
+  if (newPassword.length < 8) return { error: 'Password must be at least 8 characters.' }
   if (newPassword !== confirmPassword) return { error: 'Passwords do not match.' }
 
-  const accounts = readAccounts()
-  const index = accounts.findIndex((item) => item.email === email)
-  if (index < 0) return { error: 'No account found for this email on this device.' }
-
-  accounts[index] = {
-    ...accounts[index],
-    passwordHash: await hashPassword(newPassword),
-  }
-  writeAccounts(accounts)
+  const result = await authRequest('/api/v1/auth/reset-password', {
+    email,
+    password: newPassword,
+  })
+  if ('error' in result) return result
   return { ok: true }
 }
 
-export function createInstanceForAccount(
+export async function createInstanceForAccount(
   accountId: string,
   input: CreateInstanceInput,
-): { session: ProjectSession } | { error: string } {
+): Promise<{ session: ProjectSession } | { error: string }> {
   const displayName = input.displayName.trim()
   if (!displayName) {
     return {
@@ -342,28 +337,28 @@ export function createInstanceForAccount(
   const accounts = readAccounts()
   const index = accounts.findIndex((item) => item.id === accountId)
   if (index < 0) return { error: 'Account not found. Sign in again.' }
-
-  const account = accounts[index]
-  if (account.instance) {
+  if (accounts[index].instance) {
     return { error: 'An instance already exists for this account. Open it instead.' }
   }
+
+  const result = await authRequest('/api/v1/instances', {
+    accountType: input.accountType,
+    displayName,
+  })
+  if ('error' in result) return result
+  const instance = instanceFromBody(result.body)
+  if (!instance) return { error: 'Could not create the instance.' }
 
   const doc = createWorkflowWorkspaceDocument(
     input.accountType === 'company' ? `${displayName} workflow` : 'Main workflow',
   )
-  const workspaceId = doc.workspaceId!
-  const instance: ProjectInstance = {
-    accountType: input.accountType,
-    displayName,
-    workspaceId,
-    createdAt: new Date().toISOString(),
-  }
+  doc.workspaceId = instance.workspaceId
+  saveWorkflowDocumentForWorkspace(instance.workspaceId, doc)
 
-  const nextAccount: ProjectAccount = { ...account, instance }
+  const nextAccount: ProjectAccount = { ...accounts[index], instance }
   const nextAccounts = [...accounts]
   nextAccounts[index] = nextAccount
   writeAccounts(nextAccounts)
-  saveWorkflowDocumentForWorkspace(workspaceId, doc)
 
   const session = toSession(nextAccount)
   if (!session) return { error: 'Could not open the new instance.' }

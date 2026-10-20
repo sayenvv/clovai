@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Loader2,
   Play,
+  RotateCcw,
   Square,
   XCircle,
 } from 'lucide-react'
@@ -106,8 +107,12 @@ export const ExecutionPageHeader = memo(function ExecutionPageHeader({
           </Button>
         ) : (
           <Button size="sm" onClick={onExecute}>
-            <Play className="h-3.5 w-3.5" />
-            Execute
+            {runStatus === 'idle' ? (
+              <Play className="h-3.5 w-3.5" />
+            ) : (
+              <RotateCcw className="h-3.5 w-3.5" />
+            )}
+            {runStatus === 'idle' ? 'Execute' : 'Run again'}
           </Button>
         )}
       </div>

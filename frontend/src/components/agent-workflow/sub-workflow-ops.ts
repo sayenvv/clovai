@@ -240,6 +240,10 @@ export function mountPageAsSubWorkflow(
   const subNode = createSubWorkflowNode(sourcePage.id, sourcePage.name, position)
   const page = doc.pages.find((candidate) => candidate.id === activePageId)
   if (!page) return { error: 'Active page not found.' }
+  const updatedDiagram = {
+    ...page.diagram,
+    nodes: [...page.diagram.nodes, subNode],
+  }
 
   const updatedPages = doc.pages.map((candidate) => {
     if (candidate.id === activePageId) {

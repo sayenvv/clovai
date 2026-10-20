@@ -19,7 +19,6 @@ import {
   loadExecutionSnapshot,
   loadWorkflowDocument,
   mergeDiagramIntoDocument,
-  saveExecutionSnapshot,
   saveWorkflowDocument,
 } from '@/components/agent-workflow/workflow-storage'
 import { getSession } from '@/services/project-auth-store'
@@ -36,7 +35,7 @@ interface ExecuteLocationState {
   autoStart?: boolean
 }
 
-const DEFAULT_INPUT = '{\n  "query": "Summarize the quarterly report"\n}'
+const DEFAULT_INPUT = 'Summarize the quarterly report'
 
 const CENTER_PANEL_STORAGE_KEY = 'eleven-nodes-agent-workflow-exec-center-width'
 const CENTER_PANEL_COLLAPSED_KEY = 'eleven-nodes-agent-workflow-exec-center-collapsed'
@@ -241,24 +240,18 @@ export default function WorkflowExecutePage() {
       toast.error('Select a workflow before executing.')
       return false
     }
-    void persistWorkflowBuildSpec({
-      doc,
-      pageId: selectedPageId,
-      diagram: diagramRef.current,
-      paletteById,
-      syncToDisk: true,
-      requireApi: true,
+    const session = getSession()
+    if (!session) {
+      toast.error('Sign in before executing.')
+      return false
+    }
+    void start(executionPlan, input, {
+      workspaceId: session.workspaceId,
+      pageId: page.id,
+      userId: session.accountId,
     })
-      .then((saved) => start(executionPlan, input, {
-        workspaceId: saved.workspaceId,
-        pageId: saved.pageId,
-      }))
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : 'Failed to save workflow before execution.'
-        toast.error(message)
-      })
     return true
-  }, [doc, input, paletteById, reset, selectedPageId, start])
+  }, [doc, input, reset, selectedPageId, start])
 
   const handleExecute = useCallback(() => {
     runExecution()
@@ -346,6 +339,7 @@ export default function WorkflowExecutePage() {
             workflowName={workflowName}
             workflowDescription={workflowDescription}
             onDiagramChange={handleDiagramLayoutChange}
+            onRunAgain={handleExecute}
           />
         </main>
 

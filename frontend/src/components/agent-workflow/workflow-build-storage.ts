@@ -2,7 +2,9 @@ import type { Diagram, DiagramDocument } from '@/components/designer/diagram-typ
 import type { PaletteItem } from '@/types/config'
 import type { WorkflowBuildSaveResult, WorkflowBuildSpec, WorkflowModelConfig } from '@/types/workflow-build-spec'
 import { buildWorkflowSpec } from '@/components/agent-workflow/build-workflow-spec'
-import { saveWorkflowBuildSpecToApi } from '@/services/workflow-build-api'
+import { buildOrchestrationDocument } from '@/components/agent-workflow/build-orchestration-document'
+import { saveOrchestration } from '@/services/orchestration-api'
+import { getSession } from '@/services/project-auth-store'
 import { createWorkflowId } from '@/components/agent-workflow/agent-workflow-defaults'
 
 const WORKSPACE_ID_KEY = 'eleven-nodes-workspace-id'
@@ -121,11 +123,28 @@ export async function persistWorkflowBuildSpec({
 
   if (syncToDisk) {
     try {
-      const apiResult = await saveWorkflowBuildSpecToApi(spec)
-      result.databaseRecordId = apiResult.databaseRecordId
+      const session = getSession()
+      if (!session) throw new Error('Sign in before saving the workflow.')
+      const document = buildOrchestrationDocument({
+        doc: withWorkspace,
+        pageId,
+        diagram,
+        workspaceId: session.workspaceId,
+        userId: session.accountId,
+      })
+      const apiResult = await saveOrchestration({
+        identity: {
+          workspaceId: session.workspaceId,
+          tabId: pageId,
+          userId: session.accountId,
+        },
+        name: spec.meta.workflowName,
+        description: spec.meta.description,
+        document,
+      })
+      result.databaseRecordId = apiResult.id
     } catch (error) {
       if (requireApi) throw error
-      // Backend may be offline in local dev — localStorage still holds the spec.
     }
   }
 

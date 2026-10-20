@@ -1,4 +1,4 @@
-import type { Diagram, DiagramEdge, DiagramNode } from '@/components/designer/diagram-types'
+import type { Diagram, DiagramEdge } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import type { WorkflowExecutionType, WorkflowValidationIssue } from '@/types/agent-workflow'
 import { resolveAgentType } from './agent-workflow-defaults'
@@ -15,9 +15,20 @@ export function inferWorkflowType(diagram: Diagram): WorkflowExecutionType {
   if (hasRouter) return 'conditional'
 
   const outDegree = new Map<string, number>()
+  const inDegree = new Map<string, number>()
   diagram.edges.forEach((edge) => {
     outDegree.set(edge.from, (outDegree.get(edge.from) ?? 0) + 1)
+    inDegree.set(edge.to, (inDegree.get(edge.to) ?? 0) + 1)
   })
+  const agentNodes = diagram.nodes.filter(isAgentNode)
+  const hasJoin = agentNodes.some((node) => (inDegree.get(node.id) ?? 0) > 1)
+  const hasMagenticManager = agentNodes.some(
+    (node) =>
+      (resolveAgentType(node.paletteId ?? '') === 'planner' || node.agent?.agentType === 'planner') &&
+      (outDegree.get(node.id) ?? 0) > 1,
+  )
+  if (hasMagenticManager && !hasJoin) return 'dependency'
+
   const hasParallel = [...outDegree.values()].some((count) => count > 1)
   if (hasParallel) return 'parallel'
 
