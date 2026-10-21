@@ -39,6 +39,8 @@ export interface WorkflowBuildMeta {
 export interface WorkflowModelConfig {
   provider: string
   model: string
+  /** Server URL for local providers such as Ollama. */
+  baseUrl?: string
   temperature: number
   topP: number
   maxTokens: number

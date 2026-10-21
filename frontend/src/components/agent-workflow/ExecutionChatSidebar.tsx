@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
 import { SIDE_PANEL_COLLAPSED_WIDTH } from '@/components/agent-workflow/panel-layout'
+import { readableChatText } from '@/components/agent-workflow/ExecutionSidebarPanel'
 import { cn } from '@/utils/cn'
 import type { WorkflowRunState } from '@/types/agent-workflow'
 
@@ -216,11 +217,19 @@ function ChatBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
 
+  const text = readableChatText(message.content)
+
   return (
-    <div className={cn('flex gap-2', isUser && 'flex-row-reverse')}>
+    <div
+      className={cn(
+        'grid w-full min-w-0 items-start gap-2',
+        isUser ? 'grid-cols-[minmax(0,1fr)_1.75rem]' : 'grid-cols-[1.75rem_minmax(0,1fr)]',
+      )}
+    >
       <span
         className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+          'flex h-7 w-7 items-center justify-center rounded-lg',
+          isUser && 'col-start-2',
           isUser
             ? 'bg-emerald-500/15 text-emerald-600'
             : isSystem
@@ -232,17 +241,22 @@ function ChatBubble({ message }: { message: ChatMessage }) {
       </span>
       <div
         className={cn(
-          'max-w-[90%] rounded-xl border px-3 py-2 text-xs leading-relaxed shadow-sm',
+          'min-w-0 rounded-xl border px-3 py-2 text-xs leading-relaxed shadow-sm',
           isUser
-            ? 'border-emerald-600/35 bg-emerald-50 text-foreground dark:border-emerald-500/20 dark:bg-emerald-500/5'
+            ? 'col-start-1 row-start-1 w-fit max-w-full justify-self-end border-emerald-600/35 bg-emerald-50 text-foreground dark:border-emerald-500/20 dark:bg-emerald-500/5'
             : isSystem
-              ? 'border-border/60 bg-muted/60 text-muted-foreground dark:border-border/60 dark:bg-muted/30'
-              : 'border-red-600/35 bg-red-50 text-foreground dark:border-red-500/20 dark:bg-red-500/5',
+              ? 'w-full border-border/60 bg-muted/60 text-muted-foreground dark:border-border/60 dark:bg-muted/30'
+              : 'w-full border-red-600/35 bg-red-50 text-foreground dark:border-red-500/20 dark:bg-red-500/5',
         )}
       >
-        <pre className={cn('whitespace-pre-wrap font-sans', isUser && message.content.startsWith('{') && 'font-mono text-[11px]')}>
-          {message.content}
-        </pre>
+        <p
+          className={cn(
+            'whitespace-normal font-sans leading-relaxed',
+            isUser && message.content.startsWith('{') && 'font-mono text-[11px]',
+          )}
+        >
+          {text}
+        </p>
         <p className="mt-1 text-[10px] text-muted-foreground">
           {new Date(message.timestamp).toLocaleTimeString()}
         </p>

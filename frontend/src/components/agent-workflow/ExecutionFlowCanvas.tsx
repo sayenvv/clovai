@@ -5,6 +5,13 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
 import { ExecutionAgentNode } from '@/components/agent-workflow/ExecutionAgentNode'
 import { getExecutablePlan, getOrderedExecutionAgents } from '@/components/agent-workflow/build-execution-plan'
+import { findStartNode } from '@/components/agent-workflow/workflow-start'
+import {
+  findEndNode,
+  isFlowBoundaryNode,
+} from '@/components/agent-workflow/workflow-flow-nodes'
+import { FlowBoundaryCard } from '@/components/agent-workflow/FlowBoundaryCard'
+import { flowPortSides, getNodeSize, resolveFlowDirection } from '@/components/designer/diagram-types'
 import {
   AGENT_NODE_HEIGHT,
   AGENT_NODE_WIDTH,
@@ -90,6 +97,10 @@ function centerViewport(
 
 const AGENT_SHAPE = 'process' as const
 
+function executionPortShape(node: Diagram['nodes'][number]) {
+  return isFlowBoundaryNode(node) ? ('terminator' as const) : AGENT_SHAPE
+}
+
 /** Theme-aware SVG stroke colors — idle connectors are grey; active uses primary. */
 const EDGE_COLORS = {
   active: 'hsl(var(--primary))',
@@ -111,7 +122,29 @@ type EdgeRenderStyle = {
 
 function resolveDisplayEdges(diagram: Diagram): DisplayEdge[] {
   const agentIds = new Set(diagram.nodes.filter(isAgentNode).map((node) => node.id))
-  const real = diagram.edges.filter((edge) => agentIds.has(edge.from) && agentIds.has(edge.to))
+  const start = findStartNode(diagram)
+  const end = findEndNode(diagram)
+  const fromStart =
+    start?.id
+      ? diagram.edges
+          .filter(
+            (edge) =>
+              edge.from === start.id &&
+              (agentIds.has(edge.to) || edge.to === end?.id),
+          )
+          .map((edge) => ({ ...edge, inferred: false as const }))
+      : []
+  const toEnd =
+    end?.id
+      ? diagram.edges
+          .filter((edge) => edge.to === end.id && agentIds.has(edge.from))
+          .map((edge) => ({ ...edge, inferred: false as const }))
+      : []
+  const real = [
+    ...fromStart,
+    ...toEnd,
+    ...diagram.edges.filter((edge) => agentIds.has(edge.from) && agentIds.has(edge.to)),
+  ]
   if (real.length > 0) return real
 
   const plan = getExecutablePlan(diagram)
@@ -119,8 +152,7 @@ function resolveDisplayEdges(diagram: Diagram): DisplayEdge[] {
     id: `inferred-${step.nodeId}-${plan[index + 1].nodeId}`,
     from: step.nodeId,
     to: plan[index + 1].nodeId,
-    fromSide: 'right' as const,
-    toSide: 'left' as const,
+    ...flowPortSides(diagram.direction),
     inferred: true,
   }))
 }
@@ -333,6 +365,8 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
     }
   }, [])
 
+  const vertical = resolveFlowDirection(diagram.direction) === 'vertical'
+
   const nodePosition = useCallback(
     (node: Diagram['nodes'][number]) => {
       const override = dragPositions?.get(node.id)
@@ -357,27 +391,43 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
   }, [orderedAgents])
 
   const agentNodes = orderedAgents
+  const flowBoundaryNodes = useMemo(
+    () => diagram.nodes.filter(isFlowBoundaryNode),
+    [diagram.nodes],
+  )
 
   const displayEdges = useMemo(() => resolveDisplayEdges(diagram), [diagram])
 
   const routeObstacles = useMemo(
-    () => agentNodes.map((node) => nodeRouteObstacle(node, AGENT_SHAPE)),
-    [agentNodes],
+    () => [
+      ...agentNodes.map((node) => nodeRouteObstacle(node, AGENT_SHAPE)),
+      ...flowBoundaryNodes.map((node) => nodeRouteObstacle(node, 'terminator')),
+    ],
+    [agentNodes, flowBoundaryNodes],
   )
 
   const bounds = useMemo(() => {
-    if (agentNodes.length === 0) return { minX: 0, minY: 0, width: 800, height: 420 }
+    if (agentNodes.length === 0 && flowBoundaryNodes.length === 0) {
+      return { minX: 0, minY: 0, width: 800, height: 420 }
+    }
     let minX = Number.POSITIVE_INFINITY
     let minY = Number.POSITIVE_INFINITY
     let maxX = Number.NEGATIVE_INFINITY
     let maxY = Number.NEGATIVE_INFINITY
-    for (const node of agentNodes) {
-      const pos = nodePosition(node)
-      const box = { x: pos.x, y: pos.y, ...agentNodeSize(node) }
+    const includeBox = (box: { x: number; y: number; width: number; height: number }) => {
       minX = Math.min(minX, box.x)
       minY = Math.min(minY, box.y)
       maxX = Math.max(maxX, box.x + box.width)
       maxY = Math.max(maxY, box.y + box.height)
+    }
+    for (const node of agentNodes) {
+      const pos = nodePosition(node)
+      includeBox({ x: pos.x, y: pos.y, ...agentNodeSize(node) })
+    }
+    for (const node of flowBoundaryNodes) {
+      const pos = nodePosition(node)
+      const size = getNodeSize(node, 'terminator')
+      includeBox({ x: pos.x, y: pos.y, ...size })
     }
     const pad = 80
     return {
@@ -386,7 +436,7 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
       width: maxX - minX + pad * 2,
       height: maxY - minY + pad * 2,
     }
-  }, [agentNodes, nodePosition])
+  }, [agentNodes, flowBoundaryNodes, nodePosition])
 
   const followNodeId = useMemo(() => resolveFollowNodeId(runState), [
     runState.activeNodeId,
@@ -498,8 +548,8 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
         toSide: (edge.toSide ?? 'left') as PortSide,
       }
 
-      const fromPoint = portPoint(fromWithPos, AGENT_SHAPE, sides.fromSide)
-      const toPoint = portPoint(toWithPos, AGENT_SHAPE, sides.toSide)
+      const fromPoint = portPoint(fromWithPos, executionPortShape(fromNode), sides.fromSide)
+      const toPoint = portPoint(toWithPos, executionPortShape(toNode), sides.toSide)
       const routing = resolveEdgeRouting(edge.routing)
       const path = buildEdgePath(
         fromPoint,
@@ -682,6 +732,25 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
             </g>
           </svg>
 
+          {flowBoundaryNodes.map((node) => {
+            const pos = nodePosition(node)
+            const size = getNodeSize(node, 'terminator')
+            return (
+              <div
+                key={node.id}
+                className="pointer-events-none absolute z-[5] select-none"
+                style={{
+                  left: pos.x - bounds.minX,
+                  top: pos.y - bounds.minY,
+                  width: size.width,
+                  height: size.height,
+                }}
+              >
+                <FlowBoundaryCard node={node} direction={diagram.direction} />
+              </div>
+            )
+          })}
+
           {agentNodes.map((node) => {
             const pos = nodePosition(node)
             const box = { x: pos.x, y: pos.y, ...agentNodeSize(node) }
@@ -705,12 +774,21 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
                   'absolute z-10 select-none',
                   onDiagramChange && !isPanning && 'cursor-grab active:cursor-grabbing',
                 )}
-                style={{
-                  left: box.x - bounds.minX,
-                  top: box.y - bounds.minY,
-                  width: AGENT_NODE_WIDTH,
-                  minHeight: AGENT_NODE_HEIGHT,
-                }}
+                style={
+                  vertical
+                    ? {
+                        left: box.x - bounds.minX,
+                        top: box.y - bounds.minY,
+                        width: box.width,
+                        height: box.height,
+                      }
+                    : {
+                        left: box.x - bounds.minX,
+                        top: box.y - bounds.minY,
+                        width: AGENT_NODE_WIDTH,
+                        minHeight: AGENT_NODE_HEIGHT,
+                      }
+                }
                 onPointerDown={(event) => handleNodePointerDown(event, node)}
               >
                 <ExecutionAgentNode
@@ -722,6 +800,7 @@ export const ExecutionFlowCanvas = memo(function ExecutionFlowCanvas({
                   isCompleted={isCompleted}
                   isWaiting={isWaiting}
                   isPending={isPending}
+                  direction={diagram.direction}
                 />
               </div>
             )

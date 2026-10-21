@@ -575,7 +575,7 @@
             "label": "Start",
             "description": "Workflow entry point",
             "shape": "terminator",
-            "color": "slate",
+            "color": "emerald",
             "group": "Triggers",
             "order": 1
           },
@@ -710,7 +710,7 @@
             "label": "End",
             "description": "Workflow completion",
             "shape": "terminator",
-            "color": "slate",
+            "color": "emerald",
             "group": "Memory & Data",
             "order": 33
           },

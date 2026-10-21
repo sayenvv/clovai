@@ -15,8 +15,10 @@ import { PagesBar } from '@/components/designer/PagesBar'
 import { resolveDesignerPalette } from '@/utils/resolve-designer-palette'
 import {
   createNodeId,
+  resolveFlowDirection,
   type Diagram,
   type DiagramNode,
+  type FlowDirection,
 } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import type {
@@ -25,6 +27,13 @@ import type {
   WorkflowValidationIssue,
 } from '@/types/agent-workflow'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
+import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
+import {
+  resolveWorkflowModelConfig,
+  workflowActiveModelConfig,
+  isLocalModel,
+  OLLAMA_DEFAULT_URL,
+} from '@/components/agent-workflow/workflow-model-config'
 import { AgentWorkflowHeader } from '@/components/agent-workflow/AgentWorkflowHeader'
 import { AgentLibrarySidebar } from '@/components/agent-workflow/AgentLibrarySidebar'
 import { AgentPropertiesShell } from '@/components/agent-workflow/AgentPropertiesShell'
@@ -45,11 +54,20 @@ import {
   createWorkflowId,
   enrichAgentNode,
   enrichDiagram,
+  flowNodeSize,
   TOOL_NODE_HEIGHT,
   TOOL_NODE_WIDTH,
   TOOL_PALETTE_ID,
   isMappedToolPalette,
 } from '@/components/agent-workflow/agent-workflow-defaults'
+import {
+  createFlowBoundaryNode,
+  END_NODE_PALETTE_ID,
+  FLOW_BOUNDARY_HEIGHT,
+  FLOW_BOUNDARY_WIDTH,
+  findEndNode,
+} from '@/components/agent-workflow/workflow-flow-nodes'
+import { findStartNode, START_NODE_PALETTE_ID } from '@/components/agent-workflow/workflow-start'
 import { SelectAgentDialog } from '@/components/agent-workflow/SelectAgentDialog'
 import type { AgentCapability, AgentCapabilityKind } from '@/components/agent-workflow/agent-capabilities'
 import type { AgentAttachAction } from '@/components/agent-workflow/AgentNodeCard'
@@ -58,7 +76,8 @@ import {
   ConvertSubWorkflowDialog,
   InsertWorkflowDialog,
 } from '@/components/agent-workflow/InsertWorkflowDialog'
-import { GenerateWorkflowDialog } from '@/components/agent-workflow/GenerateWorkflowDialog'
+import type { GenerateChatMessage } from '@/components/agent-workflow/GenerateWorkflowChat'
+import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
 import {
   WorkflowTemplateGrid,
   WorkflowTemplatesDialog,
@@ -73,9 +92,9 @@ import {
   listAgentNodes,
   pickAgentForToolPlacement,
   removeToolsMappedToAgent,
-  syncMappedToolLayout,
 } from '@/components/agent-workflow/tool-agent-mapping'
-import { autoLayoutNodes, inferWorkflowType, layoutWorkflowAgents, validateWorkflow } from '@/components/agent-workflow/validate-workflow'
+import { inferWorkflowType, validateWorkflow } from '@/components/agent-workflow/validate-workflow'
+import { layoutWorkflowDiagram } from '@/components/agent-workflow/workflow-layout'
 import {
   AGENT_WORKFLOW_TOOL_ID,
   clearExecutionSnapshot,
@@ -86,11 +105,7 @@ import { useWorkflowEditorPanels } from '@/components/agent-workflow/hooks/use-w
 import { useWorkflowDocument } from '@/components/agent-workflow/hooks/use-workflow-document'
 import { persistWorkflowBuildSpec } from '@/components/agent-workflow/workflow-build-storage'
 import { buildOrchestrationDocument } from '@/components/agent-workflow/build-orchestration-document'
-import {
-  orchestrationIdentity,
-  saveOrchestration,
-  validateOrchestration,
-} from '@/services/orchestration-api'
+import { orchestrationIdentity, saveOrchestration } from '@/services/orchestration-api'
 import { MobileAppDrawer } from '@/components/agent-workflow/MobileAppDrawer'
 import { MobilePageShell } from '@/components/agent-workflow/MobilePageShell'
 import { MobileWorkspaceHeader } from '@/components/agent-workflow/MobileWorkspaceHeader'
@@ -159,7 +174,10 @@ export default function AgentWorkflowPage() {
     agentId: string
     kind: AgentCapabilityKind
   } | null>(null)
-  const [generateWorkflowOpen, setGenerateWorkflowOpen] = useState(false)
+  const [generatePanelOpen, setGeneratePanelOpen] = useState(false)
+  const [generateMessages, setGenerateMessages] = useState<GenerateChatMessage[]>([])
+  // Null until the user picks one; defaults to the workflow's local model when it has one.
+  const [generateModelChoice, setGenerateModelChoice] = useState<GenerateWorkflowModel | null>(null)
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [appMenuOpen, setAppMenuOpen] = useState(false)
   const [librarySection, setLibrarySection] = useState<LibrarySection | null>(null)
@@ -248,6 +266,23 @@ export default function AgentWorkflowPage() {
     [setDoc, invalidateValidation],
   )
 
+  const handleModelConfigChange = useCallback(
+    (patch: Partial<WorkflowModelConfig>) => {
+      invalidateValidation()
+      setDoc((previous) => {
+        const workflow = previous.workflow ?? defaultWorkflowMeta()
+        return {
+          ...previous,
+          workflow: {
+            ...workflow,
+            modelConfig: resolveWorkflowModelConfig({ ...workflow.modelConfig, ...patch }),
+          },
+        }
+      })
+    },
+    [setDoc, invalidateValidation],
+  )
+
   const openWorkflowSettings = useCallback(() => {
     keepRightOpenRef.current = true
     setSelection(null)
@@ -257,6 +292,31 @@ export default function AgentWorkflowPage() {
     }
     right.expand()
   }, [isMobile, navigate, right])
+
+  const openGeneratePanel = useCallback(() => {
+    keepRightOpenRef.current = true
+    setGeneratePanelOpen(true)
+    if (isMobile) {
+      navigate(ROUTES.agentWorkflowInspect)
+      return
+    }
+    right.expand()
+  }, [isMobile, navigate, right])
+
+  const closeGeneratePanel = useCallback(() => setGeneratePanelOpen(false), [])
+
+  // ⌘/Ctrl + K toggles the Workflow AI chat.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return
+      if (event.key.toLowerCase() !== 'k') return
+      event.preventDefault()
+      if (generatePanelOpen) closeGeneratePanel()
+      else openGeneratePanel()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [generatePanelOpen, openGeneratePanel, closeGeneratePanel])
 
   const canvasRef = useRef<AgentWorkflowCanvasHandle>(null)
 
@@ -277,6 +337,13 @@ export default function AgentWorkflowPage() {
   })
 
   const workflowMeta = doc.workflow ?? defaultWorkflowMeta()
+  const toolbarModelConfig = useMemo(
+    () => workflowActiveModelConfig(workflowMeta, serverModelConfig),
+    [workflowMeta, serverModelConfig],
+  )
+  const toolbarModelConfigured = isLocalModel(toolbarModelConfig)
+    ? Boolean(toolbarModelConfig.model.trim())
+    : llmConfigured
   const inferredType = useMemo(() => inferWorkflowType(diagram), [diagram])
 
   useEffect(() => {
@@ -292,6 +359,7 @@ export default function AgentWorkflowPage() {
   useEffect(() => {
     if (runState.status === 'waiting-approval') {
       keepRightOpenRef.current = true
+      setGeneratePanelOpen(false)
       setExecutionPanelOpen(true)
       right.expand()
     }
@@ -314,12 +382,12 @@ export default function AgentWorkflowPage() {
       right.expand()
       return
     }
-    if (keepRightOpenRef.current || executionPanelOpen) {
+    if (keepRightOpenRef.current || executionPanelOpen || generatePanelOpen) {
       right.expand()
       return
     }
     right.collapse()
-  }, [selection, executionPanelOpen, right.expand, right.collapse])
+  }, [selection, executionPanelOpen, generatePanelOpen, right.expand, right.collapse])
 
   const handleSelectPage = useCallback(
     (pageId: string) => {
@@ -518,17 +586,39 @@ export default function AgentWorkflowPage() {
         return
       }
 
+      if (paletteId === START_NODE_PALETTE_ID && findStartNode(diagram)) {
+        toast.message('Start is already on this workflow tab')
+        return
+      }
+      if (paletteId === END_NODE_PALETTE_ID && findEndNode(diagram)) {
+        toast.message('End is already on this workflow tab')
+        return
+      }
+
       const anchor = getCanvasInsertAnchor()
       const offset = (diagram.nodes.length % 5) * 20
-      const base: DiagramNode = {
-        id: createNodeId(),
-        paletteId,
-        label: item.label,
-        x: anchor.x - AGENT_NODE_WIDTH / 2 + offset,
-        y: anchor.y - AGENT_NODE_HEIGHT / 2 + offset,
-        width: AGENT_NODE_WIDTH,
-        height: AGENT_NODE_HEIGHT,
-      }
+      const base: DiagramNode =
+        paletteId === START_NODE_PALETTE_ID || paletteId === END_NODE_PALETTE_ID
+          ? createFlowBoundaryNode(
+              paletteId,
+              anchor.x - FLOW_BOUNDARY_WIDTH / 2 + offset,
+              anchor.y - FLOW_BOUNDARY_HEIGHT / 2 + offset,
+              item.label,
+            )
+          : (() => {
+              const size = flowNodeSize(
+                { id: '', paletteId, label: item.label, x: 0, y: 0 },
+                diagram.direction,
+              )
+              return {
+                id: createNodeId(),
+                paletteId,
+                label: item.label,
+                x: anchor.x - size.width / 2 + offset,
+                y: anchor.y - size.height / 2 + offset,
+                ...size,
+              }
+            })()
       const node = enrichAgentNode(base, item)
       handleChange((previous) => ({ ...previous, nodes: [...previous.nodes, node] }))
       setSelection({ kind: 'node', id: node.id })
@@ -541,24 +631,21 @@ export default function AgentWorkflowPage() {
   }, [])
 
   const runAutoLayout = useCallback(() => {
-    handleChange((previous) => {
-      const agentNodes = previous.nodes.filter((node) => isAgentNode(node))
-      const otherNodes = previous.nodes.filter((node) => !isAgentNode(node))
-      const laidOutAgents =
-        previous.edges.length > 0
-          ? layoutWorkflowAgents(
-              agentNodes,
-              previous.edges.map((edge) => ({ from: edge.from, to: edge.to })),
-            )
-          : autoLayoutNodes(agentNodes)
-      return syncMappedToolLayout({
-        ...previous,
-        nodes: [...laidOutAgents, ...otherNodes],
-      })
-    })
+    handleChange((previous) =>
+      layoutWorkflowDiagram(previous, resolveFlowDirection(previous.direction)),
+    )
     requestAnimationFrame(() => canvasRef.current?.fitView())
     toast.success('Auto-layout applied')
   }, [handleChange])
+
+  const handleFlowDirectionChange = useCallback(
+    (direction: FlowDirection) => {
+      if (resolveFlowDirection(diagram.direction) === direction) return
+      handleChange((previous) => layoutWorkflowDiagram(previous, direction))
+      requestAnimationFrame(() => canvasRef.current?.fitView())
+    },
+    [diagram.direction, handleChange],
+  )
 
   const handleWorkflowGenerated = useCallback(
     (plan: WorkflowGenerationPlan) => {
@@ -582,6 +669,41 @@ export default function AgentWorkflowPage() {
       requestAnimationFrame(() => canvasRef.current?.fitView())
     },
     [invalidateValidation, paletteById, setDoc],
+  )
+
+  const storedModelConfig = doc.workflow?.modelConfig
+  const ollamaBaseUrl = storedModelConfig?.baseUrl?.trim() || OLLAMA_DEFAULT_URL
+  const generateModel = useMemo<GenerateWorkflowModel>(() => {
+    if (generateModelChoice) return generateModelChoice
+    if (isLocalModel(storedModelConfig) && storedModelConfig?.model?.trim()) {
+      return { provider: 'ollama', model: storedModelConfig.model.trim(), baseUrl: ollamaBaseUrl }
+    }
+    return { provider: 'server' }
+  }, [generateModelChoice, storedModelConfig, ollamaBaseUrl])
+
+  const generateOptions = useMemo(
+    () =>
+      generatePanelOpen
+        ? {
+            messages: generateMessages,
+            onMessagesChange: setGenerateMessages,
+            model: generateModel,
+            onModelChange: setGenerateModelChoice,
+            ollamaBaseUrl,
+            replacesCanvas: diagram.nodes.length > 0,
+            onGenerated: handleWorkflowGenerated,
+            onClose: closeGeneratePanel,
+          }
+        : null,
+    [
+      generatePanelOpen,
+      generateMessages,
+      generateModel,
+      ollamaBaseUrl,
+      diagram.nodes.length,
+      handleWorkflowGenerated,
+      closeGeneratePanel,
+    ],
   )
 
   const handleApplyTemplate = useCallback(
@@ -632,7 +754,7 @@ export default function AgentWorkflowPage() {
   }, [])
 
   const handleClearCanvas = useCallback(() => {
-    handleChange(() => ({ nodes: [], edges: [] }))
+    handleChange((previous) => ({ nodes: [], edges: [], direction: previous.direction }))
     setSelection(null)
   }, [handleChange])
 
@@ -711,12 +833,6 @@ export default function AgentWorkflowPage() {
       name: page.name,
       document,
     })
-      .then(() =>
-        validateOrchestration({
-          identity: orchestrationIdentity(page.id),
-          inputs: {},
-        }),
-      )
       .then(() => {
         setIsValidated(true)
         setDoc((previous) => ({
@@ -738,6 +854,7 @@ export default function AgentWorkflowPage() {
   const openExecutionPanel = useCallback(() => {
     keepRightOpenRef.current = true
     setSelection(null)
+    setGeneratePanelOpen(false)
     setExecutionPanelOpen(true)
     if (isMobile) {
       navigate(ROUTES.agentWorkflowInspect)
@@ -855,6 +972,7 @@ export default function AgentWorkflowPage() {
 
     keepRightOpenRef.current = true
     right.expand()
+    setGeneratePanelOpen(false)
     setExecutionPanelOpen(true)
     setInspectorTab('logs')
     bottom.expand()
@@ -880,7 +998,6 @@ export default function AgentWorkflowPage() {
     const docToSave = mergeDiagramIntoDocument(doc, page.id, diagramSnapshot, page.name)
     saveWorkflowDocument(docToSave)
     clearExecutionSnapshot()
-    resetExecution()
     setEditorView('canvas')
 
     const executionPlan = getExecutablePlan(diagramSnapshot)
@@ -889,11 +1006,29 @@ export default function AgentWorkflowPage() {
       return
     }
 
-    startExecution(executionPlan, testInput, {
-      workspaceId: session.workspaceId,
+    const document = buildOrchestrationDocument({
+      doc: docToSave,
       pageId: page.id,
+      diagram: diagramSnapshot,
+      workspaceId: session.workspaceId,
       userId: session.accountId,
     })
+    void saveOrchestration({
+      identity: orchestrationIdentity(page.id),
+      name: page.name,
+      document,
+    })
+      .then(() => {
+        resetExecution()
+        return startExecution(executionPlan, testInput, {
+          workspaceId: session.workspaceId,
+          pageId: page.id,
+          userId: session.accountId,
+        })
+      })
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : 'Could not execute the workflow.')
+      })
   }, [
     doc,
     diagram,
@@ -979,7 +1114,7 @@ export default function AgentWorkflowPage() {
           onSave={handleSave}
           onValidate={handleValidate}
           onDeploy={handleDeploy}
-          onGenerate={() => setGenerateWorkflowOpen(true)}
+          onGenerate={openGeneratePanel}
           onExecute={openExecutionPanel}
           canExecute={agentNodes.length > 0 && !isExecutionMode}
           isExecuting={isExecuting}
@@ -987,8 +1122,8 @@ export default function AgentWorkflowPage() {
           onNavigateHome={handleNavigateHome}
           onOpenSettings={openWorkflowSettings}
           onOpenAppMenu={() => setAppMenuOpen(true)}
-          serverModelConfig={serverModelConfig}
-          llmConfigured={llmConfigured}
+          serverModelConfig={toolbarModelConfig}
+          llmConfigured={toolbarModelConfigured}
         />
       ) : (
         <AgentWorkflowHeader
@@ -1001,7 +1136,7 @@ export default function AgentWorkflowPage() {
           onSave={handleSave}
           onValidate={handleValidate}
           onDeploy={handleDeploy}
-          onGenerate={() => setGenerateWorkflowOpen(true)}
+          onGenerate={openGeneratePanel}
           isValidated={isValidated}
           onNavigateHome={handleNavigateHome}
           onViewInstance={handleViewInstance}
@@ -1036,8 +1171,8 @@ export default function AgentWorkflowPage() {
               }}
               onCreateWorkflowTab={handleCreateWorkflowTab}
               onOpenSettings={openWorkflowSettings}
-              serverModelConfig={serverModelConfig}
-              llmConfigured={llmConfigured}
+              serverModelConfig={toolbarModelConfig}
+              llmConfigured={toolbarModelConfigured}
               activeSection={librarySection ?? 'blocks'}
               onSectionChange={setLibrarySection}
               width={320}
@@ -1064,9 +1199,11 @@ export default function AgentWorkflowPage() {
               onConvertToSubWorkflow={subWorkflow.requestConvert}
               canConvertToSubWorkflow={subWorkflow.canConvert}
               onWorkflowMetaChange={handleWorkflowMetaChange}
+              onModelConfigChange={handleModelConfigChange}
               serverModelConfig={serverModelConfig}
               llmConfigured={llmConfigured}
               executionPanelOpen={executionPanelOpen}
+              generate={generateOptions}
               embedded
               attachCapability={
                 attachTarget
@@ -1099,6 +1236,7 @@ export default function AgentWorkflowPage() {
                 onSubmitFeedback: submitFeedback,
                 stepOutputs: runState.stepOutputs,
                 trace: displayTrace,
+                messages: runState.messages,
                 finalResponse: runState.finalResponse,
                 errors: runState.errors,
                 onShowDetails: showExecutionLogs,
@@ -1149,8 +1287,8 @@ export default function AgentWorkflowPage() {
                   onMountWorkflow={subWorkflow.mountWorkflow}
                   onCreateWorkflowTab={handleCreateWorkflowTab}
                   onOpenSettings={openWorkflowSettings}
-                  serverModelConfig={serverModelConfig}
-                  llmConfigured={llmConfigured}
+                  serverModelConfig={toolbarModelConfig}
+                  llmConfigured={toolbarModelConfigured}
                   width={left.size}
                   collapsed={left.collapsed}
                   onResizePointerDown={left.onResizePointerDown}
@@ -1200,8 +1338,8 @@ export default function AgentWorkflowPage() {
             onManageAccess={() => setShareOpen(true)}
             onOpenWorkflowSettings={openWorkflowSettings}
             showSettingsMenu={false}
-            serverModelConfig={serverModelConfig}
-            llmConfigured={llmConfigured}
+            serverModelConfig={toolbarModelConfig}
+            llmConfigured={toolbarModelConfigured}
             llmConfigLoading={llmConfigLoading}
           />
           )}
@@ -1215,8 +1353,8 @@ export default function AgentWorkflowPage() {
                 onMountWorkflow={subWorkflow.mountWorkflow}
                 onCreateWorkflowTab={handleCreateWorkflowTab}
                 onOpenSettings={openWorkflowSettings}
-                serverModelConfig={serverModelConfig}
-                llmConfigured={llmConfigured}
+                serverModelConfig={toolbarModelConfig}
+                llmConfigured={toolbarModelConfigured}
                 width={left.size}
                 collapsed={left.collapsed}
                 onResizePointerDown={left.onResizePointerDown}
@@ -1253,6 +1391,7 @@ export default function AgentWorkflowPage() {
                       showGrid={showGrid}
                       activePageId={activePage.id}
                       onAutoLayout={runAutoLayout}
+                      onFlowDirectionChange={handleFlowDirectionChange}
                       transformDroppedNode={transformDroppedNode}
                       finalizeDroppedNode={finalizeDroppedNode}
                       onOpenExecution={openExecutionPanel}
@@ -1277,9 +1416,9 @@ export default function AgentWorkflowPage() {
                                     <button
                                       type="button"
                                       className="font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-300"
-                                      onClick={() => setGenerateWorkflowOpen(true)}
+                                      onClick={openGeneratePanel}
                                     >
-                                      generate with AI
+                                      ask Workflow AI
                                     </button>
                                     .
                                   </p>
@@ -1321,9 +1460,9 @@ export default function AgentWorkflowPage() {
                                   <button
                                     type="button"
                                     className="font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-300"
-                                    onClick={() => setGenerateWorkflowOpen(true)}
+                                    onClick={openGeneratePanel}
                                   >
-                                    generate with AI
+                                    ask Workflow AI
                                   </button>
                                   .
                                 </p>
@@ -1411,9 +1550,11 @@ export default function AgentWorkflowPage() {
             onConvertToSubWorkflow={subWorkflow.requestConvert}
             canConvertToSubWorkflow={subWorkflow.canConvert}
             onWorkflowMetaChange={handleWorkflowMetaChange}
+            onModelConfigChange={handleModelConfigChange}
             serverModelConfig={serverModelConfig}
             llmConfigured={llmConfigured}
             executionPanelOpen={executionPanelOpen}
+            generate={generateOptions}
             attachCapability={
               attachTarget
                 ? {
@@ -1445,6 +1586,7 @@ export default function AgentWorkflowPage() {
               onSubmitFeedback: submitFeedback,
               stepOutputs: runState.stepOutputs,
               trace: displayTrace,
+              messages: runState.messages,
               finalResponse: runState.finalResponse,
               errors: runState.errors,
               onShowDetails: showExecutionLogs,
@@ -1528,14 +1670,6 @@ export default function AgentWorkflowPage() {
         onInsertFromPage={subWorkflow.insertFromPage}
         onImportDocument={subWorkflow.importDocument}
         onCreateWorkflowTab={handleCreateWorkflowTab}
-      />
-
-      <GenerateWorkflowDialog
-        open={generateWorkflowOpen}
-        onOpenChange={setGenerateWorkflowOpen}
-        workflowName={workflowName}
-        llmConfigured={llmConfigured}
-        onGenerated={(plan) => handleWorkflowGenerated(plan)}
       />
 
       <WorkflowTemplatesDialog

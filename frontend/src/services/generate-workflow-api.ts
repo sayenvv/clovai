@@ -2,9 +2,22 @@ import type { GenerateWorkflowResponse, WorkflowGenerationPlan } from '@/types/w
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
+export interface GenerateWorkflowAttachment {
+  name: string
+  content: string
+}
+
+/** Which model drafts the plan: the server's configured LLM or a local Ollama model. */
+export type GenerateWorkflowModel =
+  | { provider: 'server' }
+  | { provider: 'ollama'; model: string; baseUrl: string }
+
 export interface GenerateWorkflowRequest {
   prompt: string
   workflowName?: string
+  model?: GenerateWorkflowModel
+  attachments?: GenerateWorkflowAttachment[]
+  signal?: AbortSignal
 }
 
 function mapPlan(body: {
@@ -62,11 +75,17 @@ export async function generateWorkflowFromPrompt(
     body: JSON.stringify({
       prompt: request.prompt,
       workflow_name: request.workflowName ?? '',
+      ...(request.model?.provider === 'ollama'
+        ? { provider: 'ollama', model: request.model.model, base_url: request.model.baseUrl }
+        : {}),
+      attachments: request.attachments ?? [],
     }),
+    signal: request.signal,
   })
 
   if (!response.ok) {
-    const detail = await response.text().catch(() => '')
+    const body = (await response.json().catch(() => null)) as { detail?: unknown } | null
+    const detail = typeof body?.detail === 'string' ? body.detail : ''
     throw new Error(detail || `Failed to generate workflow (${response.status})`)
   }
 

@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from 'react'
-import { executeOrchestration } from '@/services/orchestration-api'
+import { executeOrchestration, type ExecutionLogEvent, type ExecutionStepDetail } from '@/services/orchestration-api'
 import type {
   ExecutionPlanStep,
   ExecutionTraceStep,
+  WorkflowChatMessage,
   WorkflowExecutionEvent,
   WorkflowRunState,
 } from '@/types/agent-workflow'
@@ -42,6 +43,7 @@ function initialRunState(): WorkflowRunState {
     warnings: [],
     finalResponse: null,
     stepOutputs: {},
+    messages: [],
     approvalPrompt: null,
   }
 }
@@ -58,78 +60,187 @@ function buildInitialTrace(plan: ExecutionPlanStep[]): ExecutionTraceStep[] {
 }
 
 function parseWorkflowInput(input: string): Record<string, unknown> {
-  const prompt = input.trim()
-  return prompt ? { prompt } : {}
+  const message = input.trim()
+  if (!message) return {}
+  if (message.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(message) as unknown
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const record = parsed as Record<string, unknown>
+        if (typeof record.message === 'string' && record.message.trim()) return record
+        if (typeof record.prompt === 'string' && record.prompt.trim()) {
+          return { ...record, message: record.prompt }
+        }
+      }
+    } catch {
+      // The box contains plain text, not JSON.
+    }
+  }
+  return { message }
 }
 
-function responseText(detail: unknown): string {
-  if (!detail || typeof detail !== 'object') return ''
-  const record = detail as Record<string, unknown>
-  if (typeof record.text === 'string' && record.text.trim()) return record.text.trim()
-  const workflow = record.workflow
-  if (workflow && typeof workflow === 'object') {
-    const output = (workflow as { output?: { text?: unknown } }).output
-    if (typeof output?.text === 'string' && output.text.trim()) return output.text.trim()
+function outputText(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (Array.isArray(value)) return value.map(outputText).filter(Boolean).join('\n\n')
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    if (typeof record.text === 'string') return record.text.trim()
+    if ('outputs' in record) return outputText(record.outputs)
   }
   return ''
 }
 
-function detailRecord(detail: unknown): Record<string, unknown> | null {
-  return detail && typeof detail === 'object' ? (detail as Record<string, unknown>) : null
-}
-
 function matchPlanStep(
   plan: ExecutionPlanStep[],
-  detail: Record<string, unknown> | null,
+  agentId: string,
+  agentName: string,
 ): ExecutionPlanStep | undefined {
-  const nodeId = typeof detail?.nodeId === 'string' ? detail.nodeId : ''
-  const agent = typeof detail?.agent === 'string' ? detail.agent.trim().toLowerCase() : ''
+  const name = agentName.trim().toLowerCase()
   return (
-    plan.find((step) => nodeId && step.nodeId === nodeId) ??
-    plan.find((step) => agent && step.agentName.trim().toLowerCase() === agent)
+    plan.find((step) => agentId && step.nodeId === agentId) ??
+    plan.find((step) => name && step.agentName.trim().toLowerCase() === name)
   )
 }
 
-function withAgentActivity(
+function squash(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+function closeTurns(messages: WorkflowChatMessage[], keep?: string): WorkflowChatMessage[] {
+  return messages
+    .filter((message) => message.status !== 'streaming' || message.nodeId === keep || message.content.trim())
+    .map((message) =>
+      message.status === 'streaming' && message.nodeId !== keep ? { ...message, status: 'done' as const } : message,
+    )
+}
+
+function applyChatMessage(
+  messages: WorkflowChatMessage[],
+  key: string,
+  agentName: string,
+  event: ExecutionLogEvent,
+): WorkflowChatMessage[] {
+  const text = event.message ?? ''
+  const kind: WorkflowChatMessage['kind'] = event.kind === 'reasoning' ? 'reasoning' : 'response'
+  const list = closeTurns(messages, key)
+  const openIndex = list.findIndex((message) => message.status === 'streaming' && message.nodeId === key)
+  const open = openIndex >= 0 ? list[openIndex] : undefined
+  const empty = !open?.content.trim()
+  const replace = (next: WorkflowChatMessage | null) =>
+    next ? list.map((message, index) => (index === openIndex ? next : message)) : list.filter((_, index) => index !== openIndex)
+  const close = () => (open ? replace(empty ? null : { ...open, status: 'done' }) : list)
+  const turn = (content: string, status: WorkflowChatMessage['status']): WorkflowChatMessage => ({
+    id: createEventId(),
+    nodeId: key,
+    agentName,
+    content,
+    kind,
+    title: event.title,
+    status,
+  })
+
+  if (event.status === 'failed') {
+    return open ? replace(empty ? null : { ...open, status: 'failed' }) : list
+  }
+  if (event.delta) {
+    if (open?.kind === kind) return replace({ ...open, agentName, content: open.content + text })
+    if (open && empty) return replace(turn(text, 'streaming'))
+    return [...close(), turn(text, 'streaming')]
+  }
+  if (event.status !== 'completed') {
+    if (!text.trim()) return open ? list : [...list, turn('', 'streaming')]
+    return [...close(), turn(text, 'done')]
+  }
+  if (!text.trim()) return close()
+  if (open && empty) return replace(turn(text, 'done'))
+  if (open?.kind === kind) {
+    const streamed = squash(open.content)
+    const whole = squash(text)
+    if (whole.startsWith(streamed) || streamed.startsWith(whole)) {
+      return replace({ ...open, agentName, content: text, title: event.title ?? open.title, status: 'done' })
+    }
+  }
+  const closed = close()
+  const last = closed[closed.length - 1]
+  if (last && last.nodeId === key && last.kind === kind && squash(last.content) === squash(text)) return closed
+  return [...closed, turn(text, 'done')]
+}
+
+function applyAgentUpdate(
   previous: WorkflowRunState,
   plan: ExecutionPlanStep[],
-  event: { step?: string; status?: string; message?: string; detail?: unknown },
+  event: ExecutionLogEvent,
 ): WorkflowRunState {
-  if (event.step !== 'agent') return previous
-  const detail = detailRecord(event.detail)
-  const step = matchPlanStep(plan, detail)
-  if (!step) return previous
+  const agentName = event.agent?.trim() || 'Agent'
+  const matched = matchPlanStep(plan, event.agentId ?? '', agentName)
+  const nodeId = matched?.nodeId || event.agentId || ''
+  const reasoning = event.message ?? ''
   const phase = event.status
   const timestamp = new Date().toISOString()
-  if (phase === 'started') {
-    const index = plan.findIndex((candidate) => candidate.nodeId === step.nodeId)
+  previous = { ...previous, messages: applyChatMessage(previous.messages, nodeId || agentName, agentName, event) }
+  const trace = previous.trace.some((entry) => nodeId && entry.nodeId === nodeId)
+    ? previous.trace
+    : [
+        ...previous.trace,
+        {
+          id: `trace-${nodeId || agentName}`,
+          nodeId,
+          agentName,
+          status: 'pending' as const,
+          message: '',
+          timestamp,
+        },
+      ]
+  const settled = trace.map((entry) =>
+    entry.status === 'running' && entry.nodeId !== nodeId
+      ? { ...entry, status: 'completed' as const, message: 'Completed' }
+      : entry,
+  )
+  const current = settled.find((entry) => entry.nodeId === nodeId)
+  const base = current?.status === 'running' ? current.output ?? '' : ''
+  const piece = event.kind === 'reasoning' ? '' : reasoning
+  const streamed = phase === 'running' ? base + piece : base
+
+  if (phase === 'running') {
+    const index = plan.findIndex((candidate) => candidate.nodeId === nodeId)
     return {
       ...previous,
-      currentStepIndex: index,
-      activeNodeId: step.nodeId,
-      completedNodeIds: previous.completedNodeIds.filter((id) => id !== step.nodeId),
-      trace: previous.trace.map((entry) =>
-        entry.nodeId === step.nodeId
-          ? { ...entry, status: 'running', message: event.message || `${step.agentName} started`, timestamp }
+      currentStepIndex: index >= 0 ? index : previous.currentStepIndex,
+      activeNodeId: nodeId || previous.activeNodeId,
+      completedNodeIds: previous.completedNodeIds.filter((id) => id !== nodeId),
+      stepOutputs: nodeId ? { ...previous.stepOutputs, [nodeId]: streamed } : previous.stepOutputs,
+      trace: settled.map((entry) =>
+        entry.nodeId === nodeId
+          ? {
+              ...entry,
+              status: 'running',
+              agentName,
+              message: streamed ? 'Streaming' : `${agentName} is running`,
+              output: streamed || entry.output,
+              timestamp,
+            }
           : entry,
       ),
     }
   }
   if (phase === 'completed' || phase === 'failed') {
-    const completedNodeIds =
-      phase === 'completed'
-        ? Array.from(new Set([...previous.completedNodeIds, step.nodeId]))
-        : previous.completedNodeIds
+    const output = phase === 'failed' ? current?.output : reasoning.trim() || current?.output
     return {
       ...previous,
-      activeNodeId: previous.activeNodeId === step.nodeId ? null : previous.activeNodeId,
-      completedNodeIds,
-      trace: previous.trace.map((entry) =>
-        entry.nodeId === step.nodeId
+      activeNodeId: previous.activeNodeId === nodeId ? null : previous.activeNodeId,
+      completedNodeIds:
+        phase === 'completed' && nodeId
+          ? Array.from(new Set([...previous.completedNodeIds, nodeId]))
+          : previous.completedNodeIds,
+      stepOutputs: nodeId && output ? { ...previous.stepOutputs, [nodeId]: output } : previous.stepOutputs,
+      trace: settled.map((entry) =>
+        entry.nodeId === nodeId
           ? {
               ...entry,
               status: phase === 'completed' ? 'completed' : 'error',
-              message: event.message || `${step.agentName} finished`,
+              agentName,
+              message: phase === 'completed' ? 'Completed' : 'Failed',
+              output,
               timestamp,
             }
           : entry,
@@ -139,10 +250,16 @@ function withAgentActivity(
   return previous
 }
 
+function stepLog(step: ExecutionStepDetail): string {
+  const message = step.message?.trim() || step.id || 'Step'
+  return step.detail?.trim() ? `${message}. ${step.detail.trim()}` : message
+}
+
 export function useWorkflowRunner() {
   const [state, setState] = useState<WorkflowRunState>(initialRunState)
   const cancelRef = useRef(false)
   const pendingExecutionRef = useRef<PendingExecution | null>(null)
+  const loggedStepsRef = useRef(new Map<string, string>())
 
   const appendEvent = useCallback((event: Omit<WorkflowExecutionEvent, 'id' | 'timestamp'>) => {
     const full: WorkflowExecutionEvent = {
@@ -165,6 +282,31 @@ export function useWorkflowRunner() {
       try {
         let failed = false
         let reply = ''
+        const recordLog = (
+          message: string,
+          level: WorkflowExecutionEvent['level'],
+          kind: WorkflowExecutionEvent['kind'],
+          agentName?: string,
+          nodeId?: string,
+        ) => {
+          const full: WorkflowExecutionEvent = {
+            id: createEventId(),
+            kind,
+            level,
+            message,
+            timestamp: new Date().toISOString(),
+            agentName,
+            nodeId,
+          }
+          if (level === 'error') console.error(`[execute] ${message}`)
+          else console.info(`[execute] ${message}`)
+          setState((previous) => ({
+            ...previous,
+            events: [...previous.events, full],
+            errors: level === 'error' ? [...previous.errors, full] : previous.errors,
+            warnings: level === 'warning' ? [...previous.warnings, full] : previous.warnings,
+          }))
+        }
         await executeOrchestration({
           identity: {
             workspaceId: target.workspaceId,
@@ -174,70 +316,117 @@ export function useWorkflowRunner() {
           inputs: parseWorkflowInput(input),
           onEvent: (event) => {
             if (cancelRef.current) return
-            const message = event.message || event.step || 'Execution update'
-            const detail = event.detail === undefined ? undefined : JSON.stringify(event.detail)
-            const text = responseText(event.detail)
-            if (text) reply = text
-            const failedEvent = event.event === 'error' || event.status === 'failed'
-            const finished = event.event === 'done' || event.step === 'finished'
-            const kind: WorkflowExecutionEvent['kind'] = failedEvent
-              ? 'error'
-              : finished
-                ? 'workflow-complete'
-                : event.step === 'agent' && event.status === 'completed'
-                  ? 'agent-complete'
-                  : event.step === 'agent'
-                    ? 'agent-start'
-                    : 'workflow-start'
-            const level: WorkflowExecutionEvent['level'] = failedEvent
-              ? 'error'
-              : finished
-                ? 'success'
-                : 'info'
-            if (failedEvent) failed = true
-            const matched = matchPlanStep(plan, detailRecord(event.detail))
-            const full: WorkflowExecutionEvent = {
-              id: createEventId(),
-              kind,
-              level,
-              message,
-              detail,
-              timestamp: new Date().toISOString(),
-              nodeId: matched?.nodeId,
-              agentName: matched?.agentName,
-            }
-            setState((previous) => {
-              const withActivity = withAgentActivity(previous, plan, event)
-              return {
-                ...withActivity,
-                events: [...withActivity.events, full],
-                errors: level === 'error' ? [...withActivity.errors, full] : withActivity.errors,
-                warnings: level === 'warning' ? [...withActivity.warnings, full] : withActivity.warnings,
+            if (event.event === 'agent') {
+              const agentName = event.agent?.trim() || 'Agent'
+              const matched = matchPlanStep(plan, event.agentId ?? '', agentName)
+              const reasoning = event.message ?? ''
+              const phase = event.status === 'failed' ? 'failed' : event.status === 'completed' ? 'completed' : 'running'
+              const nodeId = matched?.nodeId || event.agentId
+              const logMessage = `${agentName} ${phase}`
+              const logKey = `agent:${nodeId || agentName}`
+              const signature = phase === 'running' ? phase : `${phase}|${reasoning}`
+              const alreadyLogged = loggedStepsRef.current.get(logKey) === signature
+              if (!alreadyLogged) {
+                loggedStepsRef.current.set(logKey, signature)
+                if (phase === 'failed') console.error(`[execute] ${logMessage}`)
+                else console.info(`[execute] ${logMessage}`)
               }
-            })
+              const level: WorkflowExecutionEvent['level'] =
+                phase === 'failed' ? 'error' : phase === 'completed' ? 'success' : 'info'
+              const kind: WorkflowExecutionEvent['kind'] =
+                phase === 'completed' || phase === 'failed' ? 'agent-complete' : 'agent-start'
+              setState((previous) => {
+                const next = applyAgentUpdate(previous, plan, event)
+                if (alreadyLogged) return next
+                const full: WorkflowExecutionEvent = {
+                  id: createEventId(),
+                  kind,
+                  level,
+                  message: logMessage,
+                  timestamp: new Date().toISOString(),
+                  agentName,
+                  nodeId,
+                }
+                return {
+                  ...next,
+                  events: [...next.events, full],
+                  errors: level === 'error' ? [...next.errors, full] : next.errors,
+                }
+              })
+              if (phase === 'failed') failed = true
+              return
+            }
+            if (event.event !== 'progress') return
+            for (const step of event.steps ?? []) {
+              if (!step.status || step.status === 'pending') continue
+              const key = step.id || step.message || 'step'
+              const signature = `${step.status}|${stepLog(step)}`
+              if (loggedStepsRef.current.get(key) === signature) continue
+              loggedStepsRef.current.set(key, signature)
+              recordLog(
+                stepLog(step),
+                step.status === 'failed' ? 'error' : step.status === 'completed' ? 'success' : 'info',
+                step.status === 'failed' ? 'error' : step.status === 'completed' ? 'workflow-complete' : 'workflow-start',
+              )
+            }
+            if (event.status === 'failed') {
+              failed = true
+              const message = event.message?.trim() || 'Workflow execution failed.'
+              recordLog(message, 'error', 'error')
+            }
+            if (event.status === 'completed') {
+              const text = outputText(event.result?.execution?.outputs)
+              if (text) reply = text
+              recordLog(event.message?.trim() || 'Workflow completed', 'success', 'workflow-complete')
+            }
           },
         })
         if (cancelRef.current) return
         setState((previous) => {
           const last = plan[plan.length - 1]
-          const trace = reply
-            ? previous.trace.map((step, index, all) =>
-                index === all.length - 1
-                  ? { ...step, status: 'completed' as const, output: reply, message: 'Completed' }
-                  : step,
-              )
-            : previous.trace
+          const trace = previous.trace.map((step) =>
+            step.status === 'running'
+              ? { ...step, status: 'completed' as const, message: 'Completed' }
+              : step,
+          )
+          const streamed = last
+            ? trace.find((step) => step.nodeId === last.nodeId)?.output || previous.stepOutputs[last.nodeId] || ''
+            : ''
+          const finalText = streamed || reply
+          const closed = closeTurns(previous.messages)
+          const answered = !reply || closed.some((message) => squash(message.content) === squash(reply))
+          const messages = answered
+            ? closed
+            : [
+                ...closed,
+                {
+                  id: createEventId(),
+                  nodeId: 'final',
+                  agentName: 'Final answer',
+                  content: reply,
+                  kind: 'response' as const,
+                  status: 'done' as const,
+                },
+              ]
           return {
             ...previous,
+            messages,
             status: failed ? 'failed' : 'completed',
             activeNodeId: null,
             activeEdgeId: null,
             approvalPrompt: null,
             completedNodeIds: previous.completedNodeIds,
-            finalResponse: reply || previous.finalResponse,
-            trace,
+            finalResponse: finalText || previous.finalResponse,
+            trace:
+              finalText && last
+                ? trace.map((step) =>
+                    step.nodeId === last.nodeId
+                      ? { ...step, status: 'completed' as const, output: finalText, message: 'Completed' }
+                      : step,
+                  )
+                : trace,
             stepOutputs:
-              reply && last ? { ...previous.stepOutputs, [last.nodeId]: reply } : previous.stepOutputs,
+              finalText && last ? { ...previous.stepOutputs, [last.nodeId]: finalText } : previous.stepOutputs,
           }
         })
       } catch (error) {
@@ -245,6 +434,7 @@ export function useWorkflowRunner() {
         const message = error instanceof Error ? error.message : 'Workflow execution failed.'
         setState((previous) => ({
           ...previous,
+          messages: closeTurns(previous.messages),
           status: 'failed',
           activeNodeId: null,
           activeEdgeId: null,
@@ -322,6 +512,7 @@ export function useWorkflowRunner() {
     pendingExecutionRef.current = null
     setState((previous) => ({
       ...previous,
+      messages: closeTurns(previous.messages),
       status: 'cancelled',
       activeNodeId: null,
       activeEdgeId: null,
@@ -354,6 +545,7 @@ export function useWorkflowRunner() {
 
       cancelRef.current = false
       pendingExecutionRef.current = null
+      loggedStepsRef.current = new Map()
       const trace = buildInitialTrace(plan)
 
       setState({
@@ -369,6 +561,7 @@ export function useWorkflowRunner() {
         warnings: [],
         finalResponse: null,
         stepOutputs: {},
+        messages: [],
         approvalPrompt: null,
       })
 

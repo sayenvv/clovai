@@ -20,8 +20,15 @@ export const MODEL_PROVIDERS = [
   { value: 'azure-openai', label: 'Azure OpenAI' },
   { value: 'azure_openai', label: 'Azure OpenAI' },
   { value: 'bedrock', label: 'AWS Bedrock' },
+  { value: 'ollama', label: 'Ollama (local)' },
   { value: 'custom', label: 'Custom' },
 ] as const
+
+export const OLLAMA_DEFAULT_URL = 'http://localhost:11434'
+
+export function isLocalModel(config?: Partial<WorkflowModelConfig>): boolean {
+  return config?.provider === 'ollama'
+}
 
 export const SUGGESTED_MODELS: Record<string, string[]> = {
   openai: ['gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4o-mini'],
@@ -29,6 +36,7 @@ export const SUGGESTED_MODELS: Record<string, string[]> = {
   google: ['gemini-2.5-pro', 'gemini-2.0-flash'],
   azure: ['gpt-4o', 'gpt-4'],
   bedrock: ['anthropic.claude-3-sonnet', 'amazon.titan-text'],
+  ollama: ['llama3.2:latest'],
   custom: [],
 }
 
@@ -39,4 +47,16 @@ export function resolveWorkflowModelConfig(
     ...DEFAULT_WORKFLOW_MODEL_CONFIG,
     ...config,
   }
+}
+
+/** Model shown in the toolbar and used when exporting unless the workflow picks Ollama. */
+export function workflowActiveModelConfig(
+  workflow: { modelConfig?: Partial<WorkflowModelConfig> } | undefined,
+  server: WorkflowModelConfig,
+): WorkflowModelConfig {
+  const stored = workflow?.modelConfig
+  if (stored && isLocalModel(stored) && stored.model?.trim()) {
+    return resolveWorkflowModelConfig(stored)
+  }
+  return resolveWorkflowModelConfig(server)
 }

@@ -9,19 +9,31 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { LayoutGrid, Maximize2, Play, RotateCcw } from 'lucide-react'
+import { ArrowDown, ArrowRight, LayoutGrid, Maximize2, Play, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DesignerCanvas } from '@/components/designer/DesignerCanvas'
 import { computeCenteredViewport, zoomViewportAt } from '@/components/designer/viewport-utils'
 import { listAgentNodes } from '@/components/agent-workflow/tool-agent-mapping'
-import type { Diagram, DiagramNode, Viewport } from '@/components/designer/diagram-types'
+import {
+  resolveFlowDirection,
+  type Diagram,
+  type DiagramNode,
+  type FlowDirection,
+  type Viewport,
+} from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import type { Selection } from '@/components/designer/selection-utils'
 import { canvasInsertAnchor } from '@/components/agent-workflow/hooks/use-sub-workflow-actions'
 import type { AgentAttachAction } from '@/components/agent-workflow/AgentNodeCard'
 import { DevProfiler } from '@/utils/render-profiler'
+import { cn } from '@/utils/cn'
 
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, scale: 1 }
+
+const FLOW_DIRECTION_OPTIONS = [
+  { value: 'horizontal', label: 'Horizontal', title: 'Flow left to right', icon: ArrowRight },
+  { value: 'vertical', label: 'Vertical', title: 'Flow top to bottom', icon: ArrowDown },
+] as const satisfies ReadonlyArray<{ value: FlowDirection; label: string; title: string; icon: unknown }>
 
 export interface AgentWorkflowCanvasHandle {
   getInsertAnchor: () => { x: number; y: number }
@@ -39,6 +51,7 @@ interface AgentWorkflowCanvasProps {
   showGrid: boolean
   activePageId: string
   onAutoLayout: () => void
+  onFlowDirectionChange?: (direction: FlowDirection) => void
   transformDroppedNode: (node: DiagramNode, item: PaletteItem) => DiagramNode
   finalizeDroppedNode: (
     node: DiagramNode,
@@ -69,6 +82,7 @@ export const AgentWorkflowCanvas = memo(
       showGrid,
       activePageId,
       onAutoLayout,
+      onFlowDirectionChange,
       transformDroppedNode,
       onNodeAttachAction,
       onInsertHitlOnEdge,
@@ -167,6 +181,7 @@ export const AgentWorkflowCanvas = memo(
     }, [])
 
     const hasAgents = listAgentNodes(diagram).length > 0
+    const flowDirection = resolveFlowDirection(diagram.direction)
 
     return (
       <DevProfiler id="AgentWorkflowCanvas">
@@ -193,6 +208,37 @@ export const AgentWorkflowCanvas = memo(
 
           {(diagram.nodes.length > 0 || hideEmptyState) && (
             <div className="absolute bottom-3 left-3 z-20 flex gap-1.5">
+              {onFlowDirectionChange && (
+                <div
+                  role="radiogroup"
+                  aria-label="Flow direction"
+                  className="flex h-8 items-center gap-0.5 rounded-md border border-border bg-secondary p-0.5 shadow-md"
+                >
+                  {FLOW_DIRECTION_OPTIONS.map((option) => {
+                    const active = flowDirection === option.value
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        title={option.title}
+                        onClick={() => onFlowDirectionChange(option.value)}
+                        className={cn(
+                          'flex h-full items-center gap-1.5 rounded-[5px] px-2 text-xs font-medium transition-colors',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                          active
+                            ? 'bg-card text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        <option.icon className="h-3.5 w-3.5" />
+                        {option.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
               <Button variant="secondary" size="sm" className="h-8 shadow-md" onClick={onAutoLayout}>
                 <LayoutGrid className="h-3.5 w-3.5" />
                 Auto-layout

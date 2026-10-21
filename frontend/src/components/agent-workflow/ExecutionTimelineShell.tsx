@@ -151,6 +151,9 @@ export const ExecutionTimelineShell = memo(function ExecutionTimelineShell({
                   {step.message && (
                     <p className="mt-1 text-[11px] text-muted-foreground">{step.message}</p>
                   )}
+                  {'output' in step && step.output && (
+                    <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-foreground">{step.output}</p>
+                  )}
                   {index > 0 && step.status === 'running' && (
                     <p className="mt-1 font-mono text-[10px] text-primary">Run #{index + 1}</p>
                   )}

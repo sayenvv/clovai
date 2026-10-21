@@ -1,15 +1,32 @@
-import { memo, type MouseEvent, type PointerEvent } from 'react'
-import { Bot, Boxes, Database, Plug, Plus, ShieldCheck, Sparkles, Terminal, Wrench } from 'lucide-react'
+import { memo, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
+import {
+  BookOpen,
+  Bot,
+  Boxes,
+  Cpu,
+  Database,
+  Plug,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  Terminal,
+  Wrench,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import {
   childKindForPalette,
   isExternalAgentPalette,
   resolveExternalAgent,
+  VERTICAL_CAPABILITY_BAR_HEIGHT,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { AgentNodeAvatar } from '@/components/agent-workflow/external-agent-ui'
 import { isExecutorNode, isToolNode } from '@/components/agent-workflow/tool-agent-mapping'
-import type { DiagramNode } from '@/components/designer/diagram-types'
+import {
+  resolveFlowDirection,
+  type DiagramNode,
+  type FlowDirection,
+} from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 
 /** Dock / config actions from the agent card. */
@@ -126,6 +143,194 @@ const CHILD_KIND_STYLES: Record<ChildKind, { label: string; icon: LucideIcon; ra
   },
 }
 
+const CAPABILITY_ICONS: Record<AgentDockSlot['id'], LucideIcon> = {
+  model: Cpu,
+  memory: Database,
+  tool: Wrench,
+  knowledge: BookOpen,
+}
+
+const CAPABILITY_SHORT_LABELS: Record<AgentDockSlot['id'], string> = {
+  model: 'Model',
+  memory: 'Memory',
+  tool: 'Tools',
+  knowledge: 'Knowledge',
+}
+
+interface VerticalCapability {
+  slot: AgentDockSlot
+  connected: boolean
+  count: number
+}
+
+/**
+ * Vertical-flow card: the flow enters through the top rail and leaves from the bottom,
+ * and capabilities sit in a bar inside the card instead of hanging docks.
+ */
+function VerticalFlowCard({
+  nodeId,
+  title,
+  subtitle,
+  icon,
+  rail,
+  isSelected,
+  hitl,
+  capabilities,
+  onAttachAction,
+  className,
+}: {
+  nodeId: string
+  title: string
+  subtitle: ReactNode
+  icon: ReactNode
+  rail: string
+  isSelected: boolean
+  hitl?: boolean
+  capabilities?: VerticalCapability[]
+  onAttachAction?: (agentId: string, action: AgentAttachAction) => void
+  className?: string
+}) {
+  return (
+    <div className={cn('agent-wf-node group relative h-full w-full', className)}>
+      <div
+        className={cn(
+          'relative flex h-full w-full flex-col overflow-hidden rounded-xl',
+          'border border-border bg-card shadow-sm',
+          'transition-[border-color,box-shadow] duration-150',
+          'hover:border-foreground/20 hover:shadow-md',
+          isSelected && 'border-primary/70 shadow-md ring-2 ring-primary/20',
+        )}
+      >
+        <span
+          className={cn('absolute inset-x-0 top-0 h-[3px] transition-colors duration-150', rail)}
+          aria-hidden
+        />
+
+        <div className="flex min-h-0 flex-1 items-center gap-3 px-3.5">
+          <div className="flex shrink-0 items-center justify-center" aria-hidden>
+            {icon}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <div className="truncate text-[13px] font-semibold leading-tight tracking-[-0.01em] text-card-foreground">
+                {title}
+              </div>
+              {hitl ? (
+                <span
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                  title="Human in the loop enabled"
+                >
+                  <ShieldCheck className="size-2.5" />
+                  HITL
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-1 truncate text-[11px] leading-tight text-muted-foreground">{subtitle}</p>
+          </div>
+        </div>
+
+        {capabilities ? (
+          <div
+            className="grid shrink-0 grid-cols-4 gap-1 border-t border-border/70 bg-muted/30 p-1"
+            style={{ height: VERTICAL_CAPABILITY_BAR_HEIGHT }}
+          >
+            {capabilities.map(({ slot, connected, count }) => {
+              const Icon = CAPABILITY_ICONS[slot.id]
+              const label = CAPABILITY_SHORT_LABELS[slot.id]
+              return (
+                <button
+                  key={slot.id}
+                  type="button"
+                  disabled={!onAttachAction}
+                  className={cn(
+                    'flex min-w-0 items-center justify-center gap-1 rounded-md px-1',
+                    'text-[10px] font-medium leading-none transition-colors duration-150',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    connected
+                      ? 'bg-card text-foreground shadow-sm ring-1 ring-inset ring-border'
+                      : slot.required
+                        ? 'text-amber-700 hover:bg-card dark:text-amber-400'
+                        : 'text-muted-foreground hover:bg-card hover:text-foreground',
+                    !onAttachAction && 'cursor-default',
+                  )}
+                  title={
+                    connected
+                      ? count > 1
+                        ? `${slot.label} · ${count}`
+                        : slot.label
+                      : `Add ${slot.label.toLowerCase()}`
+                  }
+                  aria-label={`${slot.label}${count > 0 ? ` (${count})` : ''}`}
+                  onPointerDown={stopCanvas}
+                  onClick={(event) => {
+                    stopCanvas(event)
+                    onAttachAction?.(nodeId, slot.action)
+                  }}
+                >
+                  <Icon className={cn('size-3 shrink-0', connected && 'text-primary')} />
+                  <span className="truncate">{label}</span>
+                  {count > 1 ? (
+                    <span className="shrink-0 tabular-nums text-muted-foreground">{count}</span>
+                  ) : null}
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+/** Vertical-flow child (tool / memory / knowledge) — single-row strip in the column beside its agent. */
+function VerticalChildCard({
+  title,
+  kind,
+  isSelected,
+  tooltip,
+  className,
+}: {
+  title: string
+  kind: ChildKind
+  isSelected: boolean
+  tooltip: string
+  className?: string
+}) {
+  const kindStyle = CHILD_KIND_STYLES[kind]
+  const KindIcon = kindStyle.icon
+  return (
+    <div
+      className={cn(
+        'relative flex h-full w-full items-center gap-2 overflow-hidden rounded-lg',
+        'border border-border bg-card pl-2.5 pr-2.5 shadow-sm',
+        'transition-[border-color,box-shadow] duration-150',
+        'hover:border-foreground/20 hover:shadow',
+        isSelected && 'border-primary/70 shadow-md ring-2 ring-primary/20',
+        className,
+      )}
+      title={tooltip}
+    >
+      <span className={cn('absolute inset-y-0 left-0 w-[3px]', kindStyle.rail)} aria-hidden />
+      <span
+        className={cn(
+          'flex size-6 shrink-0 items-center justify-center rounded-md ring-1 ring-inset',
+          kindStyle.iconBg,
+          kindStyle.iconRing,
+        )}
+        aria-hidden
+      >
+        <KindIcon className="size-3.5" />
+      </span>
+      <p className="min-w-0 flex-1 truncate text-[12px] font-medium leading-none tracking-[-0.01em] text-card-foreground">
+        {title}
+      </p>
+      <span className="shrink-0 text-[9px] font-semibold uppercase leading-none tracking-wide text-muted-foreground">
+        {kindStyle.label}
+      </span>
+    </div>
+  )
+}
+
 interface AgentNodeCardProps {
   node: DiagramNode
   item: PaletteItem
@@ -135,6 +340,8 @@ interface AgentNodeCardProps {
   mappedUnderLabel?: string
   mappedChildren?: MappedChildCounts
   onAttachAction?: (agentId: string, action: AgentAttachAction) => void
+  /** Vertical flow renders the taller card with a built-in capability bar. */
+  direction?: FlowDirection
 }
 
 export const AgentNodeCard = memo(function AgentNodeCard({
@@ -145,6 +352,7 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   mappedUnderLabel,
   mappedChildren = { tool: 0, skill: 0, memory: 0, integration: 0, mcp: 0 },
   onAttachAction,
+  direction,
 }: AgentNodeCardProps) {
   const agent = node.agent
   const toolNode = isToolNode(node)
@@ -154,10 +362,48 @@ export const AgentNodeCard = memo(function AgentNodeCard({
     node.label?.trim() ||
     (externalAgent ? externalAgent.label : TYPE_LABELS[agent?.agentType ?? 'llm'] ?? item.label)
 
+  const vertical = resolveFlowDirection(direction) === 'vertical'
+
   if (toolNode || executorNode) {
     const kind = resolveChildKind(node, executorNode)
     const kindStyle = CHILD_KIND_STYLES[kind]
     const KindIcon = kindStyle.icon
+
+    if (vertical && toolNode) {
+      return (
+        <VerticalChildCard
+          title={title}
+          kind={kind}
+          isSelected={isSelected}
+          tooltip={mappedUnderLabel ? `${title} · under ${mappedUnderLabel}` : title}
+          className={className}
+        />
+      )
+    }
+
+    if (vertical) {
+      return (
+        <VerticalFlowCard
+          nodeId={node.id}
+          title={title}
+          subtitle={agent?.description?.trim() || kindStyle.label}
+          rail={kindStyle.rail}
+          isSelected={isSelected}
+          className={className}
+          icon={
+            <span
+              className={cn(
+                'flex size-9 items-center justify-center rounded-lg ring-1 ring-inset',
+                kindStyle.iconBg,
+                kindStyle.iconRing,
+              )}
+            >
+              <KindIcon className="size-[18px] stroke-[1.75]" />
+            </span>
+          }
+        />
+      )
+    }
 
     return (
       <div
@@ -211,6 +457,42 @@ export const AgentNodeCard = memo(function AgentNodeCard({
     if (id === 'tool') return tools
     if (id === 'memory') return memory
     return knowledge
+  }
+
+  if (vertical) {
+    const model = agent?.model?.trim()
+    return (
+      <VerticalFlowCard
+        nodeId={node.id}
+        title={title}
+        subtitle={
+          <>
+            {externalAgent?.provider ?? TYPE_LABELS[agent?.agentType ?? 'llm'] ?? 'Agent'}
+            <span className="text-muted-foreground/50"> · </span>
+            {model ? model : <span className="text-amber-700 dark:text-amber-400">No model</span>}
+          </>
+        }
+        rail={configured ? 'bg-primary/70' : 'bg-border'}
+        isSelected={isSelected}
+        hitl={agent?.humanInTheLoop}
+        capabilities={AGENT_DOCK_SLOTS.map((slot) => ({
+          slot,
+          connected: slotConnected(slot.id),
+          count: slotCount(slot.id),
+        }))}
+        onAttachAction={onAttachAction}
+        className={className}
+        icon={
+          isExternalAgentPalette(node.paletteId) ? (
+            <AgentNodeAvatar paletteId={node.paletteId} size="md" />
+          ) : (
+            <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground ring-1 ring-inset ring-border/70">
+              <Bot className="size-[18px] stroke-[1.75]" />
+            </span>
+          )
+        }
+      />
+    )
   }
 
   /** Empty ports always show +; multi docks keep + when selected so more can be added. */

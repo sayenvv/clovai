@@ -1,7 +1,16 @@
 import type { AgentNodeConfig, AgentType, ConnectorConfig } from '@/types/agent-workflow'
-import type { Diagram, DiagramNode } from '@/components/designer/diagram-types'
+import {
+  resolveFlowDirection,
+  type Diagram,
+  type DiagramNode,
+  type FlowDirection,
+} from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import agentLibrary from '../../../config/agent-workflow-library.json'
+import {
+  enrichFlowBoundaryNode,
+  isFlowBoundaryNode,
+} from '@/components/agent-workflow/workflow-flow-nodes'
 
 const PALETTE_AGENT_TYPE: Record<string, AgentType> = {
   'aw-agent': 'llm',
@@ -94,6 +103,14 @@ export const AGENT_NODE_WIDTH = 240
 export const AGENT_NODE_HEIGHT = 64
 export const TOOL_NODE_WIDTH = 180
 export const TOOL_NODE_HEIGHT = 56
+/** Vertical flow: taller agent card with the capability bar built in (no hanging docks). */
+export const VERTICAL_AGENT_NODE_WIDTH = 304
+export const VERTICAL_AGENT_NODE_HEIGHT = 100
+export const VERTICAL_EXECUTOR_NODE_HEIGHT = 64
+/** Height of the capability bar along the bottom of the vertical agent card. */
+export const VERTICAL_CAPABILITY_BAR_HEIGHT = 36
+export const VERTICAL_TOOL_NODE_WIDTH = 208
+export const VERTICAL_TOOL_NODE_HEIGHT = 40
 export const TOOL_PALETTE_ID = 'aw-tool'
 export const MCP_TOOL_PALETTE_ID = 'aw-mcp-tool'
 export const SKILL_PALETTE_ID = 'aw-skill'
@@ -293,6 +310,7 @@ export function defaultConnectorConfig(): ConnectorConfig {
 }
 
 export function enrichAgentNode(node: DiagramNode, item: PaletteItem): DiagramNode {
+  if (isFlowBoundaryNode(node)) return enrichFlowBoundaryNode(node)
   if (node.agent) return node
   if (!node.paletteId.startsWith('aw-')) return node
   const isTool = isAlwaysChildPalette(node.paletteId) || Boolean(node.mappedAgentId)
@@ -304,32 +322,58 @@ export function enrichAgentNode(node: DiagramNode, item: PaletteItem): DiagramNo
   }
 }
 
+function isChildFlowNode(node: DiagramNode): boolean {
+  return isAlwaysChildPalette(node.paletteId) || Boolean(node.mappedAgentId)
+}
+
+/** Card size for an agent / tool / executor node in the given orientation. */
+export function flowNodeSize(
+  node: DiagramNode,
+  direction?: FlowDirection,
+): { width: number; height: number } {
+  const vertical = resolveFlowDirection(direction) === 'vertical'
+  if (isChildFlowNode(node)) {
+    if (vertical) return { width: VERTICAL_TOOL_NODE_WIDTH, height: VERTICAL_TOOL_NODE_HEIGHT }
+    // Horizontal tools may be resized larger; anything smaller (incl. the vertical strip) resets.
+    return node.width && node.height && node.width >= TOOL_NODE_WIDTH && node.height >= TOOL_NODE_HEIGHT
+      ? { width: node.width, height: node.height }
+      : { width: TOOL_NODE_WIDTH, height: TOOL_NODE_HEIGHT }
+  }
+  if (!vertical) return { width: AGENT_NODE_WIDTH, height: AGENT_NODE_HEIGHT }
+  const executor = node.paletteId === EXECUTOR_PALETTE_ID || node.agent?.agentType === 'executor'
+  return {
+    width: VERTICAL_AGENT_NODE_WIDTH,
+    height: executor ? VERTICAL_EXECUTOR_NODE_HEIGHT : VERTICAL_AGENT_NODE_HEIGHT,
+  }
+}
+
+/** Snap an enriched agent-workflow node to its card size; returns the same node when unchanged. */
+export function sizeFlowNode(node: DiagramNode, direction?: FlowDirection): DiagramNode {
+  if (!node.agent || !node.paletteId?.startsWith('aw-') || isFlowBoundaryNode(node)) return node
+  const { width, height } = flowNodeSize(node, direction)
+  if (width === node.width && height === node.height) return node
+  return { ...node, width, height }
+}
+
 export function enrichDiagram(diagram: Diagram, paletteById: Map<string, PaletteItem>): Diagram {
   let nodesChanged = false
   const nodes = diagram.nodes.map((node) => {
-    if (!node.paletteId?.startsWith('aw-')) return node
-    const isTool = isAlwaysChildPalette(node.paletteId) || Boolean(node.mappedAgentId)
-    const minW = isTool ? TOOL_NODE_WIDTH : AGENT_NODE_WIDTH
-    const minH = isTool ? TOOL_NODE_HEIGHT : AGENT_NODE_HEIGHT
-    if (node.agent) {
-      // Keep agent bodies on the compact card size (docks hang outside the box).
-      const width = isTool
-        ? !node.width || node.width < minW
-          ? minW
-          : node.width
-        : AGENT_NODE_WIDTH
-      const height = isTool
-        ? !node.height || node.height < minH
-          ? minH
-          : node.height
-        : AGENT_NODE_HEIGHT
-      if (width === node.width && height === node.height) return node
+    if (isFlowBoundaryNode(node)) {
+      const next = enrichFlowBoundaryNode(node)
+      if (next === node && !node.agent) return node
       nodesChanged = true
-      return { ...node, width, height }
+      return next
+    }
+    if (!node.paletteId?.startsWith('aw-')) return node
+    if (node.agent) {
+      const next = sizeFlowNode(node, diagram.direction)
+      if (next === node) return node
+      nodesChanged = true
+      return next
     }
     const item = paletteById.get(node.paletteId)
     if (!item) return node
-    const next = enrichAgentNode({ ...node, width: minW, height: minH }, item)
+    const next = enrichAgentNode({ ...node, ...flowNodeSize(node, diagram.direction) }, item)
     if (next === node) return node
     nodesChanged = true
     return next
@@ -356,6 +400,7 @@ export function enrichDiagram(diagram: Diagram, paletteById: Map<string, Palette
 
   if (!nodesChanged && !edgesChanged) return diagram
   return {
+    ...diagram,
     nodes: nodesChanged ? nodes : diagram.nodes,
     edges: edgesChanged ? edges : diagram.edges,
   }

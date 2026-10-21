@@ -1,5 +1,5 @@
 import { memo, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
-import { ChevronLeft, GitBranch, Info, PanelRightClose } from 'lucide-react'
+import { ChevronLeft, Flag, GitBranch, Info, PanelRightClose, Play, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
@@ -11,6 +11,10 @@ import { ToolConfigPanel } from '@/components/agent-workflow/ToolConfigPanel'
 import { SubWorkflowConfigPanel } from '@/components/agent-workflow/SubWorkflowConfigPanel'
 import { WorkflowSettingsPanel } from '@/components/agent-workflow/WorkflowSettingsPanel'
 import { ExecutionSidebarPanel } from '@/components/agent-workflow/ExecutionSidebarPanel'
+import {
+  GenerateWorkflowChat,
+  type GenerateChatMessage,
+} from '@/components/agent-workflow/GenerateWorkflowChat'
 import type {
   AgentCapability,
   AgentCapabilityKind,
@@ -22,18 +26,22 @@ import {
   isToolNode,
 } from '@/components/agent-workflow/tool-agent-mapping'
 import { isSubWorkflowNode } from '@/components/agent-workflow/sub-workflow-ops'
+import { isFlowBoundaryNode, isStartFlowNode } from '@/components/agent-workflow/workflow-flow-nodes'
 import { SIDE_PANEL_COLLAPSED_WIDTH } from '@/components/agent-workflow/panel-layout'
 import type { Selection } from '@/components/designer/selection-utils'
 import type { Diagram, DiagramDocument, DiagramEdge, DiagramNode } from '@/components/designer/diagram-types'
 import type {
   AgentWorkflowMeta,
   ExecutionTraceStep,
+  WorkflowChatMessage,
   WorkflowExecutionEvent,
   WorkflowExecutionType,
   WorkflowRunState,
   WorkflowRunStatus,
 } from '@/types/agent-workflow'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
+import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
+import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
 import { cn } from '@/utils/cn'
 
 interface ExecutionSidebarOptions {
@@ -50,6 +58,7 @@ interface ExecutionSidebarOptions {
   onSubmitFeedback?: (value: string) => void
   stepOutputs?: Record<string, string>
   trace?: ExecutionTraceStep[]
+  messages?: WorkflowChatMessage[]
   finalResponse?: string | null
   errors?: WorkflowExecutionEvent[]
   onShowDetails?: () => void
@@ -61,6 +70,17 @@ interface AttachCapabilityOptions {
   initialKind: AgentCapabilityKind
   attachedIds: string[]
   onAttach: (capability: AgentCapability) => void
+  onClose: () => void
+}
+
+interface GenerateChatOptions {
+  messages: GenerateChatMessage[]
+  onMessagesChange: (updater: (previous: GenerateChatMessage[]) => GenerateChatMessage[]) => void
+  model: GenerateWorkflowModel
+  onModelChange: (model: GenerateWorkflowModel) => void
+  ollamaBaseUrl: string
+  replacesCanvas: boolean
+  onGenerated: (plan: WorkflowGenerationPlan) => void
   onClose: () => void
 }
 
@@ -88,6 +108,8 @@ interface AgentPropertiesShellProps {
   embedded?: boolean
   execution?: ExecutionSidebarOptions
   attachCapability?: AttachCapabilityOptions | null
+  /** When set, the panel shows the Generate chat instead of details / execution. */
+  generate?: GenerateChatOptions | null
 }
 
 export const AgentPropertiesShell = memo(function AgentPropertiesShell({
@@ -110,9 +132,10 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   execution,
   attachCapability = null,
   embedded = false,
+  generate = null,
 }: AgentPropertiesShellProps) {
   const workflowMeta = doc.workflow
-  const modelConfig = serverModelConfig
+  const modelConfig = workflowMeta?.modelConfig ?? serverModelConfig
   const attaching = Boolean(attachCapability) && !executionPanelOpen
 
   const selectedNode: DiagramNode | undefined =
@@ -160,6 +183,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
       onOpenSubWorkflow={onOpenSubWorkflow}
       workflowMeta={workflowMeta}
       modelConfig={modelConfig}
+      serverModelConfig={serverModelConfig}
       onWorkflowMetaChange={onWorkflowMetaChange}
       onModelConfigChange={onModelConfigChange}
       llmConfigured={llmConfigured}
@@ -188,7 +212,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
         </div>
         <div className="flex flex-1 items-center justify-center">
           <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground [writing-mode:vertical-rl]">
-            {executionPanelOpen ? 'Run' : attaching ? 'Attach' : 'Panel'}
+            {generate ? 'AI' : executionPanelOpen ? 'Run' : attaching ? 'Attach' : 'Panel'}
           </span>
         </div>
       </aside>
@@ -214,7 +238,19 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-3 py-2">
           <div className="min-w-0 flex-1">
-            {executionPanelOpen ? (
+            {generate ? (
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-400">
+                  <Sparkles className="h-3.5 w-3.5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold leading-tight text-foreground">Workflow AI</p>
+                  <p className="truncate text-[11px] leading-tight text-muted-foreground">
+                    Describe a workflow and it's drafted onto the canvas
+                  </p>
+                </div>
+              </div>
+            ) : executionPanelOpen ? (
               <TooltipProvider delayDuration={200}>
                 <div className="flex items-center gap-1.5">
                   <p className="truncate text-sm font-semibold text-foreground">Execution</p>
@@ -246,6 +282,18 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
               </>
             )}
           </div>
+          {generate && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={generate.onClose}
+              aria-label="Close Workflow AI"
+              title="Close"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
           {!embedded && (
             <Button
               variant="ghost"
@@ -260,8 +308,22 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden">
-          {executionPanelOpen ? (
+        <div className="min-h-0 w-full min-w-0 flex-1 overflow-hidden">
+          {generate ? (
+            <GenerateWorkflowChat
+              messages={generate.messages}
+              onMessagesChange={generate.onMessagesChange}
+              model={generate.model}
+              onModelChange={generate.onModelChange}
+              serverModel={serverModelConfig.model}
+              ollamaBaseUrl={generate.ollamaBaseUrl}
+              pages={doc.pages}
+              activePageId={doc.activePageId}
+              llmConfigured={llmConfigured}
+              replacesCanvas={generate.replacesCanvas}
+              onGenerated={generate.onGenerated}
+            />
+          ) : executionPanelOpen ? (
             execution ? (
               <ExecutionSidebarPanel
                 testInput={execution.testInput}
@@ -277,6 +339,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 onSubmitFeedback={execution.onSubmitFeedback}
                 stepOutputs={execution.stepOutputs}
                 trace={execution.trace}
+                messages={execution.messages}
                 finalResponse={execution.finalResponse}
                 errors={execution.errors}
                 onShowDetails={execution.onShowDetails}
@@ -314,6 +377,7 @@ function DetailsPanelContent({
   onOpenSubWorkflow,
   workflowMeta,
   modelConfig,
+  serverModelConfig,
   onWorkflowMetaChange,
   onModelConfigChange,
   llmConfigured,
@@ -332,6 +396,7 @@ function DetailsPanelContent({
   onOpenSubWorkflow?: (pageId: string) => void
   workflowMeta?: AgentWorkflowMeta
   modelConfig: WorkflowModelConfig
+  serverModelConfig: WorkflowModelConfig
   onWorkflowMetaChange?: (patch: Partial<AgentWorkflowMeta>) => void
   onModelConfigChange?: (patch: Partial<WorkflowModelConfig>) => void
   llmConfigured: boolean
@@ -346,6 +411,10 @@ function DetailsPanelContent({
         onConvert={onConvertToSubWorkflow}
       />
     )
+  }
+
+  if (selection?.kind === 'node' && selectedNode && isFlowBoundaryNode(selectedNode)) {
+    return <FlowBoundaryState node={selectedNode} diagram={diagram} />
   }
 
   if (selection?.kind === 'node' && selectedNode && isSubWorkflowNode(selectedNode)) {
@@ -388,14 +457,45 @@ function DetailsPanelContent({
         onWorkflowMetaChange?.({ executionType: type })
       }
       modelConfig={modelConfig}
+      serverModelConfig={serverModelConfig}
       onModelConfigChange={onModelConfigChange}
-      modelConfigReadOnly
+      modelConfigReadOnly={!onModelConfigChange}
       llmConfigured={llmConfigured}
       workflowId={workflowMeta?.workflowId ?? '—'}
       pageCount={doc.pages.length}
       nodeCount={diagram.nodes.length}
       edgeCount={diagram.edges.length}
     />
+  )
+}
+
+function FlowBoundaryState({ node, diagram }: { node: DiagramNode; diagram: Diagram }) {
+  const start = isStartFlowNode(node)
+  const Icon = start ? Play : Flag
+  const linkedId = start
+    ? diagram.edges.find((edge) => edge.from === node.id)?.to
+    : diagram.edges.find((edge) => edge.to === node.id)?.from
+  const linkedLabel = linkedId ? diagram.nodes.find((item) => item.id === linkedId)?.label : undefined
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+        <Icon className={cn('h-5 w-5', start && 'ml-0.5 fill-current')} />
+      </div>
+      <p className="text-sm font-medium text-foreground">
+        {start ? 'Workflow entry' : 'Workflow completion'}
+      </p>
+      <p className="mt-1.5 max-w-[240px] text-xs leading-relaxed text-muted-foreground">
+        {start
+          ? 'The agent or executor connected from Start runs first.'
+          : 'Connect the final step into End to mark where the workflow completes.'}
+      </p>
+      <p className="mt-4 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+        {linkedLabel
+          ? `${start ? 'Starts with' : 'Ends after'} ${linkedLabel}`
+          : 'Not connected yet'}
+      </p>
+    </div>
   )
 }
 

@@ -2,6 +2,7 @@ import type { Diagram, DiagramEdge, DiagramNode } from '@/components/designer/di
 import type { ExecutionPlanStep } from '@/types/agent-workflow'
 import { resolveAgentType } from '@/components/agent-workflow/agent-workflow-defaults'
 import { listAgentNodes, listToolsForAgent } from '@/components/agent-workflow/tool-agent-mapping'
+import { resolveStartAgentId } from '@/components/agent-workflow/workflow-start'
 
 function agentEdges(diagram: Diagram): DiagramEdge[] {
   const agentIds = new Set(listAgentNodes(diagram).map((node) => node.id))
@@ -52,8 +53,11 @@ function buildOrderedPlan(diagram: Diagram, agents: DiagramNode[]): ExecutionPla
   agents.forEach((agent) => inDegree.set(agent.id, 0))
   edges.forEach((edge) => inDegree.set(edge.to, (inDegree.get(edge.to) ?? 0) + 1))
 
-  const queue = agents.filter((agent) => (inDegree.get(agent.id) ?? 0) === 0)
-  if (queue.length === 0) queue.push(agents[0])
+  const startId = resolveStartAgentId(diagram)
+  const startAgent = startId ? agents.find((agent) => agent.id === startId) : undefined
+  let queue = agents.filter((agent) => (inDegree.get(agent.id) ?? 0) === 0)
+  if (startAgent) queue = [startAgent]
+  else if (queue.length === 0) queue.push(agents[0])
 
   const visited = new Set<string>()
   const ordered = [...queue]

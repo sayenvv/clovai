@@ -38,6 +38,22 @@
   ],
   "blocks": [
     {
+      "id": "start",
+      "paletteId": "aw-start",
+      "label": "Start",
+      "description": "Workflow entry — connect to your first agent.",
+      "agentType": "trigger",
+      "toolCount": 0
+    },
+    {
+      "id": "end",
+      "paletteId": "aw-end",
+      "label": "End",
+      "description": "Workflow completion — connect from the last step.",
+      "agentType": "output",
+      "toolCount": 0
+    },
+    {
       "id": "agent",
       "paletteId": "aw-agent",
       "label": "Agent",

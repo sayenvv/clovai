@@ -127,9 +127,25 @@ export interface DiagramEdge {
   connector?: ConnectorConfig
 }
 
+/** Which way an agent workflow flows on the canvas. */
+export type FlowDirection = 'horizontal' | 'vertical'
+
 export interface Diagram {
   nodes: DiagramNode[]
   edges: DiagramEdge[]
+  /** Agent workflow orientation; defaults to horizontal (left → right). */
+  direction?: FlowDirection
+}
+
+export function resolveFlowDirection(direction?: FlowDirection): FlowDirection {
+  return direction ?? 'horizontal'
+}
+
+/** Port sides a flow connector uses for the given orientation. */
+export function flowPortSides(direction?: FlowDirection): { fromSide: PortSide; toSide: PortSide } {
+  return resolveFlowDirection(direction) === 'vertical'
+    ? { fromSide: 'bottom', toSide: 'top' }
+    : { fromSide: 'right', toSide: 'left' }
 }
 
 export type WorkflowPageKind = 'main' | 'sub'
@@ -163,6 +179,7 @@ type StoredEdge = Omit<DiagramEdge, 'fromSide' | 'toSide'> & Partial<DiagramEdge
 export interface StoredDiagram {
   nodes?: DiagramNode[]
   edges?: StoredEdge[]
+  direction?: FlowDirection
 }
 
 interface StoredPage {
@@ -189,7 +206,11 @@ export function normalizeDiagram(parsed: StoredDiagram): Diagram {
     toSide: edge.toSide ?? 'left',
     routing: resolveEdgeRouting(edge.routing),
   }))
-  return { nodes: parsed.nodes ?? [], edges }
+  return {
+    nodes: parsed.nodes ?? [],
+    edges,
+    ...(parsed.direction ? { direction: parsed.direction } : {}),
+  }
 }
 
 let pageCounter = 0

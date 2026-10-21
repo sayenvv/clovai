@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Rocket, Save, ShieldCheck, Sparkles } from 'lucide-react'
+import { MessageSquareText, Rocket, Save, ShieldCheck, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -8,6 +8,10 @@ import { Logo, LOGO_SIZE_WORKSPACE } from '@/components/shared/Logo'
 import type { DeploymentStatus } from '@/types/agent-workflow'
 import { APP_NAME } from '@/constants'
 import { getSession } from '@/services/project-auth-store'
+
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+/** Shortcut label for opening the AI chat (handled by the page). */
+const ASK_AI_SHORTCUT_LABEL = IS_MAC ? '⌘K' : 'Ctrl K'
 
 interface AgentWorkflowHeaderProps {
   workflowName: string
@@ -19,6 +23,7 @@ interface AgentWorkflowHeaderProps {
   onSave: () => void
   onValidate: () => void
   onDeploy: () => void
+  /** Opens the Workflow AI chat. */
   onGenerate?: () => void
   isValidated: boolean
   onNavigateHome?: () => void
@@ -110,15 +115,31 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
 
       <div className="flex shrink-0 items-center gap-1 overflow-x-auto sm:gap-1.5">
         {onGenerate ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onGenerate}
-            className="border-red-500/25 bg-gradient-to-r from-red-500/[0.08] to-rose-500/[0.06] text-red-700 hover:from-red-500/[0.12] hover:to-rose-500/[0.1] dark:text-red-300"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Generate</span>
-          </Button>
+          <>
+            <button
+              type="button"
+              onClick={onGenerate}
+              className="mr-1 hidden h-8 w-56 items-center gap-2 rounded-lg border border-border bg-background/70 pl-2.5 pr-1.5 text-left text-xs text-muted-foreground shadow-sm transition-colors hover:border-foreground/20 hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex lg:w-72"
+              aria-label="Ask Workflow AI"
+              aria-keyshortcuts="Meta+K Control+K"
+              title={`Ask Workflow AI (${ASK_AI_SHORTCUT_LABEL})`}
+            >
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-red-600 dark:text-red-400" />
+              <span className="min-w-0 flex-1 truncate">Ask AI to build a workflow…</span>
+              <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-px font-sans text-[10px] font-medium text-muted-foreground">
+                {ASK_AI_SHORTCUT_LABEL}
+              </kbd>
+            </button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onGenerate}
+              className="md:hidden"
+              aria-label="Ask Workflow AI"
+            >
+              <MessageSquareText className="h-3.5 w-3.5" />
+            </Button>
+          </>
         ) : null}
         <Button variant="ghost" size="sm" onClick={onSave} className="hidden md:inline-flex">
           <Save className="h-3.5 w-3.5" />

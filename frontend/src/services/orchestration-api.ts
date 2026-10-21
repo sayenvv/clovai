@@ -7,12 +7,65 @@ export interface OrchestrationIdentity {
   userId: string
 }
 
+export interface ExecutionStepDetail {
+  id?: string
+  message?: string
+  status?: string
+  complete?: boolean
+  mark?: string
+  detail?: string
+}
+
 export interface ExecutionLogEvent {
   event: string
-  step?: string
   status?: string
   message?: string
-  detail?: unknown
+  agentId?: string
+  agent?: string
+  /** True when `message` is a streamed piece of the agent's open turn. */
+  delta?: boolean
+  kind?: 'reasoning'
+  title?: string
+  steps?: ExecutionStepDetail[]
+  result?: {
+    execution?: {
+      outputs?: unknown
+    }
+  }
+}
+
+let integrationIdPromise: Promise<string> | null = null
+
+async function aiIntegrationId(): Promise<string> {
+  const configured = (import.meta.env.VITE_AI_INTEGRATION_ID as string | undefined)?.trim()
+  if (configured) return configured
+  if (!integrationIdPromise) {
+    integrationIdPromise = loadAiIntegrationId().catch((error: unknown) => {
+      integrationIdPromise = null
+      throw error
+    })
+  }
+  return integrationIdPromise
+}
+
+async function loadAiIntegrationId(): Promise<string> {
+  const response = await authorizedFetch('/api/v1/applications')
+  if (!response.ok) throw new Error(await errorMessage(response))
+  const rows = (await response.json()) as Array<{ ai_integration_id?: unknown }>
+  const id = rows.find((row) => typeof row.ai_integration_id === 'string')?.ai_integration_id
+  if (typeof id !== 'string' || !id) {
+    throw new Error('No AI integration is configured for this workspace.')
+  }
+  return id
+}
+
+function tracingHeaders(aiIntegrationId: string): Record<string, string> {
+  const requestId = crypto.randomUUID()
+  return {
+    'X-Request-Id': requestId,
+    'X-Correlation-Id': requestId,
+    'X-AI-Integration-Id': aiIntegrationId,
+  }
 }
 
 export function orchestrationIdentity(tabId: string): OrchestrationIdentity {
@@ -57,7 +110,7 @@ export async function saveOrchestration(input: {
   document: Record<string, unknown>
 }): Promise<{ id: string }> {
   const response = await authorizedFetch('/api/v1/workflows', {
-    method: 'POST',
+    method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
     },
@@ -66,35 +119,12 @@ export async function saveOrchestration(input: {
       tabId: input.identity.tabId,
       userId: input.identity.userId,
       name: input.name ?? '',
-      description: input.description ?? '',
       document: input.document,
     }),
   })
   if (!response.ok) throw new Error(await errorMessage(response))
   const body = (await response.json()) as { id: string }
   return body
-}
-
-export async function validateOrchestration(input: {
-  identity: OrchestrationIdentity
-  inputs?: Record<string, unknown>
-  env?: Record<string, unknown>
-}): Promise<{ schema_version: string; workflow: Record<string, unknown> }> {
-  const response = await authorizedFetch('/api/v1/validate', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      workspaceId: input.identity.workspaceId,
-      tabId: input.identity.tabId,
-      userId: input.identity.userId,
-      inputs: input.inputs ?? {},
-      env: input.env ?? {},
-    }),
-  })
-  if (!response.ok) throw new Error(await errorMessage(response))
-  return response.json() as Promise<{ schema_version: string; workflow: Record<string, unknown> }>
 }
 
 export async function executeOrchestration(input: {
@@ -107,12 +137,13 @@ export async function executeOrchestration(input: {
     headers: {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
+      ...(await tracingHeaders(await aiIntegrationId())),
     },
     body: JSON.stringify({
       workspaceId: input.identity.workspaceId,
       tabId: input.identity.tabId,
-      userId: input.identity.userId,
       inputs: input.inputs ?? {},
+      events: true,
     }),
   })
   if (!response.ok) throw new Error(await errorMessage(response))

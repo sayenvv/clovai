@@ -15,20 +15,25 @@ import { NodeShape } from './NodeShape'
 import { AgentNodeCard, AGENT_DOCK_SLOTS } from '@/components/agent-workflow/AgentNodeCard'
 import type { AgentAttachAction, MappedChildCounts } from '@/components/agent-workflow/AgentNodeCard'
 import {
-  AGENT_NODE_HEIGHT,
-  AGENT_NODE_WIDTH,
-  TOOL_NODE_HEIGHT,
-  TOOL_NODE_WIDTH,
+  VERTICAL_CAPABILITY_BAR_HEIGHT,
   childKindForPalette,
+  flowNodeSize,
   isMappedToolPalette,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { edgeNeedsApprovalStyle } from '@/components/agent-workflow/validate-workflow'
 import {
   agentNodeSize,
   curvedAttachmentPath,
+  curvedSideAttachmentPath,
   isToolNode,
   toolNodeSize,
 } from '@/components/agent-workflow/tool-agent-mapping'
+import {
+  canConnectFromFlowNode,
+  canConnectToFlowNode,
+  isFlowBoundaryNode,
+} from '@/components/agent-workflow/workflow-flow-nodes'
+import { FlowBoundaryCard } from '@/components/agent-workflow/FlowBoundaryCard'
 import { resolveEdgeColors } from './diagram-colors'
 import { connectorLabelWidth, formatConnectorLabel } from './connector-label'
 import {
@@ -41,6 +46,7 @@ import {
   resolveEdgeRouting,
   getNodeSize,
   clampNodeSize,
+  flowPortSides,
   nearestSide,
   nodeRouteObstacle,
   nodeSize,
@@ -48,6 +54,7 @@ import {
   portPoint,
   PORT_SIDES,
   resizeAspect,
+  resolveFlowDirection,
   resolveNodeStyle,
   type Diagram,
   type DiagramEdge,
@@ -84,6 +91,7 @@ function resolvePortShape(
   item: PaletteItem,
   agentMode: boolean,
 ): PaletteShape {
+  if (agentMode && isFlowBoundaryNode(node)) return 'terminator'
   if (agentMode && node.paletteId.startsWith('aw-')) return 'process'
   return resolveNodeStyle(node, item).shape
 }
@@ -153,6 +161,12 @@ function findPortAtWorld(
 
 function isConnectableTarget(node: DiagramNode, agentMode: boolean): boolean {
   if (agentMode && isToolNode(node)) return false
+  if (agentMode && !canConnectToFlowNode(node, agentMode)) return false
+  return true
+}
+
+function isConnectableSource(node: DiagramNode, agentMode: boolean): boolean {
+  if (agentMode && !canConnectFromFlowNode(node, agentMode)) return false
   return true
 }
 
@@ -285,6 +299,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   onUndo,
   onRedo,
 }: DesignerCanvasProps) {
+  const flowDirection = agentMode ? resolveFlowDirection(diagram.direction) : 'horizontal'
   const containerRef = useRef<HTMLDivElement>(null)
   const { isDark } = useTheme()
   const sessionRef = useRef<DragSession>(null)
@@ -377,17 +392,26 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       if (from.nodeId === toNodeId) return
       let createdId: string | null = null
       onChange((previous) => {
+        const fromNode = previous.nodes.find((candidate) => candidate.id === from.nodeId)
+        const toNode = previous.nodes.find((candidate) => candidate.id === toNodeId)
+        if (
+          agentMode &&
+          fromNode &&
+          toNode &&
+          (!canConnectFromFlowNode(fromNode, agentMode) ||
+            !canConnectToFlowNode(toNode, agentMode))
+        ) {
+          return previous
+        }
         const exists = previous.edges.some(
           (candidate) => candidate.from === from.nodeId && candidate.to === toNodeId,
         )
         if (exists) return previous
-        const sides = resolveConnectionSides(
-          previous.nodes,
-          from.nodeId,
-          toNodeId,
-          from.side,
-          fixedToSide,
-        )
+        // Agent workflows connect along the flow orientation regardless of the grabbed port.
+        const sides =
+          agentMode && fromNode && toNode && !isToolNode(fromNode) && !isToolNode(toNode)
+            ? flowPortSides(previous.direction)
+            : resolveConnectionSides(previous.nodes, from.nodeId, toNodeId, from.side, fixedToSide)
         createdId = nextId('edge')
         const edge: DiagramEdge = {
           id: createdId,
@@ -678,6 +702,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     // Completing a pending connection — snap to the best facing port on the target.
     if (connectFrom && connectFrom.nodeId !== node.id) {
       if (agentMode && isToolNode(node)) return
+      if (agentMode && !isConnectableTarget(node, agentMode)) return
       addEdge(connectFrom, node.id)
       return
     }
@@ -753,6 +778,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       addEdge(connectFrom, node.id, side)
       return
     }
+
+    if (agentMode && !isConnectableSource(node, agentMode)) return
 
     containerRef.current?.setPointerCapture(event.pointerId)
     setConnectFrom({ nodeId: node.id, side })
@@ -1027,9 +1054,18 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     const world = toWorld(event.clientX, event.clientY)
     const { width, height } =
       agentMode && paletteId.startsWith('aw-')
-        ? isMappedToolPalette(paletteId)
-          ? { width: TOOL_NODE_WIDTH, height: TOOL_NODE_HEIGHT }
-          : { width: AGENT_NODE_WIDTH, height: AGENT_NODE_HEIGHT }
+        ? flowNodeSize(
+            {
+              id: '',
+              paletteId,
+              label: item.label,
+              x: 0,
+              y: 0,
+              // Dropped capabilities are sized as children before they snap to an agent.
+              ...(isMappedToolPalette(paletteId) ? { mappedAgentId: 'pending' } : {}),
+            },
+            flowDirection,
+          )
         : nodeSize(item.shape)
     let node: DiagramNode = transformDroppedNode
       ? transformDroppedNode(
@@ -1139,6 +1175,15 @@ export const DesignerCanvas = memo(function DesignerCanvas({
             ? 'knowledge'
             : 'tool'
       const slot = AGENT_DOCK_SLOTS.find((item) => item.id === dockId) ?? AGENT_DOCK_SLOTS[2]
+      if (flowDirection === 'vertical') {
+        // Leave the card at its capability bar, on the side facing the tool column.
+        const from = {
+          x: agent.x + agentSize.width,
+          y: agent.y + agentSize.height - VERTICAL_CAPABILITY_BAR_HEIGHT / 2,
+        }
+        const to = { x: node.x, y: node.y + toolSize.height / 2 }
+        return [{ id: `map-${node.id}`, d: curvedSideAttachmentPath(from, to) }]
+      }
       const from = {
         x: agent.x + agentSize.width * slot.x,
         y: agent.y + agentSize.height,
@@ -1149,7 +1194,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       }
       return [{ id: `map-${node.id}`, d: curvedAttachmentPath(from, to) }]
     })
-  }, [agentMode, diagram.nodes, nodesById])
+  }, [agentMode, diagram.nodes, nodesById, flowDirection])
 
   const renderedEdges = useMemo(() => {
     const items = diagram.edges.flatMap((edge) => {
@@ -1353,6 +1398,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               : selectedEdge.toSide
             : null
           const toolNode = agentMode && isToolNode(node)
+          const flowBoundary = agentMode && isFlowBoundaryNode(node)
           const mappedUnderLabel =
             toolNode && node.mappedAgentId
               ? agentLabelsById.get(node.mappedAgentId)
@@ -1370,12 +1416,19 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               style={{ left: node.x, top: node.y, width, height }}
               onPointerDown={(event) => handleNodePointerDown(event, node)}
               onDoubleClick={(event) => {
-                if (selectionDisabled) return
+                if (selectionDisabled || flowBoundary) return
                 event.stopPropagation()
                 setEditingNodeId(node.id)
               }}
             >
-              {agentMode && node.agent ? (
+              {agentMode && flowBoundary ? (
+                <FlowBoundaryCard
+                  node={node}
+                  isSelected={isSelected}
+                  direction={flowDirection}
+                  className="cursor-inherit"
+                />
+              ) : agentMode && node.agent ? (
                 <AgentNodeCard
                   node={node}
                   item={item}
@@ -1384,6 +1437,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   mappedUnderLabel={mappedUnderLabel}
                   mappedChildren={mappedChildrenByAgentId.get(node.id)}
                   onAttachAction={onNodeAttachAction}
+                  direction={flowDirection}
                   className="cursor-inherit h-full w-full"
                 />
               ) : (
@@ -1413,12 +1467,15 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 />
               )}
 
-              {/* Connection vertices — L/R always on; T/B on hover */}
+              {/* Connection vertices — flow-axis ports always on; cross-axis ports on hover */}
               {!toolNode && !isSelected && !isEdgeEndpoint &&
                 PORT_SIDES.map((side) => {
                   const anchor = portAnchor(portShape, side)
                   const isSnap = isSnapNode && snapTarget?.side === side
-                  const isFlowSide = side === 'left' || side === 'right'
+                  const isFlowSide =
+                    flowDirection === 'vertical'
+                      ? side === 'top' || side === 'bottom'
+                      : side === 'left' || side === 'right'
                   return (
                     <button
                       key={side}
@@ -1437,8 +1494,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                                 : 'h-2 w-2 opacity-0 group-hover/node:opacity-100',
                               'hover:scale-125 hover:border-primary hover:bg-primary/20',
                               isConnectTarget && 'opacity-100 scale-125 border-primary',
-                              (side === 'left' || side === 'right') &&
-                                'shadow-[0_0_0_2px_hsl(var(--card))]',
+                              isFlowSide && 'shadow-[0_0_0_2px_hsl(var(--card))]',
                             )
                           : cn(
                               'h-2.5 w-2.5 border-2 border-background bg-muted-foreground/60 opacity-0',

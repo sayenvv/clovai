@@ -8,7 +8,7 @@ import {
   resolveExternalAgent,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { AgentNodeAvatar } from '@/components/agent-workflow/external-agent-ui'
-import type { DiagramNode } from '@/components/designer/diagram-types'
+import { resolveFlowDirection, type DiagramNode, type FlowDirection } from '@/components/designer/diagram-types'
 
 const TYPE_LABELS: Record<string, string> = {
   llm: 'LLM Agent',
@@ -33,6 +33,8 @@ interface ExecutionAgentNodeProps {
   isCompleted: boolean
   isWaiting: boolean
   isPending: boolean
+  /** Vertical flow: compact card sized to the routing box, ports top / bottom. */
+  direction?: FlowDirection
 }
 
 export const ExecutionAgentNode = memo(function ExecutionAgentNode({
@@ -44,7 +46,9 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
   isCompleted,
   isWaiting,
   isPending,
+  direction,
 }: ExecutionAgentNodeProps) {
+  const vertical = resolveFlowDirection(direction) === 'vertical'
   const agent = node.agent
   const externalAgent = resolveExternalAgent(node.paletteId)
   const typeLabel = externalAgent
@@ -70,6 +74,7 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
     <div
       className={cn(
         'relative flex w-full flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm',
+        vertical && 'h-full',
         'transition-[border-color,box-shadow] duration-300',
         isRunning && 'border-primary/70 shadow-lg ring-2 ring-primary/40',
         isWaiting && 'border-amber-500/50 ring-1 ring-amber-500/20',
@@ -100,16 +105,30 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
       />
 
       {/* Port dots sit at the routing box midpoint so they meet the drawn edges. */}
-      <span
-        className="absolute left-0 z-10 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background"
-        style={{ top: AGENT_NODE_HEIGHT / 2 }}
-      />
-      <span
-        className="absolute right-0 z-10 h-2 w-2 translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background"
-        style={{ top: AGENT_NODE_HEIGHT / 2 }}
-      />
+      {vertical ? (
+        <>
+          <span className="absolute left-1/2 top-0 z-10 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background" />
+          <span className="absolute bottom-0 left-1/2 z-10 h-2 w-2 -translate-x-1/2 translate-y-1/2 rounded-full border border-border bg-background" />
+        </>
+      ) : (
+        <>
+          <span
+            className="absolute left-0 z-10 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background"
+            style={{ top: AGENT_NODE_HEIGHT / 2 }}
+          />
+          <span
+            className="absolute right-0 z-10 h-2 w-2 translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background"
+            style={{ top: AGENT_NODE_HEIGHT / 2 }}
+          />
+        </>
+      )}
 
-      <div className="flex items-start gap-2.5 border-b border-border/60 bg-muted/40 px-3 pb-2.5 pt-3">
+      <div
+        className={cn(
+          'flex items-start gap-2.5 bg-muted/40 px-3 pb-2.5 pt-3',
+          vertical ? 'flex-1 items-center' : 'border-b border-border/60',
+        )}
+      >
         <AgentNodeAvatar
           paletteId={node.paletteId}
           size="md"
@@ -132,6 +151,12 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
             >
               {statusLabel}
             </Badge>
+            {vertical ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+                <Wrench className="h-3 w-3" />
+                {toolCount}
+              </span>
+            ) : null}
             {agent?.humanInTheLoop ? (
               <Badge
                 variant="outline"
@@ -153,17 +178,19 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 px-3 py-2.5">
-        <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
-          {agent?.description || 'Agent step in the workflow execution graph.'}
-        </p>
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-0.5">
-          <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-            <Wrench className="h-3 w-3" />
-            {toolCount} tool{toolCount === 1 ? '' : 's'}
-          </span>
+      {!vertical && (
+        <div className="flex flex-1 flex-col gap-2 px-3 py-2.5">
+          <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+            {agent?.description || 'Agent step in the workflow execution graph.'}
+          </p>
+          <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-0.5">
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              <Wrench className="h-3 w-3" />
+              {toolCount} tool{toolCount === 1 ? '' : 's'}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 })

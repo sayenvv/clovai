@@ -2,6 +2,8 @@ import type { Diagram, DiagramDocument, DiagramNode } from '@/components/designe
 import { resolvedAgentHitl } from '@/components/agent-workflow/agent-hitl'
 import { resolveAgentType } from '@/components/agent-workflow/agent-workflow-defaults'
 import { inferWorkflowType } from '@/components/agent-workflow/validate-workflow'
+import { OLLAMA_DEFAULT_URL, isLocalModel } from '@/components/agent-workflow/workflow-model-config'
+import { resolveStartAgentId } from '@/components/agent-workflow/workflow-start'
 import {
   childKindForPalette,
   isAgentNode,
@@ -124,12 +126,35 @@ export function buildOrchestrationDocument(input: {
         )
       : undefined
   const participants = planner ? agents.filter((node) => node.id !== planner.id) : agents
+  const wiredStartId = resolveStartAgentId(input.diagram)
+  const startAgentId =
+    (wiredStartId && agents.some((node) => node.id === wiredStartId) ? wiredStartId : null) ??
+    planner?.id ??
+    agents[0]?.id ??
+    ''
   const hitlSteps = humanApprovalSteps(input.diagram, agents, planner)
   const hitl =
     executionType === 'human-in-the-loop' ||
     hitlSteps.length > 0
   const primary = agents[0]?.agent
-  const model = '${OPENAI_MODEL}'
+  const modelConfig = input.doc.workflow?.modelConfig
+  const local = isLocalModel(modelConfig) && Boolean(modelConfig?.model.trim())
+  const model = local && modelConfig ? modelConfig.model.trim() : '${OPENAI_MODEL}'
+  const connection = local && modelConfig
+    ? {
+        id: 'app-default-model',
+        provider: 'Ollama',
+        deployment: model,
+        endpoint: modelConfig.baseUrl?.trim() || OLLAMA_DEFAULT_URL,
+      }
+    : {
+        id: 'app-default-model',
+        client: '${MODEL_CLIENT}',
+        provider: 'OpenAI',
+        deployment: model,
+        endpoint: '${OPENAI_BASE_URL}',
+        authentication: { type: '${MODEL_AUTH_TYPE}', apiKey: '${OPENAI_API_KEY}' },
+      }
 
   const placements = participants.map((node) => ({
     id: node.id,
@@ -187,24 +212,40 @@ export function buildOrchestrationDocument(input: {
         fallbackToDefault: true,
       },
     },
-    configuration: {
-      defaultModel: model,
-      defaultTemperature: primary?.temperature ?? 0.2,
-      defaultMaxTokens: 8000,
-      defaultTopP: 1,
-      defaultFrequencyPenalty: 0,
-      defaultPresencePenalty: 0,
-    },
-    modelConnections: [
-      {
-        id: 'app-default-model',
-        client: '${MODEL_CLIENT}',
-        provider: 'OpenAI',
-        deployment: model,
-        endpoint: '${OPENAI_BASE_URL}',
-        authentication: { type: '${MODEL_AUTH_TYPE}', apiKey: '${OPENAI_API_KEY}' },
-      },
-    ],
+    configuration:
+      local && modelConfig
+        ? {
+            defaultModel: model,
+            defaultTemperature: modelConfig.temperature,
+            defaultMaxTokens: modelConfig.maxTokens,
+            defaultTopP: modelConfig.topP,
+            defaultFrequencyPenalty: modelConfig.frequencyPenalty,
+            defaultPresencePenalty: modelConfig.presencePenalty,
+          }
+        : {
+            defaultModel: model,
+            defaultTemperature: primary?.temperature ?? 0.2,
+            defaultMaxTokens: 8000,
+            defaultTopP: 1,
+            defaultFrequencyPenalty: 0,
+            defaultPresencePenalty: 0,
+          },
+    modelConnections: [connection],
+    ...(local && modelConfig
+      ? {
+          model: {
+            name: model,
+            provider: 'ollama',
+            deployment: model,
+            endpoint: connection.endpoint,
+            temperature: modelConfig.temperature,
+            maxTokens: modelConfig.maxTokens,
+            topP: modelConfig.topP,
+            frequencyPenalty: modelConfig.frequencyPenalty,
+            presencePenalty: modelConfig.presencePenalty,
+          },
+        }
+      : {}),
     definitions: {
       agents: agents.map((node) => agentDefinition(node, planner?.id === node.id)),
       tools: toolNodes
@@ -220,6 +261,7 @@ export function buildOrchestrationDocument(input: {
       planners: planner ? [agentDefinition(planner, true)] : [],
     },
     ...(planner ? { planner: { ref: catalogId(planner), enabled: true } } : {}),
+    startAgentId,
     agents: placements,
     executors: input.diagram.nodes.filter(isExecutorNode).map((node) => ({
       id: node.id,

@@ -219,16 +219,29 @@ export function accountHasInstance(account: ProjectAccount): boolean {
   return Boolean(account.instance?.workspaceId)
 }
 
+/** Local canvas identity used while auth is bypassed for testing. */
+const DEV_TEST_SESSION: ProjectSession = {
+  accountId: 'sayenvvpba@gmail.com',
+  email: 'sayenvvpba@gmail.com',
+  fullName: 'Local test',
+  role: 'developer',
+  workspaceId: 'ws_f12cb11a5794',
+  displayName: 'orchestration sample',
+  accountType: 'individual',
+}
+
 export function getSession(): ProjectSession | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEYS.projectSession)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as ProjectSession
-    if (!parsed?.accountId || !parsed.workspaceId || !parsed.email) return null
-    return parsed
+    if (raw) {
+      const parsed = JSON.parse(raw) as ProjectSession
+      if (parsed?.accountId && parsed.workspaceId && parsed.email) return parsed
+    }
   } catch {
-    return null
+    // Fall through to the local test session.
   }
+  if (import.meta.env.DEV) return DEV_TEST_SESSION
+  return null
 }
 
 export function setSession(session: ProjectSession): void {

@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/utils/cn'
+import { isLocalModel } from '@/components/agent-workflow/workflow-model-config'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 
 interface ServerLlmModelIndicatorProps {
@@ -43,6 +44,7 @@ export const ServerLlmModelIndicator = memo(function ServerLlmModelIndicator({
   }
 
   const compact = variant === 'compact'
+  const local = isLocalModel(modelConfig)
 
   return (
     <DropdownMenu>
@@ -74,7 +76,9 @@ export const ServerLlmModelIndicator = memo(function ServerLlmModelIndicator({
               {modelConfig.model}
             </span>
             {!compact && (
-              <span className="block truncate text-[9px] text-muted-foreground">Active model</span>
+              <span className="block truncate text-[9px] text-muted-foreground">
+                {local ? 'Ollama · local' : 'Server · .env'}
+              </span>
             )}
           </span>
 
@@ -96,7 +100,11 @@ export const ServerLlmModelIndicator = memo(function ServerLlmModelIndicator({
         <DropdownMenuSeparator />
 
         <div className="space-y-2.5 px-2 py-1.5 text-xs">
+          <DetailRow label="Source" value={local ? 'Ollama (local)' : 'Server (.env)'} />
           <DetailRow label="Model" value={modelConfig.model} mono />
+          {local && modelConfig.baseUrl ? (
+            <DetailRow label="Server URL" value={modelConfig.baseUrl} mono />
+          ) : null}
           <DetailRow label="Temperature" value={String(modelConfig.temperature)} />
           <DetailRow label="Top P" value={String(modelConfig.topP)} />
           <DetailRow label="Max tokens" value={String(modelConfig.maxTokens)} />
@@ -109,8 +117,9 @@ export const ServerLlmModelIndicator = memo(function ServerLlmModelIndicator({
 
         <DropdownMenuSeparator />
         <p className="px-2 pb-2 text-[10px] leading-relaxed text-muted-foreground">
-          Loaded from project <code className="rounded bg-muted px-1 py-0.5 text-[9px]">.env</code>.
-          Update model settings there and restart the API to apply changes.
+          {local
+            ? 'Set under Workflow → Model. Re-validate after changing the model or Ollama URL.'
+            : 'Loaded from project .env. Update model settings there and restart the API, or switch to Ollama in Workflow → Model.'}
         </p>
       </DropdownMenuContent>
     </DropdownMenu>

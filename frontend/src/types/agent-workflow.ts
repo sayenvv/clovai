@@ -190,6 +190,19 @@ export type WorkflowRunStatus =
   | 'failed'
   | 'cancelled'
 
+/** One turn in the run's conversation, in the order the agents spoke. */
+export interface WorkflowChatMessage {
+  id: string
+  nodeId: string
+  agentName: string
+  content: string
+  /** `reasoning` turns are plans, progress checks, and model thinking shown apart from answers. */
+  kind: 'response' | 'reasoning'
+  title?: string
+  /** `streaming` while tokens are still arriving for this turn. */
+  status: 'streaming' | 'done' | 'failed'
+}
+
 export interface WorkflowRunState {
   runId: string | null
   status: WorkflowRunStatus
@@ -204,6 +217,7 @@ export interface WorkflowRunState {
   finalResponse: string | null
   /** Per-agent JSON output shown on the graph when a step completes. */
   stepOutputs: Record<string, string>
+  messages: WorkflowChatMessage[]
   approvalPrompt: {
     edgeId: string
     message: string

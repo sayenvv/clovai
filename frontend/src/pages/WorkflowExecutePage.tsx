@@ -234,7 +234,7 @@ export default function WorkflowExecutePage() {
       return false
     }
     clearExecutionSnapshot()
-    reset()
+    setRightPanelCollapsed(false)
     const page = doc.pages.find((candidate) => candidate.id === selectedPageId)
     if (!page) {
       toast.error('Select a workflow before executing.')
@@ -245,13 +245,27 @@ export default function WorkflowExecutePage() {
       toast.error('Sign in before executing.')
       return false
     }
-    void start(executionPlan, input, {
-      workspaceId: session.workspaceId,
+    void persistWorkflowBuildSpec({
+      doc,
       pageId: page.id,
-      userId: session.accountId,
+      diagram: diagramRef.current,
+      paletteById,
+      syncToDisk: true,
+      requireApi: true,
     })
+      .then(() => {
+        reset()
+        return start(executionPlan, input, {
+          workspaceId: session.workspaceId,
+          pageId: page.id,
+          userId: session.accountId,
+        })
+      })
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : 'Could not execute the workflow.')
+      })
     return true
-  }, [doc, input, reset, selectedPageId, start])
+  }, [doc, input, paletteById, reset, selectedPageId, start])
 
   const handleExecute = useCallback(() => {
     runExecution()

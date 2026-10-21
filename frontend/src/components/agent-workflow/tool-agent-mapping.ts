@@ -1,4 +1,9 @@
-import type { Diagram, DiagramNode } from '@/components/designer/diagram-types'
+import {
+  resolveFlowDirection,
+  type Diagram,
+  type DiagramNode,
+  type FlowDirection,
+} from '@/components/designer/diagram-types'
 import {
   AGENT_NODE_HEIGHT,
   AGENT_NODE_WIDTH,
@@ -31,6 +36,19 @@ export {
 export const TOOL_UNDER_AGENT_GAP = 48
 /** Horizontal gap between child nodes in a row under an agent. */
 export const TOOL_ROW_GAP = 12
+/** Vertical flow: gap between an agent card and its tool column. */
+export const TOOL_BESIDE_AGENT_GAP = 56
+/** Vertical gap between child nodes in a column beside an agent. */
+export const TOOL_COLUMN_GAP = 8
+
+/** Soft horizontal curve from a side dock to a child node (vertical flow). */
+export function curvedSideAttachmentPath(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): string {
+  const midX = from.x + (to.x - from.x) * 0.55
+  return `M ${from.x} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x} ${to.y}`
+}
 
 /** Soft vertical curve from agent attachment rail to a child node. */
 export function curvedAttachmentPath(
@@ -40,6 +58,9 @@ export function curvedAttachmentPath(
   const midY = from.y + (to.y - from.y) * 0.55
   return `M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`
 }
+
+import { isTriggerNode } from '@/components/agent-workflow/workflow-start'
+import { isFlowBoundaryNode } from '@/components/agent-workflow/workflow-flow-nodes'
 
 const NON_AGENT_AW_IDS = new Set([
   'aw-tool',
@@ -52,6 +73,8 @@ const NON_AGENT_AW_IDS = new Set([
 
 export function isAgentNode(node: DiagramNode): boolean {
   if (node.mappedAgentId) return false
+  if (isFlowBoundaryNode(node)) return false
+  if (isTriggerNode(node)) return false
   const paletteId = node.paletteId ?? ''
   if (NON_AGENT_AW_IDS.has(paletteId)) return false
   if (paletteId.startsWith('aw-')) return true
@@ -109,9 +132,17 @@ export function computeToolPosition(
   tool: DiagramNode,
   indexAmongTools: number,
   totalTools: number,
+  direction?: FlowDirection,
 ): Pick<DiagramNode, 'x' | 'y'> {
   const agentSize = agentNodeSize(agent)
   const toolSize = toolNodeSize(tool)
+  if (resolveFlowDirection(direction) === 'vertical') {
+    // Column to the right so the top → bottom flow stays clear.
+    return {
+      x: agent.x + agentSize.width + TOOL_BESIDE_AGENT_GAP,
+      y: agent.y + indexAmongTools * (toolSize.height + TOOL_COLUMN_GAP),
+    }
+  }
   const rowWidth =
     totalTools * toolSize.width + Math.max(0, totalTools - 1) * TOOL_ROW_GAP
   const startX = agent.x + (agentSize.width - rowWidth) / 2
@@ -130,7 +161,7 @@ export function attachToolToAgent(
   if (!agent) return tool
   const index = listToolsForAgent(diagram, agentId).length
   const totalTools = index + 1
-  const position = computeToolPosition(agent, tool, index, totalTools)
+  const position = computeToolPosition(agent, tool, index, totalTools, diagram.direction)
   return {
     ...tool,
     mappedAgentId: agentId,
@@ -183,6 +214,7 @@ export function pickAgentForToolPlacement(
 
 /** Re-layout tool rows when agents move, tools are added/removed, or mapping changes. */
 export function shouldSyncToolLayout(before: Diagram, after: Diagram): boolean {
+  if (before.direction !== after.direction) return true
   const beforeAgents = listAgentNodes(before)
   const afterAgents = listAgentNodes(after)
 
@@ -224,7 +256,10 @@ export function syncMappedToolLayout(diagram: Diagram): Diagram {
   for (const agent of agents) {
     const siblings = orderedToolsForAgent(diagram, agent.id)
     siblings.forEach((tool, index) => {
-      positionById.set(tool.id, computeToolPosition(agent, tool, index, siblings.length))
+      positionById.set(
+        tool.id,
+        computeToolPosition(agent, tool, index, siblings.length, diagram.direction),
+      )
     })
   }
 

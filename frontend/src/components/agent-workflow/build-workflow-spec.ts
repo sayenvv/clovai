@@ -89,8 +89,11 @@ function resolveModelConfig(
   agents: DiagramNode[],
   serverModelConfig?: WorkflowModelConfig,
 ): WorkflowModelConfig {
-  if (serverModelConfig) return resolveWorkflowModelConfig(serverModelConfig)
   const stored = doc.workflow?.modelConfig
+  if (stored?.provider === 'ollama' && stored.model?.trim()) {
+    return resolveWorkflowModelConfig(stored)
+  }
+  if (serverModelConfig) return resolveWorkflowModelConfig(serverModelConfig)
   if (stored) return resolveWorkflowModelConfig(stored)
   return buildModelConfigFromAgents(agents)
 }

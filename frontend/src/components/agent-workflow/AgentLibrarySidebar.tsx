@@ -1,11 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   Bot,
+  CircleStop,
   CloudDownload,
   GitBranch,
   GripVertical,
   LayoutGrid,
   List,
+  Play,
   Plug,
   Plus,
   Rocket,
@@ -133,6 +135,14 @@ const BLOCK_STYLES: Record<string, { icon: string; ring: string }> = {
     icon: 'bg-orange-500/10 text-orange-600 dark:text-orange-300',
     ring: 'ring-orange-500/20',
   },
+  start: {
+    icon: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    ring: 'ring-emerald-500/25',
+  },
+  end: {
+    icon: 'bg-muted text-foreground/70',
+    ring: 'ring-border',
+  },
 }
 
 const BLOCK_KIND_LABELS: Record<string, string> = {
@@ -142,18 +152,24 @@ const BLOCK_KIND_LABELS: Record<string, string> = {
   skill: 'Skill',
   integration: 'Integration',
   executor: 'Executor',
+  start: 'Entry',
+  end: 'Exit',
 }
 
 function resolveBlockVisual(block: SidebarBlock) {
   const styles = BLOCK_STYLES[block.id === 'mcp-tool' ? 'mcp' : block.id] ?? BLOCK_STYLES.agent
   const Icon =
-    block.paletteId === MCP_TOOL_PALETTE_ID
-      ? Plug
-      : block.paletteId === EXECUTOR_PALETTE_ID
-        ? Terminal
-        : block.id === 'tool'
-          ? Wrench
-          : (BLOCK_ICONS[block.agentType] ?? Bot)
+    block.id === 'start'
+      ? Play
+      : block.id === 'end'
+        ? CircleStop
+        : block.paletteId === MCP_TOOL_PALETTE_ID
+          ? Plug
+          : block.paletteId === EXECUTOR_PALETTE_ID
+            ? Terminal
+            : block.id === 'tool'
+              ? Wrench
+              : (BLOCK_ICONS[block.agentType] ?? Bot)
   const kindLabel = BLOCK_KIND_LABELS[block.id] ?? block.label
   return { styles, Icon, kindLabel }
 }

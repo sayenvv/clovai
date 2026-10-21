@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Save, ShieldCheck, Sparkles } from 'lucide-react'
+import { ChevronLeft, MessageSquareText, Save, ShieldCheck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -207,9 +207,9 @@ export const MobileWorkspaceHeader = memo(function MobileWorkspaceHeader({
                 size="icon"
                 onClick={onGenerate}
                 className="h-8 w-8 text-red-700 dark:text-red-300"
-                aria-label="Generate workflow"
+                aria-label="Ask Workflow AI"
               >
-                <Sparkles className="h-4 w-4" />
+                <MessageSquareText className="h-4 w-4" />
               </Button>
             ) : null}
             <Button
