@@ -84,6 +84,11 @@ import {
 } from '@/components/agent-workflow/WorkflowTemplatesDialog'
 import type { WorkflowTemplate } from '@/components/agent-workflow/agent-workflow-templates'
 import { diagramFromGenerationPlanSafe } from '@/components/agent-workflow/workflow-from-generation'
+import {
+  keepAgentSettings,
+  planFromDiagram,
+  type CanvasPlan,
+} from '@/components/agent-workflow/workflow-plan-from-diagram'
 import { Button } from '@/components/ui/button'
 import { diagramContentCenter } from '@/components/agent-workflow/sub-workflow-ops'
 import {
@@ -647,23 +652,42 @@ export default function AgentWorkflowPage() {
     [diagram.direction, handleChange],
   )
 
+  const canvasHasAgents = useMemo(() => listAgentNodes(diagram).length > 0, [diagram])
+
+  // Read at send time, so the Workflow AI edits the canvas as it is now.
+  const activePageRef = useRef(activePage)
+  activePageRef.current = activePage
+  const getCurrentWorkflow = useCallback(
+    () => planFromDiagram(activePageRef.current, inferWorkflowType(activePageRef.current.diagram)),
+    [],
+  )
+
   const handleWorkflowGenerated = useCallback(
-    (plan: WorkflowGenerationPlan) => {
+    (plan: WorkflowGenerationPlan, base: CanvasPlan | null = null) => {
       const generated = diagramFromGenerationPlanSafe(plan, paletteById)
       const enrichedDiagram = enrichDiagram(generated.diagram, paletteById)
       invalidateValidation()
-      setDoc((previous) => ({
-        ...previous,
-        workflow: {
-          ...(previous.workflow ?? defaultWorkflowMeta()),
-          ...generated.workflowMeta,
-        },
-        pages: previous.pages.map((page) =>
-          page.id === previous.activePageId
-            ? { ...page, name: generated.workflowName, diagram: enrichedDiagram }
-            : page,
-        ),
-      }))
+      setDoc((previous) => {
+        const current = previous.workflow ?? defaultWorkflowMeta()
+        return {
+          ...previous,
+          // An update keeps the workflow's id and version; a new draft starts fresh.
+          workflow: base
+            ? { ...current, executionType: generated.workflowMeta.executionType ?? current.executionType }
+            : { ...current, ...generated.workflowMeta },
+          pages: previous.pages.map((page) =>
+            page.id === previous.activePageId
+              ? {
+                  ...page,
+                  name: generated.workflowName,
+                  diagram: base
+                    ? keepAgentSettings(enrichedDiagram, generated.nodeIdByKey, base, page.diagram)
+                    : enrichedDiagram,
+                }
+              : page,
+          ),
+        }
+      })
       setSelection(null)
       setEditorView('canvas')
       requestAnimationFrame(() => canvasRef.current?.fitView())
@@ -690,7 +714,8 @@ export default function AgentWorkflowPage() {
             model: generateModel,
             onModelChange: setGenerateModelChoice,
             ollamaBaseUrl,
-            replacesCanvas: diagram.nodes.length > 0,
+            replacesCanvas: canvasHasAgents,
+            getCurrentWorkflow,
             onGenerated: handleWorkflowGenerated,
             onClose: closeGeneratePanel,
           }
@@ -700,7 +725,8 @@ export default function AgentWorkflowPage() {
       generateMessages,
       generateModel,
       ollamaBaseUrl,
-      diagram.nodes.length,
+      canvasHasAgents,
+      getCurrentWorkflow,
       handleWorkflowGenerated,
       closeGeneratePanel,
     ],

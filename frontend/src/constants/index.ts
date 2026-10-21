@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   accessToken: 'eleven-nodes-access-token',
   refreshToken: 'eleven-nodes-refresh-token',
   publishedInstances: 'eleven-nodes-published-instances',
+  tokenUsage: 'eleven-nodes-token-usage',
 } as const
 
 export const QUERY_KEYS = {
@@ -31,6 +32,7 @@ export const ROUTES = {
   admin: '/admin/config',
   page: (slug: string) => `/${slug}`,
   agentWorkflow: '/tools/agent-workflow',
+  dashboard: '/dashboard',
   agentWorkflowLibrary: '/tools/agent-workflow/library',
   agentWorkflowInspect: '/tools/agent-workflow/inspect',
   agentWorkflowLogs: '/tools/agent-workflow/logs',
@@ -38,8 +40,8 @@ export const ROUTES = {
   agentWorkflowDashboardInstances: '/tools/agent-workflow/dashboard/instances',
   agentWorkflowDashboardRuns: '/tools/agent-workflow/dashboard/runs',
   agentWorkflowDashboardPerformance: '/tools/agent-workflow/dashboard/performance',
-  /** @deprecated use agentWorkflowDashboardPerformance */
-  agentWorkflowDashboardUsage: '/tools/agent-workflow/dashboard/performance',
+  agentWorkflowDashboardUsage: '/tools/agent-workflow/dashboard/usage',
+  agentWorkflowDashboardAgents: '/tools/agent-workflow/dashboard/agents',
   agentWorkflowExecute: '/tools/agent-workflow/execute',
 } as const
 

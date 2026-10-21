@@ -1,5 +1,7 @@
 import {
   Activity,
+  BarChart3,
+  Bot,
   Gauge,
   LayoutDashboard,
   Rocket,
@@ -32,6 +34,18 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
     to: ROUTES.agentWorkflowDashboardPerformance,
     icon: Gauge,
     description: 'Latency, credits, load',
+  },
+  {
+    label: 'Usage',
+    to: ROUTES.agentWorkflowDashboardUsage,
+    icon: BarChart3,
+    description: 'Tokens by day, workflow, agent',
+  },
+  {
+    label: 'Agents',
+    to: ROUTES.agentWorkflowDashboardAgents,
+    icon: Bot,
+    description: 'Monitor agent activity',
   },
   {
     label: 'Activity',

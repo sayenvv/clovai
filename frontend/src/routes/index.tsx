@@ -24,6 +24,13 @@ const AgentWorkflowDashboardRuns = lazy(
 const AgentWorkflowDashboardPerformance = lazy(
   () => import('@/pages/agent-workflow-dashboard/PerformancePage'),
 )
+const AgentWorkflowDashboardUsage = lazy(
+  () => import('@/pages/agent-workflow-dashboard/UsagePage'),
+)
+const AgentWorkflowDashboardAgents = lazy(
+  () => import('@/pages/agent-workflow-dashboard/AgentsPage'),
+)
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
 const WorkflowExecutePage = lazy(() => import('@/pages/WorkflowExecutePage'))
 const AdminConfigPage = lazy(() => import('@/pages/admin/AdminConfigPage'))
 const DynamicPage = lazy(() => import('@/pages/DynamicPage'))
@@ -42,7 +49,8 @@ export const router = createBrowserRouter([
           { path: 'instances', element: <AgentWorkflowDashboardInstances /> },
           { path: 'runs', element: <AgentWorkflowDashboardRuns /> },
           { path: 'performance', element: <AgentWorkflowDashboardPerformance /> },
-          { path: 'usage', element: <AgentWorkflowDashboardPerformance /> },
+          { path: 'usage', element: <AgentWorkflowDashboardUsage /> },
+          { path: 'agents', element: <AgentWorkflowDashboardAgents /> },
         ],
       },
       {
@@ -56,6 +64,7 @@ export const router = createBrowserRouter([
         ],
       },
       { path: '/tools/agent-workflow/execute', element: <WorkflowExecutePage /> },
+      { path: '/dashboard', element: <DashboardPage /> },
       { path: '/tools/:toolId', element: <ToolDetailPage /> },
     ],
   },

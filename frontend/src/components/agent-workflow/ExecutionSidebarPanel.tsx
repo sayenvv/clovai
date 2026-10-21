@@ -99,7 +99,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
       <div ref={scrollRef} className="min-h-0 w-full min-w-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        <TokenBudgetBar refreshKey={messages.length + (runStatus === 'completed' ? 1 : 0)} />
+        <TokenBudgetBar />
 
         {runStatus === 'idle' && trace.length === 0 && (
           <p className="rounded-lg border border-dashed border-border/80 px-3 py-6 text-center text-xs leading-relaxed text-muted-foreground">
@@ -339,7 +339,7 @@ export function UserMessage({ content }: { content: string }) {
   )
 }
 
-function AgentMessage({
+export function AgentMessage({
   message,
   showHeader,
   live,

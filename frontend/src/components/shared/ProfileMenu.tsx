@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { Link } from 'react-router-dom'
-import { ExternalLink, Home, LogOut, Moon, Shield, Sun } from 'lucide-react'
+import { ExternalLink, Home, LayoutDashboard, LogOut, Moon, Shield, Sun } from 'lucide-react'
 import { UserAvatar } from '@/components/shared/UserAvatar'
 import { useTheme } from '@/hooks/use-theme'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ADMIN_CENTER_URL, APP_NAME } from '@/constants'
+import { ADMIN_CENTER_URL, APP_NAME, ROUTES } from '@/constants'
 import { logout } from '@/services/project-auth-store'
 import { cn } from '@/utils/cn'
 
@@ -64,6 +64,12 @@ export const ProfileMenu = memo(function ProfileMenu({
           Switch to {theme === 'dark' ? 'light' : 'dark'} mode
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to={ROUTES.dashboard}>
+            <LayoutDashboard />
+            Dashboard
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to="/">
             <Home />

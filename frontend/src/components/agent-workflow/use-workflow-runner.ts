@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { addTokenUsage } from '@/services/token-usage-store'
 import { executeOrchestration, type ExecutionLogEvent, type ExecutionStepDetail } from '@/services/orchestration-api'
 import type {
   ExecutionPlanStep,
@@ -114,7 +115,8 @@ function closeTurns(messages: WorkflowChatMessage[], keep?: string): WorkflowCha
     )
 }
 
-function applyChatMessage(
+/** Fold one streamed agent row into the chat turns: deltas extend the open turn, whole messages start one. */
+export function applyChatMessage(
   messages: WorkflowChatMessage[],
   key: string,
   agentName: string,
@@ -316,6 +318,11 @@ export function useWorkflowRunner() {
           inputs: parseWorkflowInput(input),
           onEvent: (event) => {
             if (cancelRef.current) return
+            if (event.event === 'usage') {
+              // Count each model call as it happens; the server records the same usage in the database.
+              addTokenUsage(event.totalTokens ?? 0)
+              return
+            }
             if (event.event === 'agent') {
               const agentName = event.agent?.trim() || 'Agent'
               const matched = matchPlanStep(plan, event.agentId ?? '', agentName)

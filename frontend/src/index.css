@@ -276,3 +276,35 @@
     }
   }
 }
+
+/* Petal loader (components/shared/PetalLoader.tsx): six petals lighting up in turn.
+   Petals are currentColor; the component sets the app's text colour, so it follows the theme. */
+.petal-loader {
+  --speed: 0.9s;
+}
+.petal-loader .spinner,
+.petal-loader .p {
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+}
+.petal-loader .p {
+  animation: pl-chase var(--speed) ease-in-out infinite;
+  animation-delay: calc(var(--i) * var(--speed) / 6);
+}
+@keyframes pl-chase {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.86);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .petal-loader .spinner,
+  .petal-loader .p {
+    animation-duration: 4s;
+  }
+}

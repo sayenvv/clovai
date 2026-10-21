@@ -1,12 +1,6 @@
-import { memo, useEffect, useState } from 'react'
-import { authorizedFetch } from '@/services/api-auth'
+import { memo, useEffect, useSyncExternalStore } from 'react'
+import { ensureTokenUsage, readTokenUsage, subscribeTokenUsage } from '@/services/token-usage-store'
 import { cn } from '@/utils/cn'
-
-interface SubscriptionSnapshot {
-  tokenLimit: number
-  tokensUsed: number
-  tokensRemaining: number
-}
 
 function formatCount(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
@@ -14,52 +8,60 @@ function formatCount(value: number): string {
   return String(value)
 }
 
-export const TokenBudgetBar = memo(function TokenBudgetBar({ refreshKey = 0 }: { refreshKey?: number }) {
-  const [subscription, setSubscription] = useState<SubscriptionSnapshot | null>(null)
+/**
+ * The user's token allowance, read from local storage.
+ *
+ * Runs update the stored figures as their usage events arrive, so `/me` is
+ * only read when nothing is stored for this account yet.
+ */
+export const TokenBudgetBar = memo(function TokenBudgetBar() {
+  const subscription = useSyncExternalStore(subscribeTokenUsage, readTokenUsage, () => null)
 
   useEffect(() => {
-    let cancelled = false
-    authorizedFetch('/api/v1/auth/me')
-      .then(async (response) => {
-        if (!response.ok) return null
-        const body = (await response.json()) as { subscription?: SubscriptionSnapshot }
-        return body.subscription ?? null
-      })
-      .then((next) => {
-        if (!cancelled) setSubscription(next)
-      })
-      .catch(() => {
-        if (!cancelled) setSubscription(null)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [refreshKey])
+    void ensureTokenUsage()
+  }, [])
 
   if (!subscription || subscription.tokenLimit <= 0) return null
 
   const usedRatio = Math.min(1, subscription.tokensUsed / subscription.tokenLimit)
-  const remainingRatio = 1 - usedRatio
+  const percent = Math.round(usedRatio * 100)
+  // Colour only signals a problem: neutral until the allowance is nearly spent.
+  const level = usedRatio >= 0.95 ? 'critical' : usedRatio >= 0.8 ? 'warning' : 'normal'
 
   return (
-    <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
-      <div className="flex items-center justify-between gap-2 text-[11px]">
-        <span className="font-medium text-foreground">Token allowance</span>
-        <span className="text-muted-foreground">
-          {formatCount(subscription.tokensRemaining)} left · {formatCount(subscription.tokenLimit)} total
+    <div className="rounded-lg border border-border/70 bg-background px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Tokens</span>
+        <span className="text-[11px] tabular-nums text-muted-foreground">
+          <span className="font-semibold text-foreground">{formatCount(subscription.tokensUsed)}</span>
+          {' '}of {formatCount(subscription.tokenLimit)} used · {percent}%
         </span>
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+      <div
+        className="mt-2 h-1 overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-label="Tokens used"
+        aria-valuemin={0}
+        aria-valuemax={subscription.tokenLimit}
+        aria-valuenow={subscription.tokensUsed}
+      >
         <div
           className={cn(
-            'h-full rounded-full transition-all',
-            remainingRatio < 0.1 ? 'bg-red-500' : remainingRatio < 0.25 ? 'bg-amber-500' : 'bg-emerald-500',
+            'h-full rounded-full transition-[width] duration-500',
+            level === 'critical' ? 'bg-red-600' : level === 'warning' ? 'bg-amber-600' : 'bg-foreground/80',
           )}
-          style={{ width: `${Math.max(4, remainingRatio * 100)}%` }}
+          style={{ width: `${usedRatio > 0 ? Math.max(2, usedRatio * 100) : 0}%` }}
         />
       </div>
-      <p className="mt-1.5 text-[10px] text-muted-foreground">
-        {formatCount(subscription.tokensUsed)} used this period. Limits come from your subscription; the runtime fills them when a workflow runs.
+      <p
+        className={cn(
+          'mt-1.5 text-[10.5px] tabular-nums',
+          level === 'critical' ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground',
+        )}
+      >
+        {level === 'critical'
+          ? `Only ${formatCount(subscription.tokensRemaining)} left. Contact support to raise your limit.`
+          : `${formatCount(subscription.tokensRemaining)} remaining this period`}
       </p>
     </div>
   )

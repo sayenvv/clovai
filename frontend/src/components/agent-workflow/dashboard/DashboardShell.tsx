@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { Menu, PenLine, X } from 'lucide-react'
+import { BarChart3, Menu, PenLine, X } from 'lucide-react'
 import { DashboardSidebar } from '@/components/agent-workflow/dashboard/DashboardSidebar'
 import { DASHBOARD_NAV } from '@/components/agent-workflow/dashboard/dashboard-nav'
 import { MobileWorkspaceNav } from '@/components/agent-workflow/MobileWorkspaceNav'
@@ -72,6 +72,12 @@ export default function DashboardShell() {
             {current.label}
           </Badge>
 
+          <Button asChild variant="outline" size="sm" className="h-9 rounded-lg">
+            <Link to={ROUTES.dashboard}>
+              <BarChart3 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </Link>
+          </Button>
           <Button asChild variant="outline" size="sm" className="h-9 rounded-lg">
             <Link to={ROUTES.agentWorkflow}>
               <PenLine className="h-3.5 w-3.5" />

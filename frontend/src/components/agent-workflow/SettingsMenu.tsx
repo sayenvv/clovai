@@ -1,5 +1,6 @@
-import { memo, useMemo, useState } from 'react'
-import { Cpu, Moon, Play, Rocket, Settings2, Sparkles, Sun, Workflow } from 'lucide-react'
+import { memo, useEffect, useState, useSyncExternalStore } from 'react'
+import { Link } from 'react-router-dom'
+import { Cpu, LayoutDashboard, Moon, Play, Rocket, Settings2, Sparkles, Sun, Workflow } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,8 +25,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useTheme } from '@/hooks/use-theme'
+import { TokenBudgetBar } from '@/components/agent-workflow/TokenBudgetBar'
+import { ROUTES } from '@/constants'
 import { getSession } from '@/services/project-auth-store'
-import { cn } from '@/utils/cn'
+import { ensureTokenUsage, readTokenUsage, subscribeTokenUsage } from '@/services/token-usage-store'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 
 interface SettingsMenuProps {
@@ -38,59 +41,6 @@ interface SettingsMenuProps {
   llmConfigured?: boolean
   side?: 'top' | 'right' | 'bottom' | 'left'
   align?: 'start' | 'center' | 'end'
-}
-
-const MONTHLY_TOKEN_LIMIT = 100_000
-const MONTHLY_RUN_LIMIT = 250
-
-function readUsageSnapshot(workspaceId: string | undefined) {
-  const key = `eleven-nodes-ai-usage-${workspaceId ?? 'local'}`
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) {
-      const parsed = JSON.parse(raw) as { tokens?: number; runs?: number }
-      return {
-        tokens: Math.max(0, Number(parsed.tokens) || 12_480),
-        runs: Math.max(0, Number(parsed.runs) || 18),
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return { tokens: 12_480, runs: 18 }
-}
-
-function UsageMeter({
-  label,
-  used,
-  limit,
-  unit,
-}: {
-  label: string
-  used: number
-  limit: number
-  unit: string
-}) {
-  const pct = Math.min(100, Math.round((used / limit) * 100))
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2 text-xs">
-        <span className="font-medium text-foreground">{label}</span>
-        <span className="tabular-nums text-muted-foreground">
-          {used.toLocaleString()} / {limit.toLocaleString()} {unit}
-        </span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className={cn(
-            'h-full rounded-full transition-[width] duration-300',
-            pct >= 90 ? 'bg-amber-500' : 'bg-foreground/70',
-          )}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  )
 }
 
 /** Settings dropdown — same interaction pattern as the profile menu. */
@@ -108,8 +58,13 @@ export const SettingsMenu = memo(function SettingsMenu({
   const { theme, toggleTheme } = useTheme()
   const session = getSession()
   const [usageOpen, setUsageOpen] = useState(false)
-  const usage = useMemo(() => readUsageSnapshot(session?.workspaceId), [session?.workspaceId])
-  const usagePct = Math.round((usage.tokens / MONTHLY_TOKEN_LIMIT) * 100)
+  // The same allowance the token card shows, kept in local storage and updated by every run.
+  const allowance = useSyncExternalStore(subscribeTokenUsage, readTokenUsage, () => null)
+  const usagePct = allowance && allowance.tokenLimit > 0 ? Math.round((allowance.tokensUsed / allowance.tokenLimit) * 100) : null
+
+  useEffect(() => {
+    void ensureTokenUsage()
+  }, [])
 
   return (
     <>
@@ -145,9 +100,17 @@ export const SettingsMenu = memo(function SettingsMenu({
             <DropdownMenuItem onSelect={() => setUsageOpen(true)}>
               <Sparkles />
               AI usage
-              <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[9px] font-normal">
-                {usagePct}%
-              </Badge>
+              {usagePct !== null ? (
+                <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[9px] font-normal">
+                  {usagePct}%
+                </Badge>
+              ) : null}
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to={ROUTES.dashboard}>
+                <LayoutDashboard />
+                Dashboard
+              </Link>
             </DropdownMenuItem>
             {onOpenWorkflowSettings ? (
               <DropdownMenuItem onSelect={() => onOpenWorkflowSettings()}>
@@ -193,7 +156,7 @@ export const SettingsMenu = memo(function SettingsMenu({
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="text-base">AI usage</DialogTitle>
             <DialogDescription>
-              Token allotment and workflow runs for this workspace month.
+              Your token allowance for this period. The dashboard has the full breakdown.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 px-5 py-4">
@@ -203,8 +166,7 @@ export const SettingsMenu = memo(function SettingsMenu({
                 {session?.accountType === 'company' ? 'Team' : 'Personal'}
               </Badge>
             </div>
-            <UsageMeter label="Tokens" used={usage.tokens} limit={MONTHLY_TOKEN_LIMIT} unit="tok" />
-            <UsageMeter label="Workflow runs" used={usage.runs} limit={MONTHLY_RUN_LIMIT} unit="runs" />
+            <TokenBudgetBar />
             <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
               <div className="flex items-center gap-2 text-xs font-semibold">
                 <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
@@ -219,6 +181,12 @@ export const SettingsMenu = memo(function SettingsMenu({
                   : 'Configure server LLM settings to enable generation.'}
               </p>
             </div>
+            <Button asChild variant="outline" size="sm" className="h-8 w-full rounded-lg">
+              <Link to={ROUTES.dashboard} onClick={() => setUsageOpen(false)}>
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                Open dashboard
+              </Link>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

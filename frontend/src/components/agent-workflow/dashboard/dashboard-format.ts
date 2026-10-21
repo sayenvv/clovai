@@ -25,3 +25,11 @@ export function formatLatency(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`
   return `${(ms / 1000).toFixed(1)}s`
 }
+
+export const RANGES = [7, 30, 90] as const
+export type RangeDays = (typeof RANGES)[number]
+
+/** 12.3k, 4.5M: for tiles and axes where the exact figure is in the tooltip or table. */
+export function formatCompact(value: number): string {
+  return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
+}

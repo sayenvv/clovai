@@ -26,6 +26,14 @@ export interface ExecutionLogEvent {
   delta?: boolean
   kind?: 'reasoning'
   title?: string
+  /** What the stage is doing while it runs, such as "Designing". */
+  activity?: string
+  /** `usage` events: one model call's token counts. */
+  inputTokens?: number
+  outputTokens?: number
+  totalTokens?: number
+  /** `usage` events from the workflow chat: the request's total so far. */
+  runTotalTokens?: number
   steps?: ExecutionStepDetail[]
   result?: {
     execution?: {
@@ -68,6 +76,11 @@ function tracingHeaders(aiIntegrationId: string): Record<string, string> {
   }
 }
 
+/** Tracing and application headers for routes that run on the application's model. */
+export async function orchestrationHeaders(): Promise<Record<string, string>> {
+  return tracingHeaders(await aiIntegrationId())
+}
+
 export function orchestrationIdentity(tabId: string): OrchestrationIdentity {
   const session = getSession()
   if (!session) {
@@ -80,7 +93,7 @@ export function orchestrationIdentity(tabId: string): OrchestrationIdentity {
   }
 }
 
-async function errorMessage(response: Response): Promise<string> {
+export async function errorMessage(response: Response): Promise<string> {
   const text = await response.text().catch(() => '')
   if (!text) return `Request failed (${response.status})`
   try {
@@ -147,6 +160,16 @@ export async function executeOrchestration(input: {
     }),
   })
   if (!response.ok) throw new Error(await errorMessage(response))
+  await readEventStream(response, (eventName, payload) =>
+    input.onEvent({ event: eventName, ...(payload as Omit<ExecutionLogEvent, 'event'>) }),
+  )
+}
+
+/** Read a server-sent event stream, calling `onEvent` with each event name and JSON payload. */
+export async function readEventStream(
+  response: Response,
+  onEvent: (eventName: string, payload: Record<string, unknown>) => void,
+): Promise<void> {
   if (!response.body) throw new Error('Execution stream is empty.')
 
   const reader = response.body.getReader()
@@ -166,8 +189,7 @@ export async function executeOrchestration(input: {
         .map((line) => line.slice(6))
         .join('\n')
       if (!dataLine) continue
-      const payload = JSON.parse(dataLine) as Omit<ExecutionLogEvent, 'event'>
-      input.onEvent({ event: eventName, ...payload })
+      onEvent(eventName, JSON.parse(dataLine) as Record<string, unknown>)
     }
   }
 }

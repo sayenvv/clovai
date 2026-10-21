@@ -42,6 +42,7 @@ import type {
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
+import type { CanvasPlan } from '@/components/agent-workflow/workflow-plan-from-diagram'
 import { cn } from '@/utils/cn'
 
 interface ExecutionSidebarOptions {
@@ -80,7 +81,8 @@ interface GenerateChatOptions {
   onModelChange: (model: GenerateWorkflowModel) => void
   ollamaBaseUrl: string
   replacesCanvas: boolean
-  onGenerated: (plan: WorkflowGenerationPlan) => void
+  getCurrentWorkflow: () => CanvasPlan | null
+  onGenerated: (plan: WorkflowGenerationPlan, base: CanvasPlan | null) => void
   onClose: () => void
 }
 
@@ -321,6 +323,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
               activePageId={doc.activePageId}
               llmConfigured={llmConfigured}
               replacesCanvas={generate.replacesCanvas}
+              getCurrentWorkflow={generate.getCurrentWorkflow}
               onGenerated={generate.onGenerated}
             />
           ) : executionPanelOpen ? (

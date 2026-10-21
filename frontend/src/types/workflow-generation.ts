@@ -34,7 +34,13 @@ export interface WorkflowGenerationPlan {
 }
 
 export interface GenerateWorkflowResponse {
-  plan: WorkflowGenerationPlan
+  /** Null when the request was a question answered directly; `reply` holds the answer. */
+  plan: WorkflowGenerationPlan | null
+  reply?: string
+  /** The assistant's short account of what it built or changed. */
+  summary?: string
+  /** Tokens the whole request used, as the provider reported them. */
+  tokens?: number
   model: string
   origin: string
 }

@@ -1,13 +1,18 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { ArrowUp, Check, FileText, Paperclip, Plus, Square, Workflow, X, type LucideIcon } from 'lucide-react'
+import { ArrowUp, Check, ChevronRight, FileText, Paperclip, Square, Workflow, X, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { ChatComposer } from '@/components/agent-workflow/ChatComposer'
 import { ChatMarkdown } from '@/components/agent-workflow/ChatMarkdown'
 import {
   AgentAvatar,
-  TypingDots,
+  readableChatText,
   UserMessage,
 } from '@/components/agent-workflow/ExecutionSidebarPanel'
+import { applyChatMessage } from '@/components/agent-workflow/use-workflow-runner'
+import { TokenBudgetBar } from '@/components/agent-workflow/TokenBudgetBar'
+import { PetalLoader } from '@/components/shared/PetalLoader'
+import type { ExecutionLogEvent } from '@/services/orchestration-api'
+import type { WorkflowChatMessage } from '@/types/agent-workflow'
 import { GenerateModelPicker } from '@/components/agent-workflow/GenerateModelPicker'
 import {
   generateWorkflowFromPrompt,
@@ -22,17 +27,22 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { describeWorkflowTab } from '@/components/agent-workflow/workflow-tab-context'
+import type { CanvasPlan } from '@/components/agent-workflow/workflow-plan-from-diagram'
 import { listAgentNodes } from '@/components/agent-workflow/tool-agent-mapping'
 import type { DiagramPage } from '@/components/designer/diagram-types'
 import { cn } from '@/utils/cn'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 
-const ASSISTANT_NAME = 'Workflow AI'
+const ASSISTANT_NAME = 'Workflow Assistant'
 const MIN_PROMPT_LENGTH = 8
 const MAX_ATTACHMENTS = 5
 const MAX_CONTEXT_TABS = 3
 /** Matches the API's per-file limit. */
 const MAX_ATTACHMENT_CHARS = 200_000
+/** Earlier turns sent with each request, so follow-ups like "make it shorter" have context. */
+const MAX_HISTORY_MESSAGES = 10
+/** Matches the API's per-message limit. */
+const MAX_HISTORY_CHARS = 20_000
 const ATTACHMENT_ACCEPT = '.csv,.json,.log,.md,.txt,.xml,.yaml,.yml,application/json,text/*'
 
 const EXAMPLE_PROMPTS = [
@@ -48,6 +58,8 @@ export interface GenerateChatMessage {
   /** Files and workflow tabs sent as context with a user message. */
   context?: Array<{ kind: 'file' | 'tab'; name: string }>
   tone?: 'error' | 'muted'
+  /** Assistant replies: each agent's turns from the run, shown above the reply. */
+  steps?: WorkflowChatMessage[]
 }
 
 interface PendingAttachment extends GenerateWorkflowAttachment {
@@ -67,9 +79,12 @@ interface GenerateWorkflowChatProps {
   /** Workflow tabs that can be added as context. */
   pages: DiagramPage[]
   activePageId: string
-  /** The canvas already has nodes, so a new draft replaces them. */
+  /** The canvas already has agents, so a request updates them. */
   replacesCanvas?: boolean
-  onGenerated: (plan: WorkflowGenerationPlan) => void
+  /** The current tab as a plan, read at send time. Null when it has no agents. */
+  getCurrentWorkflow?: () => CanvasPlan | null
+  /** `base` is the canvas the plan was updated from, or null for a new draft. */
+  onGenerated: (plan: WorkflowGenerationPlan, base: CanvasPlan | null) => void
 }
 
 function ContextChip({
@@ -118,13 +133,17 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function planSummary(plan: WorkflowGenerationPlan, meta: { model: string; origin: string }): string {
+function planSummary(
+  plan: WorkflowGenerationPlan,
+  meta: { model: string; updated: boolean; summary?: string; tokens?: number },
+): string {
   const count = plan.agents.length
   const reviews = plan.edges.filter((edge) => edge.humanApproval).length
   const lines = [
-    `Drafted **${plan.workflowName}** with ${count} agent${count === 1 ? '' : 's'} — it's on the canvas now.`,
+    `${meta.updated ? 'Updated' : 'Drafted'} **${plan.workflowName}** with ${count} agent${count === 1 ? '' : 's'} — it's on the canvas now.`,
   ]
-  if (plan.description.trim()) lines.push('', plan.description.trim())
+  const note = meta.summary?.trim() || plan.description.trim()
+  if (note) lines.push('', note)
   lines.push(
     '',
     ...plan.agents.map(
@@ -133,13 +152,178 @@ function planSummary(plan: WorkflowGenerationPlan, meta: { model: string; origin
     ),
   )
   if (reviews > 0) lines.push('', `Includes ${reviews} human review step${reviews === 1 ? '' : 's'}.`)
-  lines.push(
-    '',
-    meta.origin === 'template'
-      ? '_Drafted from a template — configure an LLM on the server for AI generation._'
-      : `_Generated with ${meta.model}. Describe changes to draft again._`,
-  )
+  const used = meta.tokens ? ` · ${formatTokens(meta.tokens)} tokens` : ''
+  lines.push('', `_Generated with ${meta.model}${used}. Describe changes to update it._`)
   return lines.join('\n')
+}
+
+/** Fold one streamed row into the run's turns, keyed by agent like the execute chat. */
+function applyAgentRow(steps: WorkflowChatMessage[], event: ExecutionLogEvent): WorkflowChatMessage[] {
+  const agentName = event.agent?.trim() || 'Agent'
+  return applyChatMessage(steps, event.agentId || agentName, agentName, event)
+}
+
+/**
+ * An agent's answer here is a workflow JSON draft or a review, so it is shown
+ * folded under a title like a reasoning step, and the reply below sums it up.
+ */
+function foldedStep(step: WorkflowChatMessage): WorkflowChatMessage {
+  return step.kind === 'reasoning' ? step : { ...step, kind: 'reasoning', title: step.title ?? 'Response' }
+}
+
+function finishSteps(steps: WorkflowChatMessage[]): WorkflowChatMessage[] {
+  return steps
+    .filter((step) => step.content.trim())
+    .map((step) => (step.status === 'streaming' ? { ...step, status: 'done' as const } : step))
+}
+
+/**
+ * The run as a timeline, one item per stage. A running stage shows the loader
+ * and what it is doing ("Planning…"); a finished stage shows a dot, its title,
+ * and its reasoning on demand. Live model thinking is held back until its stage
+ * is done, so a running stage never shows twice.
+ *
+ * Markers sit in one fixed column centred under the assistant's avatar, joined
+ * by a single rail; step text starts where the reply text starts.
+ */
+function RunSteps({
+  steps,
+  live,
+  activities = {},
+  fallbackActivity = 'Thinking',
+  tokens = 0,
+}: {
+  steps: WorkflowChatMessage[]
+  live: boolean
+  activities?: Record<string, string>
+  fallbackActivity?: string
+  tokens?: number
+}) {
+  const running = (step: WorkflowChatMessage) => live && step.status === 'streaming'
+  const shown = steps.filter((step) => !(running(step) && step.nodeId.endsWith(':thinking')))
+  const items: TimelineItem[] = shown.map((step) =>
+    running(step) && !step.content.trim()
+      ? { key: step.id, state: 'running', title: activities[step.nodeId] || fallbackActivity, content: '' }
+      : {
+          key: step.id,
+          state: step.status === 'failed' || step.content.startsWith('⚠') ? 'failed' : 'done',
+          title: foldedStep(step).title ?? 'Step',
+          content: readableChatText(step.content.replace(/^⚠\s*/, '')),
+        },
+  )
+  // Between stages, and before the first one, something is still working.
+  if (live && !items.some((item) => item.state === 'running')) {
+    items.push({ key: 'working', state: 'running', title: fallbackActivity, content: '' })
+  }
+
+  return (
+    <ol className="pl-1">
+      {items.map((item, index) => (
+        <TimelineStep key={item.key} item={item} last={index === items.length - 1} tokens={tokens} />
+      ))}
+    </ol>
+  )
+}
+
+interface TimelineItem {
+  key: string
+  state: 'running' | 'done' | 'failed'
+  title: string
+  content: string
+}
+
+function preview(content: string): string {
+  return content.split('\n').map((line) => line.replace(/[#*_`>-]/g, '').trim()).find(Boolean) ?? ''
+}
+
+function TimelineStep({ item, last, tokens }: { item: TimelineItem; last: boolean; tokens: number }) {
+  const [open, setOpen] = useState(false)
+  const expandable = item.state !== 'running' && Boolean(item.content)
+
+  return (
+    <li className="relative grid grid-cols-[16px_minmax(0,1fr)] gap-x-3">
+      {/* Marker column: the marker, then the rail down to the next item's marker. */}
+      <div className="relative flex justify-center">
+        <span className="flex h-5 items-center">
+          {item.state === 'running' ? (
+            <PetalLoader size={14} label={item.title} />
+          ) : (
+            <span
+              aria-hidden
+              className={cn('h-[7px] w-[7px] rounded-full', item.state === 'failed' ? 'bg-red-500' : 'bg-foreground/60')}
+            />
+          )}
+        </span>
+        {!last ? <span aria-hidden className="absolute bottom-0 left-1/2 top-[17px] w-px -translate-x-1/2 bg-border" /> : null}
+      </div>
+
+      <div className={cn('min-w-0', !last && 'pb-3')}>
+        {item.state === 'running' ? (
+          <div className="flex h-5 min-w-0 items-center gap-2" role="status" aria-live="polite">
+            <span className="truncate text-[12.5px] font-medium text-foreground">{item.title}…</span>
+            {tokens > 0 ? (
+              <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">{formatTokens(tokens)} tokens</span>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              disabled={!expandable}
+              onClick={() => setOpen((value) => !value)}
+              aria-expanded={expandable ? open : undefined}
+              className={cn(
+                'group flex h-5 w-full min-w-0 items-center gap-1.5 text-left text-[12.5px] transition-colors',
+                item.state === 'failed' ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground',
+                expandable && 'hover:text-foreground',
+              )}
+            >
+              <span className="shrink-0 font-medium">{item.title}</span>
+              {!open && item.content ? (
+                <span className="min-w-0 truncate text-muted-foreground/70">{preview(item.content)}</span>
+              ) : null}
+              {expandable ? (
+                <ChevronRight
+                  className={cn(
+                    'ml-auto h-3.5 w-3.5 shrink-0 opacity-0 transition-[transform,opacity] group-hover:opacity-100',
+                    open && 'rotate-90 opacity-100',
+                  )}
+                />
+              ) : null}
+            </button>
+            {open && item.content ? (
+              <div className="mt-1">
+                <ChatMarkdown content={item.content} streaming={false} className="text-[12px] leading-5 text-muted-foreground" />
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    </li>
+  )
+}
+
+function AssistantHeader() {
+  return (
+    <div className="mb-1.5 flex min-w-0 items-center gap-2">
+      <AgentAvatar name={ASSISTANT_NAME} />
+      <span className="truncate text-[12.5px] font-semibold text-foreground">{ASSISTANT_NAME}</span>
+    </div>
+  )
+}
+
+function formatTokens(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`
+  return String(value)
+}
+
+/** Earlier turns for the API, oldest first. Errors and "Stopped." notes are left out. */
+function chatHistory(messages: GenerateChatMessage[]) {
+  return messages
+    .filter((message) => !message.tone && message.content.trim())
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map((message) => ({ role: message.role, content: message.content.slice(0, MAX_HISTORY_CHARS) }))
 }
 
 /** Right-panel chat that drafts a workflow onto the canvas from a description. */
@@ -154,12 +338,21 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   pages,
   activePageId,
   replacesCanvas = false,
+  getCurrentWorkflow,
   onGenerated,
 }: GenerateWorkflowChatProps) {
   const [draft, setDraft] = useState('')
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [contextTabIds, setContextTabIds] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
+  /** Each agent's turns for the request in flight, streamed as they arrive. */
+  const [liveSteps, setLiveSteps] = useState<WorkflowChatMessage[]>([])
+  const liveStepsRef = useRef<WorkflowChatMessage[]>([])
+  const [isUpdating, setIsUpdating] = useState(false)
+  /** Tokens the request in flight has used so far. */
+  const [runTokens, setRunTokens] = useState(0)
+  /** What each running stage is doing, as the backend names it: Thinking, Planning, Designing… */
+  const [activities, setActivities] = useState<Record<string, string>>({})
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -167,7 +360,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   useEffect(() => {
     const element = scrollRef.current
     if (element) element.scrollTop = element.scrollHeight
-  }, [messages.length, isGenerating])
+  }, [messages.length, isGenerating, liveSteps])
 
   // Drop an in-flight request if the panel closes.
   useEffect(() => () => abortRef.current?.abort(), [])
@@ -208,16 +401,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     .map((id) => pages.find((page) => page.id === id))
     .filter((page): page is DiagramPage => Boolean(page))
 
-  // Like an editor's "current file" hint: offer the open tab until it's added.
-  const activePage = pages.find((page) => page.id === activePageId)
-  const suggestedTab =
-    activePage &&
-    !contextTabIds.includes(activePage.id) &&
-    contextTabs.length < MAX_CONTEXT_TABS &&
-    listAgentNodes(activePage.diagram).length > 0
-      ? activePage
-      : null
-
   const toggleContextTab = (pageId: string) => {
     setContextTabIds((previous) =>
       previous.includes(pageId)
@@ -236,9 +419,12 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     const prompt = (promptOverride ?? draft).trim()
     if (prompt.length < MIN_PROMPT_LENGTH || isGenerating) return
 
+    // The open tab is the workflow being edited; other tabs travel as reference context.
+    const base = getCurrentWorkflow?.() ?? null
+    const history = chatHistory(messages)
     const sentFiles = attachments
     // Describe tabs at send time so the model sees their latest state.
-    const sentTabs = contextTabs.map((page) => ({
+    const sentTabs = contextTabs.filter((page) => !base || page.id !== activePageId).map((page) => ({
       name: `Workflow tab: ${page.name}`,
       content: describeWorkflowTab(page),
       label: page.name,
@@ -260,6 +446,17 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     setAttachments([])
     setContextTabIds([])
     setIsGenerating(true)
+    setIsUpdating(Boolean(base))
+    liveStepsRef.current = []
+    setLiveSteps([])
+    setRunTokens(0)
+    setActivities({})
+    const onAgentEvent = (event: ExecutionLogEvent) => {
+      const stage = event.agentId
+      if (event.activity && stage) setActivities((previous) => (previous[stage] === event.activity ? previous : { ...previous, [stage]: event.activity! }))
+      liveStepsRef.current = applyAgentRow(liveStepsRef.current, event)
+      setLiveSteps(liveStepsRef.current)
+    }
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -267,19 +464,32 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       const result = await generateWorkflowFromPrompt({
         prompt,
         model,
+        ...(base ? { workflow: base.plan } : {}),
+        history,
         attachments: [
           ...sentTabs.map(({ name, content }) => ({ name, content })),
           ...sentFiles.map(({ name, content }) => ({ name, content })),
         ],
+        onAgentEvent,
+        onUsage: setRunTokens,
         signal: controller.signal,
       })
-      onGenerated(result.plan)
+      const plan = result.plan
+      if (plan) onGenerated(plan, base)
       onMessagesChange((previous) => [
         ...previous,
         {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
-          content: planSummary(result.plan, { model: result.model, origin: result.origin }),
+          content: plan
+            ? planSummary(plan, {
+                model: result.model,
+                updated: Boolean(base),
+                summary: result.summary,
+                tokens: result.tokens,
+              })
+            : `${result.reply ?? ''}${result.tokens ? `\n\n_${formatTokens(result.tokens)} tokens._` : ''}`,
+          steps: finishSteps(liveStepsRef.current),
         },
       ])
     } catch (error) {
@@ -287,28 +497,39 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       onMessagesChange((previous) => [
         ...previous,
         stopped
-          ? { id: `assistant-stopped-${Date.now()}`, role: 'assistant', content: 'Stopped.', tone: 'muted' }
+          ? {
+              id: `assistant-stopped-${Date.now()}`,
+              role: 'assistant',
+              content: 'Stopped.',
+              tone: 'muted',
+              steps: finishSteps(liveStepsRef.current),
+            }
           : {
               id: `assistant-error-${Date.now()}`,
               role: 'assistant',
-              content: `I couldn't generate that workflow. ${error instanceof Error ? error.message : ''}`.trim(),
+              content: `I couldn't ${base ? 'update' : 'generate'} that workflow. ${error instanceof Error ? error.message : ''}`.trim(),
               tone: 'error',
+              steps: finishSteps(liveStepsRef.current),
             },
       ])
     } finally {
       if (abortRef.current === controller) abortRef.current = null
       setIsGenerating(false)
+      liveStepsRef.current = []
+      setLiveSteps([])
     }
   }
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
       <div ref={scrollRef} className="min-h-0 w-full min-w-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        <TokenBudgetBar />
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="rounded-lg border border-dashed border-border/80 px-3 py-6 text-center text-xs leading-relaxed text-muted-foreground">
               Describe the automation below. Agents, connectors, and instructions are drafted onto
-              the canvas so you can edit them. Use the workflow button to include other tabs, or the paperclip to attach files.
+              the canvas so you can edit them. When the canvas already has agents, describe a change
+              and it is applied to them. Use the workflow button to include other tabs, or the paperclip to attach files.
             </p>
             <div className="space-y-2">
               <p className="text-[11px] font-medium text-muted-foreground">Try an example</p>
@@ -348,14 +569,12 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
             </div>
           ) : (
             <div key={message.id} className="min-w-0">
-              {messages[index - 1]?.role !== 'assistant' && (
-                <div className="mb-1.5 flex min-w-0 items-center gap-2">
-                  <AgentAvatar name={ASSISTANT_NAME} />
-                  <span className="truncate text-[12.5px] font-semibold text-foreground">
-                    {ASSISTANT_NAME}
-                  </span>
+              {messages[index - 1]?.role !== 'assistant' && <AssistantHeader />}
+              {message.steps?.length ? (
+                <div className="mb-2">
+                  <RunSteps steps={message.steps} live={false} />
                 </div>
-              )}
+              ) : null}
               <div className="min-w-0 pl-8">
                 {message.tone ? (
                   <p
@@ -377,9 +596,14 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
         )}
 
         {isGenerating && (
-          <div className="flex items-center gap-2 pl-0.5 text-[12px] text-muted-foreground">
-            <TypingDots />
-            Drafting workflow
+          <div className="min-w-0">
+            <RunSteps
+              steps={liveSteps}
+              live
+              activities={activities}
+              fallbackActivity={isUpdating ? 'Updating' : 'Thinking'}
+              tokens={runTokens}
+            />
           </div>
         )}
       </div>
@@ -402,12 +626,12 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
           onChange={setDraft}
           onSubmit={() => void handleGenerate()}
           canSubmit={canGenerate}
-          disabled={isGenerating}
+          // Stay editable during a run so the next message can be drafted; sending waits for the run.
           placeholder="Describe the workflow you want to build…"
           autoFocus
           onFilesDropped={(files) => void addFiles(files)}
           header={
-            contextTabs.length > 0 || attachments.length > 0 || suggestedTab ? (
+            contextTabs.length > 0 || attachments.length > 0 ? (
               <div className="flex flex-wrap items-center gap-1.5 px-1 pb-1.5 pt-0.5">
                 {contextTabs.map((page) => {
                   const count = listAgentNodes(page.diagram).length
@@ -432,24 +656,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                     }
                   />
                 ))}
-                {suggestedTab ? (
-                  <button
-                    type="button"
-                    disabled={isGenerating}
-                    onClick={() => toggleContextTab(suggestedTab.id)}
-                    className={cn(
-                      'inline-flex h-6 max-w-full items-center gap-1.5 rounded-md border border-dashed border-border/80 px-1.5 text-[11px] text-muted-foreground/80 transition-colors',
-                      'hover:border-border hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      'disabled:pointer-events-none disabled:opacity-50',
-                    )}
-                    title={`Add the current tab "${suggestedTab.name}" as context`}
-                  >
-                    <Workflow className="h-3 w-3 shrink-0" />
-                    <span className="max-w-[9rem] truncate italic">{suggestedTab.name}</span>
-                    <span className="shrink-0 text-muted-foreground/70">Current tab</span>
-                    <Plus className="h-3 w-3 shrink-0" />
-                  </button>
-                ) : null}
               </div>
             ) : null
           }
@@ -581,7 +787,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
           }
           hint={
             replacesCanvas
-              ? '⌘/Ctrl + Enter to send · a new draft replaces the current canvas'
+              ? '⌘/Ctrl + Enter to send · changes apply to the current canvas'
               : '⌘/Ctrl + Enter to send'
           }
         />

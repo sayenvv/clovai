@@ -53,11 +53,19 @@ function resolveAgentShape(
   return paletteById.get(node.paletteId)?.shape ?? 'process'
 }
 
+export interface GeneratedDiagram {
+  diagram: Diagram
+  workflowMeta: Partial<AgentWorkflowMeta>
+  workflowName: string
+  /** Canvas node id created for each plan agent key. */
+  nodeIdByKey: Map<string, string>
+}
+
 /** Convert an LLM workflow plan into a canvas-ready diagram. */
 export function diagramFromGenerationPlan(
   plan: WorkflowGenerationPlan,
   paletteById: Map<string, PaletteItem>,
-): { diagram: Diagram; workflowMeta: Partial<AgentWorkflowMeta>; workflowName: string } {
+): GeneratedDiagram {
   const keyToId = new Map<string, string>()
   let agentNodes: DiagramNode[] = []
   const positionsById = new Map<string, { x: number; y: number }>()
@@ -175,6 +183,7 @@ export function diagramFromGenerationPlan(
   return {
     diagram: { nodes: [...agentNodes, ...toolNodes], edges },
     workflowName: plan.workflowName,
+    nodeIdByKey: keyToId,
     workflowMeta: {
       workflowId: createWorkflowId(),
       version: 1,
@@ -188,7 +197,7 @@ export function diagramFromGenerationPlan(
 export function diagramFromGenerationPlanSafe(
   plan: WorkflowGenerationPlan,
   paletteById: Map<string, PaletteItem>,
-): { diagram: Diagram; workflowMeta: Partial<AgentWorkflowMeta>; workflowName: string } {
+): GeneratedDiagram {
   const fallbackPalette = paletteById.get('aw-agent')
   if (fallbackPalette) {
     return diagramFromGenerationPlan(plan, paletteById)
@@ -258,6 +267,7 @@ export function diagramFromGenerationPlanSafe(
   return {
     diagram: { nodes, edges },
     workflowName: plan.workflowName,
+    nodeIdByKey: keyToId,
     workflowMeta: {
       workflowId: createWorkflowId(),
       version: 1,
