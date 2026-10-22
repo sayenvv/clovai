@@ -36,7 +36,7 @@ export const DeploymentListItem = memo(function DeploymentListItem({
     <div
       className={cn(
         'overflow-hidden rounded-lg border border-border/70 bg-background transition-colors',
-        expanded && 'border-red-500/30',
+        expanded && 'border-foreground/30',
       )}
     >
       <button
@@ -145,7 +145,7 @@ export const DeploymentListItem = memo(function DeploymentListItem({
               <Copy className="h-3 w-3" />
               Copy
             </Button>
-            <Button asChild size="sm" className="h-7 flex-1 bg-red-600 px-2 text-[11px] hover:bg-red-700">
+            <Button asChild size="sm" className="h-7 flex-1 bg-primary px-2 text-[11px] hover:bg-primary/90">
               <a href={instance.endpointUrl} target="_blank" rel="noreferrer">
                 <ExternalLink className="h-3 w-3" />
                 Open
@@ -198,7 +198,7 @@ export const DeploymentsEmptyHint = memo(function DeploymentsEmptyHint({
         compact ? 'px-3 py-6' : 'px-4 py-8',
       )}
     >
-      <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-300">
+      <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-foreground/10 text-foreground dark:text-foreground">
         <Rocket className="h-4 w-4" />
       </div>
       <p className="mt-3 text-xs font-medium text-foreground">No deployments yet</p>

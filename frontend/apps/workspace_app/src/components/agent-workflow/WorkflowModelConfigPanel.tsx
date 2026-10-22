@@ -244,7 +244,7 @@ function OllamaFields({
           </>
         ) : error ? (
           <>
-            <XCircle className="h-3 w-3 shrink-0 text-red-600" />
+            <XCircle className="h-3 w-3 shrink-0 text-foreground" />
             <span className="text-red-700 dark:text-red-400">{error}</span>
           </>
         ) : (

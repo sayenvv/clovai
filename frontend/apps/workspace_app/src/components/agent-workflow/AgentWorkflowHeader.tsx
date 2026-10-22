@@ -57,7 +57,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
         <button
           type="button"
           onClick={onNavigateHome}
-          className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+          className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
           aria-label={`${APP_NAME} home`}
         >
           <Logo size={LOGO_SIZE_WORKSPACE} />
@@ -80,18 +80,18 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
         {projectLabel && (
           <Badge
             variant="outline"
-            className="hidden max-w-[10rem] truncate border-indigo-500/30 bg-indigo-500/5 text-[10px] font-normal text-indigo-700 dark:text-indigo-300 sm:inline-flex"
+            className="hidden max-w-[10rem] truncate border-border bg-muted/60 text-[10px] font-normal text-muted-foreground sm:inline-flex"
             title={projectLabel}
           >
             {projectLabel}
           </Badge>
         )}
-        <Badge variant="outline" className="shrink-0 text-[10px] font-normal">
+        <Badge variant="outline" className="shrink-0 border-border font-mono text-[10px] font-normal text-muted-foreground">
           v{version}
         </Badge>
         <Badge
           variant="outline"
-          className="shrink-0 border-red-500/30 bg-red-500/5 text-[10px] font-normal capitalize text-red-700 dark:text-red-300"
+          className="shrink-0 border-border bg-muted/60 text-[10px] font-medium capitalize text-foreground"
         >
           {status}
         </Badge>
@@ -124,7 +124,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
               aria-keyshortcuts="Meta+K Control+K"
               title={`Ask Workflow AI (${ASK_AI_SHORTCUT_LABEL})`}
             >
-              <Sparkles className="h-3.5 w-3.5 shrink-0 text-red-600 dark:text-red-400" />
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-foreground dark:text-foreground" />
               <span className="min-w-0 flex-1 truncate">Ask AI to build a workflow…</span>
               <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-px font-sans text-[10px] font-medium text-muted-foreground">
                 {ASK_AI_SHORTCUT_LABEL}
@@ -160,7 +160,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
             Deployments
           </Button>
         ) : null}
-        <Button size="sm" disabled={!isValidated} onClick={onDeploy} className="bg-red-600 hover:bg-red-700">
+        <Button size="sm" disabled={!isValidated} onClick={onDeploy} className="bg-primary hover:bg-primary/90">
           <Rocket className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Deploy</span>
         </Button>

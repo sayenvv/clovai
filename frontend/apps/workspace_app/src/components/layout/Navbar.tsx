@@ -65,8 +65,8 @@ export const Navbar = memo(function Navbar() {
               'flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
               isConsole
                 ? cn(
-                    'border border-border/70 bg-background/60 text-foreground hover:border-red-500/30 hover:bg-red-500/[0.06]',
-                    isOpen && 'border-red-500/30 bg-red-500/[0.08]',
+                    'border border-border/70 bg-background/60 text-foreground hover:border-foreground/30 hover:bg-foreground/[0.06]',
+                    isOpen && 'border-foreground/30 bg-foreground/[0.08]',
                   )
                 : cn(
                     'text-muted-foreground hover:text-foreground',
@@ -77,7 +77,7 @@ export const Navbar = memo(function Navbar() {
             aria-haspopup="menu"
             onClick={() => (isOpen ? setOpenMenuId(null) : openMenu(item.id))}
           >
-            {isConsole ? <LayoutDashboard className="h-3.5 w-3.5 text-red-600 dark:text-red-400" /> : null}
+            {isConsole ? <LayoutDashboard className="h-3.5 w-3.5 text-foreground dark:text-foreground" /> : null}
             {item.label}
             <ChevronDown
               className={cn('h-3.5 w-3.5 transition-transform duration-200', isOpen && 'rotate-180')}

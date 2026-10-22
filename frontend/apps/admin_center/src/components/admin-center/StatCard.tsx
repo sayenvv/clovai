@@ -5,7 +5,7 @@ import { cn } from '@/utils/cn'
 type Tone = 'primary' | 'success' | 'warning' | 'violet'
 
 const TONES: Record<Tone, string> = {
-  primary: 'bg-red-500/10 text-red-600 dark:text-red-300',
+  primary: 'bg-foreground/10 text-foreground dark:text-foreground',
   success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
   warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
   violet: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',

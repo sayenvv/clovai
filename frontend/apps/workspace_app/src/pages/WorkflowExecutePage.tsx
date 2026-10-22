@@ -365,6 +365,7 @@ export default function WorkflowExecutePage() {
           input={input}
           onInputChange={setInput}
           onRunAgain={handleExecute}
+          onCancel={cancel}
           onSubmitApproval={submitApproval}
           onSubmitFeedback={submitFeedback}
           isRunning={isRunning}

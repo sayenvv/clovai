@@ -67,7 +67,7 @@ export default function DashboardShell() {
 
           <Badge
             variant="outline"
-            className="hidden shrink-0 border-red-500/30 bg-red-500/5 text-[10px] font-medium text-red-700 dark:text-red-300 sm:inline-flex"
+            className="hidden shrink-0 border-foreground/30 bg-foreground/5 text-[10px] font-medium text-foreground dark:text-foreground sm:inline-flex"
           >
             {current.label}
           </Badge>
@@ -100,7 +100,7 @@ export default function DashboardShell() {
                   className={cn(
                     'shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors',
                     active
-                      ? 'bg-red-600 text-white'
+                      ? 'bg-primary text-primary-foreground'
                       : 'bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >

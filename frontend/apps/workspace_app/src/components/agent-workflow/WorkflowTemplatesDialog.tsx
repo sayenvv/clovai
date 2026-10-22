@@ -39,7 +39,7 @@ const TEMPLATE_VISUALS: Record<string, TemplateVisual> = {
   parallel: {
     icon: GitBranch,
     tile: 'bg-gradient-to-br from-violet-500/20 to-purple-600/10 ring-1 ring-violet-500/25',
-    iconClass: 'text-violet-600 dark:text-violet-300',
+    iconClass: 'text-foreground dark:text-foreground',
   },
   handoff: {
     icon: ArrowRightLeft,
@@ -53,8 +53,8 @@ const TEMPLATE_VISUALS: Record<string, TemplateVisual> = {
   },
   magentic: {
     icon: Magnet,
-    tile: 'bg-gradient-to-br from-rose-500/20 to-red-600/10 ring-1 ring-rose-500/25',
-    iconClass: 'text-rose-600 dark:text-rose-300',
+    tile: 'bg-gradient-to-br from-foreground/20 to-foreground/10 ring-1 ring-foreground/25',
+    iconClass: 'text-foreground dark:text-foreground',
   },
   'human-in-the-loop': {
     icon: ShieldCheck,
@@ -67,8 +67,8 @@ function templateVisual(id: string): TemplateVisual {
   return (
     TEMPLATE_VISUALS[id] ?? {
       icon: Sparkles,
-      tile: 'bg-gradient-to-br from-red-500/20 to-rose-600/10 ring-1 ring-red-500/25',
-      iconClass: 'text-red-600 dark:text-red-300',
+      tile: 'bg-gradient-to-br from-foreground/20 to-foreground/10 ring-1 ring-foreground/25',
+      iconClass: 'text-foreground dark:text-foreground',
     }
   )
 }
@@ -104,7 +104,7 @@ export const WorkflowTemplateGrid = memo(function WorkflowTemplateGrid({
               key={template.id}
               type="button"
               onClick={() => onSelect(template)}
-              className="flex flex-col items-stretch rounded-2xl border border-border/80 bg-background/95 p-3 text-left shadow-sm transition-colors active:border-red-500/40 active:bg-red-500/[0.04]"
+              className="flex flex-col items-stretch rounded-2xl border border-border/80 bg-background/95 p-3 text-left shadow-sm transition-colors active:border-foreground/40 active:bg-foreground/[0.04]"
             >
               <div
                 className={cn(
@@ -144,8 +144,8 @@ export const WorkflowTemplateGrid = memo(function WorkflowTemplateGrid({
             type="button"
             onClick={() => onSelect(template)}
             className={cn(
-              'group flex flex-col rounded-xl border border-red-500/15 bg-card/80 text-left transition-all',
-              'hover:-translate-y-0.5 hover:border-red-500/40 hover:bg-red-500/[0.04] hover:shadow-md',
+              'group flex flex-col rounded-xl border border-foreground/15 bg-card/80 text-left transition-all',
+              'hover:-translate-y-0.5 hover:border-foreground/40 hover:bg-foreground/[0.04] hover:shadow-md',
               compact ? 'gap-1.5 p-3' : 'gap-2 p-3.5',
             )}
           >
@@ -204,8 +204,8 @@ export const WorkflowTemplatesDialog = memo(function WorkflowTemplatesDialog({
 }: WorkflowTemplatesDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl gap-0 overflow-hidden border-red-500/20 p-0 sm:rounded-2xl">
-        <div className="border-b border-red-500/15 bg-gradient-to-br from-red-500/[0.08] via-rose-500/[0.04] to-background px-6 py-5">
+      <DialogContent className="max-w-2xl gap-0 overflow-hidden border-foreground/20 p-0 sm:rounded-2xl">
+        <div className="border-b border-foreground/15 bg-gradient-to-br from-foreground/[0.08] via-foreground/[0.04] to-background px-6 py-5">
           <DialogHeader className="space-y-2 text-left">
             <DialogTitle className="text-lg tracking-tight">Workflow templates</DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">

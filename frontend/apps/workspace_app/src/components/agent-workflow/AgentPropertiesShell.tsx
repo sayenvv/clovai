@@ -252,7 +252,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
           <div className="min-w-0 flex-1">
             {chatVisible ? (
               <div className="flex min-w-0 items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-400">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
                   <Sparkles className="h-3.5 w-3.5" />
                 </span>
                 <div className="min-w-0">
@@ -264,8 +264,16 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
               </div>
             ) : executionPanelOpen && !generate ? (
               <TooltipProvider delayDuration={200}>
-                <div className="flex items-center gap-1.5">
-                  <p className="truncate text-sm font-semibold text-foreground">Execution</p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-foreground">
+                    <Play className="h-3 w-3 fill-current" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold leading-tight text-foreground">Run chat</p>
+                    <p className="truncate text-[11px] leading-tight text-muted-foreground">
+                      Send a message to run this workflow
+                    </p>
+                  </div>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -540,7 +548,7 @@ function MultiSelectState({
 }) {
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-red-500/10 text-red-600 dark:text-red-300">
+      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-foreground/10 text-foreground dark:text-foreground">
         <GitBranch className="h-5 w-5" />
       </div>
       <p className="text-sm font-medium text-foreground">{count} items selected</p>

@@ -186,7 +186,7 @@ export function UserWorkflowDetailView() {
                   Aggregate load across all tracked executions for this workflow
                 </p>
               </div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-300">
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
                 <Gauge className="h-4 w-4" />
               </div>
             </div>
@@ -609,7 +609,7 @@ function UtilizationMeter({
       </div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-red-600 transition-[width]"
+          className="h-full rounded-full bg-primary transition-[width]"
           style={{ width: `${clamped}%` }}
         />
       </div>

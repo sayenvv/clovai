@@ -137,14 +137,14 @@ function SidebarNavLink({ item, collapsed }: { item: AdminNavItem; collapsed: bo
           'relative flex items-center rounded-md text-left transition-colors',
           collapsed ? 'h-9 w-9 shrink-0 justify-center' : 'w-full min-w-0 gap-2.5 px-2.5 py-1.5',
           isActive
-            ? 'bg-red-500/10 font-semibold text-red-700 dark:text-red-300'
+            ? 'bg-foreground/[0.06] font-semibold text-foreground dark:bg-foreground/10'
             : 'text-muted-foreground hover:bg-muted hover:text-foreground',
         )
       }
     >
       {({ isActive }) => (
         <>
-          <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-red-600 dark:text-red-300')} />
+          <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-foreground dark:text-foreground')} />
           {!collapsed && <span className="min-w-0 flex-1 truncate text-[12.5px]">{item.label}</span>}
           {!collapsed && item.badge ? (
             <span className="shrink-0 rounded-full bg-muted px-1.5 py-px text-[10px] font-semibold tabular-nums text-muted-foreground">
@@ -152,7 +152,7 @@ function SidebarNavLink({ item, collapsed }: { item: AdminNavItem; collapsed: bo
             </span>
           ) : null}
           {collapsed && item.badge ? (
-            <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-red-600" />
+            <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-primary" />
           ) : null}
         </>
       )}

@@ -99,7 +99,7 @@ export const MobileWorkspaceHeader = memo(function MobileWorkspaceHeader({
             <button
               type="button"
               onClick={onNavigateHome}
-              className="shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+              className="shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
               aria-label={`${APP_NAME} home`}
             >
               <Logo size={LOGO_SIZE_WORKSPACE} rounded="md" />
@@ -206,7 +206,7 @@ export const MobileWorkspaceHeader = memo(function MobileWorkspaceHeader({
                 variant="ghost"
                 size="icon"
                 onClick={onGenerate}
-                className="h-8 w-8 text-red-700 dark:text-red-300"
+                className="h-8 w-8 text-foreground dark:text-foreground"
                 aria-label="Ask Workflow AI"
               >
                 <MessageSquareText className="h-4 w-4" />

@@ -1,28 +1,37 @@
-import { useState, type ReactNode } from 'react'
+import { forwardRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { ArrowUp, Square, type LucideIcon } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/utils/cn'
+
+/*
+ * Shared chat UI for the assistant chat and the run chat, so both read as one product:
+ * an editor-style composer (text box with a toolbar row), header-led turns instead of
+ * bubbles, and the same empty state.
+ */
 
 interface ChatComposerProps {
   value: string
   onChange: (value: string) => void
-  /** Called on ⌘/Ctrl + Enter when `canSubmit`. */
+  /** Called on Enter (or ⌘/Ctrl + Enter) when `canSubmit`. */
   onSubmit: () => void
   canSubmit: boolean
   disabled?: boolean
   placeholder?: string
-  /** Left side of the toolbar row (e.g. file upload). */
+  /** Left side of the toolbar row (attach, context, model picker). */
   leading?: ReactNode
   /** Right side of the toolbar row (send / stop button). */
   action: ReactNode
+  /** Shown under the box, such as what sending will do. */
   hint?: ReactNode
   /** Shown above the text box (e.g. attached file chips). */
   header?: ReactNode
   /** Enables dropping files onto the composer. */
   onFilesDropped?: (files: File[]) => void
   autoFocus?: boolean
+  /** Monospace input, for JSON payloads. */
+  mono?: boolean
 }
 
-/** Rounded message box shared by the run and generate chats in the right panel. */
 export function ChatComposer({
   value,
   onChange,
@@ -36,16 +45,18 @@ export function ChatComposer({
   header,
   onFilesDropped,
   autoFocus = false,
+  mono = false,
 }: ChatComposerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const dropEnabled = Boolean(onFilesDropped) && !disabled
 
   return (
-    <>
+    <div className="space-y-1.5">
       <div
         className={cn(
-          'rounded-[22px] border border-border/60 bg-background p-2.5 shadow-sm transition-colors focus-within:border-ring/40 focus-within:ring-2 focus-within:ring-ring/10 dark:border-zinc-700/70 dark:focus-within:border-zinc-600 dark:focus-within:ring-zinc-500/10',
-          isDragging && 'border-dashed border-primary/50 bg-primary/[0.03]',
+          'rounded-xl border border-border bg-card shadow-sm transition-[border-color,box-shadow]',
+          'focus-within:border-foreground/25 focus-within:shadow-md',
+          isDragging && 'border-dashed border-foreground/40 bg-muted/40',
         )}
         onDragOver={(event) => {
           if (!dropEnabled) return
@@ -63,7 +74,7 @@ export function ChatComposer({
           if (files.length > 0) onFilesDropped?.(files)
         }}
       >
-        {header}
+        {header ? <div className="px-2.5 pt-2.5">{header}</div> : null}
         <Textarea
           rows={2}
           value={value}
@@ -71,21 +82,189 @@ export function ChatComposer({
           disabled={disabled}
           placeholder={placeholder}
           autoFocus={autoFocus}
-          className="min-h-[52px] resize-none border-0 bg-transparent px-2 py-1.5 text-sm leading-relaxed text-foreground shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-0 dark:text-white dark:placeholder:text-zinc-500"
+          className={cn(
+            'max-h-48 min-h-[56px] resize-none border-0 bg-transparent px-3.5 pb-1 pt-3 text-[13px] leading-relaxed text-foreground shadow-none',
+            'placeholder:text-muted-foreground/70 focus-visible:ring-0',
+            mono && 'font-mono text-[12px]',
+          )}
           spellCheck={false}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+            // Enter sends, Shift+Enter adds a line; ⌘/Ctrl+Enter also sends.
+            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault()
               if (canSubmit) onSubmit()
             }
           }}
         />
-        <div className="flex items-center gap-1 pt-1">
+        <div className="flex items-center gap-0.5 px-2 pb-2">
           {leading}
-          <div className="ml-auto">{action}</div>
+          <div className="ml-auto flex items-center gap-1">{action}</div>
         </div>
       </div>
-      {hint ? <p className="text-[10px] text-muted-foreground">{hint}</p> : null}
-    </>
+      <p className="flex items-center justify-between gap-2 px-1 text-[10.5px] text-muted-foreground/80">
+        <span className="min-w-0 truncate">{hint}</span>
+        <span className="shrink-0">
+          <Kbd>↵</Kbd> send · <Kbd>⇧</Kbd>
+          <Kbd>↵</Kbd> new line
+        </span>
+      </p>
+    </div>
+  )
+}
+
+function Kbd({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="mx-px inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-muted px-1 font-sans text-[9.5px] font-medium text-muted-foreground">
+      {children}
+    </kbd>
+  )
+}
+
+/** A small toolbar icon button inside the composer (attach, context, …). */
+export const ComposerIconButton = forwardRef<
+  HTMLButtonElement,
+  ButtonHTMLAttributes<HTMLButtonElement> & { icon: LucideIcon; label: string; badge?: ReactNode }
+>(function ComposerIconButton({ icon: Icon, label, badge, className, ...props }, ref) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      aria-label={label}
+      title={props.title ?? label}
+      className={cn(
+        'relative flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors',
+        'hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'disabled:pointer-events-none disabled:opacity-40 data-[state=open]:bg-muted data-[state=open]:text-foreground',
+        className,
+      )}
+      {...props}
+    >
+      <Icon className="h-4 w-4" />
+      {badge ? (
+        <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-foreground px-0.5 text-[9px] font-semibold tabular-nums text-background">
+          {badge}
+        </span>
+      ) : null}
+    </button>
+  )
+})
+
+/** The composer's primary button: send (arrow), or a labelled action such as "Run again". */
+export function ComposerSendButton({
+  onClick,
+  disabled,
+  busy = false,
+  label = 'Send',
+  icon: Icon = ArrowUp,
+  text,
+}: {
+  onClick: () => void
+  disabled?: boolean
+  busy?: boolean
+  label?: string
+  icon?: LucideIcon
+  /** Shown next to the icon; icon-only when omitted. */
+  text?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className={cn(
+        'flex h-7 items-center justify-center gap-1.5 rounded-md bg-foreground text-[12px] font-medium text-background shadow-sm transition-colors',
+        'hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+        'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none',
+        text ? 'px-2.5' : 'w-7',
+      )}
+    >
+      {busy ? (
+        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+      ) : (
+        <Icon className="h-4 w-4" strokeWidth={2.25} />
+      )}
+      {text}
+    </button>
+  )
+}
+
+export function ComposerStopButton({ onClick, label = 'Stop' }: { onClick: () => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={cn(
+        'flex h-7 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[12px] font-medium text-foreground shadow-sm transition-colors',
+        'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      )}
+    >
+      <Square className="h-2.5 w-2.5 fill-current" />
+      {label}
+    </button>
+  )
+}
+
+/** The header row that starts each turn: avatar, name, and optional detail on the right. */
+export function ChatTurnHeader({ avatar, name, meta }: { avatar: ReactNode; name: string; meta?: ReactNode }) {
+  return (
+    <div className="mb-2 flex min-w-0 items-center gap-2">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center">{avatar}</span>
+      <span className="truncate text-[12.5px] font-semibold text-foreground">{name}</span>
+      {meta ? <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">{meta}</span> : null}
+    </div>
+  )
+}
+
+/** Indents a turn's body so it lines up under the name in its header. */
+export function ChatTurnBody({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('min-w-0 pl-8', className)}>{children}</div>
+}
+
+/** First-run state for a chat: icon, title, a line of help, and optional suggestions. */
+export function ChatEmptyState({
+  icon,
+  title,
+  description,
+  suggestions,
+  onSuggestion,
+  disabled,
+}: {
+  icon: ReactNode
+  title: string
+  description: ReactNode
+  suggestions?: string[]
+  onSuggestion?: (text: string) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="flex flex-col items-center px-2 pb-2 pt-8 text-center">
+      <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card shadow-sm">
+        {icon}
+      </span>
+      <p className="mt-3 text-[14px] font-semibold tracking-tight text-foreground">{title}</p>
+      <p className="mt-1 max-w-[30ch] text-[12px] leading-relaxed text-muted-foreground">{description}</p>
+      {suggestions?.length ? (
+        <div className="mt-5 w-full space-y-1.5 text-left">
+          {suggestions.map((text) => (
+            <button
+              key={text}
+              type="button"
+              disabled={disabled}
+              onClick={() => onSuggestion?.(text)}
+              className={cn(
+                'w-full rounded-lg border border-border bg-card px-3 py-2 text-[12px] leading-snug text-muted-foreground transition-colors',
+                'hover:border-foreground/20 hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-50',
+              )}
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   )
 }

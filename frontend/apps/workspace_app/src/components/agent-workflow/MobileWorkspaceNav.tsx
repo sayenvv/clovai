@@ -59,14 +59,14 @@ export const MobileWorkspaceNav = memo(function MobileWorkspaceNav() {
                     <span
                       className={cn(
                         'absolute inset-x-3 top-0 h-0.5 rounded-full transition-opacity',
-                        isActive ? 'bg-red-600 opacity-100' : 'opacity-0',
+                        isActive ? 'bg-primary opacity-100' : 'opacity-0',
                       )}
                     />
                     <span
                       className={cn(
                         'flex h-8 w-8 items-center justify-center rounded-xl transition-colors',
                         isActive
-                          ? 'bg-red-600/10 text-red-600 dark:text-red-400'
+                          ? 'bg-foreground/10 text-foreground dark:text-foreground'
                           : 'text-muted-foreground group-hover:bg-foreground/[0.05] group-hover:text-foreground',
                       )}
                     >

@@ -102,7 +102,7 @@ export const AttachCapabilityDialog = memo(function AttachCapabilityDialog({
                 key={item.id}
                 className={cn(
                   'flex flex-col rounded-xl border bg-card/80 p-3 transition-colors',
-                  already ? 'border-emerald-500/30 bg-emerald-500/[0.04]' : 'border-border/70 hover:border-red-400/40',
+                  already ? 'border-emerald-500/30 bg-emerald-500/[0.04]' : 'border-border/70 hover:border-foreground/40',
                 )}
               >
                 <div className="flex items-start gap-2.5">

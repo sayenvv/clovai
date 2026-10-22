@@ -112,8 +112,8 @@ const BLOCK_ICONS: Record<AgentType, LucideIcon> = {
 
 const BLOCK_STYLES: Record<string, { icon: string; ring: string }> = {
   agent: {
-    icon: 'bg-red-500/10 text-red-600 dark:text-red-300',
-    ring: 'ring-red-500/20',
+    icon: 'bg-foreground/10 text-foreground dark:text-foreground',
+    ring: 'ring-foreground/20',
   },
   tool: {
     icon: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',

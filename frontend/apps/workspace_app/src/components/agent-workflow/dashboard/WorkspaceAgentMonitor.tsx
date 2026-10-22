@@ -143,7 +143,7 @@ function TabCard({ tab, defaultOpen }: { tab: MonitoredTab; defaultOpen: boolean
       {open ? (
         <div className="border-t border-border/60 px-3 pb-3 pt-2">
           {runs.lastError ? (
-            <p className="mb-2 flex items-start gap-1.5 rounded-md border border-red-500/30 bg-red-500/5 px-2.5 py-1.5 text-[11px] text-red-700 dark:text-red-300">
+            <p className="mb-2 flex items-start gap-1.5 rounded-md border border-foreground/30 bg-foreground/5 px-2.5 py-1.5 text-[11px] text-foreground dark:text-foreground">
               <XCircle className="mt-0.5 h-3 w-3 shrink-0" />
               <span className="min-w-0 break-words">Last failure: {runs.lastError}</span>
             </p>

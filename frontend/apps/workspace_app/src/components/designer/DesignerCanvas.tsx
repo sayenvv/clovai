@@ -1569,8 +1569,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               viewBox="0 0 12 12"
               refX="10"
               refY="6"
-              markerWidth={agentMode ? 7 : 6}
-              markerHeight={agentMode ? 7 : 6}
+              markerWidth={6}
+              markerHeight={6}
               orient="auto"
               markerUnits="strokeWidth"
             >
@@ -1644,7 +1644,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               diagram.nodes.find((node) => node.id === edge.from)?.agent?.humanInTheLoop,
             )
             const approvalEdge = agentMode && edgeNeedsApprovalStyle(edge, fromAgentHitl)
-            const quietStroke = isDark ? '#52525b' : '#9ca3af'
+            const quietStroke = isDark ? '#4a4a50' : '#a1a1aa'
             const selectedStroke = isDark ? '#e4e4e7' : '#27272a'
             const hoverStroke = isDark ? '#71717a' : '#52525b'
             const approvalStroke = isDark ? '#f59e0b' : '#d97706'
@@ -1663,10 +1663,10 @@ export const DesignerCanvas = memo(function DesignerCanvas({
             const stroke = isSelected ? accentStroke : isHovered ? hoverStroke : baseStroke
             const strokeWidth = agentMode
               ? isSelected
-                ? 2.25
+                ? 2
                 : isHovered
-                  ? 1.85
-                  : 1.6
+                  ? 1.75
+                  : 1.4
               : isSelected
                 ? 2.75
                 : isHovered

@@ -1441,7 +1441,7 @@ export default function AgentWorkflowPage() {
                                     Pick a pattern, then edit on the canvas. Or{' '}
                                     <button
                                       type="button"
-                                      className="font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-300"
+                                      className="font-medium text-foreground underline-offset-2 hover:underline dark:text-foreground"
                                       onClick={openGeneratePanel}
                                     >
                                       ask Workflow AI
@@ -1485,7 +1485,7 @@ export default function AgentWorkflowPage() {
                                   Human-in-the-loop — then customize on the canvas. Or{' '}
                                   <button
                                     type="button"
-                                    className="font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-300"
+                                    className="font-medium text-foreground underline-offset-2 hover:underline dark:text-foreground"
                                     onClick={openGeneratePanel}
                                   >
                                     ask Workflow AI

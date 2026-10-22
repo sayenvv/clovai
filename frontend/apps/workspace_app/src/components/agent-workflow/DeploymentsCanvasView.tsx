@@ -80,7 +80,7 @@ export const DeploymentsCanvasView = memo(function DeploymentsCanvasView({
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-[hsl(var(--canvas))]">
       <div className="flex shrink-0 items-center gap-3 border-b border-border/70 bg-card px-4 py-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-300">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-foreground/10 text-foreground dark:text-foreground">
           <Rocket className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
@@ -98,7 +98,7 @@ export const DeploymentsCanvasView = memo(function DeploymentsCanvasView({
               className={cn(
                 'rounded-lg px-2.5 py-1.5 text-[11px] font-medium capitalize transition-colors',
                 statusFilter === value
-                  ? 'bg-red-600 font-semibold text-white'
+                  ? 'bg-primary font-semibold text-primary-foreground'
                   : 'border border-border bg-background text-muted-foreground hover:bg-accent/50 hover:text-foreground',
               )}
             >
@@ -115,8 +115,8 @@ export const DeploymentsCanvasView = memo(function DeploymentsCanvasView({
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
         {filtered.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border bg-card px-6 py-16 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-red-500/10">
-              <Rocket className="h-5 w-5 text-red-600 dark:text-red-400" />
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-foreground/10">
+              <Rocket className="h-5 w-5 text-foreground dark:text-foreground" />
             </div>
             <p className="mt-4 text-sm font-semibold text-foreground">
               {instances.length === 0 ? 'No deployments yet' : 'No matches'}
@@ -126,7 +126,7 @@ export const DeploymentsCanvasView = memo(function DeploymentsCanvasView({
                 ? 'Validate and deploy a workflow — it will show up here with runs and logs.'
                 : 'Try another status filter.'}
             </p>
-            <Button type="button" size="sm" className="mt-5 bg-red-600 hover:bg-red-700" onClick={onBackToCanvas}>
+            <Button type="button" size="sm" className="mt-5 bg-primary hover:bg-primary/90" onClick={onBackToCanvas}>
               <PenLine className="h-3.5 w-3.5" />
               Open canvas
             </Button>
@@ -175,7 +175,7 @@ function InstanceDetailCard({
     <article
       className={cn(
         'overflow-hidden rounded-lg border border-border/70 bg-card transition-colors',
-        expanded && 'border-red-500/30 ring-1 ring-red-500/10',
+        expanded && 'border-foreground/30 ring-1 ring-foreground/10',
         !isCurrent && 'opacity-95',
       )}
     >
@@ -190,7 +190,7 @@ function InstanceDetailCard({
             <h2 className="truncate text-sm font-semibold text-foreground">{item.workflowName}</h2>
             <StatusPill status={item.status} />
             {isCurrent ? (
-              <Badge className="bg-red-600 text-[10px] font-semibold text-white hover:bg-red-600">
+              <Badge className="bg-primary text-[10px] font-semibold text-primary-foreground hover:bg-primary/90">
                 Current
               </Badge>
             ) : (
@@ -206,7 +206,7 @@ function InstanceDetailCard({
             </Badge>
             <Badge
               variant="outline"
-              className="border-red-500/30 bg-red-500/5 text-[10px] font-normal capitalize text-red-700 dark:text-red-300"
+              className="border-foreground/30 bg-foreground/5 text-[10px] font-normal capitalize text-foreground dark:text-foreground"
             >
               {item.environment}
             </Badge>
@@ -253,7 +253,7 @@ function InstanceDetailCard({
               <PenLine className="h-3.5 w-3.5" />
               Open canvas
             </Button>
-            <Button asChild size="sm" className="bg-red-600 hover:bg-red-700">
+            <Button asChild size="sm" className="bg-primary hover:bg-primary/90">
               <a href={item.endpointUrl} target="_blank" rel="noreferrer">
                 <ExternalLink className="h-3.5 w-3.5" />
                 Open endpoint
@@ -292,7 +292,7 @@ function InstanceDetailCard({
                     Est. {formatCurrency(estSpend)}
                   </p>
                 </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-400">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
                   <Coins className="h-4 w-4" />
                 </div>
               </div>
@@ -301,13 +301,13 @@ function InstanceDetailCard({
                   label="LLM"
                   value={item.metrics.creditBreakdown.llm}
                   total={item.metrics.totalCredits}
-                  className="bg-red-500"
+                  className="bg-primary"
                 />
                 <CreditBar
                   label="Tools"
                   value={item.metrics.creditBreakdown.tools}
                   total={item.metrics.totalCredits}
-                  className="bg-rose-400"
+                  className="bg-primary"
                 />
                 <CreditBar
                   label="Compute"

@@ -62,7 +62,7 @@ export const ConsoleMenu = memo(function ConsoleMenu({ onNavigate }: ConsoleMenu
       transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
       className="w-[min(92vw,22rem)] overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-xl shadow-black/10 backdrop-blur-xl"
     >
-      <div className="border-b border-border/60 bg-gradient-to-br from-red-500/[0.07] via-transparent to-rose-500/[0.05] px-4 py-3.5">
+      <div className="border-b border-border/60 bg-gradient-to-br from-foreground/[0.07] via-transparent to-foreground/[0.05] px-4 py-3.5">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           Management console
         </p>
@@ -82,7 +82,7 @@ export const ConsoleMenu = memo(function ConsoleMenu({ onNavigate }: ConsoleMenu
               onClick={onNavigate}
               className="group flex items-start gap-3 rounded-xl px-2.5 py-2.5 transition-colors hover:bg-accent/60"
             >
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted/70 text-muted-foreground ring-1 ring-border/60 transition-colors group-hover:bg-gradient-to-br group-hover:from-red-600 group-hover:to-rose-600 group-hover:text-white group-hover:ring-transparent">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted/70 text-muted-foreground ring-1 ring-border/60 transition-colors group-hover:bg-gradient-to-br group-hover:from-primary/90 group-hover:to-primary/90 group-hover:text-primary-foreground group-hover:ring-transparent">
                 <Icon className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1">

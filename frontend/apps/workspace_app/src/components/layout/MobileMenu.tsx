@@ -83,7 +83,7 @@ export const MobileMenu = memo(function MobileMenu({
             <AccordionItem value={item.id} className="border-none">
               <AccordionTrigger className="rounded-md px-3 py-2.5 text-sm font-medium hover:bg-accent hover:no-underline">
                 <span className="flex items-center gap-2">
-                  <LayoutDashboard className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  <LayoutDashboard className="h-4 w-4 text-foreground dark:text-foreground" />
                   {item.label}
                 </span>
               </AccordionTrigger>

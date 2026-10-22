@@ -57,7 +57,7 @@ export const ExecutionControlBar = memo(function ExecutionControlBar({
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
           )}
           {runState.status === 'failed' && (
-            <XCircle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+            <XCircle className="h-4 w-4 shrink-0 text-foreground dark:text-foreground" />
           )}
           <span className="text-xs font-semibold text-foreground">Workflow execution</span>
           <ExecutionStatusBadge variant={statusVariant} label={STATUS_LABELS[runState.status]} />

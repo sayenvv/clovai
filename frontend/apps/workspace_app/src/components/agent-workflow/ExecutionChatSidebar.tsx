@@ -234,7 +234,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             ? 'bg-emerald-500/15 text-emerald-600'
             : isSystem
               ? 'bg-muted text-muted-foreground'
-              : 'bg-red-500/15 text-red-600',
+              : 'bg-foreground/15 text-foreground',
         )}
       >
         {isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
@@ -246,7 +246,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
             ? 'col-start-1 row-start-1 w-fit max-w-full justify-self-end border-emerald-600/35 bg-emerald-50 text-foreground dark:border-emerald-500/20 dark:bg-emerald-500/5'
             : isSystem
               ? 'w-full border-border/60 bg-muted/60 text-muted-foreground dark:border-border/60 dark:bg-muted/30'
-              : 'w-full border-red-600/35 bg-red-50 text-foreground dark:border-red-500/20 dark:bg-red-500/5',
+              : 'w-full border-foreground/35 bg-primary text-foreground dark:border-foreground/20 dark:bg-foreground/5',
         )}
       >
         <p

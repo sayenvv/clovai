@@ -14,7 +14,8 @@ type ThemeMode = 'light' | 'dark'
 function getInitialTheme(): ThemeMode {
   const stored = localStorage.getItem(STORAGE_KEYS.theme)
   if (stored === 'light' || stored === 'dark') return stored
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  // Dark unless the user picked light.
+  return 'dark'
 }
 
 interface ThemeContextValue {

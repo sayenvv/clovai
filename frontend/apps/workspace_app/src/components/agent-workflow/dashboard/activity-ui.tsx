@@ -235,7 +235,7 @@ export function ReportState({
   }
   if (error) {
     return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-6 text-[12px] text-red-700 dark:text-red-300">
+      <div className="rounded-lg border border-foreground/30 bg-foreground/5 px-4 py-6 text-[12px] text-foreground dark:text-foreground">
         {error}
       </div>
     )

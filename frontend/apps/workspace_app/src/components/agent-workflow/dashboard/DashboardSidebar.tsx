@@ -296,10 +296,10 @@ export function DashboardSidebar() {
                         to={ROUTES.agentWorkflowDashboardInstances}
                         className={cn(
                           'flex items-start gap-2.5 rounded-lg border border-border/70 bg-background p-2.5 text-left transition-colors',
-                          'hover:border-red-400/50 hover:bg-red-500/5',
+                          'hover:border-foreground/50 hover:bg-foreground/5',
                         )}
                       >
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-300">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
                           <Rocket className="h-3.5 w-3.5" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -311,7 +311,7 @@ export function DashboardSidebar() {
                               v{item.version}
                             </Badge>
                             {isCurrent ? (
-                              <Badge className="bg-red-600 text-[9px] font-semibold text-white hover:bg-red-600">
+                              <Badge className="bg-primary text-[9px] font-semibold text-primary-foreground hover:bg-primary/90">
                                 Current
                               </Badge>
                             ) : null}
@@ -436,7 +436,7 @@ function RailIconButton({
             className={cn(
               'h-[18px] w-[18px] transition-transform duration-200',
               'group-hover/rail:scale-105',
-              accent && 'text-red-600 dark:text-red-400',
+              accent && 'text-foreground dark:text-foreground',
             )}
             strokeWidth={accent ? 2.1 : 1.75}
           />

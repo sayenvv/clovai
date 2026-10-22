@@ -1,5 +1,5 @@
 import { memo, useRef, useState, type DragEvent } from 'react'
-import { FileText, Paperclip, Plus, X } from 'lucide-react'
+import { FileText, Paperclip, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
@@ -65,7 +65,7 @@ export const ExecutionFileUploadButton = memo(function ExecutionFileUploadButton
   if (variant === 'icon') {
     return (
       <div
-        className={cn(isDragging && 'rounded-full ring-2 ring-primary/35', className)}
+        className={cn(isDragging && 'rounded-md ring-2 ring-foreground/30', className)}
         onDragOver={(event) => {
           event.preventDefault()
           if (!disabled) setIsDragging(true)
@@ -89,13 +89,13 @@ export const ExecutionFileUploadButton = memo(function ExecutionFileUploadButton
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="h-7 w-7 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           disabled={disabled}
           onClick={() => inputRef.current?.click()}
           aria-label={attachedFile ? `Replace ${attachedFile.name}` : 'Attach file'}
           title={attachedFile ? `${attachedFile.name} · ${attachedFile.sizeLabel}` : 'Attach file'}
         >
-          <Plus className="h-5 w-5" />
+          <Paperclip className="h-4 w-4" />
         </Button>
       </div>
     )

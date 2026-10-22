@@ -1,7 +1,15 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { ArrowUp, Check, ChevronRight, FileText, Paperclip, Square, Workflow, X, type LucideIcon } from 'lucide-react'
+import { Check, ChevronRight, FileText, Paperclip, Workflow, X, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { ChatComposer } from '@/components/agent-workflow/ChatComposer'
+import {
+  ChatComposer,
+  ChatEmptyState,
+  ChatTurnBody,
+  ChatTurnHeader,
+  ComposerIconButton,
+  ComposerSendButton,
+  ComposerStopButton,
+} from '@/components/agent-workflow/ChatComposer'
 import { ChatMarkdown } from '@/components/agent-workflow/ChatMarkdown'
 import {
   readableChatText,
@@ -304,12 +312,7 @@ function TimelineStep({ item, last, tokens }: { item: TimelineItem; last: boolea
 }
 
 function AssistantHeader() {
-  return (
-    <div className="mb-1.5 flex min-w-0 items-center gap-2">
-      <PetalMark size={20} />
-      <span className="truncate text-[12.5px] font-semibold text-foreground">{ASSISTANT_NAME}</span>
-    </div>
-  )
+  return <ChatTurnHeader avatar={<PetalMark size={20} />} name={ASSISTANT_NAME} />
 }
 
 function formatTokens(value: number): string {
@@ -527,37 +530,21 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       <div ref={scrollRef} className="min-h-0 w-full min-w-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
         <TokenBudgetBar />
         {messages.length === 0 && (
-          <div className="space-y-3">
-            <p className="rounded-lg border border-dashed border-border/80 px-3 py-6 text-center text-xs leading-relaxed text-muted-foreground">
-              Describe the automation below. Agents, connectors, and instructions are drafted onto
-              the canvas so you can edit them. When the canvas already has agents, describe a change
-              and it is applied to them. Use the workflow button to include other tabs, or the paperclip to attach files.
-            </p>
-            <div className="space-y-2">
-              <p className="text-[11px] font-medium text-muted-foreground">Try an example</p>
-              {EXAMPLE_PROMPTS.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  disabled={isGenerating}
-                  onClick={() => void handleGenerate(example)}
-                  className={cn(
-                    'w-full rounded-xl border border-border/80 bg-muted/30 px-3 py-2.5 text-left text-[11px] leading-snug text-muted-foreground',
-                    'transition-colors hover:border-border hover:bg-muted/50 hover:text-foreground',
-                  )}
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-          </div>
+          <ChatEmptyState
+            icon={<PetalMark size={22} />}
+            title={`Build with ${ASSISTANT_NAME}`}
+            description="Describe an automation and it's drafted onto the canvas, or describe a change to the agents already there."
+            suggestions={EXAMPLE_PROMPTS}
+            onSuggestion={(example) => void handleGenerate(example)}
+            disabled={isGenerating}
+          />
         )}
 
         {messages.map((message, index) =>
           message.role === 'user' ? (
-            <div key={message.id} className="space-y-1.5">
+            <UserMessage key={message.id} content={message.content}>
               {message.context?.length ? (
-                <div className="flex flex-wrap justify-end gap-1.5">
+                <div className="mb-1.5 flex flex-wrap gap-1.5">
                   {message.context.map((item) => (
                     <ContextChip
                       key={`${item.kind}-${item.name}`}
@@ -567,8 +554,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                   ))}
                 </div>
               ) : null}
-              <UserMessage content={message.content} />
-            </div>
+            </UserMessage>
           ) : (
             <div key={message.id} className="min-w-0">
               {messages[index - 1]?.role !== 'assistant' && <AssistantHeader />}
@@ -577,13 +563,13 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                   <RunSteps steps={message.steps} live={false} />
                 </div>
               ) : null}
-              <div className="min-w-0 pl-8">
+              <ChatTurnBody>
                 {message.tone ? (
                   <p
                     className={cn(
                       'text-[12px] leading-relaxed',
                       message.tone === 'error'
-                        ? 'text-red-600 dark:text-red-400'
+                        ? 'text-foreground dark:text-foreground'
                         : 'text-muted-foreground',
                     )}
                   >
@@ -592,13 +578,14 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                 ) : (
                   <ChatMarkdown content={message.content} streaming={false} />
                 )}
-              </div>
+              </ChatTurnBody>
             </div>
           ),
         )}
 
         {isGenerating && (
           <div className="min-w-0">
+            {messages.at(-1)?.role !== 'assistant' && <AssistantHeader />}
             <RunSteps
               steps={liveSteps}
               live
@@ -670,43 +657,24 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
           }
           leading={
             <>
-              <button
-                type="button"
+              <ComposerIconButton
+                icon={Paperclip}
+                label="Attach files"
                 disabled={isGenerating || attachments.length >= MAX_ATTACHMENTS}
                 onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors',
-                  'hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  'disabled:pointer-events-none disabled:opacity-50',
-                )}
-                aria-label="Attach files"
                 title={
                   attachments.length >= MAX_ATTACHMENTS
                     ? `Up to ${MAX_ATTACHMENTS} files`
                     : 'Attach files (text, Markdown, JSON, CSV, XML, YAML)'
                 }
-              >
-                <Paperclip className="h-4 w-4" />
-              </button>
+              />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild disabled={isGenerating}>
-                  <button
-                    type="button"
-                    className={cn(
-                      'relative flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors',
-                      'hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      'disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-muted data-[state=open]:text-foreground',
-                    )}
-                    aria-label="Add workflow tabs as context"
-                    title="Add workflow tabs as context"
-                  >
-                    <Workflow className="h-4 w-4" />
-                    {contextTabs.length > 0 ? (
-                      <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-foreground px-0.5 text-[9px] font-semibold tabular-nums text-background">
-                        {contextTabs.length}
-                      </span>
-                    ) : null}
-                  </button>
+                  <ComposerIconButton
+                    icon={Workflow}
+                    label="Add workflow tabs as context"
+                    badge={contextTabs.length > 0 ? contextTabs.length : undefined}
+                  />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="top" className="w-64">
                   <DropdownMenuLabel className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
@@ -766,39 +734,12 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
           }
           action={
             isGenerating ? (
-              <button
-                type="button"
-                onClick={stopGenerating}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background shadow-sm transition-colors hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                aria-label="Stop"
-                title="Stop"
-              >
-                <Square className="h-3 w-3 fill-current" />
-              </button>
+              <ComposerStopButton onClick={stopGenerating} />
             ) : (
-              <button
-                type="button"
-                disabled={!canGenerate}
-                onClick={() => void handleGenerate()}
-                className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full shadow-sm transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                  canGenerate
-                    ? 'bg-foreground text-background hover:bg-foreground/85'
-                    : 'cursor-not-allowed bg-muted text-muted-foreground shadow-none',
-                )}
-                aria-label="Send message"
-                title={canGenerate ? 'Send' : 'Type a message'}
-              >
-                <ArrowUp className="h-4 w-4" strokeWidth={2.25} />
-              </button>
+              <ComposerSendButton onClick={() => void handleGenerate()} disabled={!canGenerate} label="Send message" />
             )
           }
-          hint={
-            replacesCanvas
-              ? '⌘/Ctrl + Enter to send · changes apply to the current canvas'
-              : '⌘/Ctrl + Enter to send'
-          }
+          hint={replacesCanvas ? 'Changes apply to the current canvas' : 'Drafts a new workflow on the canvas'}
         />
       </div>
     </div>

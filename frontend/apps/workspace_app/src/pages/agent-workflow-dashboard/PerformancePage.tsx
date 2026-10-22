@@ -117,7 +117,7 @@ export default function PerformancePage() {
                 Est. {formatCurrency(estSpend)}
               </p>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-400">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
               <Gauge className="h-4 w-4" />
             </div>
           </div>
@@ -126,13 +126,13 @@ export default function PerformancePage() {
               label="LLM"
               value={Number(breakdown.llm.toFixed(2))}
               total={overview.totalCredits}
-              className="bg-red-500"
+              className="bg-primary"
             />
             <CreditBar
               label="Tools"
               value={Number(breakdown.tools.toFixed(2))}
               total={overview.totalCredits}
-              className="bg-rose-400"
+              className="bg-primary"
             />
             <CreditBar
               label="Compute"
@@ -190,7 +190,7 @@ export default function PerformancePage() {
             </h2>
             <Link
               to={ROUTES.agentWorkflowDashboardInstances}
-              className="text-[11px] font-medium text-red-600 hover:underline dark:text-red-400"
+              className="text-[11px] font-medium text-foreground hover:underline dark:text-foreground"
             >
               Open instances
             </Link>

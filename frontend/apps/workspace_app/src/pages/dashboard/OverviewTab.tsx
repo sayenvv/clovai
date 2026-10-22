@@ -147,7 +147,7 @@ export default function OverviewTab({ onOpen, workspaceId }: { onOpen: (tab: Tab
 
 function OpenLink({ onClick, label }: { onClick: () => void; label: string }) {
   return (
-    <button type="button" onClick={onClick} className="text-[11px] font-medium text-red-600 hover:underline dark:text-red-400">
+    <button type="button" onClick={onClick} className="text-[11px] font-medium text-foreground hover:underline dark:text-foreground">
       {label}
     </button>
   )

@@ -36,7 +36,7 @@ export function StatCard({
     <div className="rounded-lg border border-border/70 bg-card p-3.5">
       <div className="flex items-start justify-between gap-2">
         <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-300">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
           <Icon className="h-3.5 w-3.5" />
         </div>
       </div>
@@ -81,7 +81,7 @@ export function StatusPill({ status }: { status: PublishedInstanceStatus }) {
         'text-[10px] font-normal capitalize',
         status === 'deployed'
           ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-          : 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300',
+          : 'border-foreground/40 bg-foreground/10 text-foreground dark:text-foreground',
       )}
     >
       {status}
@@ -168,7 +168,7 @@ export function UtilizationMeter({
       <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">{value}</p>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full bg-red-600"
+          className="h-full rounded-full bg-primary"
           style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
         />
       </div>

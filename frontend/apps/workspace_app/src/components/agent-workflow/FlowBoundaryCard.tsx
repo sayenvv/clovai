@@ -3,6 +3,7 @@ import { Flag, Play } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { resolveFlowDirection, type DiagramNode, type FlowDirection } from '@/components/designer/diagram-types'
 import { isStartFlowNode } from '@/components/agent-workflow/workflow-flow-nodes'
+import { NODE_SURFACE, NODE_SURFACE_HOVER, NODE_SURFACE_SELECTED } from '@/components/agent-workflow/node-surface'
 
 interface FlowBoundaryCardProps {
   node: DiagramNode
@@ -12,9 +13,8 @@ interface FlowBoundaryCardProps {
 }
 
 /**
- * Start / End terminator — compact square version of the agent card. The green rail
- * sits on the connecting side: Start's exit, End's entry (right / left horizontally,
- * bottom / top vertically). The label sits off the flow axis.
+ * Start / End terminator — compact square version of the agent card: green for Start,
+ * neutral for End. The label sits off the flow axis.
  */
 export const FlowBoundaryCard = memo(function FlowBoundaryCard({
   node,
@@ -32,22 +32,18 @@ export const FlowBoundaryCard = memo(function FlowBoundaryCard({
       <div
         className={cn(
           'relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl',
-          'border border-border bg-card shadow-sm',
-          'transition-[border-color,box-shadow] duration-150',
-          'hover:border-foreground/20 hover:shadow-md',
-          isSelected && 'border-primary/70 shadow-md ring-2 ring-primary/20',
+          NODE_SURFACE,
+          NODE_SURFACE_HOVER,
+          isSelected && NODE_SURFACE_SELECTED,
         )}
       >
         <span
           className={cn(
-            'absolute bg-emerald-500/80',
-            vertical ? 'inset-x-0 h-[3px]' : 'inset-y-0 w-[3px]',
-            vertical ? (start ? 'bottom-0' : 'top-0') : start ? 'right-0' : 'left-0',
+            'flex size-9 items-center justify-center rounded-[10px] ring-1 ring-inset',
+            start
+              ? 'bg-emerald-500/10 text-emerald-700 ring-emerald-600/25 dark:text-emerald-300 dark:ring-emerald-400/25'
+              : 'bg-gradient-to-b from-muted/40 to-muted text-foreground/75 ring-border',
           )}
-          aria-hidden
-        />
-        <span
-          className="flex size-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:text-emerald-300 dark:ring-emerald-400/25"
           aria-hidden
         >
           <Icon className={cn('size-[18px] stroke-[1.75]', start && 'ml-0.5 fill-current')} />
@@ -55,7 +51,7 @@ export const FlowBoundaryCard = memo(function FlowBoundaryCard({
       </div>
       <span
         className={cn(
-          'pointer-events-none absolute whitespace-nowrap text-[12px] font-semibold leading-none tracking-[-0.01em] text-card-foreground',
+          'pointer-events-none absolute whitespace-nowrap text-[11px] font-semibold uppercase leading-none tracking-[0.06em] text-muted-foreground',
           vertical
             ? 'left-full top-1/2 ml-3 -translate-y-1/2'
             : 'left-1/2 top-full mt-2 -translate-x-1/2',

@@ -191,13 +191,13 @@ export const AgentWorkflowCanvas = memo(
               className="pointer-events-none absolute inset-0 z-30 flex items-stretch justify-center overflow-y-auto overscroll-contain bg-black/35 p-0 backdrop-blur-md sm:items-center sm:p-4 sm:backdrop-blur-xl"
               style={{ touchAction: 'pan-y' }}
             >
-              <div className="pointer-events-auto flex h-full w-full max-w-4xl flex-col overflow-hidden border-red-500/25 bg-card shadow-[0_35px_80px_-30px_rgba(139,19,20,0.65)] sm:my-auto sm:h-auto sm:max-h-[min(85%,40rem)] sm:rounded-[1.5rem] sm:border sm:bg-card/90 sm:backdrop-blur-xl">
+              <div className="pointer-events-auto flex h-full w-full max-w-4xl flex-col overflow-hidden border-foreground/25 bg-card shadow-[0_35px_80px_-30px_rgba(0,0,0,0.45)] sm:my-auto sm:h-auto sm:max-h-[min(85%,40rem)] sm:rounded-[1.5rem] sm:border sm:bg-card/90 sm:backdrop-blur-xl">
                 {emptyState ?? (
                   <div className="p-4 sm:px-5 sm:py-5">
                     <p className="text-sm font-medium text-foreground">Build your agent workflow</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Add agents from the Library tab, or use{' '}
-                      <span className="font-medium text-red-600 dark:text-red-300">Generate</span>{' '}
+                      <span className="font-medium text-foreground dark:text-foreground">Generate</span>{' '}
                       in the header to draft a full workflow from a prompt.
                     </p>
                   </div>

@@ -16,7 +16,7 @@ export const HEALTH: Record<Health, { label: string; tone: string; icon: typeof 
   },
   failing: {
     label: 'Failing',
-    tone: 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300',
+    tone: 'border-foreground/40 bg-foreground/10 text-foreground dark:text-foreground',
     icon: XCircle,
   },
   'calls-only': {

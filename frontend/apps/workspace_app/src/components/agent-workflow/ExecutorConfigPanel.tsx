@@ -422,7 +422,7 @@ function HandlerStyleCard({
           ) : option.recommended ? (
             <Badge
               variant="outline"
-              className="h-4 shrink-0 gap-0.5 border-red-500/20 bg-red-500/5 px-1 text-[8px] font-medium text-red-700 dark:text-red-300"
+              className="h-4 shrink-0 gap-0.5 border-foreground/20 bg-foreground/5 px-1 text-[8px] font-medium text-foreground dark:text-foreground"
             >
               <Sparkles className="h-2 w-2" />
               Rec

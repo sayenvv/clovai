@@ -217,14 +217,14 @@ export function ConfigDocumentsView({
                         onClick={() => select(item.id)}
                         className={cn(
                           'flex w-full flex-col gap-0.5 rounded-md px-2.5 py-2 text-left transition-colors',
-                          item.id === selectedId ? 'bg-red-500/10' : 'hover:bg-muted',
+                          item.id === selectedId ? 'bg-foreground/10' : 'hover:bg-muted',
                         )}
                       >
                         <span className="flex min-w-0 items-center gap-1.5">
                           <span
                             className={cn(
                               'min-w-0 flex-1 truncate text-[12px]',
-                              item.id === selectedId ? 'font-semibold text-red-700 dark:text-red-300' : 'text-foreground',
+                              item.id === selectedId ? 'font-semibold text-foreground dark:text-foreground' : 'text-foreground',
                             )}
                           >
                             {item.name}

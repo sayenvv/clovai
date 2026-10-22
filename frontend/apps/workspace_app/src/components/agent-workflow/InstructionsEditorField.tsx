@@ -37,13 +37,13 @@ export const InstructionsEditorField = memo(function InstructionsEditorField({
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-xl border border-red-500/15 bg-gradient-to-b from-red-500/[0.04] to-background shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
-        'transition-[border-color,box-shadow] focus-within:border-red-500/30 focus-within:shadow-[0_0_0_3px_rgba(139,92,246,0.08)]',
+        'group relative overflow-hidden rounded-xl border border-foreground/15 bg-gradient-to-b from-foreground/[0.04] to-background shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+        'transition-[border-color,box-shadow] focus-within:border-foreground/30 focus-within:shadow-[0_0_0_3px_rgba(139,92,246,0.08)]',
       )}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-400/40 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/40 to-transparent" />
 
-      <div className="flex items-center justify-between gap-2 border-b border-red-500/10 px-2.5 py-1.5">
+      <div className="flex items-center justify-between gap-2 border-b border-foreground/10 px-2.5 py-1.5">
         <div className="inline-flex rounded-md border border-border/80 bg-background/80 p-0.5">
           <ViewModeButton
             active={viewMode === 'edit'}
@@ -68,8 +68,8 @@ export const InstructionsEditorField = memo(function InstructionsEditorField({
             aria-label="Generate instructions with AI"
             className={cn(
               'inline-flex h-7 w-7 items-center justify-center rounded-lg',
-              'bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-md shadow-red-500/25',
-              'transition-all hover:scale-[1.03] hover:shadow-lg hover:shadow-red-500/30',
+              'bg-gradient-to-br from-primary to-primary text-primary-foreground shadow-md shadow-foreground/25',
+              'transition-all hover:scale-[1.03] hover:shadow-lg hover:shadow-foreground/30',
               'disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none',
             )}
           >
@@ -121,7 +121,7 @@ function ViewModeButton({
       className={cn(
         'inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] font-medium transition-colors',
         active
-          ? 'bg-red-500/15 text-red-700 dark:text-red-300'
+          ? 'bg-foreground/15 text-foreground dark:text-foreground'
           : 'text-muted-foreground hover:text-foreground',
       )}
     >

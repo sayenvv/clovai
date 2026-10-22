@@ -205,10 +205,10 @@ function DefinitionCard({ row, kind }: { row: DefinitionDetail; kind: Definition
   return (
     <Link
       to={ROUTES.definition(kind, row.id)}
-      className="group flex flex-col rounded-lg border border-border/70 bg-card p-3.5 shadow-sm outline-none transition-colors hover:border-red-500/40 focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex flex-col rounded-lg border border-border/70 bg-card p-3.5 shadow-sm outline-none transition-colors hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="flex items-start gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-300">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">

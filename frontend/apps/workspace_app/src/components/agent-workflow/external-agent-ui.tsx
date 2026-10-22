@@ -44,7 +44,7 @@ const PROVIDER_META: Record<string, { initials: string; avatar: string }> = {
   },
   Databricks: {
     initials: 'DB',
-    avatar: 'bg-rose-500/15 text-rose-700 ring-rose-500/20 dark:text-rose-300',
+    avatar: 'bg-foreground/15 text-foreground ring-foreground/20 dark:text-foreground',
   },
   Salesforce: {
     initials: 'SF',
@@ -60,7 +60,7 @@ const PROVIDER_META: Record<string, { initials: string; avatar: string }> = {
   },
   LlamaIndex: {
     initials: 'LI',
-    avatar: 'bg-red-500/15 text-red-700 ring-red-500/20 dark:text-red-300',
+    avatar: 'bg-foreground/15 text-foreground ring-foreground/20 dark:text-foreground',
   },
   'Hugging Face': {
     initials: 'HF',

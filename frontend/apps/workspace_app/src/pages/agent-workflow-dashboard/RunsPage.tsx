@@ -49,7 +49,7 @@ export default function RunsPage() {
             className={cn(
               'rounded-lg px-2.5 py-1.5 text-[11px] font-medium capitalize transition-colors',
               statusFilter === value
-                ? 'bg-red-600 font-semibold text-white'
+                ? 'bg-primary font-semibold text-primary-foreground'
                 : 'border border-border bg-card text-muted-foreground hover:bg-accent/50 hover:text-foreground',
             )}
           >
@@ -60,7 +60,7 @@ export default function RunsPage() {
 
       {runs.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-card px-6 py-16 text-center">
-          <Activity className="mx-auto h-5 w-5 text-red-600 dark:text-red-400" />
+          <Activity className="mx-auto h-5 w-5 text-foreground dark:text-foreground" />
           <p className="mt-4 text-sm font-semibold">
             {instances.length === 0 ? 'No runs yet' : 'No matching runs'}
           </p>
@@ -70,7 +70,7 @@ export default function RunsPage() {
               : 'Try another status filter.'}
           </p>
           {instances.length === 0 && (
-            <Button asChild size="sm" className="mt-5 bg-red-600 hover:bg-red-700">
+            <Button asChild size="sm" className="mt-5 bg-primary hover:bg-primary/90">
               <Link to={ROUTES.agentWorkflow}>
                 Open designer
                 <ArrowUpRight className="h-3.5 w-3.5" />

@@ -56,15 +56,15 @@ export const ServerLlmModelIndicator = memo(function ServerLlmModelIndicator({
             compact ? 'h-7 px-2' : 'h-8 px-2.5',
             'border-border/80 bg-background/80 shadow-sm backdrop-blur-sm',
             'transition-[border-color,box-shadow,background-color]',
-            'hover:border-red-500/30 hover:bg-red-500/[0.04] hover:shadow-md',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30',
+            'hover:border-foreground/30 hover:bg-foreground/[0.04] hover:shadow-md',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30',
             className,
           )}
           aria-label={`Active model: ${modelConfig.model}`}
         >
           <span
             className={cn(
-              'flex shrink-0 items-center justify-center rounded bg-gradient-to-br from-red-600 to-indigo-600 text-white shadow-sm',
+              'flex shrink-0 items-center justify-center rounded bg-primary text-primary-foreground shadow-sm',
               compact ? 'h-5 w-5' : 'h-6 w-6',
             )}
           >
@@ -94,7 +94,7 @@ export const ServerLlmModelIndicator = memo(function ServerLlmModelIndicator({
 
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuLabel className="flex items-center gap-2 text-xs font-medium">
-          <Sparkles className="h-3.5 w-3.5 text-red-500" />
+          <Sparkles className="h-3.5 w-3.5 text-foreground" />
           Model configuration
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

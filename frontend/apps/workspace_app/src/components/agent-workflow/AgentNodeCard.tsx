@@ -21,6 +21,13 @@ import {
   VERTICAL_CAPABILITY_BAR_HEIGHT,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { AgentNodeAvatar } from '@/components/agent-workflow/external-agent-ui'
+import {
+  NODE_ICON_TILE,
+  NODE_SURFACE,
+  NODE_SURFACE_HOVER,
+  NODE_SURFACE_SELECTED,
+  nodeStatusDot,
+} from '@/components/agent-workflow/node-surface'
 import { isExecutorNode, isToolNode } from '@/components/agent-workflow/tool-agent-mapping'
 import {
   resolveFlowDirection,
@@ -58,7 +65,7 @@ export type AgentDockSlot = {
 }
 
 /**
- * Bottom capability docks — diamonds on the edge, dangling `+` when empty.
+ * Bottom capability docks — handles on the edge, a `+` below when empty.
  * Keep `x` in sync with DesignerCanvas mapping lines.
  */
 export const AGENT_DOCK_SLOTS: AgentDockSlot[] = [
@@ -97,49 +104,37 @@ function resolveChildKind(node: DiagramNode, executorNode: boolean): ChildKind {
   return childKindForPalette(node.paletteId) ?? 'tool'
 }
 
-/** One accent + icon per capability kind, so tool/mcp/skill/integration/memory/executor read apart at a glance. */
-const CHILD_KIND_STYLES: Record<ChildKind, { label: string; icon: LucideIcon; rail: string; iconBg: string; iconRing: string }> = {
+/** One tint + icon per capability kind, so tool/mcp/skill/integration/memory/executor read apart at a glance. */
+const CHILD_KIND_STYLES: Record<ChildKind, { label: string; icon: LucideIcon; tile: string }> = {
   tool: {
     label: 'Tool',
     icon: Wrench,
-    rail: 'bg-sky-500/70',
-    iconBg: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
-    iconRing: 'ring-sky-500/20',
+    tile: 'bg-sky-500/10 text-sky-600 ring-sky-500/25 dark:text-sky-300',
   },
   mcp: {
     label: 'MCP',
     icon: Plug,
-    rail: 'bg-emerald-500/70',
-    iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-    iconRing: 'ring-emerald-500/20',
+    tile: 'bg-emerald-500/10 text-emerald-600 ring-emerald-500/25 dark:text-emerald-300',
   },
   skill: {
     label: 'Skill',
     icon: Sparkles,
-    rail: 'bg-violet-500/70',
-    iconBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
-    iconRing: 'ring-violet-500/20',
+    tile: 'bg-violet-500/10 text-violet-600 ring-violet-500/25 dark:text-violet-300',
   },
   integration: {
     label: 'Integration',
     icon: Boxes,
-    rail: 'bg-amber-500/70',
-    iconBg: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
-    iconRing: 'ring-amber-500/20',
+    tile: 'bg-amber-500/10 text-amber-700 ring-amber-500/25 dark:text-amber-300',
   },
   memory: {
     label: 'Memory',
     icon: Database,
-    rail: 'bg-indigo-500/70',
-    iconBg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-300',
-    iconRing: 'ring-indigo-500/20',
+    tile: 'bg-indigo-500/10 text-indigo-600 ring-indigo-500/25 dark:text-indigo-300',
   },
   executor: {
     label: 'Executor',
     icon: Terminal,
-    rail: 'bg-orange-500/70',
-    iconBg: 'bg-orange-500/10 text-orange-600 dark:text-orange-300',
-    iconRing: 'ring-orange-500/20',
+    tile: 'bg-orange-500/10 text-orange-600 ring-orange-500/25 dark:text-orange-300',
   },
 }
 
@@ -157,6 +152,57 @@ const CAPABILITY_SHORT_LABELS: Record<AgentDockSlot['id'], string> = {
   knowledge: 'Knowledge',
 }
 
+type NodeStatus = 'ready' | 'attention'
+
+function cardClasses(isSelected: boolean, extra?: string) {
+  return cn('relative overflow-hidden', NODE_SURFACE, NODE_SURFACE_HOVER, isSelected && NODE_SURFACE_SELECTED, extra)
+}
+
+function HitlBadge() {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300"
+      title="Human in the loop enabled"
+    >
+      <ShieldCheck className="size-2.5" />
+      HITL
+    </span>
+  )
+}
+
+/** The agent's icon: a provider avatar for external agents, otherwise a neutral tile; with a status dot. */
+function AgentIcon({ paletteId, status }: { paletteId: string; status: NodeStatus }) {
+  return (
+    <span className="relative flex shrink-0" aria-hidden>
+      {isExternalAgentPalette(paletteId) ? (
+        <AgentNodeAvatar paletteId={paletteId} size="md" />
+      ) : (
+        <span className={cn(NODE_ICON_TILE, 'size-9')}>
+          <Bot className="size-[18px] stroke-[1.75]" />
+        </span>
+      )}
+      <span className={nodeStatusDot(status)} title={status === 'ready' ? 'Model set' : 'Needs a model'} />
+    </span>
+  )
+}
+
+/** "Specialist · gpt-4.1", or the type and a "Needs model" warning. */
+function AgentSubtitle({ type, model }: { type: string; model?: string }) {
+  return (
+    <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] leading-tight text-muted-foreground">
+      <span className="shrink-0">{type}</span>
+      <span className="text-muted-foreground/40" aria-hidden>
+        ·
+      </span>
+      {model ? (
+        <span className="truncate font-mono text-[10.5px] text-foreground/70">{model}</span>
+      ) : (
+        <span className="truncate font-medium text-amber-700 dark:text-amber-400">Needs model</span>
+      )}
+    </p>
+  )
+}
+
 interface VerticalCapability {
   slot: AgentDockSlot
   connected: boolean
@@ -164,7 +210,7 @@ interface VerticalCapability {
 }
 
 /**
- * Vertical-flow card: the flow enters through the top rail and leaves from the bottom,
+ * Vertical-flow card: the flow enters through the top and leaves from the bottom,
  * and capabilities sit in a bar inside the card instead of hanging docks.
  */
 function VerticalFlowCard({
@@ -172,7 +218,6 @@ function VerticalFlowCard({
   title,
   subtitle,
   icon,
-  rail,
   isSelected,
   hitl,
   capabilities,
@@ -183,7 +228,6 @@ function VerticalFlowCard({
   title: string
   subtitle: ReactNode
   icon: ReactNode
-  rail: string
   isSelected: boolean
   hitl?: boolean
   capabilities?: VerticalCapability[]
@@ -192,40 +236,17 @@ function VerticalFlowCard({
 }) {
   return (
     <div className={cn('agent-wf-node group relative h-full w-full', className)}>
-      <div
-        className={cn(
-          'relative flex h-full w-full flex-col overflow-hidden rounded-xl',
-          'border border-border bg-card shadow-sm',
-          'transition-[border-color,box-shadow] duration-150',
-          'hover:border-foreground/20 hover:shadow-md',
-          isSelected && 'border-primary/70 shadow-md ring-2 ring-primary/20',
-        )}
-      >
-        <span
-          className={cn('absolute inset-x-0 top-0 h-[3px] transition-colors duration-150', rail)}
-          aria-hidden
-        />
-
+      <div className={cardClasses(isSelected, 'flex h-full w-full flex-col rounded-xl')}>
         <div className="flex min-h-0 flex-1 items-center gap-3 px-3.5">
-          <div className="flex shrink-0 items-center justify-center" aria-hidden>
-            {icon}
-          </div>
+          {icon}
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1.5">
               <div className="truncate text-[13px] font-semibold leading-tight tracking-[-0.01em] text-card-foreground">
                 {title}
               </div>
-              {hitl ? (
-                <span
-                  className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300"
-                  title="Human in the loop enabled"
-                >
-                  <ShieldCheck className="size-2.5" />
-                  HITL
-                </span>
-              ) : null}
+              {hitl ? <HitlBadge /> : null}
             </div>
-            <p className="mt-1 truncate text-[11px] leading-tight text-muted-foreground">{subtitle}</p>
+            {subtitle}
           </div>
         </div>
 
@@ -267,11 +288,9 @@ function VerticalFlowCard({
                     onAttachAction?.(nodeId, slot.action)
                   }}
                 >
-                  <Icon className={cn('size-3 shrink-0', connected && 'text-primary')} />
+                  <Icon className="size-3 shrink-0" />
                   <span className="truncate">{label}</span>
-                  {count > 1 ? (
-                    <span className="shrink-0 tabular-nums text-muted-foreground">{count}</span>
-                  ) : null}
+                  {count > 1 ? <span className="shrink-0 tabular-nums text-muted-foreground">{count}</span> : null}
                 </button>
               )
             })}
@@ -282,51 +301,62 @@ function VerticalFlowCard({
   )
 }
 
-/** Vertical-flow child (tool / memory / knowledge) — single-row strip in the column beside its agent. */
-function VerticalChildCard({
+/** A capability (tool, MCP, skill, memory, …) or executor: tinted icon tile, name, kind. */
+function ChildCard({
   title,
   kind,
   isSelected,
   tooltip,
+  compact,
   className,
 }: {
   title: string
   kind: ChildKind
   isSelected: boolean
   tooltip: string
+  /** One-line strip for the vertical layout's tool column. */
+  compact?: boolean
   className?: string
 }) {
   const kindStyle = CHILD_KIND_STYLES[kind]
   const KindIcon = kindStyle.icon
   return (
     <div
-      className={cn(
-        'relative flex h-full w-full items-center gap-2 overflow-hidden rounded-lg',
-        'border border-border bg-card pl-2.5 pr-2.5 shadow-sm',
-        'transition-[border-color,box-shadow] duration-150',
-        'hover:border-foreground/20 hover:shadow',
-        isSelected && 'border-primary/70 shadow-md ring-2 ring-primary/20',
-        className,
+      className={cardClasses(
+        isSelected,
+        cn('flex h-full w-full items-center', compact ? 'gap-2 rounded-lg px-2' : 'gap-2.5 rounded-xl px-3', className),
       )}
       title={tooltip}
     >
-      <span className={cn('absolute inset-y-0 left-0 w-[3px]', kindStyle.rail)} aria-hidden />
       <span
         className={cn(
-          'flex size-6 shrink-0 items-center justify-center rounded-md ring-1 ring-inset',
-          kindStyle.iconBg,
-          kindStyle.iconRing,
+          'flex shrink-0 items-center justify-center ring-1 ring-inset',
+          compact ? 'size-6 rounded-md' : 'size-8 rounded-[9px]',
+          kindStyle.tile,
         )}
         aria-hidden
       >
-        <KindIcon className="size-3.5" />
+        <KindIcon className={compact ? 'size-3.5' : 'size-4'} />
       </span>
-      <p className="min-w-0 flex-1 truncate text-[12px] font-medium leading-none tracking-[-0.01em] text-card-foreground">
-        {title}
-      </p>
-      <span className="shrink-0 text-[9px] font-semibold uppercase leading-none tracking-wide text-muted-foreground">
-        {kindStyle.label}
-      </span>
+      {compact ? (
+        <>
+          <p className="min-w-0 flex-1 truncate text-[12px] font-medium leading-none tracking-[-0.01em] text-card-foreground">
+            {title}
+          </p>
+          <span className="shrink-0 text-[9px] font-semibold uppercase leading-none tracking-wider text-muted-foreground">
+            {kindStyle.label}
+          </span>
+        </>
+      ) : (
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12.5px] font-semibold leading-tight tracking-[-0.01em] text-card-foreground">
+            {title}
+          </p>
+          <p className="mt-1 truncate text-[9.5px] font-semibold uppercase leading-none tracking-wider text-muted-foreground">
+            {kindStyle.label}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -368,17 +398,10 @@ export const AgentNodeCard = memo(function AgentNodeCard({
     const kind = resolveChildKind(node, executorNode)
     const kindStyle = CHILD_KIND_STYLES[kind]
     const KindIcon = kindStyle.icon
+    const tooltip = mappedUnderLabel ? `${title} · under ${mappedUnderLabel}` : title
 
     if (vertical && toolNode) {
-      return (
-        <VerticalChildCard
-          title={title}
-          kind={kind}
-          isSelected={isSelected}
-          tooltip={mappedUnderLabel ? `${title} · under ${mappedUnderLabel}` : title}
-          className={className}
-        />
-      )
+      return <ChildCard title={title} kind={kind} isSelected={isSelected} tooltip={tooltip} compact className={className} />
     }
 
     if (vertical) {
@@ -386,18 +409,15 @@ export const AgentNodeCard = memo(function AgentNodeCard({
         <VerticalFlowCard
           nodeId={node.id}
           title={title}
-          subtitle={agent?.description?.trim() || kindStyle.label}
-          rail={kindStyle.rail}
+          subtitle={
+            <p className="mt-1 truncate text-[11px] leading-tight text-muted-foreground">
+              {agent?.description?.trim() || kindStyle.label}
+            </p>
+          }
           isSelected={isSelected}
           className={className}
           icon={
-            <span
-              className={cn(
-                'flex size-9 items-center justify-center rounded-lg ring-1 ring-inset',
-                kindStyle.iconBg,
-                kindStyle.iconRing,
-              )}
-            >
+            <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[10px] ring-1 ring-inset', kindStyle.tile)}>
               <KindIcon className="size-[18px] stroke-[1.75]" />
             </span>
           }
@@ -405,42 +425,13 @@ export const AgentNodeCard = memo(function AgentNodeCard({
       )
     }
 
-    return (
-      <div
-        className={cn(
-          'relative flex h-full w-full items-center gap-2.5 overflow-hidden rounded-lg',
-          'border border-border bg-card pl-3 pr-2.5 shadow-sm',
-          'transition-[border-color,box-shadow,background-color] duration-150',
-          'hover:border-foreground/20 hover:shadow',
-          isSelected && 'border-primary/70 shadow-md ring-2 ring-primary/20',
-          className,
-        )}
-        title={mappedUnderLabel ? `${title} · under ${mappedUnderLabel}` : title}
-      >
-        <span className={cn('absolute inset-y-0 left-0 w-[3px]', kindStyle.rail)} aria-hidden />
-
-        <div
-          className={cn(
-            'flex size-6 shrink-0 items-center justify-center rounded-md ring-1 ring-inset',
-            kindStyle.iconBg,
-            kindStyle.iconRing,
-          )}
-        >
-          <KindIcon className="size-3.5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[12px] font-medium leading-tight tracking-[-0.01em] text-card-foreground">
-            {title}
-          </p>
-          <p className="mt-0.5 truncate text-[10px] font-medium uppercase leading-tight tracking-wide text-muted-foreground">
-            {kindStyle.label}
-          </p>
-        </div>
-      </div>
-    )
+    return <ChildCard title={title} kind={kind} isSelected={isSelected} tooltip={tooltip} className={className} />
   }
 
-  const configured = Boolean(agent?.model?.trim())
+  const model = agent?.model?.trim()
+  const configured = Boolean(model)
+  const status: NodeStatus = configured ? 'ready' : 'attention'
+  const typeLabel = externalAgent?.provider ?? TYPE_LABELS[agent?.agentType ?? 'llm'] ?? 'Agent'
   const tools = mappedChildren.tool + mappedChildren.mcp
   const memory = mappedChildren.memory
   const knowledge = mappedChildren.skill + mappedChildren.integration
@@ -460,19 +451,11 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   }
 
   if (vertical) {
-    const model = agent?.model?.trim()
     return (
       <VerticalFlowCard
         nodeId={node.id}
         title={title}
-        subtitle={
-          <>
-            {externalAgent?.provider ?? TYPE_LABELS[agent?.agentType ?? 'llm'] ?? 'Agent'}
-            <span className="text-muted-foreground/50"> · </span>
-            {model ? model : <span className="text-amber-700 dark:text-amber-400">No model</span>}
-          </>
-        }
-        rail={configured ? 'bg-primary/70' : 'bg-border'}
+        subtitle={<AgentSubtitle type={typeLabel} model={model} />}
         isSelected={isSelected}
         hitl={agent?.humanInTheLoop}
         capabilities={AGENT_DOCK_SLOTS.map((slot) => ({
@@ -482,72 +465,34 @@ export const AgentNodeCard = memo(function AgentNodeCard({
         }))}
         onAttachAction={onAttachAction}
         className={className}
-        icon={
-          isExternalAgentPalette(node.paletteId) ? (
-            <AgentNodeAvatar paletteId={node.paletteId} size="md" />
-          ) : (
-            <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground ring-1 ring-inset ring-border/70">
-              <Bot className="size-[18px] stroke-[1.75]" />
-            </span>
-          )
-        }
+        icon={<AgentIcon paletteId={node.paletteId} status={status} />}
       />
     )
   }
 
-  /** Empty ports always show +; multi docks keep + when selected so more can be added. */
-  const showPlus = (slot: AgentDockSlot, connected: boolean) => {
-    if (!onAttachAction) return false
-    if (!connected) return true
-    return (slot.id === 'tool' || slot.id === 'knowledge') && isSelected
+  /**
+   * When a dock's `+` shows: always for the required model while it's missing; for the
+   * others on hover or selection, so idle cards stay uncluttered. Multi docks keep `+`
+   * while selected so more can be added.
+   */
+  const plusMode = (slot: AgentDockSlot, connected: boolean): 'always' | 'hover' | 'never' => {
+    if (!onAttachAction) return 'never'
+    if (!connected) return slot.required ? 'always' : 'hover'
+    return (slot.id === 'tool' || slot.id === 'knowledge') && isSelected ? 'always' : 'never'
   }
 
   return (
     <div className={cn('agent-wf-node group relative h-full w-full overflow-visible', className)}>
-      {/* Card — icon + title only */}
-      <div
-        className={cn(
-          'relative flex h-full w-full items-center gap-2.5 overflow-hidden rounded-xl',
-          'border border-border bg-card pl-3 pr-3 shadow-sm',
-          'transition-[border-color,box-shadow,background-color] duration-150',
-          'hover:border-foreground/20 hover:shadow-md',
-          isSelected && 'border-primary/70 shadow-md ring-2 ring-primary/20',
-        )}
-      >
-        {/* Status rail — brand accent when a model is set, muted while unconfigured. */}
-        <span
-          className={cn(
-            'absolute inset-y-0 left-0 w-[3px] transition-colors duration-150',
-            configured ? 'bg-primary/70' : 'bg-border',
-          )}
-          aria-hidden
-        />
-
-        <div className="flex shrink-0 items-center justify-center" aria-hidden>
-          {isExternalAgentPalette(node.paletteId) ? (
-            <AgentNodeAvatar paletteId={node.paletteId} size="md" />
-          ) : (
-            <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground ring-1 ring-inset ring-border/70">
-              <Bot className="size-[18px] stroke-[1.75]" />
-            </span>
-          )}
-        </div>
-
+      <div className={cardClasses(isSelected, 'flex h-full w-full items-center gap-3 rounded-xl px-3')}>
+        <AgentIcon paletteId={node.paletteId} status={status} />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
             <div className="truncate text-[13px] font-semibold leading-tight tracking-[-0.01em] text-card-foreground">
               {title}
             </div>
-            {agent?.humanInTheLoop ? (
-              <span
-                className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300"
-                title="Human in the loop enabled"
-              >
-                <ShieldCheck className="size-2.5" />
-                HITL
-              </span>
-            ) : null}
+            {agent?.humanInTheLoop ? <HitlBadge /> : null}
           </div>
+          <AgentSubtitle type={typeLabel} model={model} />
         </div>
       </div>
 
@@ -556,7 +501,8 @@ export const AgentNodeCard = memo(function AgentNodeCard({
         {AGENT_DOCK_SLOTS.map((slot) => {
           const connected = slotConnected(slot.id)
           const count = slotCount(slot.id)
-          const plus = showPlus(slot, connected)
+          const plus = plusMode(slot, connected)
+          const missing = !connected && slot.required
 
           return (
             <div
@@ -564,15 +510,12 @@ export const AgentNodeCard = memo(function AgentNodeCard({
               className="pointer-events-none absolute top-0 -translate-x-1/2"
               style={{ left: `${slot.x * 100}%` }}
             >
-              {/* Continuous connector — spans from the diamond straight through to
-                  the + control (or just past the label when there's no +), so the
-                  dock always reads as one unbroken line instead of floating pieces. */}
+              {/* Stem from the handle to the label. */}
               <span
                 className={cn(
-                  'pointer-events-none absolute left-1/2 top-[5px] z-0 w-px -translate-x-1/2 transition-colors duration-150',
-                  connected ? 'bg-primary/40' : 'bg-border',
+                  'pointer-events-none absolute left-1/2 top-[4px] z-0 h-[10px] w-px -translate-x-1/2 transition-colors duration-150',
+                  connected ? 'bg-foreground/35' : 'bg-border',
                 )}
-                style={{ height: plus ? 37 : 10 }}
                 aria-hidden
               />
 
@@ -580,9 +523,8 @@ export const AgentNodeCard = memo(function AgentNodeCard({
                 type="button"
                 disabled={!onAttachAction}
                 className={cn(
-                  'pointer-events-auto absolute top-0 left-1/2 z-10 flex size-3.5 -translate-x-1/2 -translate-y-1/2',
-                  'items-center justify-center',
-                  'focus-visible:outline-none',
+                  'pointer-events-auto absolute left-1/2 top-0 z-10 flex size-3.5 -translate-x-1/2 -translate-y-1/2',
+                  'items-center justify-center focus-visible:outline-none',
                   !onAttachAction && 'cursor-default',
                 )}
                 title={
@@ -601,11 +543,12 @@ export const AgentNodeCard = memo(function AgentNodeCard({
               >
                 <span
                   className={cn(
-                    'block size-2 rotate-45 rounded-[1px] border transition-colors duration-150',
+                    'block size-[7px] rotate-45 rounded-[1.5px] border transition-colors duration-150',
                     connected
-                      ? 'border-primary bg-primary'
-                      : 'border-border bg-card group-hover:border-muted-foreground',
-                    !connected && slot.required && 'border-amber-500/70',
+                      ? 'border-foreground bg-foreground'
+                      : missing
+                        ? 'border-amber-500 bg-card'
+                        : 'border-muted-foreground/50 bg-card group-hover:border-muted-foreground',
                   )}
                   aria-hidden
                 />
@@ -613,39 +556,47 @@ export const AgentNodeCard = memo(function AgentNodeCard({
 
               <span
                 className={cn(
-                  'pointer-events-none absolute top-[8px] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap bg-[hsl(var(--canvas))] px-1',
-                  'text-[9px] font-medium leading-none tracking-wide transition-colors duration-150',
-                  connected ? 'text-foreground/70' : 'text-muted-foreground/70',
+                  'pointer-events-none absolute left-1/2 top-[9px] z-10 -translate-x-1/2 whitespace-nowrap bg-[hsl(var(--canvas))] px-1',
+                  'text-[8.5px] font-semibold uppercase leading-none tracking-[0.06em] transition-colors duration-150',
+                  connected ? 'text-foreground/70' : missing ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground/70',
                 )}
               >
-                {slot.label}
-                {slot.required ? (
-                  <span className={connected ? 'text-muted-foreground/60' : 'text-amber-600 dark:text-amber-400'}>
-                    *
-                  </span>
-                ) : null}
+                {CAPABILITY_SHORT_LABELS[slot.id]}
+                {count > 1 ? <span className="ml-0.5 tabular-nums text-muted-foreground">{count}</span> : null}
               </span>
 
-              {plus ? (
-                <button
-                  type="button"
+              {plus !== 'never' ? (
+                <span
                   className={cn(
-                    'pointer-events-auto absolute top-[32px] left-1/2 z-10 flex size-5 -translate-x-1/2 items-center justify-center rounded-md',
-                    'border border-dashed border-border bg-[hsl(var(--canvas))] text-muted-foreground shadow-sm',
-                    'transition-[border-color,color,background-color] duration-150',
-                    'hover:border-solid hover:border-primary/60 hover:bg-primary/10 hover:text-primary',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                    'transition-opacity duration-150',
+                    plus === 'hover' && !isSelected && 'opacity-0 group-hover:opacity-100 focus-within:opacity-100',
                   )}
-                  title={`Add ${slot.label.toLowerCase()}`}
-                  aria-label={`Add ${slot.label}`}
-                  onPointerDown={stopCanvas}
-                  onClick={(event) => {
-                    stopCanvas(event)
-                    onAttachAction?.(node.id, slot.action)
-                  }}
                 >
-                  <Plus className="size-3" strokeWidth={2} />
-                </button>
+                  <span
+                    className="pointer-events-none absolute left-1/2 top-[19px] h-[12px] w-px -translate-x-1/2 bg-border"
+                    aria-hidden
+                  />
+                  <button
+                    type="button"
+                    className={cn(
+                      'pointer-events-auto absolute left-1/2 top-[30px] z-10 flex size-[18px] -translate-x-1/2 items-center justify-center rounded-md',
+                      'border bg-card shadow-sm transition-[border-color,color,background-color] duration-150',
+                      missing
+                        ? 'border-amber-500/50 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400'
+                        : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                    )}
+                    title={`Add ${slot.label.toLowerCase()}`}
+                    aria-label={`Add ${slot.label}`}
+                    onPointerDown={stopCanvas}
+                    onClick={(event) => {
+                      stopCanvas(event)
+                      onAttachAction?.(node.id, slot.action)
+                    }}
+                  >
+                    <Plus className="size-3" strokeWidth={2.25} />
+                  </button>
+                </span>
               ) : null}
             </div>
           )

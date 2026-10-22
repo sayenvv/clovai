@@ -18,7 +18,7 @@ export const ConsoleButton = memo(function ConsoleButton({
     <Link
       to={ROUTES.agentWorkflowDashboard}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-gradient-to-r from-red-600 to-rose-600 font-semibold text-white shadow-[0_8px_18px_-12px_rgba(220,38,38,0.95)] transition-[transform,box-shadow,filter] hover:brightness-110 hover:shadow-[0_10px_22px_-12px_rgba(220,38,38,1)] active:scale-[0.98]',
+        'inline-flex items-center gap-1.5 rounded-lg border border-foreground/30 bg-gradient-to-r from-primary to-primary font-semibold text-primary-foreground shadow-[0_8px_18px_-12px_rgba(0,0,0,0.95)] transition-[transform,box-shadow,filter] hover:brightness-110 hover:shadow-[0_10px_22px_-12px_rgba(0,0,0,1)] active:scale-[0.98]',
         size === 'sm' ? 'h-8 px-2.5 text-[12px]' : 'h-9 px-3 text-[13px]',
         className,
       )}

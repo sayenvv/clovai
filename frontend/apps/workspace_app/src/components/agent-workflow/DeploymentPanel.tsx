@@ -25,14 +25,14 @@ export const DeploymentPanel = memo(function DeploymentPanel({
   if (!deployment) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 text-red-600">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-foreground/10 text-foreground">
           <Rocket className="h-6 w-6" />
         </div>
         <h3 className="text-sm font-semibold">Not deployed yet</h3>
         <p className="mt-1 max-w-xs text-xs text-muted-foreground">
           Validate your workflow, then deploy to generate an API endpoint and schemas.
         </p>
-        <Button className="mt-4 bg-red-600 hover:bg-red-700" disabled={!canDeploy} onClick={onDeploy}>
+        <Button className="mt-4 bg-primary hover:bg-primary/90" disabled={!canDeploy} onClick={onDeploy}>
           Deploy workflow
         </Button>
       </div>
@@ -100,7 +100,7 @@ export const DeploymentPanel = memo(function DeploymentPanel({
           </p>
         )}
 
-        <Button className="w-full bg-red-600 hover:bg-red-700" disabled={!canDeploy} onClick={onDeploy}>
+        <Button className="w-full bg-primary hover:bg-primary/90" disabled={!canDeploy} onClick={onDeploy}>
           Deploy new version
         </Button>
       </div>

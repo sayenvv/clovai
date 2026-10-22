@@ -22,7 +22,7 @@ export default function AdminCenterPage() {
   }, [current.label])
 
   return (
-    <div className="workspace-surface flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div className="workspace-surface admin-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <header className="shrink-0 border-b border-border/80 bg-card/95 pt-[max(0px,env(safe-area-inset-top))] backdrop-blur-md">
         <div className="flex h-12 items-center gap-2.5 px-3">
           <Logo size={LOGO_SIZE_WORKSPACE} rounded="md" />
@@ -33,7 +33,7 @@ export default function AdminCenterPage() {
 
           <Badge
             variant="outline"
-            className="hidden shrink-0 border-red-500/30 bg-red-500/5 text-[10px] font-medium text-red-700 dark:text-red-300 sm:inline-flex"
+            className="hidden shrink-0 border-foreground/30 bg-foreground/5 text-[10px] font-medium text-foreground dark:text-foreground sm:inline-flex"
           >
             {current.label}
           </Badge>
@@ -53,7 +53,7 @@ export default function AdminCenterPage() {
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <AdminSidebar />
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-[hsl(var(--canvas))]">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-[hsl(var(--page))]">
           <Outlet />
         </main>
       </div>
@@ -68,7 +68,7 @@ export default function AdminCenterPage() {
               className={({ isActive }) =>
                 cn(
                   'flex flex-col items-center gap-0.5 rounded-md px-2 py-1 text-[9.5px] font-medium',
-                  isActive ? 'text-red-600 dark:text-red-300' : 'text-muted-foreground',
+                  isActive ? 'text-foreground dark:text-foreground' : 'text-muted-foreground',
                 )
               }
             >

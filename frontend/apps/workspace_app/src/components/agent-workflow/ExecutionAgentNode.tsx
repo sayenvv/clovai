@@ -8,6 +8,7 @@ import {
   resolveExternalAgent,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { AgentNodeAvatar } from '@/components/agent-workflow/external-agent-ui'
+import { NODE_SURFACE } from '@/components/agent-workflow/node-surface'
 import { resolveFlowDirection, type DiagramNode, type FlowDirection } from '@/components/designer/diagram-types'
 
 const TYPE_LABELS: Record<string, string> = {
@@ -73,36 +74,24 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
   return (
     <div
       className={cn(
-        'relative flex w-full flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm',
+        'relative flex w-full flex-col overflow-hidden rounded-xl text-card-foreground',
+        NODE_SURFACE,
         vertical && 'h-full',
-        'transition-[border-color,box-shadow] duration-300',
-        isRunning && 'border-primary/70 shadow-lg ring-2 ring-primary/40',
-        isWaiting && 'border-amber-500/50 ring-1 ring-amber-500/20',
-        isCompleted && !isRunning && 'border-emerald-500/45 ring-1 ring-emerald-500/15',
-        isPending && !isCompleted && !isRunning && 'border-border',
+        isRunning && 'border-foreground/60 ring-[3px] ring-foreground/15 dark:border-white/50 dark:ring-white/15',
+        isWaiting && 'border-amber-500/60 ring-[3px] ring-amber-500/15 dark:border-amber-500/60',
+        isCompleted && !isRunning && 'border-emerald-500/50 dark:border-emerald-500/40',
       )}
     >
-      {isRunning ? (
-        <span
-          className="pointer-events-none absolute inset-0 animate-ping rounded-xl bg-primary/15"
-          aria-hidden
-        />
-      ) : null}
-
-      {/* State rail — the node's status readable at any zoom level. */}
+      {/* State rail — the node's status readable at any zoom level; it sweeps while running. */}
       <span
         className={cn(
-          'absolute inset-x-0 top-0 h-[3px] transition-colors duration-300',
-          isRunning
-            ? 'bg-primary'
-            : isWaiting
-              ? 'bg-amber-500'
-              : isCompleted
-                ? 'bg-emerald-500'
-                : 'bg-border',
+          'absolute inset-x-0 top-0 h-[2px] overflow-hidden transition-colors duration-300',
+          isWaiting ? 'bg-amber-500' : isCompleted && !isRunning ? 'bg-emerald-500' : 'bg-transparent',
         )}
         aria-hidden
-      />
+      >
+        {isRunning ? <span className="absolute inset-y-0 w-1/3 animate-[node-sweep_1.4s_ease-in-out_infinite] bg-foreground" /> : null}
+      </span>
 
       {/* Port dots sit at the routing box midpoint so they meet the drawn edges. */}
       {vertical ? (
@@ -125,7 +114,7 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
 
       <div
         className={cn(
-          'flex items-start gap-2.5 bg-muted/40 px-3 pb-2.5 pt-3',
+          'flex items-start gap-2.5 px-3 pb-2.5 pt-3',
           vertical ? 'flex-1 items-center' : 'border-b border-border/60',
         )}
       >
@@ -143,7 +132,7 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
               variant="outline"
               className={cn(
                 'h-4 border-0 px-1.5 text-[9px] font-semibold uppercase tracking-wide',
-                isRunning && 'bg-primary/15 text-primary',
+                isRunning && 'bg-foreground/10 text-foreground',
                 isCompleted && !isRunning && 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400',
                 isWaiting && 'bg-amber-500/12 text-amber-700 dark:text-amber-300',
                 isPending && 'bg-muted text-muted-foreground',
@@ -184,7 +173,7 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
             {agent?.description || 'Agent step in the workflow execution graph.'}
           </p>
           <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-0.5">
-            <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               <Wrench className="h-3 w-3" />
               {toolCount} tool{toolCount === 1 ? '' : 's'}
             </span>

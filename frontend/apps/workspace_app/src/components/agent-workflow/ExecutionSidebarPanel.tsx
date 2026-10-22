@@ -1,18 +1,25 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Activity,
+  ArrowUp,
   ChevronRight,
   ListChecks,
-  Loader2,
   Play,
   RotateCcw,
   Sparkles,
-  Square,
+  User,
   UserCheck,
   XCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ChatComposer } from '@/components/agent-workflow/ChatComposer'
+import {
+  ChatComposer,
+  ChatEmptyState,
+  ChatTurnBody,
+  ChatTurnHeader,
+  ComposerSendButton,
+  ComposerStopButton,
+} from '@/components/agent-workflow/ChatComposer'
 import { ExecutionFileUploadButton } from '@/components/agent-workflow/ExecutionFileUploadButton'
 import { ReviewDecisionBar } from '@/components/agent-workflow/ReviewDecisionBar'
 import { cn } from '@/utils/cn'
@@ -48,6 +55,8 @@ interface ExecutionSidebarPanelProps {
   finalResponse?: string | null
   errors?: WorkflowExecutionEvent[]
   onShowDetails?: () => void
+  /** Empty-state help; says where trace and logs appear on this page. */
+  emptyHint?: string
 }
 
 export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
@@ -66,6 +75,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
   finalResponse = null,
   errors = [],
   onShowDetails,
+  emptyHint = 'Send a message to run it. Replies appear here; trace, logs and errors are in the output panel under the canvas.',
 }: ExecutionSidebarPanelProps) {
   const [approvalInput, setApprovalInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -102,10 +112,11 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
         <TokenBudgetBar />
 
         {runStatus === 'idle' && trace.length === 0 && (
-          <p className="rounded-lg border border-dashed border-border/80 px-3 py-6 text-center text-xs leading-relaxed text-muted-foreground">
-            Type a message below to run this workflow. The model reply appears here, and trace,
-            logs, and errors stay in the output panel under the canvas.
-          </p>
+          <ChatEmptyState
+            icon={<Play className="h-4 w-4 fill-current text-foreground" />}
+            title="Run this workflow"
+            description={emptyHint}
+          />
         )}
 
         {testInput.trim() && runStatus !== 'idle' && <UserMessage content={testInput} />}
@@ -138,10 +149,10 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
         )}
 
         {runStatus === 'running' && messages.length === 0 && (
-          <div className="flex items-center gap-2 pl-0.5 text-[12px] text-muted-foreground">
+          <ChatTurnBody className="flex items-center gap-2 text-[12px] text-muted-foreground">
             <TypingDots />
             Starting workflow
-          </div>
+          </ChatTurnBody>
         )}
 
         {runStatus === 'failed' && errors.length > 0 && (
@@ -187,7 +198,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
             value={testInput}
             onChange={onTestInputChange}
             onSubmit={onExecute}
-            canSubmit={!isExecuting && canExecute}
+            canSubmit={!isExecuting && canExecute && Boolean(testInput.trim())}
             disabled={isExecuting}
             leading={
               <ExecutionFileUploadButton
@@ -196,45 +207,22 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
                 onInputLoaded={onTestInputChange}
               />
             }
+            placeholder="Message the workflow…"
             action={
               isActive && onCancel ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={onCancel}
-                  className="h-9 gap-1.5 px-4 text-xs shadow-md dark:bg-black dark:text-white dark:hover:bg-zinc-950"
-                  aria-label="Stop workflow"
-                  title="Stop workflow"
-                >
-                  <Square className="h-3 w-3 fill-current" />
-                  Stop
-                </Button>
+                <ComposerStopButton onClick={onCancel} label="Stop" />
               ) : (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={!canExecute || isExecuting}
+                <ComposerSendButton
                   onClick={onExecute}
-                  className="h-9 gap-1.5 px-4 text-xs shadow-md dark:bg-black dark:text-white dark:hover:bg-zinc-950"
-                  aria-label={isExecuting ? 'Executing workflow' : canRerun ? 'Run again' : 'Execute workflow'}
-                  title={isExecuting ? 'Executing workflow' : canRerun ? 'Run again' : 'Execute workflow'}
-                >
-                  {isExecuting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : canRerun ? (
-                    <>
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      Run again
-                    </>
-                  ) : (
-                    <Play className="h-3.5 w-3.5 fill-current" />
-                  )}
-                </Button>
+                  disabled={!canExecute || isExecuting || !testInput.trim()}
+                  busy={isExecuting}
+                  label={canRerun ? 'Run again' : 'Run workflow'}
+                  icon={canRerun ? RotateCcw : ArrowUp}
+                  text={canRerun ? 'Run again' : undefined}
+                />
               )
             }
-            hint={canRerun ? '⌘/Ctrl + Enter to run again' : '⌘/Ctrl + Enter to execute'}
+            hint={canRerun ? 'Sending runs the workflow again' : 'Sending runs the workflow'}
           />
         )}
       </div>
@@ -252,11 +240,11 @@ function FailureNotice({
   const summary = summarizeExecutionError(message)
 
   return (
-    <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-2.5">
+    <div className="rounded-xl border border-foreground/30 bg-foreground/5 px-3 py-2.5">
       <div className="flex items-start gap-2">
-        <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+        <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-foreground dark:text-foreground" />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-red-900 dark:text-red-100">{summary.title}</p>
+          <p className="text-xs font-semibold text-foreground dark:text-foreground">{summary.title}</p>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{summary.summary}</p>
           {onShowDetails && (
             <Button
@@ -305,10 +293,10 @@ export function TypingDots() {
 
 const AVATAR_TONES = [
   'bg-sky-500/15 text-sky-700 dark:text-sky-300',
-  'bg-violet-500/15 text-violet-700 dark:text-violet-300',
+  'bg-foreground/15 text-foreground dark:text-foreground',
   'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
   'bg-amber-500/15 text-amber-800 dark:text-amber-300',
-  'bg-rose-500/15 text-rose-700 dark:text-rose-300',
+  'bg-foreground/15 text-foreground dark:text-foreground',
   'bg-teal-500/15 text-teal-700 dark:text-teal-300',
 ]
 
@@ -320,7 +308,7 @@ export function AgentAvatar({ name }: { name: string }) {
   return (
     <span
       className={cn(
-        'flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold',
+        'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold',
         AVATAR_TONES[hash % AVATAR_TONES.length],
       )}
     >
@@ -329,12 +317,29 @@ export function AgentAvatar({ name }: { name: string }) {
   )
 }
 
-export function UserMessage({ content }: { content: string }) {
+export function UserMessage({ content, children }: { content: string; children?: ReactNode }) {
+  const json = content.trimStart().startsWith('{')
   return (
-    <div className="flex justify-end">
-      <p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-muted px-3.5 py-2 text-[13px] leading-6 text-foreground">
-        {content.trim()}
-      </p>
+    <div className="min-w-0">
+      <ChatTurnHeader
+        name="You"
+        avatar={
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-background">
+            <User className="h-3.5 w-3.5" />
+          </span>
+        }
+      />
+      <ChatTurnBody>
+        {children}
+        <p
+          className={cn(
+            'whitespace-pre-wrap break-words rounded-lg border border-border/70 bg-muted/50 px-3 py-2 text-[13px] leading-6 text-foreground',
+            json && 'font-mono text-[12px] leading-5',
+          )}
+        >
+          {content.trim()}
+        </p>
+      </ChatTurnBody>
     </div>
   )
 }
@@ -355,13 +360,8 @@ export function AgentMessage({
 
   return (
     <div className={cn('min-w-0', !showHeader && '-mt-2')}>
-      {showHeader && (
-        <div className="mb-1.5 flex min-w-0 items-center gap-2">
-          <AgentAvatar name={message.agentName} />
-          <span className="truncate text-[12.5px] font-semibold text-foreground">{message.agentName}</span>
-        </div>
-      )}
-      <div className="min-w-0 pl-8">
+      {showHeader && <ChatTurnHeader avatar={<AgentAvatar name={message.agentName} />} name={message.agentName} />}
+      <ChatTurnBody>
         {message.kind === 'reasoning' ? (
           <ReasoningBlock title={message.title} content={shown} typing={typing} />
         ) : shown ? (
@@ -370,12 +370,12 @@ export function AgentMessage({
           <span className="inline-flex animate-pulse items-center text-[12px] text-muted-foreground">Working…</span>
         )}
         {message.status === 'failed' && (
-          <p className="mt-1.5 flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400">
+          <p className="mt-1.5 flex items-center gap-1 text-[11px] text-foreground dark:text-foreground">
             <XCircle className="h-3 w-3" />
             This step failed
           </p>
         )}
-      </div>
+      </ChatTurnBody>
     </div>
   )
 }

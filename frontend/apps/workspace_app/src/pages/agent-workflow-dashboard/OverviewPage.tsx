@@ -82,7 +82,7 @@ export default function OverviewPage() {
                 Performance
               </Link>
             </Button>
-            <Button asChild size="sm" className="bg-red-600 hover:bg-red-700">
+            <Button asChild size="sm" className="bg-primary hover:bg-primary/90">
               <Link to={ROUTES.agentWorkflowDashboardInstances}>
                 My instances
                 <ArrowUpRight className="h-3.5 w-3.5" />
@@ -127,7 +127,7 @@ export default function OverviewPage() {
             </div>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-red-600 transition-all"
+                className="h-full rounded-full bg-primary transition-all"
                 style={{ width: `${instances.length === 0 ? 0 : healthScore}%` }}
               />
             </div>
@@ -206,7 +206,7 @@ export default function OverviewPage() {
                 <Link
                   key={item.id}
                   to={ROUTES.agentWorkflowDashboardInstances}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background p-2.5 transition-colors hover:border-red-400/50 hover:bg-red-500/5"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background p-2.5 transition-colors hover:border-foreground/50 hover:bg-foreground/5"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold">{item.workflowName}</p>
@@ -290,7 +290,7 @@ function InstancePerfCard({ item }: { item: PublishedWorkflowInstance }) {
   return (
     <Link
       to={ROUTES.agentWorkflowDashboardInstances}
-      className="group rounded-lg border border-border/70 bg-card p-3.5 transition-colors hover:border-red-400/50 hover:bg-red-500/5"
+      className="group rounded-lg border border-border/70 bg-card p-3.5 transition-colors hover:border-foreground/50 hover:bg-foreground/5"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -352,7 +352,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 function EmptyDeploy() {
   return (
     <div className="rounded-lg border border-dashed border-border/70 bg-card px-6 py-14 text-center">
-      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-300">
+      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
         <Rocket className="h-4 w-4" />
       </div>
       <p className="mt-3 text-sm font-semibold text-foreground">No instances to track yet</p>
@@ -360,7 +360,7 @@ function EmptyDeploy() {
         Deploy a workflow from the designer. It will show up here so you can monitor
         performance, runs, and spend.
       </p>
-      <Button asChild size="sm" className="mt-4 bg-red-600 hover:bg-red-700">
+      <Button asChild size="sm" className="mt-4 bg-primary hover:bg-primary/90">
         <Link to={ROUTES.agentWorkflow}>
           Open designer
           <ArrowUpRight className="h-3.5 w-3.5" />
