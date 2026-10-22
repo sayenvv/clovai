@@ -83,3 +83,7 @@ celerybeat-schedule*
 .DS_Store
 *.swp
 *.swo
+
+# Vite dependency cache
+.vite
+*.tsbuildinfo

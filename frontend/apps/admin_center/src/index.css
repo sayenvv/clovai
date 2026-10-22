@@ -1,0 +1,103 @@
+/* Design tokens copied from workspace_app/src/index.css so both apps look the same. Keep them in sync. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 8 58% 38%;
+    --primary-foreground: 0 0% 100%;
+    --primary-deep: 8 62% 28%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 8 58% 38%;
+    --radius: 0.625rem;
+    --canvas: 0 0% 100%;
+    --canvas-grid: 240 5% 84%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 8% 6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 8% 6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 8 55% 46%;
+    --primary-foreground: 0 0% 100%;
+    --primary-deep: 8 58% 36%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 8 55% 46%;
+  }
+
+  .dark {
+    --canvas: 240 10% 3%;
+    --canvas-grid: 0 0% 22%;
+  }
+
+  /* Tool workspace — light mode: cool slate chrome, crisp white canvas.
+     Premium neutral palette (subtle blue-grey undertone instead of flat
+     grayscale) with a hairline border + soft elevation on cards. Marketing
+     site and other pages are unchanged. */
+  .workspace-surface {
+    --background: 220 20% 97%;
+    --canvas: 210 20% 99%;
+    --card: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --muted: 220 16% 94%;
+    --accent: 220 18% 92%;
+    --secondary: 220 16% 94%;
+    --muted-foreground: 220 9% 40%;
+    --border: 220 14% 88%;
+    --input: 220 13% 83%;
+    --canvas-grid: 220 13% 84%;
+  }
+
+  /* Tool workspace — dark mode: grey chrome, darker recessed canvas. */
+  .dark .workspace-surface {
+    --background: 0 0% 14%;
+    --canvas: 228 7% 9%;
+    --card: 0 0% 17%;
+    --popover: 0 0% 17%;
+    --muted: 0 0% 20%;
+    --accent: 0 0% 23%;
+    --secondary: 0 0% 20%;
+    --border: 0 0% 27%;
+    --input: 0 0% 27%;
+    --muted-foreground: 0 0% 66%;
+    --canvas-grid: 228 5% 24%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+}
