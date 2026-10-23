@@ -5,12 +5,13 @@ import { resolveFlowDirection, type DiagramNode, type FlowDirection } from '@/co
 import { isStartFlowNode } from '@/components/agent-workflow/workflow-flow-nodes'
 import { NODE_SURFACE, NODE_SURFACE_HOVER, NODE_SURFACE_SELECTED } from '@/components/agent-workflow/node-surface'
 
-/** Set once someone has run a workflow from Start, so the "run from here" hint stops showing. */
+/** Set once someone runs a workflow from Start in this browser session, so the hint stops showing
+ *  until the next session. */
 const RUN_HINT_SEEN_KEY = 'eleven-nodes-start-run-hint-seen'
 
 function readRunHintSeen(): boolean {
   try {
-    return localStorage.getItem(RUN_HINT_SEEN_KEY) === 'true'
+    return sessionStorage.getItem(RUN_HINT_SEEN_KEY) === 'true'
   } catch {
     return false
   }
@@ -18,7 +19,7 @@ function readRunHintSeen(): boolean {
 
 function markRunHintSeen() {
   try {
-    localStorage.setItem(RUN_HINT_SEEN_KEY, 'true')
+    sessionStorage.setItem(RUN_HINT_SEEN_KEY, 'true')
   } catch {
     // ignore
   }

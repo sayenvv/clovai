@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   Blocks,
+  Check,
   Bot,
   CircleStop,
   GripVertical,
@@ -42,6 +43,13 @@ import { SIDE_PANEL_COLLAPSED_WIDTH } from '@/components/agent-workflow/panel-la
 import { WorkflowEmptyHint } from '@/components/agent-workflow/workflow-ui'
 import { OPEN_LIBRARY_DEPLOYMENTS_EVENT } from '@/components/agent-workflow/deployments-sidebar-ui'
 import { SettingsMenu, type CanvasViewSettings } from '@/components/agent-workflow/SettingsMenu'
+import {
+  MODEL_PROVIDER_DND_MIME,
+  MODEL_PROVIDERS,
+  ModelProviderLogo,
+  type ModelProvider,
+  type ModelProviderId,
+} from '@/components/agent-workflow/model-providers'
 import { HelpMenu } from '@/components/agent-workflow/HelpMenu'
 import { ProfileMenu } from '@/components/shared/ProfileMenu'
 import { getSession } from '@/services/project-auth-store'
@@ -72,7 +80,18 @@ interface AgentLibrarySidebarProps {
   onSectionChange?: (section: LibrarySection | null) => void
   /** Grid and snapping toggles, shown in the rail's Settings menu. */
   canvasView?: CanvasViewSettings
+  /** The Built-in blocks section's tab: blocks, or model clients (controlled when set). */
+  blocksTab?: BlocksTab
+  onBlocksTabChange?: (tab: BlocksTab) => void
+  /** A model client was picked (clicked) in the Model clients tab. */
+  onPickModelProvider?: (providerId: ModelProviderId) => void
+  /** The agent a picked model client goes to, when known (shown in the tab). */
+  modelTargetLabel?: string
+  /** That agent's current model client, marked in the list. */
+  activeModelProviderId?: string
 }
+
+export type BlocksTab = 'blocks' | 'models'
 
 const FLYOUT_MIN_WIDTH = 260
 
@@ -276,6 +295,54 @@ function GridBlockTile({
   )
 }
 
+/** A model client in the library: logo, name, a few of its models; click or drag onto an agent. */
+function ModelProviderRow({
+  provider,
+  active,
+  onPick,
+}: {
+  provider: ModelProvider
+  active: boolean
+  onPick?: (providerId: ModelProviderId) => void
+}) {
+  const shown = provider.models.slice(0, 2).join(' · ')
+  const more = provider.models.length - 2
+  return (
+    <button
+      type="button"
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData(MODEL_PROVIDER_DND_MIME, provider.id)
+        event.dataTransfer.effectAllowed = 'link'
+      }}
+      onClick={() => onPick?.(provider.id)}
+      title={`Use ${provider.label} · ${provider.description}`}
+      className={cn(
+        'group flex w-full items-center gap-2.5 rounded-lg border bg-card p-2.5 text-left shadow-sm',
+        'cursor-grab transition-all duration-150 active:cursor-grabbing',
+        active ? 'border-foreground/40 ring-1 ring-foreground/10' : 'border-border hover:border-foreground/20 hover:shadow-md',
+      )}
+    >
+      <ModelProviderLogo provider={provider} className="size-8" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate text-[12.5px] font-semibold leading-tight text-foreground">{provider.label}</span>
+          {provider.local ? (
+            <span className="rounded border border-border/60 bg-muted/60 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+              Local
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-0.5 truncate font-mono text-[10.5px] text-muted-foreground">
+          {shown}
+          {more > 0 ? ` +${more}` : ''}
+        </p>
+      </div>
+      {active ? <Check className="size-4 shrink-0 text-foreground/70" aria-label="Current model client" /> : null}
+    </button>
+  )
+}
+
 function RailIconButton({
   label,
   icon: Icon,
@@ -342,7 +409,18 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   activeSection,
   onSectionChange,
   canvasView,
+  blocksTab: blocksTabProp,
+  onBlocksTabChange,
+  onPickModelProvider,
+  modelTargetLabel,
+  activeModelProviderId,
 }: AgentLibrarySidebarProps) {
+  const [blocksTabState, setBlocksTabState] = useState<BlocksTab>('blocks')
+  const blocksTab = blocksTabProp ?? blocksTabState
+  const setBlocksTab = (tab: BlocksTab) => {
+    setBlocksTabState(tab)
+    onBlocksTabChange?.(tab)
+  }
   const [section, setSection] = useState<LibrarySection | null>(
     embedded ? 'blocks' : null,
   )
@@ -417,6 +495,17 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
         block.description.toLowerCase().includes(needle),
     )
   }, [query, resolvedSection])
+
+  const filteredProviders = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (!needle) return MODEL_PROVIDERS
+    return MODEL_PROVIDERS.filter(
+      (provider) =>
+        provider.label.toLowerCase().includes(needle) ||
+        provider.description.toLowerCase().includes(needle) ||
+        provider.models.some((model) => model.toLowerCase().includes(needle)),
+    )
+  }, [query])
 
   const filteredStore = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -636,6 +725,34 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
               </div>
             )}
 
+            {resolvedSection === 'blocks' && (
+              <div className="shrink-0 px-3 pt-2.5">
+                <div role="tablist" aria-label="Library" className="flex items-center gap-0.5 rounded-md bg-muted p-0.5">
+                  {(
+                    [
+                      ['blocks', 'Blocks'],
+                      ['models', 'Model clients'],
+                    ] as const
+                  ).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="tab"
+                      aria-selected={blocksTab === id}
+                      onClick={() => setBlocksTab(id)}
+                      className={cn(
+                        'h-7 flex-1 rounded-[5px] text-xs font-medium transition-colors',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        blocksTab === id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {(resolvedSection === 'blocks' ||
               resolvedSection === 'store' ||
               resolvedSection === 'workflows') && (
@@ -647,11 +764,11 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                       ref={searchInputRef}
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Search…"
+                      placeholder={resolvedSection === 'blocks' && blocksTab === 'models' ? 'Search providers or models…' : 'Search…'}
                       className="h-8 pl-8 text-xs"
                     />
                   </div>
-                  {resolvedSection === 'blocks' && (
+                  {resolvedSection === 'blocks' && blocksTab === 'blocks' && (
                     <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5">
                       <button
                         type="button"
@@ -688,7 +805,34 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
             )}
 
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-              {resolvedSection === 'blocks' && (
+              {resolvedSection === 'blocks' && blocksTab === 'models' && (
+                <div className="space-y-1.5">
+                  <p className="px-0.5 pb-1 text-[11px] leading-snug text-muted-foreground">
+                    {modelTargetLabel ? (
+                      <>
+                        Choose the model client for <span className="font-medium text-foreground">{modelTargetLabel}</span>,
+                        or drag one onto any agent.
+                      </>
+                    ) : (
+                      'Click to use on the selected agent, or drag one onto an agent.'
+                    )}
+                  </p>
+                  {filteredProviders.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-muted-foreground">No model clients match.</p>
+                  ) : (
+                    filteredProviders.map((provider) => (
+                      <ModelProviderRow
+                        key={provider.id}
+                        provider={provider}
+                        active={provider.id === activeModelProviderId}
+                        onPick={onPickModelProvider}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+
+              {resolvedSection === 'blocks' && blocksTab === 'blocks' && (
                 filteredBlocks.length === 0 ? (
                   <p className="py-6 text-center text-xs text-muted-foreground">No blocks match.</p>
                 ) : blocksView === 'grid' ? (

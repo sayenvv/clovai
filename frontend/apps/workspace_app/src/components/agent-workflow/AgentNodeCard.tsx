@@ -30,6 +30,11 @@ import {
 } from '@/components/agent-workflow/node-surface'
 import { isExecutorNode, isToolNode } from '@/components/agent-workflow/tool-agent-mapping'
 import {
+  ModelProviderLogo,
+  resolveModelProvider,
+  type ModelProvider,
+} from '@/components/agent-workflow/model-providers'
+import {
   resolveFlowDirection,
   type DiagramNode,
   type FlowDirection,
@@ -183,6 +188,66 @@ function AgentIcon({ paletteId, status }: { paletteId: string; status: NodeStatu
       )}
       <span className={nodeStatusDot(status)} title={status === 'ready' ? 'Model set' : 'Needs a model'} />
     </span>
+  )
+}
+
+/**
+ * The agent's model slot, on the left of the card: the model client's logo once one is chosen
+ * (with a small agent badge), otherwise a dashed "+" to add one. Clicking it opens the model
+ * clients for this agent.
+ */
+function ModelSlot({
+  nodeId,
+  provider,
+  onAttachAction,
+}: {
+  nodeId: string
+  provider: ModelProvider | undefined
+  onAttachAction?: (agentId: string, action: AgentAttachAction) => void
+}) {
+  const label = provider ? `Model client: ${provider.label} (change)` : 'Add a model client'
+  const tile = provider ? (
+    <span className="relative flex size-9 items-center justify-center">
+      <ModelProviderLogo provider={provider} className="size-9" />
+      <span
+        className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-card text-foreground/70 ring-1 ring-border"
+        aria-hidden
+      >
+        <Bot className="size-2.5" />
+      </span>
+    </span>
+  ) : (
+    <span
+      className={cn(
+        'flex size-9 items-center justify-center rounded-[10px] border-[1.5px] border-dashed transition-colors',
+        'border-amber-500/60 text-amber-600 dark:text-amber-400',
+        onAttachAction && 'group-hover/model:border-amber-500 group-hover/model:bg-amber-500/10',
+      )}
+    >
+      <Plus className="size-4" />
+    </span>
+  )
+  if (!onAttachAction) {
+    return (
+      <span className="flex shrink-0" title={label} aria-label={label}>
+        {tile}
+      </span>
+    )
+  }
+  return (
+    <button
+      type="button"
+      className="group/model flex shrink-0 rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      title={label}
+      aria-label={label}
+      onPointerDown={stopCanvas}
+      onClick={(event) => {
+        stopCanvas(event)
+        onAttachAction(nodeId, 'model')
+      }}
+    >
+      {tile}
+    </button>
   )
 }
 
@@ -431,6 +496,13 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   const model = agent?.model?.trim()
   const configured = Boolean(model)
   const status: NodeStatus = configured ? 'ready' : 'attention'
+  const provider = resolveModelProvider(agent)
+  // Built-in agents show their model client on the left; external agents keep their avatar.
+  const leadingIcon = externalAgent ? (
+    <AgentIcon paletteId={node.paletteId} status={status} />
+  ) : (
+    <ModelSlot nodeId={node.id} provider={provider} onAttachAction={onAttachAction} />
+  )
   const typeLabel = externalAgent?.provider ?? TYPE_LABELS[agent?.agentType ?? 'llm'] ?? 'Agent'
   const tools = mappedChildren.tool + mappedChildren.mcp
   const memory = mappedChildren.memory
@@ -465,7 +537,7 @@ export const AgentNodeCard = memo(function AgentNodeCard({
         }))}
         onAttachAction={onAttachAction}
         className={className}
-        icon={<AgentIcon paletteId={node.paletteId} status={status} />}
+        icon={leadingIcon}
       />
     )
   }
@@ -484,7 +556,7 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   return (
     <div className={cn('agent-wf-node group relative h-full w-full overflow-visible', className)}>
       <div className={cardClasses(isSelected, 'flex h-full w-full items-center gap-3 rounded-xl px-3')}>
-        <AgentIcon paletteId={node.paletteId} status={status} />
+        {leadingIcon}
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
             <div className="truncate text-[13px] font-semibold leading-tight tracking-[-0.01em] text-card-foreground">

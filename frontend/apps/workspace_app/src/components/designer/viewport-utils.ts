@@ -15,13 +15,15 @@ export function computeCenteredViewport(
   paletteById: Map<string, PaletteItem>,
   canvasWidth: number,
   canvasHeight: number,
+  /** The most it zooms in to fit small content; larger content still zooms out to fit. */
+  maxScale = 1.5,
 ): Viewport {
   if (canvasWidth <= 0 || canvasHeight <= 0) {
     return { x: 0, y: 0, scale: 1 }
   }
 
   if (diagram.nodes.length === 0) {
-    return { x: canvasWidth / 2, y: canvasHeight / 2, scale: 1 }
+    return { x: canvasWidth / 2, y: canvasHeight / 2, scale: Math.min(1, maxScale) }
   }
 
   let minX = Infinity
@@ -41,7 +43,7 @@ export function computeCenteredViewport(
 
   const contentWidth = maxX - minX + CONTENT_PADDING * 2
   const contentHeight = maxY - minY + CONTENT_PADDING * 2
-  const fitScale = Math.min(canvasWidth / contentWidth, canvasHeight / contentHeight, 1.5)
+  const fitScale = Math.min(canvasWidth / contentWidth, canvasHeight / contentHeight, maxScale)
   const scale = clampViewportScale(fitScale)
 
   const contentCenterX = (minX + maxX) / 2

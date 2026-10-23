@@ -34,6 +34,7 @@ import {
   isFlowBoundaryNode,
 } from '@/components/agent-workflow/workflow-flow-nodes'
 import { FlowBoundaryCard } from '@/components/agent-workflow/FlowBoundaryCard'
+import type { NodeRunStatus } from '@/components/agent-workflow/canvas-focus'
 import { resolveEdgeColors } from './diagram-colors'
 import { connectorLabelWidth, formatConnectorLabel } from './connector-label'
 import {
@@ -96,6 +97,114 @@ function resolvePortShape(
   return resolveNodeStyle(node, item).shape
 }
 
+export type ExpandedNode = { id: string; offsetX: number; offsetY: number; width: number; height: number }
+
+/** A port on an expanded node's card: the centre of the card's side, like a collapsed node's. */
+function expandedPortPoint(node: DiagramNode, card: ExpandedNode, side: PortSide): { x: number; y: number } {
+  const left = node.x + card.offsetX
+  const top = node.y + card.offsetY
+  switch (side) {
+    case 'left':
+      return { x: left, y: top + card.height / 2 }
+    case 'right':
+      return { x: left + card.width, y: top + card.height / 2 }
+    case 'top':
+      return { x: left + card.width / 2, y: top }
+    default:
+      return { x: left + card.width / 2, y: top + card.height }
+  }
+}
+
+type NodeOffset = { dx: number; dy: number }
+
+type Box = { x: number; y: number; w: number; h: number }
+
+/**
+ * Where other nodes are drawn while a node is expanded, so nothing overlaps its card and the
+ * layout keeps its shape. Display only: the diagram keeps its positions.
+ *
+ * Constraint: for any two nodes in each other's way (overlapping across one axis), the one that
+ * was after the other along that axis keeps at least the gap it had. The expanded node is the
+ * starting push: its card grew in place, so it pushes the nodes in its row and column, which
+ * push the nodes in theirs, and so on. Nodes not in anyone's way stay where they are.
+ */
+function makeRoomOffsets(
+  nodes: DiagramNode[],
+  card: ExpandedNode,
+  sizeOf: (node: DiagramNode) => { width: number; height: number },
+): Record<string, NodeOffset> {
+  const origin = nodes.find((node) => node.id === card.id)
+  if (!origin) return {}
+  type Item = { id: string; box: Box; shift: NodeOffset }
+  const boxOf = (node: DiagramNode): Box => {
+    const size = sizeOf(node)
+    return { x: node.x, y: node.y, w: size.width, h: size.height }
+  }
+  const items: Item[] = nodes
+    .filter((node) => node.id !== origin.id)
+    .map((node) => ({ id: node.id, box: boxOf(node), shift: { dx: 0, dy: 0 } }))
+  // The expanded node: its original box, and where its card now is.
+  const pusher = { box: boxOf(origin), now: { x: origin.x + card.offsetX, y: origin.y + card.offsetY, w: card.width, h: card.height } }
+  const now = (item: Item): Box => ({ ...item.box, x: item.box.x + item.shift.dx, y: item.box.y + item.shift.dy })
+
+  const axes = [
+    { start: (b: Box) => b.x, end: (b: Box) => b.x + b.w, crossStart: (b: Box) => b.y, crossEnd: (b: Box) => b.y + b.h, key: 'dx' as const },
+    { start: (b: Box) => b.y, end: (b: Box) => b.y + b.h, crossStart: (b: Box) => b.x, crossEnd: (b: Box) => b.x + b.w, key: 'dy' as const },
+  ]
+
+  /** Push `target` so it keeps its original gap to `source` (original `from`, now `to`). */
+  const keepGap = (from: Box, to: Box, target: Item): boolean => {
+    let changed = false
+    for (const axis of axes) {
+      const current = now(target)
+      // Only nodes in each other's way across this axis.
+      if (!(axis.crossStart(current) < axis.crossEnd(to) && axis.crossStart(to) < axis.crossEnd(current))) continue
+      if (axis.start(target.box) >= axis.end(from) - 1) {
+        // Target was after: keep its gap after the source's new end.
+        const need = axis.end(to) + (axis.start(target.box) - axis.end(from)) - axis.start(current)
+        if (need > 0.5) {
+          target.shift[axis.key] += need
+          changed = true
+        }
+      } else if (axis.end(target.box) <= axis.start(from) + 1) {
+        // Target was before: keep its gap before the source's new start.
+        const need = axis.end(current) - (axis.start(to) - (axis.start(from) - axis.end(target.box)))
+        if (need > 0.5) {
+          target.shift[axis.key] -= need
+          changed = true
+        }
+      }
+    }
+    return changed
+  }
+
+  for (let pass = 0; pass < items.length + 2; pass += 1) {
+    let changed = false
+    for (const target of items) changed = keepGap(pusher.box, pusher.now, target) || changed
+    for (const source of items) {
+      if (!source.shift.dx && !source.shift.dy) continue
+      for (const target of items) {
+        if (target.id !== source.id) changed = keepGap(source.box, now(source), target) || changed
+      }
+    }
+    if (!changed) break
+  }
+
+  const offsets: Record<string, NodeOffset> = {}
+  for (const item of items) {
+    if (item.shift.dx || item.shift.dy) offsets[item.id] = { ...item.shift }
+  }
+  return offsets
+}
+
+/** The ring drawn around a node for its run state. */
+const RUN_RING_CLASSES: Record<NodeRunStatus, string> = {
+  running: 'border-sky-500 shadow-[0_0_0_4px_rgba(14,165,233,0.15)] motion-safe:animate-pulse',
+  waiting: 'border-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.15)]',
+  completed: 'border-emerald-500/80',
+  error: 'border-red-500',
+}
+
 type DragSession =
   | { type: 'pan'; startX: number; startY: number; originX: number; originY: number }
   | {
@@ -103,6 +212,8 @@ type DragSession =
       id: string
       offsetX: number
       offsetY: number
+      startClientX: number
+      startClientY: number
       groupIds?: string[]
       groupStarts?: Record<string, { x: number; y: number }>
     }
@@ -206,6 +317,22 @@ interface DesignerCanvasProps {
   onInsertHitlOnEdge?: (edgeId: string) => void
   /** Run the workflow from the Start node's play button. */
   onRunWorkflow?: () => void
+  /** A node was clicked (pressed and released without dragging). */
+  onNodeOpen?: (nodeId: string) => void
+  /** A connector was clicked. */
+  onEdgeOpen?: (edgeId: string) => void
+  /** Run state per node id, drawn as a ring around the node. */
+  runStatusByNode?: Record<string, NodeRunStatus>
+  /** A node expanded into its details card: hidden here, the card takes its place. */
+  hiddenNodeId?: string
+  /** Empty canvas was clicked (pressed and released without panning). */
+  onBackgroundClick?: () => void
+  /** A node was right-clicked, at screen position (x, y). */
+  onNodeContextMenu?: (nodeId: string, x: number, y: number) => void
+  /** A node shown expanded as its details card, in canvas (world) units: the card's offset from
+   *  the node's top-left and its size. Its connectors attach to the centre of the card's sides,
+   *  and other nodes move to keep their spacing. */
+  expandedNode?: ExpandedNode
   /** Return null to cancel drop (e.g. tool with no agent on canvas). */
   finalizeDroppedNode?: (
     node: DiagramNode,
@@ -297,6 +424,13 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   onNodeAttachAction,
   onInsertHitlOnEdge,
   onRunWorkflow,
+  onNodeOpen,
+  onEdgeOpen,
+  runStatusByNode,
+  hiddenNodeId,
+  onBackgroundClick,
+  onNodeContextMenu,
+  expandedNode,
   finalizeDroppedNode,
   selectionDisabled = false,
   onUndo,
@@ -734,6 +868,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       id: node.id,
       offsetX: world.x - node.x,
       offsetY: world.y - node.y,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
       groupIds,
       groupStarts,
     }
@@ -1043,6 +1179,23 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       return
     }
 
+    // A press and release on empty canvas without panning is a click on the background.
+    if (
+      session?.type === 'pan' &&
+      Math.hypot(event.clientX - session.startX, event.clientY - session.startY) <= 4
+    ) {
+      onBackgroundClick?.()
+    }
+
+    // A press and release on one node without dragging opens it.
+    if (
+      session?.type === 'node' &&
+      !session.groupIds &&
+      Math.hypot(event.clientX - session.startClientX, event.clientY - session.startClientY) <= 4
+    ) {
+      onNodeOpen?.(session.id)
+    }
+
     sessionRef.current = null
     setIsGrabbing(false)
   }
@@ -1135,6 +1288,54 @@ export const DesignerCanvas = memo(function DesignerCanvas({
     [diagram.nodes, paletteById, agentMode],
   )
 
+  // Neighbours slide to keep their spacing to an expanded node, and back when it collapses.
+  const roomTarget = useMemo(() => {
+    if (!expandedNode) return {}
+    return makeRoomOffsets(
+      diagram.nodes,
+      expandedNode,
+      (node) => {
+        const item = paletteById.get(node.paletteId)
+        return item ? getNodeSize(node, resolvePortShape(node, item, agentMode)) : { width: 0, height: 0 }
+      },
+    )
+  }, [diagram.nodes, expandedNode, paletteById, agentMode])
+  const [roomOffsets, setRoomOffsets] = useState<Record<string, NodeOffset>>({})
+  const roomOffsetsRef = useRef(roomOffsets)
+  roomOffsetsRef.current = roomOffsets
+  useEffect(() => {
+    const from = roomOffsetsRef.current
+    const ids = new Set([...Object.keys(from), ...Object.keys(roomTarget)])
+    const settled = [...ids].every(
+      (id) =>
+        (from[id]?.dx ?? 0) === (roomTarget[id]?.dx ?? 0) && (from[id]?.dy ?? 0) === (roomTarget[id]?.dy ?? 0),
+    )
+    if (settled) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setRoomOffsets(roomTarget)
+      return
+    }
+    const started = performance.now()
+    const duration = 240
+    let frame = 0
+    const step = (now: number) => {
+      const t = Math.min(1, (now - started) / duration)
+      const eased = 1 - Math.pow(1 - t, 3)
+      const next: Record<string, NodeOffset> = {}
+      for (const id of ids) {
+        const a = from[id] ?? { dx: 0, dy: 0 }
+        const b = roomTarget[id] ?? { dx: 0, dy: 0 }
+        const dx = a.dx + (b.dx - a.dx) * eased
+        const dy = a.dy + (b.dy - a.dy) * eased
+        if (dx || dy) next[id] = { dx, dy }
+      }
+      setRoomOffsets(next)
+      if (t < 1) frame = requestAnimationFrame(step)
+    }
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [roomTarget])
+
   const agentLabelsById = useMemo(() => {
     const map = new Map<string, string>()
     for (const node of diagram.nodes) {
@@ -1164,12 +1365,23 @@ export const DesignerCanvas = memo(function DesignerCanvas({
 
   const mappingLines = useMemo(() => {
     if (!agentMode) return [] as Array<{ id: string; d: string }>
-    return diagram.nodes.flatMap((node) => {
-      if (!isToolNode(node) || !node.mappedAgentId) return []
-      const agent = nodesById.get(node.mappedAgentId)
-      if (!agent) return []
-      const agentSize = agentNodeSize(agent)
-      const toolSize = toolNodeSize(node)
+    // Where a node is drawn: moved aside for an expanded node, or the expanded card itself.
+    const drawnBox = (node: DiagramNode, size: { width: number; height: number }) => {
+      if (expandedNode?.id === node.id) {
+        return {
+          node: { ...node, x: node.x + expandedNode.offsetX, y: node.y + expandedNode.offsetY },
+          size: { width: expandedNode.width, height: expandedNode.height },
+        }
+      }
+      const offset = roomOffsets[node.id]
+      return { node: offset ? { ...node, x: node.x + offset.dx, y: node.y + offset.dy } : node, size }
+    }
+    return diagram.nodes.flatMap((toolNodeRaw) => {
+      if (!isToolNode(toolNodeRaw) || !toolNodeRaw.mappedAgentId) return []
+      const agentRaw = nodesById.get(toolNodeRaw.mappedAgentId)
+      if (!agentRaw) return []
+      const { node: agent, size: agentSize } = drawnBox(agentRaw, agentNodeSize(agentRaw))
+      const { node, size: toolSize } = drawnBox(toolNodeRaw, toolNodeSize(toolNodeRaw))
       const kind = childKindForPalette(node.paletteId)
       const dockId =
         kind === 'memory'
@@ -1182,7 +1394,10 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         // Leave the card at its capability bar, on the side facing the tool column.
         const from = {
           x: agent.x + agentSize.width,
-          y: agent.y + agentSize.height - VERTICAL_CAPABILITY_BAR_HEIGHT / 2,
+          y:
+            expandedNode?.id === agent.id
+              ? agent.y + agentSize.height / 2
+              : agent.y + agentSize.height - VERTICAL_CAPABILITY_BAR_HEIGHT / 2,
         }
         const to = { x: node.x, y: node.y + toolSize.height / 2 }
         return [{ id: `map-${node.id}`, d: curvedSideAttachmentPath(from, to) }]
@@ -1197,19 +1412,29 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       }
       return [{ id: `map-${node.id}`, d: curvedAttachmentPath(from, to) }]
     })
-  }, [agentMode, diagram.nodes, nodesById, flowDirection])
+  }, [agentMode, diagram.nodes, nodesById, flowDirection, expandedNode, roomOffsets])
 
   const renderedEdges = useMemo(() => {
     const items = diagram.edges.flatMap((edge) => {
-      const from = nodesById.get(edge.from)
-      const to = nodesById.get(edge.to)
+      const moved = (node: DiagramNode | undefined) => {
+        const offset = node && roomOffsets[node.id]
+        return node && offset ? { ...node, x: node.x + offset.dx, y: node.y + offset.dy } : node
+      }
+      const from = moved(nodesById.get(edge.from))
+      const to = moved(nodesById.get(edge.to))
       const fromItem = from && paletteById.get(from.paletteId)
       const toItem = to && paletteById.get(to.paletteId)
       if (!from || !to || !fromItem || !toItem) return []
       // Agent workflows use curved connectors — no orthogonal/straight rails.
       const routing = agentMode ? 'curved' : resolveEdgeRouting(edge.routing)
-      const fromPoint = portPoint(from, resolvePortShape(from, fromItem, agentMode), edge.fromSide)
-      const toPoint = portPoint(to, resolvePortShape(to, toItem, agentMode), edge.toSide)
+      const fromPoint =
+        expandedNode?.id === from.id
+          ? expandedPortPoint(from, expandedNode, edge.fromSide)
+          : portPoint(from, resolvePortShape(from, fromItem, agentMode), edge.fromSide)
+      const toPoint =
+        expandedNode?.id === to.id
+          ? expandedPortPoint(to, expandedNode, edge.toSide)
+          : portPoint(to, resolvePortShape(to, toItem, agentMode), edge.toSide)
       const routeContext = {
         obstacles: routeObstacles,
         fromNodeId: edge.from,
@@ -1241,7 +1466,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       ]
     })
     return items.sort((a, b) => (a.edge.zIndex ?? 0) - (b.edge.zIndex ?? 0))
-  }, [diagram.edges, nodesById, paletteById, routeObstacles, agentMode])
+  }, [diagram.edges, nodesById, paletteById, routeObstacles, agentMode, expandedNode, roomOffsets])
 
   const updateEdgesByIds = useCallback(
     (edgeIds: string[], updater: (edge: DiagramEdge) => DiagramEdge) => {
@@ -1415,15 +1640,44 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 selectionDisabled ? 'pointer-events-none' : 'cursor-inherit',
                 isInvalidTarget && 'opacity-40',
                 isCompatibleTarget && 'opacity-100',
+                node.id === hiddenNodeId && 'pointer-events-none opacity-0',
               )}
-              style={{ left: node.x, top: node.y, width, height }}
+              style={{
+                left: node.x,
+                top: node.y,
+                width,
+                height,
+                transform: roomOffsets[node.id]
+                  ? `translate(${roomOffsets[node.id].dx}px, ${roomOffsets[node.id].dy}px)`
+                  : undefined,
+              }}
+              data-node-id={node.id}
               onPointerDown={(event) => handleNodePointerDown(event, node)}
+              onContextMenu={
+                onNodeContextMenu && !selectionDisabled
+                  ? (event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      onSelectionChange({ kind: 'node', id: node.id })
+                      onNodeContextMenu(node.id, event.clientX, event.clientY)
+                    }
+                  : undefined
+              }
               onDoubleClick={(event) => {
                 if (selectionDisabled || flowBoundary) return
                 event.stopPropagation()
                 setEditingNodeId(node.id)
               }}
             >
+              {runStatusByNode?.[node.id] && (
+                <span
+                  className={cn(
+                    'pointer-events-none absolute -inset-1.5 z-[2] rounded-[16px] border-2',
+                    RUN_RING_CLASSES[runStatusByNode[node.id]],
+                  )}
+                  aria-hidden
+                />
+              )}
               {agentMode && flowBoundary ? (
                 <FlowBoundaryCard
                   node={node}
@@ -1622,6 +1876,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
           {mappingLines.map((line) => (
             <path
               key={line.id}
+              data-mapping-id={line.id}
               d={line.d}
               fill="none"
               stroke="hsl(var(--muted-foreground))"
@@ -1729,6 +1984,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 stroke="transparent"
                 strokeWidth={Math.max(24 / viewport.scale, 14)}
                 strokeDasharray={hitDash}
+                data-edge-id={edge.id}
                 className={cn(
                   'pointer-events-auto cursor-pointer',
                   selectionDisabled && 'pointer-events-none',
@@ -1759,6 +2015,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                       ? toggleEdgeInSelection(selection, edge.id)
                       : selectSingleEdge(edge.id),
                   )
+                  if (!additive) onEdgeOpen?.(edge.id)
                 }}
                 onContextMenu={(event) => {
                   event.preventDefault()

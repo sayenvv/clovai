@@ -33,6 +33,8 @@ export interface AgentNodeConfig {
   description: string
   instructions: string
   model: string
+  /** The model client the agent runs on (see model-providers); guessed from `model` when unset. */
+  modelProvider?: string
   temperature: number
   tools: string[]
   inputSchema: string

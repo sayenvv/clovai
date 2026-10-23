@@ -6,6 +6,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Field, PanelSection } from '@/components/agent-workflow/FormField'
+import {
+  MODEL_PROVIDERS,
+  ModelProviderLogo,
+  modelForProvider,
+  resolveModelProvider,
+} from '@/components/agent-workflow/model-providers'
+import { cn } from '@/utils/cn'
 import { InstructionsEditorField } from '@/components/agent-workflow/InstructionsEditorField'
 import { HumanInTheLoopPanel } from '@/components/agent-workflow/HumanInTheLoopPanel'
 import {
@@ -35,7 +42,6 @@ const AGENT_TYPES: { value: AgentType; label: string }[] = [
   { value: 'control', label: 'Control' },
 ]
 
-const MODELS = ['gpt-4.1', 'gpt-4.1-mini', 'claude-sonnet-4', 'gemini-2.5-pro']
 
 function updateAgent(
   onChange: AgentConfigPanelProps['onChange'],
@@ -62,6 +68,7 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
   onChange,
 }: AgentConfigPanelProps) {
   const agent = node.agent!
+  const currentProvider = resolveModelProvider(agent)
   const toolsText = agent.tools.join(', ')
   const isReviewAgent = agent.agentType === 'human'
   const [isGenerating, setIsGenerating] = useState(false)
@@ -187,17 +194,53 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
         </TabsContent>
 
         <TabsContent value="model" className="mt-3 flex-1 overflow-y-auto space-y-4 pb-4">
-          <Field label="Model">
-            <Select
+          <Field label="Model client" hint="The provider this agent runs on">
+            <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Model client">
+              {MODEL_PROVIDERS.map((provider) => {
+                const active = provider.id === currentProvider?.id
+                return (
+                  <button
+                    key={provider.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() =>
+                      updateAgent(onChange, node.id, {
+                        modelProvider: provider.id,
+                        model: modelForProvider(provider, agent.model),
+                      })
+                    }
+                    className={cn(
+                      'flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-xs transition-colors',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      active
+                        ? 'border-foreground/50 bg-accent text-foreground'
+                        : 'border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground',
+                    )}
+                  >
+                    <ModelProviderLogo provider={provider} className="size-5 rounded-[5px]" />
+                    <span className="truncate font-medium">{provider.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </Field>
+          <Field
+            label="Model"
+            hint={currentProvider ? `Suggested ${currentProvider.label} models, or type any model name` : 'Choose a model client first, or type a model name'}
+          >
+            <Input
+              list={`models-${node.id}`}
               value={agent.model}
               onChange={(event) => updateAgent(onChange, node.id, { model: event.target.value })}
-            >
-              {MODELS.map((model) => (
-                <option key={model} value={model}>
-                  {model}
-                </option>
+              placeholder={currentProvider?.models[0] ?? 'gpt-4.1'}
+              className="font-mono text-xs"
+            />
+            <datalist id={`models-${node.id}`}>
+              {(currentProvider?.models ?? MODEL_PROVIDERS.flatMap((provider) => provider.models)).map((model) => (
+                <option key={model} value={model} />
               ))}
-            </Select>
+            </datalist>
           </Field>
           <Field label="Temperature">
             <Input

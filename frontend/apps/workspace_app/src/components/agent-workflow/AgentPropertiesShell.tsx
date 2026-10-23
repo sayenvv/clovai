@@ -402,7 +402,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   )
 })
 
-function DetailsPanelContent({
+export function DetailsPanelContent({
   multiSelectCount,
   canConvertToSubWorkflow,
   onConvertToSubWorkflow,

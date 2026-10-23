@@ -4,6 +4,7 @@ import { resolveAgentType } from '@/components/agent-workflow/agent-workflow-def
 import { inferWorkflowType } from '@/components/agent-workflow/validate-workflow'
 import { OLLAMA_DEFAULT_URL, isLocalModel } from '@/components/agent-workflow/workflow-model-config'
 import { resolveStartAgentId } from '@/components/agent-workflow/workflow-start'
+import { modelProviderById } from '@/components/agent-workflow/model-providers'
 import {
   childKindForPalette,
   isAgentNode,
@@ -34,14 +35,46 @@ function catalogId(node: DiagramNode): string {
   return node.id
 }
 
+/** The `modelConnections` id for a model client. */
+function modelClientConnectionId(providerId: string): string {
+  return `model-${providerId}`
+}
+
+/** A connection for each model client the agents chose (from the model-providers catalog). */
+function modelClientConnections(agents: DiagramNode[], ollamaBaseUrl?: string): Record<string, unknown>[] {
+  const used = new Map<string, string>()
+  for (const node of agents) {
+    const provider = modelProviderById(node.agent?.modelProvider)
+    if (provider && !used.has(provider.id)) used.set(provider.id, node.agent?.model?.trim() || provider.models[0])
+  }
+  return [...used].flatMap(([providerId, deployment]) => {
+    const provider = modelProviderById(providerId)
+    if (!provider) return []
+    return [
+      {
+        id: modelClientConnectionId(provider.id),
+        ...provider.connection,
+        deployment,
+        ...(provider.id === 'ollama' ? { endpoint: ollamaBaseUrl?.trim() || OLLAMA_DEFAULT_URL } : {}),
+      },
+    ]
+  })
+}
+
 function agentDefinition(node: DiagramNode, planner: boolean): Record<string, unknown> {
   const hitl = resolvedAgentHitl(node.agent)
   const enabled = Boolean(node.agent?.humanInTheLoop)
+  const provider = modelProviderById(node.agent?.modelProvider)
+  const model = node.agent?.model?.trim()
   return {
     id: catalogId(node),
     name: node.label,
     role: node.agent?.description || node.label,
     instructions: node.agent?.instructions ?? '',
+    // An agent on a chosen model client runs through that client's connection.
+    ...(provider
+      ? { model: { connectionId: modelClientConnectionId(provider.id), ...(model ? { name: model } : {}) } }
+      : {}),
     humanInTheLoop: enabled,
     ...(enabled
       ? {
@@ -156,6 +189,9 @@ export function buildOrchestrationDocument(input: {
         authentication: { type: '${MODEL_AUTH_TYPE}', apiKey: '${OPENAI_API_KEY}' },
       }
 
+  // One connection per model client the agents chose; agents without one use the default.
+  const providerConnections = modelClientConnections(agents, modelConfig?.baseUrl)
+
   const placements = participants.map((node) => ({
     id: node.id,
     agentRef: catalogId(node),
@@ -230,7 +266,7 @@ export function buildOrchestrationDocument(input: {
             defaultFrequencyPenalty: 0,
             defaultPresencePenalty: 0,
           },
-    modelConnections: [connection],
+    modelConnections: [{ ...connection, isSelected: true }, ...providerConnections],
     ...(local && modelConfig
       ? {
           model: {

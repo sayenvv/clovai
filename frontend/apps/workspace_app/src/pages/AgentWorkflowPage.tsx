@@ -66,8 +66,18 @@ import {
   FLOW_BOUNDARY_HEIGHT,
   FLOW_BOUNDARY_WIDTH,
   findEndNode,
+  isStartFlowNode,
 } from '@/components/agent-workflow/workflow-flow-nodes'
 import { findStartNode, START_NODE_PALETTE_ID } from '@/components/agent-workflow/workflow-start'
+import { buildCanvasFocus, type EditorFocus } from '@/components/agent-workflow/editor-focus'
+import {
+  modelForProvider,
+  modelProviderById,
+  resolveModelProvider,
+  type ModelProviderId,
+} from '@/components/agent-workflow/model-providers'
+import { placeAfterStart, startEdge, withStartNode } from '@/components/agent-workflow/workflow-start-node'
+import type { NodeRunStatus } from '@/components/agent-workflow/canvas-focus'
 import { SelectAgentDialog } from '@/components/agent-workflow/SelectAgentDialog'
 import type { AgentCapability, AgentCapabilityKind } from '@/components/agent-workflow/agent-capabilities'
 import type { AgentAttachAction } from '@/components/agent-workflow/AgentNodeCard'
@@ -90,10 +100,17 @@ import {
   type CanvasPlan,
 } from '@/components/agent-workflow/workflow-plan-from-diagram'
 import { Button } from '@/components/ui/button'
+import { BookOpen, Copy, Database, Play, Settings2, Trash2, Unlink, Wrench } from 'lucide-react'
+import {
+  NodeContextMenu,
+  type NodeContextMenuState,
+  type NodeMenuEntry,
+} from '@/components/agent-workflow/NodeContextMenu'
 import { diagramContentCenter } from '@/components/agent-workflow/sub-workflow-ops'
 import {
   attachToolToAgent,
   isAgentNode,
+  isToolNode,
   listAgentNodes,
   pickAgentForToolPlacement,
   removeToolsMappedToAgent,
@@ -129,7 +146,7 @@ import { DevProfiler } from '@/utils/render-profiler'
 import { APP_NAME, ROUTES } from '@/constants'
 import { getSession } from '@/services/project-auth-store'
 import { DeploymentsCanvasView } from '@/components/agent-workflow/DeploymentsCanvasView'
-import type { LibrarySection } from '@/components/agent-workflow/AgentLibrarySidebar'
+import type { BlocksTab, LibrarySection } from '@/components/agent-workflow/AgentLibrarySidebar'
 import {
   getNextPublishedVersion,
   publishWorkflowInstance,
@@ -180,13 +197,24 @@ export default function AgentWorkflowPage() {
     kind: AgentCapabilityKind
   } | null>(null)
   const [generatePanelOpen, setGeneratePanelOpen] = useState(false)
+  // Desktop: what is opened as a card on the canvas (replaces the right details panel).
+  const [editorFocus, setEditorFocus] = useState<EditorFocus | null>(null)
+  // The node actions menu (right-click on a node, or "⋯" on its expanded card).
+  const [nodeMenu, setNodeMenu] = useState<NodeContextMenuState | null>(null)
   const [generateMessages, setGenerateMessages] = useState<GenerateChatMessage[]>([])
   // Null until the user picks one; defaults to the workflow's local model when it has one.
   const [generateModelChoice, setGenerateModelChoice] = useState<GenerateWorkflowModel | null>(null)
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [appMenuOpen, setAppMenuOpen] = useState(false)
   const [librarySection, setLibrarySection] = useState<LibrarySection | null>(null)
-  const [showCanvasEmptyState, setShowCanvasEmptyState] = useState(true)
+  // The Built-in blocks tab, the agent a picked model client goes to (from its model slot), and
+  // a picked model client waiting for the user to choose an agent.
+  const [libraryBlocksTab, setLibraryBlocksTab] = useState<BlocksTab>('blocks')
+  const [modelTargetAgentId, setModelTargetAgentId] = useState<string | null>(null)
+  const [modelPickProvider, setModelPickProvider] = useState<ModelProviderId | null>(null)
+  // The template picker: closed by default on desktop (the canvas offers "Add first agent" and a
+  // Templates button), shown by default on mobile. null = not chosen yet.
+  const [showCanvasEmptyState, setShowCanvasEmptyState] = useState<boolean | null>(null)
   const showDeploymentsBoard = librarySection === 'deployments'
   const [executionPanelOpen, setExecutionPanelOpen] = useState(false)
   const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
@@ -197,6 +225,7 @@ export default function AgentWorkflowPage() {
     useServerLlmConfig()
 
   const { left, right, bottom } = useWorkflowEditorPanels()
+  const expandLeftPanel = left.expand
   const { isMobile } = useWorkspaceBreakpoint()
   const mobileTab = mobileTabFromPath(location.pathname)
   const noopPointer = useCallback(() => {}, [])
@@ -295,8 +324,8 @@ export default function AgentWorkflowPage() {
       navigate(ROUTES.agentWorkflowInspect)
       return
     }
-    right.expand()
-  }, [isMobile, navigate, right])
+    setEditorFocus({ kind: 'settings' })
+  }, [isMobile, navigate])
 
   const openGeneratePanel = useCallback(() => {
     keepRightOpenRef.current = true
@@ -364,11 +393,15 @@ export default function AgentWorkflowPage() {
   useEffect(() => {
     if (runState.status === 'waiting-approval') {
       keepRightOpenRef.current = true
-      setGeneratePanelOpen(false)
       setExecutionPanelOpen(true)
-      right.expand()
+      if (isMobile) {
+        setGeneratePanelOpen(false)
+        right.expand()
+      } else {
+        setEditorFocus({ kind: 'run' })
+      }
     }
-  }, [runState.status, right.expand])
+  }, [runState.status, right.expand, isMobile])
 
   const handleSelectionChange = useCallback((next: Selection) => {
     setSelection(next)
@@ -379,8 +412,14 @@ export default function AgentWorkflowPage() {
     })
   }, [])
 
-  // Expand details when a node/edge is selected; collapse when the canvas is cleared.
+  // Desktop: the right panel only hosts Workflow AI; details open as cards on the canvas.
+  // Mobile: expand details when a node/edge is selected; collapse when the canvas is cleared.
   useEffect(() => {
+    if (!isMobile) {
+      if (generatePanelOpen) right.expand()
+      else right.collapse()
+      return
+    }
     const hasSelection = selection !== null
     if (hasSelection) {
       keepRightOpenRef.current = false
@@ -392,7 +431,7 @@ export default function AgentWorkflowPage() {
       return
     }
     right.collapse()
-  }, [selection, executionPanelOpen, generatePanelOpen, right.expand, right.collapse])
+  }, [selection, executionPanelOpen, generatePanelOpen, right.expand, right.collapse, isMobile])
 
   const handleSelectPage = useCallback(
     (pageId: string) => {
@@ -525,11 +564,20 @@ export default function AgentWorkflowPage() {
   const handleAgentAttachAction = useCallback(
     (agentId: string, action: AgentAttachAction) => {
       setSelection({ kind: 'node', id: agentId })
-      right.expand()
+      if (action === 'model' && !isMobile) {
+        // The model slot: open the model clients, picking for this agent.
+        setModelTargetAgentId(agentId)
+        setLibraryBlocksTab('models')
+        setLibrarySection('blocks')
+        expandLeftPanel()
+        return
+      }
+      if (isMobile) right.expand()
+      else setEditorFocus({ kind: 'node', id: agentId })
 
       if (action === 'config' || action === 'model') {
         setAttachTarget(null)
-        toast.success('Opened the agent configuration panel')
+        if (isMobile) toast.success('Opened the agent configuration panel')
         return
       }
 
@@ -546,8 +594,61 @@ export default function AgentWorkflowPage() {
 
       setAttachTarget({ agentId, kind })
     },
-    [right.expand],
+    [right.expand, isMobile, expandLeftPanel],
   )
+
+  /** Run an agent on a model client, keeping its model if the client offers it. */
+  const assignModelProvider = useCallback(
+    (agentId: string, providerId: ModelProviderId) => {
+      const provider = modelProviderById(providerId)
+      const agentNode = diagram.nodes.find((node) => node.id === agentId)
+      if (!provider || !agentNode?.agent || !isAgentNode(agentNode)) return
+      const model = modelForProvider(provider, agentNode.agent.model)
+      handleChange((previous) => ({
+        ...previous,
+        nodes: previous.nodes.map((node) =>
+          node.id === agentId && node.agent
+            ? { ...node, agent: { ...node.agent, modelProvider: provider.id, model } }
+            : node,
+        ),
+      }))
+      toast.success(`${agentNode.label} runs on ${provider.label} · ${model}`)
+    },
+    [diagram.nodes, handleChange],
+  )
+
+  /** A model client picked in the library goes to the agent it was opened for, else the open,
+   *  selected or only agent; otherwise the user chooses one. */
+  const handlePickModelProvider = useCallback(
+    (providerId: ModelProviderId) => {
+      const agents = listAgentNodes(diagram)
+      const isAgent = (id: string | null | undefined) => Boolean(id && agents.some((agent) => agent.id === id))
+      const focusedId = editorFocus?.kind === 'node' ? editorFocus.id : null
+      const selectedId = selection?.kind === 'node' ? selection.id : null
+      const target = [modelTargetAgentId, focusedId, selectedId].find(isAgent) ?? (agents.length === 1 ? agents[0].id : null)
+      if (target) {
+        assignModelProvider(target, providerId)
+        return
+      }
+      if (agents.length === 0) {
+        toast.error('Add an agent first, then choose its model client')
+        return
+      }
+      setModelPickProvider(providerId)
+    },
+    [diagram, editorFocus, selection, modelTargetAgentId, assignModelProvider],
+  )
+
+  const modelTargetNode = modelTargetAgentId
+    ? diagram.nodes.find((node) => node.id === modelTargetAgentId)
+    : undefined
+  const modelTargetLabel = modelTargetNode?.label
+  const modelTargetProviderId = resolveModelProvider(modelTargetNode?.agent)?.id
+
+  // The model-client target only lasts while the library's blocks section is open.
+  useEffect(() => {
+    if (librarySection !== 'blocks') setModelTargetAgentId(null)
+  }, [librarySection])
 
   const handleInsertHitlOnEdge = useCallback(
     (edgeId: string) => {
@@ -614,12 +715,14 @@ export default function AgentWorkflowPage() {
                 { id: '', paletteId, label: item.label, x: 0, y: 0 },
                 diagram.direction,
               )
+              // The first agent goes right after Start (and is connected to it below).
+              const afterStart = placeAfterStart(diagram, size)
               return {
                 id: createNodeId(),
                 paletteId,
                 label: item.label,
-                x: anchor.x - size.width / 2 + offset,
-                y: anchor.y - size.height / 2 + offset,
+                x: afterStart ? afterStart.x : anchor.x - size.width / 2 + offset,
+                y: afterStart ? afterStart.y : anchor.y - size.height / 2 + offset,
                 ...size,
               }
             })()
@@ -664,7 +767,8 @@ export default function AgentWorkflowPage() {
   const handleWorkflowGenerated = useCallback(
     (plan: WorkflowGenerationPlan, base: CanvasPlan | null = null) => {
       const generated = diagramFromGenerationPlanSafe(plan, paletteById)
-      const enrichedDiagram = enrichDiagram(generated.diagram, paletteById)
+      // Every workflow begins at Start, wired to its entry agents.
+      const enrichedDiagram = withStartNode(enrichDiagram(generated.diagram, paletteById))
       invalidateValidation()
       setDoc((previous) => {
         const current = previous.workflow ?? defaultWorkflowMeta()
@@ -783,35 +887,47 @@ export default function AgentWorkflowPage() {
     setSelection(null)
   }, [handleChange])
 
+  /** Remove nodes with their connectors, and the tools attached to removed agents. */
+  const deleteNodesById = useCallback(
+    (nodeIds: string[]) => {
+      handleChange((previous) => {
+        const removeIds = new Set(nodeIds)
+        for (const node of previous.nodes) {
+          if (node.mappedAgentId && removeIds.has(node.mappedAgentId)) {
+            removeIds.add(node.id)
+          }
+        }
+        let base = previous
+        for (const nodeId of nodeIds) {
+          const target = base.nodes.find((node) => node.id === nodeId)
+          if (target && isAgentNode(target)) {
+            base = removeToolsMappedToAgent(base, target.id)
+          }
+        }
+        return {
+          nodes: base.nodes.filter((node) => !removeIds.has(node.id)),
+          edges: base.edges.filter(
+            (edge) => !removeIds.has(edge.from) && !removeIds.has(edge.to),
+          ),
+        }
+      })
+      setSelection(null)
+    },
+    [handleChange],
+  )
+
   const handleDeleteSelection = useCallback(() => {
     if (!selection) return
-    handleChange((previous) => {
-      if (selection.kind === 'edge') {
-        return { ...previous, edges: previous.edges.filter((edge) => edge.id !== selection.id) }
-      }
-      const nodeIds = selectedNodeIds(selection)
-      const removeIds = new Set(nodeIds)
-      for (const node of previous.nodes) {
-        if (node.mappedAgentId && removeIds.has(node.mappedAgentId)) {
-          removeIds.add(node.id)
-        }
-      }
-      let base = previous
-      for (const nodeId of nodeIds) {
-        const target = base.nodes.find((node) => node.id === nodeId)
-        if (target && isAgentNode(target)) {
-          base = removeToolsMappedToAgent(base, target.id)
-        }
-      }
-      return {
-        nodes: base.nodes.filter((node) => !removeIds.has(node.id)),
-        edges: base.edges.filter(
-          (edge) => !removeIds.has(edge.from) && !removeIds.has(edge.to),
-        ),
-      }
-    })
-    setSelection(null)
-  }, [selection, handleChange])
+    if (selection.kind === 'edge') {
+      handleChange((previous) => ({
+        ...previous,
+        edges: previous.edges.filter((edge) => edge.id !== selection.id),
+      }))
+      setSelection(null)
+      return
+    }
+    deleteNodesById(selectedNodeIds(selection))
+  }, [selection, handleChange, deleteNodesById])
 
   const handleValidate = useCallback(() => {
     const issues = validateWorkflow(diagram, paletteById)
@@ -879,14 +995,14 @@ export default function AgentWorkflowPage() {
   const openExecutionPanel = useCallback(() => {
     keepRightOpenRef.current = true
     setSelection(null)
-    setGeneratePanelOpen(false)
     setExecutionPanelOpen(true)
     if (isMobile) {
+      setGeneratePanelOpen(false)
       navigate(ROUTES.agentWorkflowInspect)
       return
     }
-    right.expand()
-  }, [isMobile, navigate, right])
+    setEditorFocus({ kind: 'run' })
+  }, [isMobile, navigate])
 
   const handleBackToDesign = useCallback(() => {
     keepRightOpenRef.current = false
@@ -894,6 +1010,115 @@ export default function AgentWorkflowPage() {
     setExecutionPanelOpen(false)
     setSelection(null)
   }, [resetExecution])
+
+  /** Desktop: a node or connector clicked on the canvas opens as a card; Start opens the run. */
+  const handleNodeOpen = useCallback(
+    (nodeId: string) => {
+      if (isMobile) return
+      const node = diagram.nodes.find((candidate) => candidate.id === nodeId)
+      if (!node) return
+      if (isStartFlowNode(node)) {
+        openExecutionPanel()
+        return
+      }
+      setEditorFocus({ kind: 'node', id: nodeId })
+    },
+    [isMobile, diagram.nodes, openExecutionPanel],
+  )
+
+  const handleEdgeOpen = useCallback(
+    (edgeId: string) => {
+      if (!isMobile) setEditorFocus({ kind: 'edge', id: edgeId })
+    },
+    [isMobile],
+  )
+
+  const closeEditorFocus = useCallback(() => {
+    setEditorFocus((current) => {
+      // Closing the run card ends "run mode" but keeps the result highlighted on the canvas.
+      if (current?.kind === 'run') {
+        keepRightOpenRef.current = false
+        setExecutionPanelOpen(false)
+      }
+      return null
+    })
+    setAttachTarget(null)
+    setSelection(null)
+  }, [])
+
+  // The expanded node or connector collapses when another node or connector is selected (which
+  // then expands instead). A click on empty canvas closes it through the canvas; pressing empty
+  // canvas to pan clears the selection but keeps it open.
+  useEffect(() => {
+    if (editorFocus?.kind !== 'node' && editorFocus?.kind !== 'edge') return
+    if (selection === null) return
+    const stillSelected =
+      (editorFocus.kind === 'node' && selection.kind === 'node' && selection.id === editorFocus.id) ||
+      (editorFocus.kind === 'edge' && selection.kind === 'edge' && selection.id === editorFocus.id)
+    if (!stillSelected) {
+      setEditorFocus(null)
+      setAttachTarget(null)
+    }
+  }, [selection, editorFocus])
+
+  // A focused node or connector that no longer exists (deleted, page switched) closes its card.
+  useEffect(() => {
+    if (editorFocus?.kind === 'node' && !diagram.nodes.some((node) => node.id === editorFocus.id)) {
+      setEditorFocus(null)
+    }
+    if (editorFocus?.kind === 'edge' && !diagram.edges.some((edge) => edge.id === editorFocus.id)) {
+      setEditorFocus(null)
+    }
+  }, [editorFocus, diagram])
+
+  // Every main workflow page has Start, the only way to run it: added to empty pages and to older
+  // workflows saved without one (wired to their entry agents). Added without an undo entry, so
+  // undo never removes it (clearing the canvas keeps Start too).
+  const activePageKind = activePage.kind
+  const hasStartNode = diagram.nodes.some(isStartFlowNode)
+  useEffect(() => {
+    if (activePageKind === 'sub' || hasStartNode) return
+    setDoc((previous) => ({
+      ...previous,
+      pages: previous.pages.map((page) =>
+        page.id === previous.activePageId && !page.diagram.nodes.some(isStartFlowNode)
+          ? { ...page, diagram: withStartNode(page.diagram) }
+          : page,
+      ),
+    }))
+  }, [activePageKind, hasStartNode, setDoc])
+
+  // The first agent added to a page (clicked or dropped) is connected from Start.
+  const agentCountRef = useRef<{ pageId: string; count: number } | null>(null)
+  useEffect(() => {
+    const count = listAgentNodes(diagram).length
+    const previous = agentCountRef.current
+    agentCountRef.current = { pageId: activePage.id, count }
+    if (!previous || previous.pageId !== activePage.id || previous.count !== 0 || count !== 1) return
+    const start = diagram.nodes.find(isStartFlowNode)
+    const agent = listAgentNodes(diagram)[0]
+    if (!start || !agent) return
+    if (diagram.edges.some((edge) => edge.from === start.id || edge.to === agent.id)) return
+    handleChange((current) =>
+      current.edges.some((edge) => edge.from === start.id)
+        ? current
+        : { ...current, edges: [...current.edges, startEdge(current, start.id, agent.id)] },
+    )
+  }, [diagram, activePage.id, handleChange])
+
+  // Ring around each node for the current (or last) run.
+  const runStatusByNode = useMemo(() => {
+    if (runState.status === 'idle') return undefined
+    const statuses: Record<string, NodeRunStatus> = {}
+    for (const id of runState.completedNodeIds) statuses[id] = 'completed'
+    for (const step of runState.trace) {
+      if (step.nodeId && step.status === 'error') statuses[step.nodeId] = 'error'
+    }
+    if (runState.activeNodeId && (runState.status === 'running' || runState.status === 'waiting-approval')) {
+      statuses[runState.activeNodeId] = runState.status === 'waiting-approval' ? 'waiting' : 'running'
+    }
+    return statuses
+  }, [runState.status, runState.completedNodeIds, runState.trace, runState.activeNodeId])
 
   const handleViewInstance = useCallback(() => {
     setLibrarySection('deployments')
@@ -927,7 +1152,6 @@ export default function AgentWorkflowPage() {
     [showGrid, snapToGrid],
   )
 
-  const expandLeftPanel = left.expand
   const openLibrary = useCallback(() => {
     setLibrarySection('blocks')
     expandLeftPanel()
@@ -1025,12 +1249,16 @@ export default function AgentWorkflowPage() {
     }
 
     keepRightOpenRef.current = true
-    right.expand()
-    setGeneratePanelOpen(false)
     setExecutionPanelOpen(true)
     setInspectorTab('logs')
-    bottom.expand()
-    if (isMobile) navigate(ROUTES.agentWorkflowLogs)
+    if (isMobile) {
+      right.expand()
+      setGeneratePanelOpen(false)
+      bottom.expand()
+      navigate(ROUTES.agentWorkflowLogs)
+    } else {
+      setEditorFocus({ kind: 'run' })
+    }
 
     if (!isValidWorkflowInput(testInput)) {
       toast.error('Enter a message in the Execution panel before executing.')
@@ -1144,6 +1372,159 @@ export default function AgentWorkflowPage() {
     const approvalEdges = diagram.edges.filter((edge) => edge.connector?.humanApproval).length
     return `${plan.length}-step workflow${approvalEdges ? ` with ${approvalEdges} human approval gate(s)` : ''}.`
   }, [diagram])
+
+  const duplicateNode = useCallback(
+    (nodeId: string) => {
+      const source = diagram.nodes.find((node) => node.id === nodeId)
+      if (!source) return
+      const copy: DiagramNode = {
+        ...source,
+        id: createNodeId(),
+        label: `${source.label} copy`,
+        x: source.x + 40,
+        y: source.y + 40,
+        ...(source.agent ? { agent: { ...source.agent } } : {}),
+      }
+      handleChange((previous) => ({ ...previous, nodes: [...previous.nodes, copy] }))
+      setSelection({ kind: 'node', id: copy.id })
+      toast.success(`Duplicated ${source.label}`)
+    },
+    [diagram.nodes, handleChange],
+  )
+
+  const disconnectNode = useCallback(
+    (nodeId: string) => {
+      handleChange((previous) => ({
+        ...previous,
+        edges: previous.edges.filter((edge) => edge.from !== nodeId && edge.to !== nodeId),
+      }))
+    },
+    [handleChange],
+  )
+
+  /** The actions offered for a node, by its type. */
+  const nodeMenuEntries = (nodeId: string): NodeMenuEntry[] => {
+    const node = diagram.nodes.find((candidate) => candidate.id === nodeId)
+    if (!node) return []
+    const connected = diagram.edges.some((edge) => edge.from === node.id || edge.to === node.id)
+    const disconnect: NodeMenuEntry = {
+      label: 'Disconnect all',
+      icon: Unlink,
+      onSelect: () => disconnectNode(node.id),
+      disabled: !connected,
+      hint: connected ? undefined : 'No connections',
+    }
+    if (isStartFlowNode(node)) {
+      return [
+        { label: 'Run workflow', icon: Play, onSelect: openExecutionPanel },
+        { kind: 'separator' },
+        disconnect,
+        { kind: 'separator' },
+        { label: 'Delete', icon: Trash2, onSelect: () => {}, destructive: true, disabled: true, hint: 'Start is required' },
+      ]
+    }
+    const open: NodeMenuEntry = {
+      label: 'Open settings',
+      icon: Settings2,
+      shortcut: 'Click',
+      onSelect: () => handleNodeOpen(node.id),
+    }
+    const remove: NodeMenuEntry = {
+      label: 'Delete',
+      icon: Trash2,
+      shortcut: '⌫',
+      destructive: true,
+      onSelect: () => {
+        setEditorFocus(null)
+        deleteNodesById([node.id])
+      },
+    }
+    if (isToolNode(node)) return [open, { kind: 'separator' }, disconnect, { kind: 'separator' }, remove]
+    const agent = isAgentNode(node)
+    return [
+      open,
+      ...(agent
+        ? ([
+            { kind: 'separator' },
+            { label: 'Add tool', icon: Wrench, onSelect: () => handleAgentAttachAction(node.id, 'tool') },
+            { label: 'Add memory', icon: Database, onSelect: () => handleAgentAttachAction(node.id, 'memory') },
+            { label: 'Add knowledge', icon: BookOpen, onSelect: () => handleAgentAttachAction(node.id, 'knowledge') },
+          ] satisfies NodeMenuEntry[])
+        : []),
+      { kind: 'separator' },
+      { label: 'Duplicate', icon: Copy, onSelect: () => duplicateNode(node.id) },
+      disconnect,
+      { kind: 'separator' },
+      remove,
+    ]
+  }
+
+  const openNodeMenu = useCallback((nodeId: string, x: number, y: number) => {
+    setNodeMenu({ nodeId, x, y })
+  }, [])
+
+  const canvasFocusBase = isMobile
+    ? null
+    : buildCanvasFocus({
+        focus: editorFocus,
+        diagram,
+        doc,
+        onChange: handleChange,
+        onClose: closeEditorFocus,
+        onOpenSubWorkflow: handleSelectPage,
+        onWorkflowMetaChange: handleWorkflowMetaChange,
+        onModelConfigChange: handleModelConfigChange,
+        serverModelConfig,
+        llmConfigured,
+        attach: attachTarget
+          ? {
+              agentId: attachTarget.agentId,
+              kind: attachTarget.kind,
+              attachedIds: diagram.nodes
+                .filter((node) => node.mappedAgentId === attachTarget.agentId)
+                .flatMap((node) => node.agent?.tools ?? []),
+              onAttach: (capability) => attachCapabilityToAgent(attachTarget.agentId, capability),
+              onClose: () => setAttachTarget(null),
+            }
+          : null,
+        run: {
+          state: runState,
+          testInput,
+          onTestInputChange: setTestInput,
+          onExecute: handleExecute,
+          isExecuting,
+          canExecute: agentNodes.length > 0,
+          onCancel: cancelExecution,
+          onSubmitApproval: submitApproval,
+          onSubmitFeedback: submitFeedback,
+          onShowDetails: showExecutionLogs,
+        },
+      })
+
+  // Node cards get the same actions menu from their header's "⋯" button.
+  const canvasFocus =
+    canvasFocusBase && editorFocus?.kind === 'node'
+      ? { ...canvasFocusBase, onMore: (x: number, y: number) => openNodeMenu(editorFocus.id, x, y) }
+      : canvasFocusBase
+
+  // Several nodes selected: the right panel used to offer "Convert to sub-workflow" here.
+  const multiSelectCount = selection?.kind === 'nodes' ? selection.ids.length : 0
+  const selectionBar =
+    !isMobile && multiSelectCount > 1 ? (
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-card py-1 pl-3 pr-1 text-xs shadow-md">
+        <span className="font-medium text-foreground">{multiSelectCount} selected</span>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className="h-7"
+          disabled={!subWorkflow.canConvert}
+          onClick={subWorkflow.requestConvert}
+        >
+          Convert to sub-workflow
+        </Button>
+      </div>
+    ) : null
 
   if (!tool) return <Navigate to="/404" replace />
 
@@ -1351,6 +1732,11 @@ export default function AgentWorkflowPage() {
                   activeSection={librarySection}
                   onSectionChange={setLibrarySection}
                   canvasView={canvasView}
+                  blocksTab={libraryBlocksTab}
+                  onBlocksTabChange={setLibraryBlocksTab}
+                  onPickModelProvider={handlePickModelProvider}
+                  modelTargetLabel={modelTargetLabel}
+                  activeModelProviderId={modelTargetProviderId}
                 />
               )}
               <DeploymentsCanvasView onBackToCanvas={handleBackFromDeployments} />
@@ -1376,11 +1762,17 @@ export default function AgentWorkflowPage() {
                 activeSection={librarySection}
                 onSectionChange={setLibrarySection}
                 canvasView={canvasView}
+                blocksTab={libraryBlocksTab}
+                onBlocksTabChange={setLibraryBlocksTab}
+                onPickModelProvider={handlePickModelProvider}
+                modelTargetLabel={modelTargetLabel}
+                activeModelProviderId={modelTargetProviderId}
               />
             )}
 
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              {isExecutionMode ? (
+              {/* Desktop runs stay on the canvas (nodes light up); mobile keeps the run view. */}
+              {isExecutionMode && isMobile ? (
                 <div className="flex min-h-0 flex-1 flex-col">
                   <ExecutionFlowCanvas
                     diagram={diagram}
@@ -1411,12 +1803,19 @@ export default function AgentWorkflowPage() {
                       finalizeDroppedNode={finalizeDroppedNode}
                       onOpenExecution={openExecutionPanel}
                       executionPanelOpen={executionPanelOpen}
-                      onBackToDesign={handleBackToDesign}
+                      onBackToDesign={isMobile ? handleBackToDesign : undefined}
+                      focus={canvasFocus}
+                      onNodeOpen={handleNodeOpen}
+                      onEdgeOpen={handleEdgeOpen}
+                      runStatusByNode={runStatusByNode}
+                      selectionBar={selectionBar}
+                      onNodeContextMenu={isMobile ? undefined : openNodeMenu}
+                      onDropModelProvider={(nodeId, providerId) => assignModelProvider(nodeId, providerId)}
                       onUndo={handleUndo}
                       onRedo={handleRedo}
                       onNodeAttachAction={handleAgentAttachAction}
                       onInsertHitlOnEdge={handleInsertHitlOnEdge}
-                      hideEmptyState={!showCanvasEmptyState}
+                      hideEmptyState={!(showCanvasEmptyState ?? isMobile)}
                       onOpenLibrary={isMobile ? undefined : openLibrary}
                       onBrowseTemplates={() => setShowCanvasEmptyState(true)}
                       onAskAi={openGeneratePanel}
@@ -1555,11 +1954,12 @@ export default function AgentWorkflowPage() {
         </div>
         )}
 
-        {!isMobile && !showDeploymentsBoard && (
+        {/* Desktop: the right panel only hosts Workflow AI; details open as cards on the canvas. */}
+        {!isMobile && !showDeploymentsBoard && generateOptions && (
           <AgentPropertiesShell
             diagram={diagram}
             doc={doc}
-            selection={selection}
+            selection={null}
             onChange={handleChange}
             width={right.size}
             collapsed={right.collapsed}
@@ -1572,25 +1972,9 @@ export default function AgentWorkflowPage() {
             onModelConfigChange={handleModelConfigChange}
             serverModelConfig={serverModelConfig}
             llmConfigured={llmConfigured}
-            executionPanelOpen={executionPanelOpen}
+            executionPanelOpen={false}
             generate={generateOptions}
-            attachCapability={
-              attachTarget
-                ? {
-                    agentLabel:
-                      diagram.nodes.find((node) => node.id === attachTarget.agentId)?.label ??
-                      'agent',
-                    initialKind: attachTarget.kind,
-                    attachedIds: diagram.nodes
-                      .filter((node) => node.mappedAgentId === attachTarget.agentId)
-                      .flatMap((node) => node.agent?.tools ?? []),
-                    onAttach: (capability) => {
-                      attachCapabilityToAgent(attachTarget.agentId, capability)
-                    },
-                    onClose: () => setAttachTarget(null),
-                  }
-                : null
-            }
+            attachCapability={null}
             execution={{
               testInput,
               onTestInputChange: setTestInput,
@@ -1673,6 +2057,15 @@ export default function AgentWorkflowPage() {
 
       <Outlet />
 
+      {nodeMenu ? (
+        <NodeContextMenu
+          state={nodeMenu}
+          title={diagram.nodes.find((node) => node.id === nodeMenu.nodeId)?.label}
+          entries={nodeMenuEntries(nodeMenu.nodeId)}
+          onClose={() => setNodeMenu(null)}
+        />
+      ) : null}
+
       <ShareDialog
         open={shareOpen}
         onOpenChange={setShareOpen}
@@ -1685,6 +2078,19 @@ export default function AgentWorkflowPage() {
         agents={agentNodes}
         onOpenChange={setAgentPickOpen}
         onSelect={(agentId) => addToolForAgent(agentId)}
+      />
+
+      {/* A model client picked with several agents and none chosen: ask which agent. */}
+      <SelectAgentDialog
+        open={modelPickProvider !== null}
+        agents={agentNodes}
+        onOpenChange={(open) => {
+          if (!open) setModelPickProvider(null)
+        }}
+        onSelect={(agentId) => {
+          if (modelPickProvider) assignModelProvider(agentId, modelPickProvider)
+          setModelPickProvider(null)
+        }}
       />
 
       <ConvertSubWorkflowDialog
