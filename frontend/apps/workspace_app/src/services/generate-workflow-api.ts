@@ -11,9 +11,13 @@ export interface GenerateWorkflowAttachment {
   content: string
 }
 
-/** Which model drafts the plan: the application's configured model or a local Ollama model. */
+/** Which model runs the assistant: the catalog default or a model picked from the catalog. */
 export type GenerateWorkflowModel =
+  /** The catalog's default model. */
   | { provider: 'server' }
+  /** A model picked from the application's model catalog. */
+  | { provider: 'catalog'; providerId: string; modelId: string; label: string }
+  /** A local Ollama model (older saved choice; runs on the catalog's `ollama` provider). */
   | { provider: 'ollama'; model: string; baseUrl: string }
 
 export interface GenerateWorkflowHistoryMessage {
@@ -87,7 +91,15 @@ function planBody(plan: WorkflowGenerationPlan): PlanBody {
 
 /** The run's model: a local Ollama model from the catalog, or none to use the catalog's default. */
 function catalogModel(model: GenerateWorkflowModel | undefined): CatalogModel | undefined {
-  return model?.provider === 'ollama' ? { provider: 'ollama', modelId: model.model } : undefined
+  if (model?.provider === 'catalog') return { provider: model.providerId, modelId: model.modelId }
+  if (model?.provider === 'ollama') return { provider: 'ollama', modelId: model.model }
+  return undefined
+}
+
+function modelLabel(model: GenerateWorkflowModel | undefined): string {
+  if (model?.provider === 'catalog') return model.label
+  if (model?.provider === 'ollama') return model.model
+  return 'the default model'
 }
 
 /**
@@ -131,7 +143,7 @@ export async function generateWorkflowFromPrompt(
     onPlanReview: request.onPlanReview,
     signal: request.signal,
   })
-  const modelName = request.model?.provider === 'ollama' ? request.model.model : 'the application model'
+  const modelName = modelLabel(request.model)
   const answer = readRunAnswer(typeof result.text === 'string' ? result.text : '')
   const meta = { model: modelName, origin: 'workflow-assistant', mode: answer.mode, summary: answer.summary }
   if (!answer.files) {

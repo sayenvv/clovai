@@ -1,3 +1,4 @@
+/* Colour tokens match admin_center/src/index.css so both apps look the same. Keep them in sync. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -88,6 +89,36 @@
     --input: 0 0% 19%;
     --muted-foreground: 0 0% 64%;
     --canvas-grid: 0 0% 17%;
+  }
+
+  /* Workspace-only extras (not in admin_center): node, connector and status colours,
+     derived from the shared palette above. */
+  :root {
+    --node: 0 0% 100%;
+    --node-hover: 240 5% 98%;
+    --node-selected: 0 0% 100%;
+    --node-border: 240 6% 90%;
+    --node-selected-border: 240 5% 30%;
+    --edge: 240 5% 70%;
+    --edge-active: 240 4% 46%;
+    --success: 142 72% 36%;
+    --warning: 25 95% 48%;
+    --info: 221 83% 53%;
+    --violet: 262 83% 58%;
+  }
+
+  .dark {
+    --node: 0 0% 9%;
+    --node-hover: 0 0% 11%;
+    --node-selected: 0 0% 12%;
+    --node-border: 0 0% 16%;
+    --node-selected-border: 0 0% 60%;
+    --edge: 0 0% 32%;
+    --edge-active: 0 0% 50%;
+    --success: 142 71% 45%;
+    --warning: 25 95% 53%;
+    --info: 217 91% 60%;
+    --violet: 262 83% 66%;
   }
 }
 

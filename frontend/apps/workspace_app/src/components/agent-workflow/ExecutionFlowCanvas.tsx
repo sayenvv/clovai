@@ -106,8 +106,8 @@ const EDGE_COLORS = {
   active: 'hsl(var(--primary))',
   completed: 'hsl(142 71% 45%)',
   approval: 'hsl(var(--muted-foreground) / 0.7)',
-  inferred: 'hsl(var(--muted-foreground) / 0.45)',
-  idle: 'hsl(var(--muted-foreground) / 0.55)',
+  inferred: 'hsl(var(--edge, var(--muted-foreground)) / 0.6)',
+  idle: 'hsl(var(--edge, var(--muted-foreground)))',
 } as const
 
 type DisplayEdge = DiagramEdge & { inferred?: boolean }

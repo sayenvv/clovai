@@ -1,6 +1,6 @@
-import { Send, RotateCcw } from 'lucide-react'
+import { Check, RotateCcw, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { ReviewCard, ReviewFeedbackInput } from '@/components/agent-workflow/ReviewCard'
 import type { WorkflowRunState } from '@/types/agent-workflow'
 
 interface ReviewDecisionBarProps {
@@ -11,6 +11,7 @@ interface ReviewDecisionBarProps {
   onRequestChanges?: (feedback: string) => void
 }
 
+/** A human-in-the-loop handoff in the run chat: approve (with an optional note) or send feedback. */
 export function ReviewDecisionBar({
   approvalPrompt,
   value,
@@ -18,70 +19,74 @@ export function ReviewDecisionBar({
   onApprove,
   onRequestChanges,
 }: ReviewDecisionBarProps) {
+  const agentName = approvalPrompt.agentName ?? 'the agent'
   const allowFeedback = Boolean(approvalPrompt.feedbackRevisionsEnabled && onRequestChanges)
   const revisionCount = approvalPrompt.revisionCount ?? 0
   const maxRevisions = approvalPrompt.maxFeedbackRevisions ?? 5
   const revisionsLeft = Math.max(0, maxRevisions - revisionCount)
   const canRequestChanges = allowFeedback && value.trim().length > 0 && revisionsLeft > 0
 
+  const approve = () => {
+    onApprove(value)
+    onChange('')
+  }
+
   return (
-    <div className="space-y-2">
-      <Textarea
-        rows={3}
+    <ReviewCard
+      icon={UserCheck}
+      title={`Review before ${approvalPrompt.nextAgentName}`}
+      subtitle={
+        <>
+          {approvalPrompt.message}
+          <span className="mt-1 block text-[10.5px]">
+            Reviewer · <span className="font-medium text-foreground">{approvalPrompt.role}</span>
+          </span>
+        </>
+      }
+      footer={
+        <>
+          {allowFeedback ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 bg-background text-[11.5px]"
+              disabled={!canRequestChanges}
+              title={`Send feedback and re-run ${agentName}`}
+              onClick={() => {
+                if (!canRequestChanges) return
+                onRequestChanges?.(value)
+                onChange('')
+              }}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Request changes
+            </Button>
+          ) : null}
+          <Button type="button" size="sm" className="h-8 gap-1.5 text-[11.5px] font-semibold" onClick={approve}>
+            <Check className="h-3.5 w-3.5" />
+            Approve &amp; continue
+          </Button>
+        </>
+      }
+    >
+      <ReviewFeedbackInput
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={onChange}
         placeholder={
           allowFeedback
-            ? `Approve with a note, or describe changes for ${approvalPrompt.agentName ?? 'the agent'}…`
+            ? `Add a note to approve, or describe changes for ${agentName}…`
             : `Approval note for ${approvalPrompt.role}…`
         }
-        className="min-h-[80px] resize-none text-xs"
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-            event.preventDefault()
-            onApprove(value)
-            onChange('')
-          }
-        }}
+        onSubmit={approve}
       />
-      {allowFeedback ? (
-        <p className="text-[10px] text-muted-foreground">
-          {revisionsLeft > 0
-            ? `${revisionsLeft} revision round${revisionsLeft === 1 ? '' : 's'} remaining. Feedback re-runs ${approvalPrompt.agentName ?? 'the agent'} until you approve.`
-            : 'Revision limit reached. Approve to continue or stop the run.'}
-        </p>
-      ) : null}
-      <div className={allowFeedback ? 'grid grid-cols-2 gap-2' : ''}>
-        {allowFeedback ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 gap-1.5 text-xs"
-            disabled={!canRequestChanges}
-            onClick={() => {
-              if (!canRequestChanges) return
-              onRequestChanges?.(value)
-              onChange('')
-            }}
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Request changes
-          </Button>
-        ) : null}
-        <Button
-          type="button"
-          size="sm"
-          className="h-9 w-full gap-1.5 bg-amber-600 text-xs text-white hover:bg-amber-700"
-          onClick={() => {
-            onApprove(value)
-            onChange('')
-          }}
-        >
-          <Send className="h-3.5 w-3.5" />
-          Approve &amp; continue
-        </Button>
-      </div>
-    </div>
+      <p className="text-[10.5px] text-muted-foreground">
+        {allowFeedback
+          ? revisionsLeft > 0
+            ? `Request changes re-runs ${agentName} · ${revisionsLeft} revision${revisionsLeft === 1 ? '' : 's'} left`
+            : 'Revision limit reached. Approve to continue or stop the run.'
+          : '⌘/Ctrl + Enter to approve'}
+      </p>
+    </ReviewCard>
   )
 }

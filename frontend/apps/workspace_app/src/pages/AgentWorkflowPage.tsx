@@ -9,7 +9,6 @@ import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAppConfig } from '@/hooks/use-app-config'
 import { selectedNodeIds, type Selection } from '@/components/designer/selection-utils'
-import { DesignerMenubar } from '@/components/designer/DesignerMenubar'
 import { ShareDialog } from '@/components/designer/ShareDialog'
 import { PagesBar } from '@/components/designer/PagesBar'
 import { resolveDesignerPalette } from '@/utils/resolve-designer-palette'
@@ -34,7 +33,8 @@ import {
   isLocalModel,
   OLLAMA_DEFAULT_URL,
 } from '@/components/agent-workflow/workflow-model-config'
-import { AgentWorkflowHeader } from '@/components/agent-workflow/AgentWorkflowHeader'
+import { AgentWorkflowHeader, type EditorView } from '@/components/agent-workflow/AgentWorkflowHeader'
+import { WorkspaceStatusBar } from '@/components/agent-workflow/WorkspaceStatusBar'
 import { AgentLibrarySidebar } from '@/components/agent-workflow/AgentLibrarySidebar'
 import { AgentPropertiesShell } from '@/components/agent-workflow/AgentPropertiesShell'
 import {
@@ -406,7 +406,6 @@ export default function AgentWorkflowPage() {
     guardAction(() => navigate('/'))
   }, [guardAction, navigate])
 
-  const openCodeView = useCallback(() => setEditorView('code'), [])
   const toggleCodeView = useCallback(
     () => setEditorView((previous) => (previous === 'code' ? 'canvas' : 'code')),
     [],
@@ -905,6 +904,35 @@ export default function AgentWorkflowPage() {
     setLibrarySection(null)
   }, [])
 
+  const headerView: EditorView = showDeploymentsBoard ? 'deployments' : editorView === 'code' ? 'code' : 'editor'
+  const handleHeaderViewChange = useCallback(
+    (view: EditorView) => {
+      if (view === 'deployments') {
+        setLibrarySection('deployments')
+        return
+      }
+      setLibrarySection((section) => (section === 'deployments' ? null : section))
+      setEditorView(view === 'code' ? 'code' : 'canvas')
+    },
+    [],
+  )
+
+  const canvasView = useMemo(
+    () => ({
+      showGrid,
+      onShowGridChange: setShowGrid,
+      snapToGrid,
+      onSnapToGridChange: setSnapToGrid,
+    }),
+    [showGrid, snapToGrid],
+  )
+
+  const expandLeftPanel = left.expand
+  const openLibrary = useCallback(() => {
+    setLibrarySection('blocks')
+    expandLeftPanel()
+  }, [expandLeftPanel])
+
   useEffect(() => {
     const openDeployments = () => setLibrarySection('deployments')
     window.addEventListener('eleven-nodes-open-library-deployments', openDeployments)
@@ -1155,9 +1183,7 @@ export default function AgentWorkflowPage() {
         <AgentWorkflowHeader
           workflowName={workflowName}
           onWorkflowNameChange={handleWorkflowNameChange}
-          version={workflowMeta.version}
           status={workflowMeta.status}
-          validationErrorCount={errorCount}
           isDirty={isDirty}
           onSave={handleSave}
           onValidate={handleValidate}
@@ -1166,6 +1192,9 @@ export default function AgentWorkflowPage() {
           isValidated={isValidated}
           onNavigateHome={handleNavigateHome}
           onViewInstance={handleViewInstance}
+          onShare={() => setShareOpen(true)}
+          view={headerView}
+          onViewChange={handleHeaderViewChange}
         />
       )}
 
@@ -1321,54 +1350,13 @@ export default function AgentWorkflowPage() {
                   onToggleCollapse={left.toggle}
                   activeSection={librarySection}
                   onSectionChange={setLibrarySection}
+                  canvasView={canvasView}
                 />
               )}
               <DeploymentsCanvasView onBackToCanvas={handleBackFromDeployments} />
             </div>
           ) : (
           <>
-          {!isMobile && (
-          <DesignerMenubar
-            selection={selection}
-            isEmpty={diagram.nodes.length === 0}
-            snapToGrid={snapToGrid}
-            showGrid={showGrid}
-            onNew={handleClearCanvas}
-            onNewPage={handleAddPage}
-            onNewWorkspace={handleCreateNewWorkspace}
-            onImport={() => subWorkflow.openInsert('import')}
-            onExportJson={() => toast.info('Export coming soon')}
-            onExportSvg={() => toast.info('Export coming soon')}
-            onExportPng={() => toast.info('Export coming soon')}
-            onExportPdf={() => toast.info('Export coming soon')}
-            onViewCode={openCodeView}
-            viewCodeWhenEmpty
-            codeViewActive={editorView === 'code'}
-            onToggleCodeView={toggleCodeView}
-            onDuplicate={() => {}}
-            onDeleteSelection={handleDeleteSelection}
-            onConvertToSubWorkflow={subWorkflow.requestConvert}
-            canConvertToSubWorkflow={subWorkflow.canConvert}
-            onInsertWorkflow={() => subWorkflow.openInsert('workflow')}
-            onInsertImport={() => subWorkflow.openInsert('import')}
-            onInsertTemplates={() => setTemplatesOpen(true)}
-            onCreateWorkflowTab={handleCreateWorkflowTab}
-            onZoomIn={() => zoomBy(1.2)}
-            onZoomOut={() => zoomBy(1 / 1.2)}
-            onResetView={() => canvasRef.current?.fitView()}
-            onFitToContent={() => canvasRef.current?.fitView()}
-            onSnapToGridChange={setSnapToGrid}
-            onShowGridChange={setShowGrid}
-            onShare={() => setShareOpen(true)}
-            toolId={TOOL_ID}
-            onManageAccess={() => setShareOpen(true)}
-            onOpenWorkflowSettings={openWorkflowSettings}
-            showSettingsMenu={false}
-            serverModelConfig={toolbarModelConfig}
-            llmConfigured={toolbarModelConfigured}
-            llmConfigLoading={llmConfigLoading}
-          />
-          )}
 
           <div className="flex min-h-0 flex-1">
             {!isMobile && (
@@ -1387,6 +1375,7 @@ export default function AgentWorkflowPage() {
                 onToggleCollapse={left.toggle}
                 activeSection={librarySection}
                 onSectionChange={setLibrarySection}
+                canvasView={canvasView}
               />
             )}
 
@@ -1428,6 +1417,10 @@ export default function AgentWorkflowPage() {
                       onNodeAttachAction={handleAgentAttachAction}
                       onInsertHitlOnEdge={handleInsertHitlOnEdge}
                       hideEmptyState={!showCanvasEmptyState}
+                      onOpenLibrary={isMobile ? undefined : openLibrary}
+                      onBrowseTemplates={() => setShowCanvasEmptyState(true)}
+                      onAskAi={openGeneratePanel}
+                      onClearCanvas={handleClearCanvas}
                       emptyState={
                         isMobile ? (
                           <div className="flex h-full min-h-0 flex-col">
@@ -1621,6 +1614,21 @@ export default function AgentWorkflowPage() {
           />
         )}
       </div>
+
+      {!isMobile && (
+        <WorkspaceStatusBar
+          version={workflowMeta.version}
+          status={workflowMeta.status}
+          isDirty={isDirty}
+          validationErrorCount={errorCount}
+          onValidate={handleValidate}
+          toolId={TOOL_ID}
+          onManageAccess={() => setShareOpen(true)}
+          serverModelConfig={toolbarModelConfig}
+          llmConfigured={toolbarModelConfigured}
+          llmConfigLoading={llmConfigLoading}
+        />
+      )}
 
       {isMobile ? <MobileWorkspaceNav /> : null}
 

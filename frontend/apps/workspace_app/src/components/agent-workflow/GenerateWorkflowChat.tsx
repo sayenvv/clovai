@@ -5,7 +5,6 @@ import {
   ChatComposer,
   ChatEmptyState,
   ChatTurnBody,
-  ChatTurnHeader,
   ComposerIconButton,
   ComposerSendButton,
   ComposerStopButton,
@@ -68,6 +67,8 @@ export interface GenerateChatMessage {
   tone?: 'error' | 'muted'
   /** Assistant replies: each agent's turns from the run, shown above the reply. */
   steps?: WorkflowChatMessage[]
+  /** How long the run took, shown as "Thought for Ns" above the reply. */
+  seconds?: number
 }
 
 interface PendingAttachment extends GenerateWorkflowAttachment {
@@ -233,6 +234,36 @@ function RunSteps({
   )
 }
 
+/** A finished run, folded to "Thought for Ns"; opening it shows the steps as the timeline. */
+function ThoughtSteps({ steps, seconds }: { steps: WorkflowChatMessage[]; seconds?: number }) {
+  const [open, setOpen] = useState(false)
+  const expandable = steps.length > 0
+  return (
+    <div className="min-w-0">
+      <button
+        type="button"
+        disabled={!expandable}
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={expandable ? open : undefined}
+        className={cn(
+          'group flex h-5 min-w-0 items-center gap-1.5 text-left text-[12.5px] font-medium text-muted-foreground transition-colors',
+          expandable && 'hover:text-foreground',
+        )}
+      >
+        <span>{seconds ? `Thought for ${seconds}s` : 'Thought'}</span>
+        {expandable ? (
+          <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
+        ) : null}
+      </button>
+      {open ? (
+        <div className="mt-2">
+          <RunSteps steps={steps} live={false} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 interface TimelineItem {
   key: string
   state: 'running' | 'done' | 'failed'
@@ -311,9 +342,6 @@ function TimelineStep({ item, last, tokens }: { item: TimelineItem; last: boolea
   )
 }
 
-function AssistantHeader() {
-  return <ChatTurnHeader avatar={<PetalMark size={20} />} name={ASSISTANT_NAME} />
-}
 
 function formatTokens(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
@@ -437,6 +465,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       ...sentTabs.map((tab) => ({ kind: 'tab' as const, name: tab.label })),
       ...sentFiles.map((file) => ({ kind: 'file' as const, name: file.name })),
     ]
+    const startedAt = Date.now()
     onMessagesChange((previous) => [
       ...previous,
       {
@@ -494,6 +523,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
               })
             : `${result.reply ?? ''}${result.tokens ? `\n\n_${formatTokens(result.tokens)} tokens._` : ''}`,
           steps: finishSteps(liveStepsRef.current),
+          seconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
         },
       ])
     } catch (error) {
@@ -557,10 +587,9 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
             </UserMessage>
           ) : (
             <div key={message.id} className="min-w-0">
-              {messages[index - 1]?.role !== 'assistant' && <AssistantHeader />}
-              {message.steps?.length ? (
+              {message.seconds || message.steps?.length ? (
                 <div className="mb-2">
-                  <RunSteps steps={message.steps} live={false} />
+                  <ThoughtSteps steps={message.steps ?? []} seconds={message.seconds} />
                 </div>
               ) : null}
               <ChatTurnBody>
@@ -585,7 +614,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
 
         {isGenerating && (
           <div className="min-w-0">
-            {messages.at(-1)?.role !== 'assistant' && <AssistantHeader />}
             <RunSteps
               steps={liveSteps}
               live

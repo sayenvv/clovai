@@ -1,5 +1,5 @@
 import { memo, useCallback, useState } from 'react'
-import { Check, ChevronDown, Cpu, HardDrive, Loader2, RefreshCw } from 'lucide-react'
+import { Check, ChevronDown, Cpu, Loader2, RefreshCw } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,57 +8,60 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { fetchOllamaModels, type LocalModel } from '@/services/models-api'
+import { fetchModelCatalog, type ModelCatalog } from '@/services/models-api'
 import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
 import { cn } from '@/utils/cn'
 
 interface GenerateModelPickerProps {
   value: GenerateWorkflowModel
   onChange: (value: GenerateWorkflowModel) => void
+  /** Shown for the default choice until the catalog has loaded. */
   serverModel: string
   serverConfigured: boolean
-  ollamaBaseUrl: string
+  /** Kept for callers; models now come from the application's model catalog. */
+  ollamaBaseUrl?: string
   disabled?: boolean
 }
 
-/** Compact model switcher for the Generate composer: server LLM or a local Ollama model. */
+/**
+ * Model switcher for the Workflow AI composer. Lists the application's model catalog
+ * (Admin center → Configuration → System → models): every provider with its models,
+ * including the models installed on discover providers such as Ollama.
+ */
 export const GenerateModelPicker = memo(function GenerateModelPicker({
   value,
   onChange,
   serverModel,
-  serverConfigured,
-  ollamaBaseUrl,
   disabled = false,
 }: GenerateModelPickerProps) {
-  const [localModels, setLocalModels] = useState<LocalModel[] | null>(null)
+  const [catalog, setCatalog] = useState<ModelCatalog | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadLocalModels = useCallback(() => {
+  const load = useCallback(() => {
     setLoading(true)
     setError(null)
-    fetchOllamaModels(ollamaBaseUrl)
-      .then(setLocalModels)
-      .catch((reason: unknown) => {
-        setLocalModels([])
-        setError(reason instanceof Error ? reason.message : 'Could not reach Ollama.')
-      })
+    fetchModelCatalog()
+      .then(setCatalog)
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Could not load models.'))
       .finally(() => setLoading(false))
-  }, [ollamaBaseUrl])
+  }, [])
 
-  const label = value.provider === 'ollama' ? value.model : serverModel
+  const defaultLabel = defaultModelLabel(catalog) ?? serverModel
+  const label =
+    value.provider === 'catalog' ? value.label : value.provider === 'ollama' ? value.model : defaultLabel
 
   return (
     <DropdownMenu
       onOpenChange={(open) => {
-        if (open && localModels === null && !loading) loadLocalModels()
+        if (open && catalog === null && !loading) load()
       }}
     >
       <DropdownMenuTrigger asChild disabled={disabled}>
         <button
           type="button"
           className={cn(
-            'inline-flex h-8 max-w-[11rem] items-center gap-1.5 rounded-full px-2.5 text-xs font-medium text-muted-foreground',
+            'inline-flex h-8 max-w-[12rem] items-center gap-1.5 rounded-full px-2.5 text-xs font-medium text-muted-foreground',
             'transition-colors hover:bg-muted hover:text-foreground',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             'disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-muted data-[state=open]:text-foreground',
@@ -66,72 +69,92 @@ export const GenerateModelPicker = memo(function GenerateModelPicker({
           aria-label={`Model: ${label}`}
           title={`Model: ${label}`}
         >
-          {value.provider === 'ollama' ? (
-            <HardDrive className="h-3.5 w-3.5 shrink-0" />
-          ) : (
-            <Cpu className="h-3.5 w-3.5 shrink-0" />
-          )}
+          <Cpu className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{label}</span>
           <ChevronDown className="h-3 w-3 shrink-0 opacity-70" />
         </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" side="top" className="w-64">
-        <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">Server</DropdownMenuLabel>
-        <ModelItem
-          name={serverModel}
-          detail={serverConfigured ? 'Configured on the API server' : 'Not configured · drafts from templates'}
-          selected={value.provider === 'server'}
-          onSelect={() => onChange({ provider: 'server' })}
-        />
-
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="start" side="top" className="max-h-[22rem] w-72 overflow-y-auto">
         <div className="flex items-center justify-between pr-1">
-          <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">
-            Local · Ollama
-          </DropdownMenuLabel>
+          <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">Default</DropdownMenuLabel>
           <button
             type="button"
             className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             onClick={(event) => {
               event.preventDefault()
-              loadLocalModels()
+              load()
             }}
-            aria-label="Refresh local models"
-            title="Refresh local models"
+            aria-label="Refresh models"
+            title="Refresh models"
           >
             <RefreshCw className={cn('h-3 w-3', loading && 'animate-spin')} />
           </button>
         </div>
+        <ModelItem
+          name={defaultLabel}
+          detail="The application's default model"
+          selected={value.provider === 'server'}
+          onSelect={() => onChange({ provider: 'server' })}
+        />
 
-        {loading && localModels === null ? (
+        {loading && catalog === null ? (
           <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Looking for models…
+            Loading models…
           </p>
         ) : error ? (
-          <p className="px-2 py-1.5 text-xs leading-snug text-muted-foreground">
-            Ollama isn't reachable at {ollamaBaseUrl}.
-          </p>
-        ) : localModels && localModels.length === 0 ? (
-          <p className="px-2 py-1.5 text-xs text-muted-foreground">No local models installed.</p>
+          <p className="px-2 py-1.5 text-xs leading-snug text-destructive">{error}</p>
         ) : (
-          localModels?.map((model) => (
-            <ModelItem
-              key={model.name}
-              name={model.name}
-              detail={[model.parameterSize, model.family].filter(Boolean).join(' · ') || undefined}
-              selected={value.provider === 'ollama' && value.model === model.name}
-              onSelect={() =>
-                onChange({ provider: 'ollama', model: model.name, baseUrl: ollamaBaseUrl })
-              }
-            />
+          catalog?.providers.map((provider) => (
+            <div key={provider.id}>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">{provider.label}</DropdownMenuLabel>
+              {provider.error ? (
+                <p className="px-2 py-1.5 text-xs leading-snug text-muted-foreground">{provider.error}</p>
+              ) : provider.models.length === 0 ? (
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">No models.</p>
+              ) : (
+                provider.models.map((model) => (
+                  <ModelItem
+                    key={model.id}
+                    name={model.label}
+                    detail={modelDetail(model)}
+                    selected={isSelected(value, provider.id, model.id)}
+                    onSelect={() =>
+                      onChange({ provider: 'catalog', providerId: provider.id, modelId: model.id, label: model.label })
+                    }
+                  />
+                ))
+              )}
+            </div>
           ))
         )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
 })
+
+function defaultModelLabel(catalog: ModelCatalog | null): string | undefined {
+  const { provider, modelId } = catalog?.default ?? {}
+  const found = catalog?.providers.find((item) => item.id === provider)?.models.find((model) => model.id === modelId)
+  return found?.label ?? modelId
+}
+
+function isSelected(value: GenerateWorkflowModel, providerId: string, modelId: string): boolean {
+  if (value.provider === 'catalog') return value.providerId === providerId && value.modelId === modelId
+  // An older saved Ollama choice matches the same model in the catalog's ollama provider.
+  return value.provider === 'ollama' && providerId === 'ollama' && value.model === modelId
+}
+
+function modelDetail(model: { detail?: string; maxTokens?: number; supportsTools?: boolean }): string | undefined {
+  const parts = [
+    model.detail,
+    model.maxTokens ? `${Math.round(model.maxTokens / 1000)}k tokens` : undefined,
+    model.supportsTools ? 'tools' : undefined,
+  ]
+  return parts.filter(Boolean).join(' · ') || undefined
+}
 
 function ModelItem({
   name,
@@ -151,9 +174,7 @@ function ModelItem({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] text-foreground">{name}</span>
-        {detail ? (
-          <span className="block truncate text-[11px] text-muted-foreground">{detail}</span>
-        ) : null}
+        {detail ? <span className="block truncate text-[11px] text-muted-foreground">{detail}</span> : null}
       </span>
     </DropdownMenuItem>
   )

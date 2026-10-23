@@ -8,7 +8,6 @@ import {
   RotateCcw,
   Sparkles,
   User,
-  UserCheck,
   XCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -163,29 +162,6 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
         )}
 
         {approvalPrompt && (
-          <div className="space-y-2">
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
-              <div className="flex items-start gap-2">
-                <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-amber-900 dark:text-amber-100">
-                    Review before &ldquo;{approvalPrompt.nextAgentName}&rdquo;
-                  </p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    {approvalPrompt.message}
-                  </p>
-                  <p className="mt-2 text-[10px] text-muted-foreground">
-                    Reviewer: <span className="font-medium text-foreground">{approvalPrompt.role}</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="shrink-0 space-y-2 border-t border-border/60 bg-background p-3 backdrop-blur-sm">
-        {awaitingApproval && approvalPrompt ? (
           <ReviewDecisionBar
             approvalPrompt={approvalPrompt}
             value={approvalInput}
@@ -193,38 +169,47 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
             onApprove={(note) => onSubmitApproval?.(note)}
             onRequestChanges={onSubmitFeedback}
           />
-        ) : (
-          <ChatComposer
-            value={testInput}
-            onChange={onTestInputChange}
-            onSubmit={onExecute}
-            canSubmit={!isExecuting && canExecute && Boolean(testInput.trim())}
-            disabled={isExecuting}
-            leading={
-              <ExecutionFileUploadButton
-                variant="icon"
-                disabled={isExecuting}
-                onInputLoaded={onTestInputChange}
-              />
-            }
-            placeholder="Message the workflow…"
-            action={
-              isActive && onCancel ? (
-                <ComposerStopButton onClick={onCancel} label="Stop" />
-              ) : (
-                <ComposerSendButton
-                  onClick={onExecute}
-                  disabled={!canExecute || isExecuting || !testInput.trim()}
-                  busy={isExecuting}
-                  label={canRerun ? 'Run again' : 'Run workflow'}
-                  icon={canRerun ? RotateCcw : ArrowUp}
-                  text={canRerun ? 'Run again' : undefined}
-                />
-              )
-            }
-            hint={canRerun ? 'Sending runs the workflow again' : 'Sending runs the workflow'}
-          />
         )}
+      </div>
+
+      <div className="shrink-0 space-y-2 border-t border-border/60 bg-background p-3 backdrop-blur-sm">
+        {/* While a review is pending the box stays in place, disabled; the decision is in the card above. */}
+        <ChatComposer
+          value={awaitingApproval ? '' : testInput}
+          onChange={onTestInputChange}
+          onSubmit={onExecute}
+          canSubmit={!awaitingApproval && !isExecuting && canExecute && Boolean(testInput.trim())}
+          disabled={isExecuting || awaitingApproval}
+          leading={
+            <ExecutionFileUploadButton
+              variant="icon"
+              disabled={isExecuting || awaitingApproval}
+              onInputLoaded={onTestInputChange}
+            />
+          }
+          placeholder={awaitingApproval ? 'Waiting for your review above…' : 'Message the workflow…'}
+          action={
+            isActive && onCancel ? (
+              <ComposerStopButton onClick={onCancel} label="Stop" />
+            ) : (
+              <ComposerSendButton
+                onClick={onExecute}
+                disabled={!canExecute || isExecuting || !testInput.trim()}
+                busy={isExecuting}
+                label={canRerun ? 'Run again' : 'Run workflow'}
+                icon={canRerun ? RotateCcw : ArrowUp}
+                text={canRerun ? 'Run again' : undefined}
+              />
+            )
+          }
+          hint={
+            awaitingApproval
+              ? 'Approve or request changes to continue'
+              : canRerun
+                ? 'Sending runs the workflow again'
+                : 'Sending runs the workflow'
+          }
+        />
       </div>
     </div>
   )

@@ -1,13 +1,12 @@
 import { memo } from 'react'
-import { MessageSquareText, Rocket, Save, ShieldCheck, Sparkles } from 'lucide-react'
+import { Link2, Rocket, Save, ShieldCheck, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Logo, LOGO_SIZE_WORKSPACE } from '@/components/shared/Logo'
 import type { DeploymentStatus } from '@/types/agent-workflow'
 import { APP_NAME } from '@/constants'
-import { getSession } from '@/services/project-auth-store'
+import { cn } from '@/utils/cn'
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 /** Shortcut label for opening the AI chat (handled by the page). */
@@ -16,9 +15,7 @@ const ASK_AI_SHORTCUT_LABEL = IS_MAC ? '⌘K' : 'Ctrl K'
 interface AgentWorkflowHeaderProps {
   workflowName: string
   onWorkflowNameChange: (name: string) => void
-  version: number
   status: DeploymentStatus
-  validationErrorCount: number
   isDirty?: boolean
   onSave: () => void
   onValidate: () => void
@@ -28,14 +25,30 @@ interface AgentWorkflowHeaderProps {
   isValidated: boolean
   onNavigateHome?: () => void
   onViewInstance?: () => void
+  onShare?: () => void
+  /** The tab shown in the centre: the canvas, its code, or the deployments board. */
+  view?: EditorView
+  onViewChange?: (view: EditorView) => void
 }
 
+export type EditorView = 'editor' | 'code' | 'deployments'
+
+const VIEW_TABS: Array<{ value: EditorView; label: string }> = [
+  { value: 'editor', label: 'Editor' },
+  { value: 'code', label: 'Code' },
+  { value: 'deployments', label: 'Deployments' },
+]
+
+/**
+ * The editor's top bar, kept to the main actions: logo and workflow name on the left, the
+ * Editor / Code / Deployments tabs in the centre, and Ask AI, Share, Save, Validate and Deploy
+ * on the right. Status details (version, save state, issues, model, members) live in
+ * `WorkspaceStatusBar` at the bottom.
+ */
 export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
   workflowName,
   onWorkflowNameChange,
-  version,
   status,
-  validationErrorCount,
   isDirty = false,
   onSave,
   onValidate,
@@ -44,127 +57,137 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
   isValidated,
   onNavigateHome,
   onViewInstance,
+  onShare,
+  view,
+  onViewChange,
 }: AgentWorkflowHeaderProps) {
-  const session = getSession()
-  const projectLabel = session
-    ? session.accountType === 'company'
-      ? session.displayName
-      : `${session.displayName}`
-    : null
+  const isDeployed = status === 'deployed'
+
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card/80 px-3 backdrop-blur-sm">
-      {onNavigateHome ? (
-        <button
-          type="button"
-          onClick={onNavigateHome}
-          className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
-          aria-label={`${APP_NAME} home`}
-        >
-          <Logo size={LOGO_SIZE_WORKSPACE} />
-        </button>
-      ) : (
-        <Link to="/" className="shrink-0" aria-label={`${APP_NAME} home`}>
-          <Logo size={LOGO_SIZE_WORKSPACE} />
-        </Link>
-      )}
-
-      <div className="h-5 w-px bg-border" />
-
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card px-3">
+      {/* Left: logo and workflow name */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <Input
-          value={workflowName}
-          onChange={(event) => onWorkflowNameChange(event.target.value)}
-          className="h-8 max-w-xs border-transparent bg-transparent px-2 text-sm font-semibold shadow-none focus-visible:border-input focus-visible:bg-background"
-          aria-label="Workflow name"
-        />
-        {projectLabel && (
-          <Badge
-            variant="outline"
-            className="hidden max-w-[10rem] truncate border-border bg-muted/60 text-[10px] font-normal text-muted-foreground sm:inline-flex"
-            title={projectLabel}
+        {onNavigateHome ? (
+          <button
+            type="button"
+            onClick={onNavigateHome}
+            className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`${APP_NAME} home`}
           >
-            {projectLabel}
-          </Badge>
+            <Logo size={LOGO_SIZE_WORKSPACE} />
+          </button>
+        ) : (
+          <Link to="/" className="shrink-0" aria-label={`${APP_NAME} home`}>
+            <Logo size={LOGO_SIZE_WORKSPACE} />
+          </Link>
         )}
-        <Badge variant="outline" className="shrink-0 border-border font-mono text-[10px] font-normal text-muted-foreground">
-          v{version}
-        </Badge>
-        <Badge
-          variant="outline"
-          className="shrink-0 border-border bg-muted/60 text-[10px] font-medium capitalize text-foreground"
-        >
-          {status}
-        </Badge>
-        {isDirty && (
-          <Badge
-            variant="outline"
-            className="shrink-0 border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300"
-          >
-            Unsaved
-          </Badge>
-        )}
-        {validationErrorCount > 0 && (
-          <Badge
-            variant="outline"
-            className="shrink-0 border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300"
-          >
-            {validationErrorCount} issue{validationErrorCount === 1 ? '' : 's'}
-          </Badge>
-        )}
+
+        <div className="h-5 w-px shrink-0 bg-border" aria-hidden />
+
+        <div className="flex min-w-0 items-center gap-1">
+          <Input
+            value={workflowName}
+            onChange={(event) => onWorkflowNameChange(event.target.value)}
+            className="h-8 w-36 min-w-0 border-transparent bg-transparent px-1.5 text-sm font-semibold shadow-none hover:bg-accent/60 focus-visible:border-input focus-visible:bg-background xl:w-48"
+            aria-label="Workflow name"
+          />
+        </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1 overflow-x-auto sm:gap-1.5">
+      {/* Centre: editor / code / deployments tabs */}
+      {view && onViewChange ? <ViewTabs view={view} onViewChange={onViewChange} /> : null}
+
+      {/* Right: Ask AI, share, then save / validate / deploy */}
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5">
         {onGenerate ? (
-          <>
-            <button
-              type="button"
-              onClick={onGenerate}
-              className="mr-1 hidden h-8 w-56 items-center gap-2 rounded-lg border border-border bg-background/70 pl-2.5 pr-1.5 text-left text-xs text-muted-foreground shadow-sm transition-colors hover:border-foreground/20 hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex lg:w-72"
-              aria-label="Ask Workflow AI"
-              aria-keyshortcuts="Meta+K Control+K"
-              title={`Ask Workflow AI (${ASK_AI_SHORTCUT_LABEL})`}
-            >
-              <Sparkles className="h-3.5 w-3.5 shrink-0 text-foreground dark:text-foreground" />
-              <span className="min-w-0 flex-1 truncate">Ask AI to build a workflow…</span>
-              <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-px font-sans text-[10px] font-medium text-muted-foreground">
-                {ASK_AI_SHORTCUT_LABEL}
-              </kbd>
-            </button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onGenerate}
-              className="md:hidden"
-              aria-label="Ask Workflow AI"
-            >
-              <MessageSquareText className="h-3.5 w-3.5" />
-            </Button>
-          </>
+          <button
+            type="button"
+            onClick={onGenerate}
+            className="mr-1 flex h-8 items-center gap-2 rounded-md border border-border bg-background/60 pl-2.5 pr-1.5 text-left text-xs text-muted-foreground transition-colors hover:border-foreground/20 hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring 2xl:w-56"
+            aria-label="Ask Workflow AI"
+            aria-keyshortcuts="Meta+K Control+K"
+            title={`Ask Workflow AI (${ASK_AI_SHORTCUT_LABEL})`}
+          >
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-foreground" />
+            <span className="min-w-0 flex-1 truncate">
+              <span className="2xl:hidden">Ask AI</span>
+              <span className="hidden 2xl:inline">Ask AI to build…</span>
+            </span>
+            <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-px font-sans text-[10px] font-medium text-muted-foreground">
+              {ASK_AI_SHORTCUT_LABEL}
+            </kbd>
+          </button>
         ) : null}
-        <Button variant="ghost" size="sm" onClick={onSave} className="hidden md:inline-flex">
-          <Save className="h-3.5 w-3.5" />
-          Save draft
+        {onShare ? (
+          <Button variant="ghost" size="sm" onClick={onShare} className="h-8 px-2 xl:px-3" aria-label="Share">
+            <Link2 className="h-3.5 w-3.5" />
+            <span className="hidden xl:inline">Share</span>
+          </Button>
+        ) : null}
+
+        <div className="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden />
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onSave}
+          className="relative h-8 w-8"
+          aria-label={isDirty ? 'Save draft (unsaved changes)' : 'Save draft'}
+          title={isDirty ? 'Save draft — unsaved changes' : 'Save draft'}
+        >
+          <Save className="h-4 w-4" />
+          {isDirty && (
+            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
+          )}
         </Button>
-        <Button variant="outline" size="sm" onClick={onValidate}>
+        <Button variant="outline" size="sm" onClick={onValidate} className="h-8">
           <ShieldCheck className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Validate</span>
+          <span>Validate</span>
         </Button>
-        {status === 'deployed' && onViewInstance ? (
+        {isDeployed && onViewInstance && !onViewChange ? (
           <Button
             variant="outline"
             size="sm"
             onClick={onViewInstance}
-            className="hidden border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300 sm:inline-flex"
+            className="hidden h-8 border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300 xl:inline-flex"
           >
-            <Rocket className="h-3.5 w-3.5" />
             Deployments
           </Button>
         ) : null}
-        <Button size="sm" disabled={!isValidated} onClick={onDeploy} className="bg-primary hover:bg-primary/90">
+        <Button size="sm" disabled={!isValidated} onClick={onDeploy} className="h-8">
           <Rocket className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Deploy</span>
+          <span>Deploy</span>
         </Button>
       </div>
     </header>
   )
 })
+
+/** n8n-style segmented tabs: a soft grey track with the active tab cut out in the page colour. */
+function ViewTabs({ view, onViewChange }: { view: EditorView; onViewChange: (view: EditorView) => void }) {
+  return (
+    <div role="tablist" aria-label="Editor view" className="flex shrink-0 items-center gap-0.5 rounded-md bg-muted p-0.5">
+      {VIEW_TABS.map((tab) => {
+        const active = view === tab.value
+        return (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onViewChange(tab.value)}
+            className={cn(
+              'h-7 rounded-[5px] px-3 text-xs font-medium transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              active
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {tab.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}

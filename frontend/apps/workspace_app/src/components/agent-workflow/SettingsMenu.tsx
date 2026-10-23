@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -41,6 +42,15 @@ interface SettingsMenuProps {
   llmConfigured?: boolean
   side?: 'top' | 'right' | 'bottom' | 'left'
   align?: 'start' | 'center' | 'end'
+  /** The workflow canvas's view options (grid and snapping). */
+  canvasView?: CanvasViewSettings
+}
+
+export interface CanvasViewSettings {
+  showGrid: boolean
+  onShowGridChange: (enabled: boolean) => void
+  snapToGrid: boolean
+  onSnapToGridChange: (enabled: boolean) => void
 }
 
 /** Settings dropdown — same interaction pattern as the profile menu. */
@@ -54,6 +64,7 @@ export const SettingsMenu = memo(function SettingsMenu({
   llmConfigured = false,
   side = 'right',
   align = 'end',
+  canvasView,
 }: SettingsMenuProps) {
   const { theme, toggleTheme } = useTheme()
   const session = getSession()
@@ -141,6 +152,28 @@ export const SettingsMenu = memo(function SettingsMenu({
                 <Rocket />
                 Deploy workflow…
               </DropdownMenuItem>
+            ) : null}
+            {canvasView ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                  Canvas
+                </DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={canvasView.showGrid}
+                  onCheckedChange={(checked) => canvasView.onShowGridChange(checked === true)}
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  Show grid
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={canvasView.snapToGrid}
+                  onCheckedChange={(checked) => canvasView.onSnapToGridChange(checked === true)}
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  Snap to grid
+                </DropdownMenuCheckboxItem>
+              </>
             ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={toggleTheme}>

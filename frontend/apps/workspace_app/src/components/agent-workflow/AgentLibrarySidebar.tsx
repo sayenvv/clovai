@@ -1,19 +1,19 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
+  Blocks,
   Bot,
   CircleStop,
-  CloudDownload,
-  GitBranch,
   GripVertical,
+  Import,
   LayoutGrid,
   List,
   Play,
   Plug,
   Plus,
-  Rocket,
   Search,
-  Store,
+  Server,
   Terminal,
+  Workflow,
   Wrench,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -41,7 +41,8 @@ import { countAgentsInPage } from '@/components/agent-workflow/sub-workflow-ops'
 import { SIDE_PANEL_COLLAPSED_WIDTH } from '@/components/agent-workflow/panel-layout'
 import { WorkflowEmptyHint } from '@/components/agent-workflow/workflow-ui'
 import { OPEN_LIBRARY_DEPLOYMENTS_EVENT } from '@/components/agent-workflow/deployments-sidebar-ui'
-import { SettingsMenu } from '@/components/agent-workflow/SettingsMenu'
+import { SettingsMenu, type CanvasViewSettings } from '@/components/agent-workflow/SettingsMenu'
+import { HelpMenu } from '@/components/agent-workflow/HelpMenu'
 import { ProfileMenu } from '@/components/shared/ProfileMenu'
 import { getSession } from '@/services/project-auth-store'
 import type { DiagramDocument } from '@/components/designer/diagram-types'
@@ -69,6 +70,8 @@ interface AgentLibrarySidebarProps {
   /** Active library section — used to highlight Deployments when the canvas board is open. */
   activeSection?: LibrarySection | null
   onSectionChange?: (section: LibrarySection | null) => void
+  /** Grid and snapping toggles, shown in the rail's Settings menu. */
+  canvasView?: CanvasViewSettings
 }
 
 const FLYOUT_MIN_WIDTH = 260
@@ -278,13 +281,14 @@ function RailIconButton({
   icon: Icon,
   onClick,
   active,
-  accent,
+  primary,
 }: {
   label: string
   icon: LucideIcon
   onClick: () => void
   active?: boolean
-  accent?: boolean
+  /** The rail's one primary action (Add block): a solid tile. */
+  primary?: boolean
 }) {
   return (
     <Tooltip>
@@ -295,39 +299,30 @@ function RailIconButton({
           aria-label={label}
           aria-pressed={active}
           className={cn(
-            'group/rail relative flex h-10 w-10 items-center justify-center rounded-[11px]',
-            'text-muted-foreground transition-all duration-200 ease-out',
-            'hover:bg-foreground/[0.06] hover:text-foreground',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
-            active && 'bg-foreground/[0.08] text-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]',
-            accent && !active && 'text-foreground hover:bg-foreground/[0.08]',
-            accent && active && 'bg-foreground/[0.1] text-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]',
+            'flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-150',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            primary
+              ? active
+                ? 'bg-foreground/85 text-background'
+                : 'bg-foreground text-background hover:bg-foreground/85'
+              : active
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:bg-accent/70 hover:text-foreground',
           )}
         >
-          {active ? (
-            <span
-              className="absolute top-1/2 left-[-11px] h-4 w-[3px] -translate-y-1/2 rounded-full bg-foreground/80"
-              aria-hidden
-            />
-          ) : null}
-          <Icon
-            className={cn(
-              'h-[18px] w-[18px] transition-transform duration-200',
-              'group-hover/rail:scale-105',
-            )}
-            strokeWidth={accent ? 2.1 : 1.75}
-          />
+          <Icon className="h-[18px] w-[18px]" strokeWidth={primary ? 2.25 : 1.75} />
         </button>
       </TooltipTrigger>
-      <TooltipContent
-        side="right"
-        sideOffset={12}
-        className="border-border/80 bg-popover/95 px-2.5 py-1.5 text-xs font-medium shadow-lg backdrop-blur-sm"
-      >
+      <TooltipContent side="right" sideOffset={10} className="px-2.5 py-1.5 text-xs font-medium">
         {label}
       </TooltipContent>
     </Tooltip>
   )
+}
+
+/** A thin rule between rail groups. */
+function RailDivider() {
+  return <div className="my-2 h-px w-6 shrink-0 bg-border" aria-hidden />
 }
 
 export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
@@ -346,6 +341,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   embedded = false,
   activeSection,
   onSectionChange,
+  canvasView,
 }: AgentLibrarySidebarProps) {
   const [section, setSection] = useState<LibrarySection | null>(
     embedded ? 'blocks' : null,
@@ -482,8 +478,8 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
       <aside
         ref={rootRef}
         className={cn(
-          'relative flex h-full shrink-0 border-r border-border/70',
-          'bg-background',
+          'relative flex h-full shrink-0 border-r border-border',
+          'bg-card',
           embedded && 'w-full border-r-0',
         )}
         style={{ width: totalWidth }}
@@ -496,20 +492,15 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
           />
         )}
 
-        {/* Premium icon rail */}
+        {/* Icon rail: add / search, library sections, deployments, then settings and profile */}
         {!embedded && (
         <div
           className={cn(
-            'relative flex h-full shrink-0 flex-col',
-            'bg-gradient-to-b from-muted/40 via-background to-muted/30',
-            flyoutOpen ? 'border-r border-border/60' : '',
+            'relative flex h-full shrink-0 flex-col bg-card',
+            flyoutOpen ? 'border-r border-border' : '',
           )}
           style={{ width: SIDE_PANEL_COLLAPSED_WIDTH }}
         >
-          <div
-            className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-border/80 to-transparent"
-            aria-hidden
-          />
 
           <TooltipProvider delayDuration={180}>
             <div className="flex h-full min-h-0 flex-col items-center px-2 py-3">
@@ -517,7 +508,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                 <RailIconButton
                   label="Add block"
                   icon={Plus}
-                  accent
+                  primary
                   active={resolvedSection === 'blocks' && !focusSearch}
                   onClick={() => openSection('blocks')}
                 />
@@ -529,32 +520,37 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                 />
               </div>
 
-              <div className="my-3 h-px w-6 shrink-0 bg-gradient-to-r from-transparent via-border to-transparent" aria-hidden />
+              <RailDivider />
 
               <div className="flex w-full shrink-0 flex-col items-center gap-1">
                 <RailIconButton
                   label="Workflows"
-                  icon={GitBranch}
+                  icon={Workflow}
                   active={resolvedSection === 'workflows'}
                   onClick={() => openSection('workflows')}
                 />
                 {EXTERNAL_AGENT_BLOCKS.length > 0 && (
                   <RailIconButton
                     label="Agent store"
-                    icon={Store}
+                    icon={Blocks}
                     active={resolvedSection === 'store'}
                     onClick={() => openSection('store')}
                   />
                 )}
                 <RailIconButton
                   label="Import agents"
-                  icon={CloudDownload}
+                  icon={Import}
                   active={resolvedSection === 'import'}
                   onClick={() => openSection('import')}
                 />
+              </div>
+
+              <RailDivider />
+
+              <div className="flex w-full shrink-0 flex-col items-center gap-1">
                 <RailIconButton
                   label="Deployments"
-                  icon={Rocket}
+                  icon={Server}
                   active={resolvedSection === 'deployments'}
                   onClick={() => openSection('deployments')}
                 />
@@ -563,16 +559,18 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
               <div className="min-h-2 flex-1" aria-hidden />
 
               <div className="flex w-full shrink-0 flex-col items-center gap-1.5">
-                <div className="mb-1 h-px w-6 bg-gradient-to-r from-transparent via-border to-transparent" aria-hidden />
+                <RailDivider />
+                <HelpMenu side="right" align="end" />
                 <SettingsMenu
                   onOpenWorkflowSettings={onOpenSettings}
                   modelConfig={serverModelConfig}
                   llmConfigured={llmConfigured}
                   side="right"
                   align="end"
+                  canvasView={canvasView}
                 />
                 <div
-                  className="rounded-full p-0.5 shadow-[0_0_0_1px_hsl(var(--border)/0.7)] transition-shadow duration-200 hover:shadow-[0_0_0_1px_hsl(var(--foreground)/0.22)]"
+                  className="rounded-full p-0.5 ring-1 ring-border transition-shadow duration-150 hover:ring-foreground/25"
                   title="Profile"
                 >
                   <ProfileMenu
@@ -595,7 +593,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
         {flyoutOpen && meta ? (
           <div
             className={cn(
-              'flex min-w-0 flex-1 flex-col bg-background',
+              'flex min-w-0 flex-1 flex-col bg-card',
               !embedded && 'animate-in fade-in-0 slide-in-from-left-1 duration-200',
             )}
             style={embedded ? undefined : { width: flyoutWidth }}

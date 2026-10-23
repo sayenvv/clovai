@@ -4,6 +4,8 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { Field } from '@/components/agent-workflow/FormField'
 import { resolvedAgentHitl } from '@/components/agent-workflow/agent-hitl'
+import { NODE_ICON_TILE } from '@/components/agent-workflow/node-surface'
+import { cn } from '@/utils/cn'
 import type { AgentNodeConfig } from '@/types/agent-workflow'
 
 interface HumanInTheLoopPanelProps {
@@ -34,9 +36,9 @@ export function HumanInTheLoopPanel({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-3.5">
+      <div className="rounded-xl border border-border bg-card p-3.5 shadow-sm">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300">
+          <div className={cn(NODE_ICON_TILE, 'mt-0.5 size-8')}>
             <ShieldCheck className="size-4" />
           </div>
           <div className="min-w-0 flex-1">

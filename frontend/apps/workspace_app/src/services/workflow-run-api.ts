@@ -112,7 +112,8 @@ export async function runWorkflow(request: WorkflowRunRequest): Promise<Workflow
     if (eventName === 'agent') {
       request.onAgentEvent?.({ event: 'agent', ...(payload as Omit<ExecutionLogEvent, 'event'>) })
     } else if (eventName === 'progress') {
-      request.onAgentEvent?.(progressRow(payload))
+      // Pipeline steps (loading the template, preparing models) are internal; only failures are shown.
+      if (payload.status === 'failed') request.onAgentEvent?.(progressRow(payload))
     } else if (eventName === 'plan_review') {
       request.onPlanReview?.(payload as unknown as PlanReview)
     } else if (eventName === 'result') {

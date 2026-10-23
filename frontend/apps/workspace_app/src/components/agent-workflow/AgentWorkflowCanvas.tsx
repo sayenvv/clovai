@@ -9,11 +9,34 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { ArrowDown, ArrowRight, LayoutGrid, Maximize2, Play, RotateCcw } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowRight,
+  FlaskConical,
+  LayoutTemplate,
+  Sparkles,
+  Trash2,
+  LayoutGrid,
+  Maximize2,
+  Plus,
+  RotateCcw,
+  Undo2,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { DesignerCanvas } from '@/components/designer/DesignerCanvas'
 import { computeCenteredViewport, zoomViewportAt } from '@/components/designer/viewport-utils'
 import { listAgentNodes } from '@/components/agent-workflow/tool-agent-mapping'
+import { isStartFlowNode } from '@/components/agent-workflow/workflow-flow-nodes'
 import {
   resolveFlowDirection,
   type Diagram,
@@ -68,6 +91,13 @@ interface AgentWorkflowCanvasProps {
   onInsertHitlOnEdge?: (edgeId: string) => void
   /** Empty-canvas template picker. */
   emptyState?: ReactNode
+  /** Removes every node and connector, after the user confirms (the canvas's trash button). */
+  onClearCanvas?: () => void
+  /** Opens the library to add agents and tools (the canvas's top-right + button). */
+  onOpenLibrary?: () => void
+  /** Shown on an empty canvas once the template picker is dismissed. */
+  onBrowseTemplates?: () => void
+  onAskAi?: () => void
   hideEmptyState?: boolean
 }
 export const AgentWorkflowCanvas = memo(
@@ -93,6 +123,10 @@ export const AgentWorkflowCanvas = memo(
       onUndo,
       onRedo,
       emptyState,
+      onClearCanvas,
+      onOpenLibrary,
+      onBrowseTemplates,
+      onAskAi,
       hideEmptyState = false,
     },
     ref,
@@ -102,6 +136,7 @@ export const AgentWorkflowCanvas = memo(
     diagramRef.current = diagram
 
     const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT)
+    const [confirmClearOpen, setConfirmClearOpen] = useState(false)
 
     const applyCenteredViewport = useCallback(
       (targetDiagram: Diagram) => {
@@ -181,6 +216,9 @@ export const AgentWorkflowCanvas = memo(
     }, [])
 
     const hasAgents = listAgentNodes(diagram).length > 0
+    const hasStartNode = diagram.nodes.some(isStartFlowNode)
+    // The Start node's play button runs the workflow; without a Start node the bottom bar offers it.
+    const runFromStart = hasAgents && !executionPanelOpen ? onOpenExecution : undefined
     const flowDirection = resolveFlowDirection(diagram.direction)
 
     return (
@@ -206,76 +244,108 @@ export const AgentWorkflowCanvas = memo(
             </div>
           )}
 
-          {(diagram.nodes.length > 0 || hideEmptyState) && (
-            <div className="absolute bottom-3 left-3 z-20 flex gap-1.5">
-              {onFlowDirectionChange && (
-                <div
-                  role="radiogroup"
-                  aria-label="Flow direction"
-                  className="flex h-8 items-center gap-0.5 rounded-md border border-border bg-secondary p-0.5 shadow-md"
-                >
-                  {FLOW_DIRECTION_OPTIONS.map((option) => {
-                    const active = flowDirection === option.value
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        role="radio"
-                        aria-checked={active}
-                        title={option.title}
-                        onClick={() => onFlowDirectionChange(option.value)}
-                        className={cn(
-                          'flex h-full items-center gap-1.5 rounded-[5px] px-2 text-xs font-medium transition-colors',
-                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                          active
-                            ? 'bg-card text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground',
-                        )}
-                      >
-                        <option.icon className="h-3.5 w-3.5" />
-                        {option.label}
-                      </button>
-                    )
-                  })}
+          {diagram.nodes.length === 0 && hideEmptyState && onOpenLibrary && (
+            <EmptyCanvasStart
+              onAddFirstStep={onOpenLibrary}
+              onBrowseTemplates={onBrowseTemplates}
+              onAskAi={onAskAi}
+            />
+          )}
+
+          {/* Bottom row: view controls on the left, the run button centred (pushed right when the
+              canvas is too narrow for both, never overlapping). */}
+          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 flex items-center gap-3">
+            <div className="flex min-w-0 flex-1 basis-0 justify-start">
+              {(diagram.nodes.length > 0 || hideEmptyState) && (
+                <div className="pointer-events-auto flex items-center gap-2">
+                  <CanvasControl label="Fit to view" onClick={fitView}>
+                    <Maximize2 />
+                  </CanvasControl>
+                  <CanvasControl label="Zoom in" onClick={() => zoomBy(1.2)}>
+                    <ZoomIn />
+                  </CanvasControl>
+                  <CanvasControl label="Zoom out" onClick={() => zoomBy(1 / 1.2)}>
+                    <ZoomOut />
+                  </CanvasControl>
+                  {onUndo && (
+                    <CanvasControl label="Undo" onClick={onUndo}>
+                      <Undo2 />
+                    </CanvasControl>
+                  )}
+                  <CanvasControl label="Tidy up (auto-layout)" onClick={onAutoLayout}>
+                    <LayoutGrid />
+                  </CanvasControl>
+                  {onClearCanvas && diagram.nodes.length > 0 && (
+                    <CanvasControl label="Clear canvas" onClick={() => setConfirmClearOpen(true)}>
+                      <Trash2 />
+                    </CanvasControl>
+                  )}
+                  {onFlowDirectionChange && (
+                    <div
+                      role="radiogroup"
+                      aria-label="Flow direction"
+                      className="ml-1 flex h-9 items-center gap-0.5 rounded-md border border-border bg-[hsl(var(--canvas))] p-0.5 dark:border-white/[0.18]"
+                    >
+                      {FLOW_DIRECTION_OPTIONS.map((option) => {
+                        const active = flowDirection === option.value
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={active}
+                            aria-label={option.title}
+                            title={option.title}
+                            onClick={() => onFlowDirectionChange(option.value)}
+                            className={cn(
+                              'flex h-full w-8 items-center justify-center rounded-[5px] transition-colors',
+                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                              active
+                                ? 'bg-accent text-foreground'
+                                : 'text-muted-foreground hover:text-foreground',
+                            )}
+                          >
+                            <option.icon className="h-4 w-4" />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
-              <Button variant="secondary" size="sm" className="h-8 shadow-md" onClick={onAutoLayout}>
-                <LayoutGrid className="h-3.5 w-3.5" />
-                Auto-layout
-              </Button>
-              <Button variant="secondary" size="sm" className="h-8 shadow-md" onClick={fitView}>
-                <Maximize2 className="h-3.5 w-3.5" />
-                Fit
-              </Button>
             </div>
-          )}
+            {hasAgents && (onOpenExecution || onBackToDesign) && (
+              <div className="pointer-events-auto flex shrink-0 items-center gap-2">
+                {executionPanelOpen && onBackToDesign ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 gap-2 border-border bg-[hsl(var(--canvas))] px-4 text-sm dark:border-white/[0.18]"
+                    onClick={onBackToDesign}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Back to design
+                  </Button>
+                ) : onOpenExecution && !hasStartNode ? (
+                  <Button
+                    type="button"
+                    className="h-10 gap-2 bg-emerald-600 px-5 text-sm text-white hover:bg-emerald-700"
+                    onClick={onOpenExecution}
+                  >
+                    <FlaskConical className="h-4 w-4" />
+                    Execute workflow
+                  </Button>
+                ) : null}
+              </div>
+            )}
+            <div className="flex-1 basis-0" aria-hidden />
+          </div>
 
-          {hasAgents && executionPanelOpen && onBackToDesign && (
-            <div className="absolute right-3 top-3 z-20">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="h-9 gap-1.5 px-4 text-xs shadow-md"
-                onClick={onBackToDesign}
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Back to design
-              </Button>
-            </div>
-          )}
-
-          {hasAgents && !executionPanelOpen && onOpenExecution && (
-            <div className="absolute right-3 top-3 z-20">
-              <Button
-                type="button"
-                size="sm"
-                className="h-9 gap-1.5 bg-emerald-600 px-4 text-xs text-white shadow-md hover:bg-emerald-700"
-                onClick={onOpenExecution}
-              >
-                <Play className="h-3.5 w-3.5" />
-                Execute
-              </Button>
+          {onOpenLibrary && (
+            <div className="absolute right-4 top-4 z-20">
+              <CanvasControl label="Add agents and tools" onClick={onOpenLibrary} size="lg">
+                <Plus />
+              </CanvasControl>
             </div>
           )}
 
@@ -300,9 +370,120 @@ export const AgentWorkflowCanvas = memo(
             onRedo={onRedo}
             onNodeAttachAction={onNodeAttachAction}
             onInsertHitlOnEdge={onInsertHitlOnEdge}
+            onRunWorkflow={runFromStart}
           />
+
+          {onClearCanvas && (
+            <Dialog open={confirmClearOpen} onOpenChange={setConfirmClearOpen}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Clear the canvas?</DialogTitle>
+                  <DialogDescription>
+                    This removes every node and connection on this page. You can undo it right after.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setConfirmClearOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      setConfirmClearOpen(false)
+                      onClearCanvas()
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Clear canvas
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </DevProfiler>
     )
   }),
 )
+
+/** An outlined square button floating on the canvas, like n8n's canvas controls. */
+function CanvasControl({
+  label,
+  onClick,
+  size = 'md',
+  children,
+}: {
+  label: string
+  onClick: () => void
+  size?: 'md' | 'lg'
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={cn(
+        'flex items-center justify-center rounded-md border border-border bg-[hsl(var(--canvas))] text-foreground/80 transition-colors dark:border-white/[0.18]',
+        'hover:border-foreground/30 hover:bg-accent hover:text-foreground',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        '[&_svg]:h-4 [&_svg]:w-4',
+        size === 'lg' ? 'h-10 w-10 [&_svg]:h-5 [&_svg]:w-5' : 'h-9 w-9',
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+/** The empty canvas's starting point: a large "+ Add first step" tile, then templates or AI. */
+function EmptyCanvasStart({
+  onAddFirstStep,
+  onBrowseTemplates,
+  onAskAi,
+}: {
+  onAddFirstStep: () => void
+  onBrowseTemplates?: () => void
+  onAskAi?: () => void
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+      <div className="pointer-events-auto flex flex-col items-center text-center">
+        <button
+          type="button"
+          onClick={onAddFirstStep}
+          className={cn(
+            'group flex h-24 w-24 items-center justify-center rounded-2xl border-2 border-dashed',
+            'border-foreground/25 text-foreground/60 transition-colors',
+            'hover:border-primary hover:bg-primary/5 hover:text-primary',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          )}
+          aria-label="Add first step"
+        >
+          <Plus className="h-9 w-9 transition-transform group-hover:scale-110" strokeWidth={1.5} />
+        </button>
+        <p className="mt-4 text-sm font-semibold text-foreground">Add first step</p>
+        <p className="mt-1 max-w-[18rem] text-xs text-muted-foreground">
+          Add a Start node and an agent, then connect them to build your workflow.
+        </p>
+        {(onBrowseTemplates || onAskAi) && (
+          <div className="mt-4 flex items-center gap-2">
+            {onBrowseTemplates && (
+              <Button type="button" variant="outline" size="sm" className="h-8" onClick={onBrowseTemplates}>
+                <LayoutTemplate className="h-3.5 w-3.5" />
+                Browse templates
+              </Button>
+            )}
+            {onAskAi && (
+              <Button type="button" variant="outline" size="sm" className="h-8" onClick={onAskAi}>
+                <Sparkles className="h-3.5 w-3.5" />
+                Ask AI
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

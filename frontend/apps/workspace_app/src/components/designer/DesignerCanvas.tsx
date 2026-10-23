@@ -204,6 +204,8 @@ interface DesignerCanvasProps {
   onNodeAttachAction?: (agentId: string, action: AgentAttachAction) => void
   /** Insert a Human Review (HITL) node on the selected/hovered connector. */
   onInsertHitlOnEdge?: (edgeId: string) => void
+  /** Run the workflow from the Start node's play button. */
+  onRunWorkflow?: () => void
   /** Return null to cancel drop (e.g. tool with no agent on canvas). */
   finalizeDroppedNode?: (
     node: DiagramNode,
@@ -294,6 +296,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   transformDroppedNode,
   onNodeAttachAction,
   onInsertHitlOnEdge,
+  onRunWorkflow,
   finalizeDroppedNode,
   selectionDisabled = false,
   onUndo,
@@ -1426,6 +1429,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   node={node}
                   isSelected={isSelected}
                   direction={flowDirection}
+                  onRun={isConnecting ? undefined : onRunWorkflow}
                   className="cursor-inherit"
                 />
               ) : agentMode && node.agent ? (
@@ -1674,6 +1678,14 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   : 1.75
             const dimmed = isConnecting && !isSelected
             const endpointGap = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y)
+            // The wide invisible hit area stops short of both ends so it never covers a port:
+            // a port that already has connections can still start another one. Curves run
+            // longer than the straight gap, so the end gap is open-ended rather than exact.
+            const portClearance = 14
+            const hitDash =
+              endpointGap > portClearance * 3
+                ? `0 ${portClearance} ${endpointGap - portClearance * 2} 100000`
+                : undefined
             const labelWidth = connectorLabelWidth(text ?? '', endpointGap - 48, isEditing)
             const labelCharsPerLine = Math.max(8, Math.min(40, Math.floor((labelWidth - 16) / 6.5)))
             const showHitlAffordance =
@@ -1716,6 +1728,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 fill="none"
                 stroke="transparent"
                 strokeWidth={Math.max(24 / viewport.scale, 14)}
+                strokeDasharray={hitDash}
                 className={cn(
                   'pointer-events-auto cursor-pointer',
                   selectionDisabled && 'pointer-events-none',
@@ -1784,8 +1797,9 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                       : undefined
                 }
               />
-              {(isSelected || (agentMode && isHovered)) && (
+              {isSelected && (
                 <>
+                  {!agentMode && (
                   <circle
                     cx={fromPoint.x}
                     cy={fromPoint.y}
@@ -1801,6 +1815,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                       handleEndpointDragPointerDown(event, edge.id, 'from')
                     }
                   />
+                  )}
                   <circle
                     cx={toPoint.x}
                     cy={toPoint.y}
