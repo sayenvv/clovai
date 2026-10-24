@@ -1,7 +1,9 @@
 import { memo } from 'react'
 import { cn } from '@/utils/cn'
 
-export const LOGO_SRC = '/logo.png'
+/** The brand mark, dark green for light surfaces and white for dark ones. */
+export const LOGO_SRC = '/brand/mark-darkgreen.svg'
+export const LOGO_SRC_DARK = '/brand/mark-white.svg'
 export const LOGO_SIZE = 36
 /** Compact logo for tool / flowchart workspace chrome */
 export const LOGO_SIZE_WORKSPACE = 28
@@ -21,7 +23,10 @@ const ROUNDED: Record<NonNullable<LogoProps['rounded']>, string> = {
   full: 'rounded-full',
 }
 
-/** App logo mark — colorful circular emblem. */
+/** Sources that mean "the brand mark", including the old PNG still named in configs. */
+const BRAND_SOURCES = new Set([LOGO_SRC, '/logo.png'])
+
+/** App logo mark. The brand mark swaps to its white version in dark mode. */
 export const Logo = memo(function Logo({
   src = LOGO_SRC,
   size = LOGO_SIZE,
@@ -34,12 +39,19 @@ export const Logo = memo(function Logo({
       style={{ width: size, height: size }}
       aria-hidden
     >
-      <img
-        src={src}
-        alt=""
-        className="h-full w-full object-contain"
-        decoding="async"
-      />
+      {BRAND_SOURCES.has(src) ? (
+        <>
+          <img src={LOGO_SRC} alt="" className="h-full w-full object-contain dark:hidden" decoding="async" />
+          <img src={LOGO_SRC_DARK} alt="" className="hidden h-full w-full object-contain dark:block" decoding="async" />
+        </>
+      ) : (
+        <img
+          src={src}
+          alt=""
+          className="h-full w-full object-contain"
+          decoding="async"
+        />
+      )}
     </span>
   )
 })

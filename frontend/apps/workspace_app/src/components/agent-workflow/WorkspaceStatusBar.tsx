@@ -77,8 +77,8 @@ export const WorkspaceStatusBar = memo(function WorkspaceStatusBar({
       </StatusItem>
 
       <StatusItem
-        onClick={onValidate}
-        title={validationErrorCount > 0 ? 'Show issues (validate)' : 'Validate workflow'}
+        onClick={validationErrorCount > 0 ? onValidate : undefined}
+        title={validationErrorCount > 0 ? 'Show issues' : 'No issues found'}
       >
         {validationErrorCount > 0 ? (
           <>

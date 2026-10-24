@@ -26,7 +26,13 @@ export type WorkflowExecutionType =
 
 export type DeploymentStatus = 'draft' | 'validated' | 'deployed' | 'failed'
 
-export type ToolApprovalMode = 'never_required' | 'always_required'
+/** Agent Framework's function-tool approval mode. Older saves used `never_required` / `always_required`. */
+export type ToolApprovalMode = 'never_require' | 'always_require'
+
+/** The approval mode, reading older saved values. */
+export function normalizeApprovalMode(value: string | undefined): ToolApprovalMode {
+  return value === 'always_require' || value === 'always_required' ? 'always_require' : 'never_require'
+}
 
 export interface AgentNodeConfig {
   agentType: AgentType
@@ -35,6 +41,8 @@ export interface AgentNodeConfig {
   model: string
   /** The model client the agent runs on (see model-providers); guessed from `model` when unset. */
   modelProvider?: string
+  /** A saved model connection of the user's (their own endpoint, key and model); see model-connections-api. */
+  modelConnectionId?: string
   temperature: number
   tools: string[]
   inputSchema: string
@@ -69,6 +77,8 @@ export interface AgentNodeConfig {
   /** Reviewer can send feedback and this agent re-runs until they approve. */
   feedbackRevisionsEnabled?: boolean
   maxFeedbackRevisions?: number
+  /** Workflow nodes: the Agent Framework builder settings (see workflow-builder-config.ts). */
+  workflowConfig?: Record<string, unknown>
   memoryEnabled: boolean
   memoryScope: 'session' | 'workflow' | 'global'
   retryCount: number

@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, Workflow } from 'lucide-react'
+import { Clock } from 'lucide-react'
+import { WorkflowIcon as Workflow } from '@/components/shared/WorkflowIcon'
 import { ReportState, Section } from '@/components/agent-workflow/dashboard/activity-ui'
 import { formatCompact, formatNumber, formatWhen } from '@/components/agent-workflow/dashboard/dashboard-format'
 import { PageIntro, StatCard } from '@/components/agent-workflow/dashboard/dashboard-ui'
@@ -8,6 +9,7 @@ import { useActivityReport } from '@/components/agent-workflow/dashboard/use-act
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/constants'
 import { fetchSavedWorkflows, fetchUsageReport } from '@/services/activity-api'
+import { WorkflowsBodySkeleton } from '@/components/agent-workflow/dashboard/dashboard-skeletons'
 
 const DAYS = 30
 
@@ -36,19 +38,20 @@ export default function WorkflowsTab({ workspaceId }: { workspaceId: string }) {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <StatCard label="Saved workflows" value={workflows.data ? formatNumber(saved.length) : '—'} hint="One per designer tab" icon={Workflow} />
-        <StatCard
+        <StatCard loading={workflows.isLoading && !workflows.data} label="Saved workflows" value={workflows.data ? formatNumber(saved.length) : '—'} hint="One per designer tab" icon={Workflow} />
+        <StatCard loading={workflows.isLoading && !workflows.data}
           label="Run this period"
           value={usage.data ? formatNumber(saved.filter((row) => runUsage.has(row.name)).length) : '—'}
           hint={`Executed in the last ${DAYS} days`}
           icon={Workflow}
         />
-        <StatCard label="Last change" value={latest ? formatWhen(latest) : '—'} hint="Most recent save" icon={Clock} />
+        <StatCard loading={workflows.isLoading && !workflows.data} label="Last change" value={latest ? formatWhen(latest) : '—'} hint="Most recent save" icon={Clock} />
       </div>
 
       <div className="mt-6">
         <ReportState
           isLoading={workflows.isLoading && !workflows.data}
+          skeleton={<WorkflowsBodySkeleton />}
           error={workflows.error}
           empty={Boolean(workflows.data) && saved.length === 0}
           icon={Workflow}

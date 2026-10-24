@@ -14,8 +14,10 @@ import { PagesBar } from '@/components/designer/PagesBar'
 import { resolveDesignerPalette } from '@/utils/resolve-designer-palette'
 import {
   createNodeId,
+  flowPortSides,
   resolveFlowDirection,
   type Diagram,
+  type DiagramDocument,
   type DiagramNode,
   type FlowDirection,
 } from '@/components/designer/diagram-types'
@@ -58,6 +60,8 @@ import {
   TOOL_NODE_HEIGHT,
   TOOL_NODE_WIDTH,
   TOOL_PALETTE_ID,
+  AGENT_PALETTE_ID,
+  SKILL_PALETTE_ID,
   isMappedToolPalette,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import {
@@ -79,17 +83,28 @@ import {
 import { placeAfterStart, startEdge, withStartNode } from '@/components/agent-workflow/workflow-start-node'
 import type { NodeRunStatus } from '@/components/agent-workflow/canvas-focus'
 import { SelectAgentDialog } from '@/components/agent-workflow/SelectAgentDialog'
-import type { AgentCapability, AgentCapabilityKind } from '@/components/agent-workflow/agent-capabilities'
-import type { AgentAttachAction } from '@/components/agent-workflow/AgentNodeCard'
-import { insertHitlOnEdge, HITL_PALETTE_ID } from '@/components/agent-workflow/insert-hitl-on-edge'
 import {
-  ConvertSubWorkflowDialog,
-  InsertWorkflowDialog,
-} from '@/components/agent-workflow/InsertWorkflowDialog'
-import type { GenerateChatMessage } from '@/components/agent-workflow/GenerateWorkflowChat'
+  findCapability,
+  type AgentCapability,
+  type AgentCapabilityKind,
+} from '@/components/agent-workflow/agent-capabilities'
+import type { CustomBlockKind } from '@/components/agent-workflow/AgentLibrarySidebar'
+import type { AgentAttachAction } from '@/components/agent-workflow/AgentNodeCard'
+import {
+  insertHitlOnEdge,
+  insertNodeOnEdge,
+  promoteConnectorApprovals,
+  HITL_PALETTE_ID,
+} from '@/components/agent-workflow/insert-hitl-on-edge'
+import { INSERT_REVIEW_ON_EDGE_EVENT } from '@/components/agent-workflow/ConnectorConfigPanel'
+import { ImportWorkflowDialog } from '@/components/agent-workflow/InsertWorkflowDialog'
+import { BlockPicker } from '@/components/agent-workflow/BlockPicker'
+import { useChatSessions } from '@/components/agent-workflow/hooks/use-chat-sessions'
+import { ExecutionsView } from '@/components/agent-workflow/ExecutionsView'
+import { addExecution } from '@/services/execution-history-store'
+import { catalogModelsFor, useModelCatalog } from '@/components/agent-workflow/hooks/use-model-catalog'
 import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
 import {
-  WorkflowTemplateGrid,
   WorkflowTemplatesDialog,
 } from '@/components/agent-workflow/WorkflowTemplatesDialog'
 import type { WorkflowTemplate } from '@/components/agent-workflow/agent-workflow-templates'
@@ -99,14 +114,28 @@ import {
   planFromDiagram,
   type CanvasPlan,
 } from '@/components/agent-workflow/workflow-plan-from-diagram'
-import { Button } from '@/components/ui/button'
-import { BookOpen, Copy, Database, Play, Settings2, Trash2, Unlink, Wrench } from 'lucide-react'
+import { cn } from '@/utils/cn'
+import {
+  BookOpen,
+  Copy,
+  Database,
+  Play,
+  Settings2,
+  Trash2,
+  Unlink,
+  Wrench,
+} from 'lucide-react'
+import { addNodeAfter } from '@/components/agent-workflow/add-node-after'
 import {
   NodeContextMenu,
   type NodeContextMenuState,
   type NodeMenuEntry,
 } from '@/components/agent-workflow/NodeContextMenu'
-import { diagramContentCenter } from '@/components/agent-workflow/sub-workflow-ops'
+import {
+  diagramContentCenter,
+  insertDiagramAt,
+  offsetToPlaceDiagram,
+} from '@/components/agent-workflow/sub-workflow-ops'
 import {
   attachToolToAgent,
   isAgentNode,
@@ -137,7 +166,6 @@ import {
 } from '@/components/agent-workflow/MobileWorkspaceNav'
 import { useServerLlmConfig } from '@/hooks/use-server-llm-config'
 import { useWorkspaceBreakpoint } from '@/hooks/use-workspace-breakpoint'
-import { useSubWorkflowActions } from '@/components/agent-workflow/hooks/use-sub-workflow-actions'
 import { useUnsavedWorkflowGuard } from '@/components/agent-workflow/hooks/use-unsaved-workflow-guard'
 import { UnsavedChangesDialog } from '@/components/agent-workflow/UnsavedChangesDialog'
 import type { WorkflowEditorViewMode } from '@/components/agent-workflow/WorkflowEditorViewToggle'
@@ -191,17 +219,32 @@ export default function AgentWorkflowPage() {
   const [isValidated, setIsValidated] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
   const [testInput, setTestInput] = useState('Summarize the quarterly report')
-  const [agentPickOpen, setAgentPickOpen] = useState(false)
+  // Something from the library that goes under an agent, waiting for the user to pick which one.
+  const [pendingAttach, setPendingAttach] = useState<
+    | { kind: 'palette'; paletteId: string; openAfter?: boolean }
+    | { kind: 'capability'; capability: AgentCapability }
+    | null
+  >(null)
   const [attachTarget, setAttachTarget] = useState<{
     agentId: string
     kind: AgentCapabilityKind
   } | null>(null)
   const [generatePanelOpen, setGeneratePanelOpen] = useState(false)
+  // Workflow AI widened over the workspace (the canvas area), keeping the library and status bar.
+  const [aiExpanded, setAiExpanded] = useState(false)
+  useEffect(() => {
+    if (!generatePanelOpen) setAiExpanded(false)
+  }, [generatePanelOpen])
   // Desktop: what is opened as a card on the canvas (replaces the right details panel).
   const [editorFocus, setEditorFocus] = useState<EditorFocus | null>(null)
   // The node actions menu (right-click on a node, or "⋯" on its expanded card).
   const [nodeMenu, setNodeMenu] = useState<NodeContextMenuState | null>(null)
-  const [generateMessages, setGenerateMessages] = useState<GenerateChatMessage[]>([])
+  // The "add after" menu, opened from the "+" beside a node's output port.
+  const [addAfterMenu, setAddAfterMenu] = useState<NodeContextMenuState | null>(null)
+  // The "insert between" menu, opened from the "+" on a connector (`nodeId` holds the edge id).
+  const [insertMenu, setInsertMenu] = useState<NodeContextMenuState | null>(null)
+  // Workflow AI conversations; the open one feeds the chat.
+  const chats = useChatSessions()
   // Null until the user picks one; defaults to the workflow's local model when it has one.
   const [generateModelChoice, setGenerateModelChoice] = useState<GenerateWorkflowModel | null>(null)
   const [templatesOpen, setTemplatesOpen] = useState(false)
@@ -214,10 +257,11 @@ export default function AgentWorkflowPage() {
   const [modelPickProvider, setModelPickProvider] = useState<ModelProviderId | null>(null)
   // The template picker: closed by default on desktop (the canvas offers "Add first agent" and a
   // Templates button), shown by default on mobile. null = not chosen yet.
-  const [showCanvasEmptyState, setShowCanvasEmptyState] = useState<boolean | null>(null)
   const showDeploymentsBoard = librarySection === 'deployments'
   const [executionPanelOpen, setExecutionPanelOpen] = useState(false)
   const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
+  // The Executions view (top nav): run history with each agent's trace and output.
+  const [showExecutions, setShowExecutions] = useState(false)
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('trace')
   const { state: runState, start: startExecution, submitApproval, submitFeedback, cancel: cancelExecution, reset: resetExecution } =
     useWorkflowRunner()
@@ -264,11 +308,9 @@ export default function AgentWorkflowPage() {
     handleRedo,
     selectPage,
     addMainPage,
-    addSubPage,
     createWorkflowTab,
     createNewWorkspace,
     renamePage,
-    setActiveMainPage,
     deletePage,
   } = useWorkflowDocument(paletteById, invalidateValidation)
 
@@ -359,16 +401,21 @@ export default function AgentWorkflowPage() {
     [diagram],
   )
 
-  const subWorkflow = useSubWorkflowActions({
-    doc,
-    diagram,
-    selection,
-    setDoc,
-    setSelection,
-    setIsValidated,
-    handleChange,
-    getCanvasInsertAnchor,
-  })
+  // File → Import: a workflow JSON file whose nodes are copied onto this canvas.
+  const [importOpen, setImportOpen] = useState(false)
+  const importWorkflowDocument = useCallback(
+    (imported: DiagramDocument) => {
+      const sourcePage = imported.pages.find((page) => page.id === imported.activePageId) ?? imported.pages[0]
+      if (!sourcePage) {
+        toast.error('No workflow found in the file.')
+        return
+      }
+      const offset = offsetToPlaceDiagram(diagram, sourcePage.diagram, getCanvasInsertAnchor())
+      handleChange((previous) => insertDiagramAt(previous, sourcePage.diagram, offset))
+      toast.success(`Imported "${sourcePage.name}".`)
+    },
+    [diagram, getCanvasInsertAnchor, handleChange],
+  )
 
   const workflowMeta = doc.workflow ?? defaultWorkflowMeta()
   const toolbarModelConfig = useMemo(
@@ -386,9 +433,9 @@ export default function AgentWorkflowPage() {
 
   const showExecutionLogs = useCallback(() => {
     setInspectorTab('logs')
-    bottom.expand()
     if (isMobile) navigate(ROUTES.agentWorkflowLogs)
-  }, [bottom, isMobile, navigate])
+    else setShowExecutions(true)
+  }, [isMobile, navigate])
 
   useEffect(() => {
     if (runState.status === 'waiting-approval') {
@@ -459,14 +506,6 @@ export default function AgentWorkflowPage() {
     setSelection(null)
   }, [addMainPage])
 
-  const handleAddSubToMain = useCallback(
-    (pageId: string) => {
-      addSubPage(pageId)
-      setSelection(null)
-    },
-    [addSubPage],
-  )
-
   const handleAddPage = useCallback(() => {
     handleAddMainPage()
   }, [handleAddMainPage])
@@ -487,14 +526,6 @@ export default function AgentWorkflowPage() {
     [deletePage],
   )
 
-  const handleSetActiveMain = useCallback(
-    (pageId: string) => {
-      setActiveMainPage(pageId)
-      setSelection(null)
-    },
-    [setActiveMainPage],
-  )
-
   const addToolForAgent = useCallback(
     (
       agentId: string,
@@ -503,11 +534,13 @@ export default function AgentWorkflowPage() {
         label?: string
         toolId?: string
         mcpUrl?: string
+        /** Leave the selection alone (the attach list stays open to add more). */
+        keepSelection?: boolean
       },
     ) => {
       const paletteId = options?.paletteId ?? TOOL_PALETTE_ID
       const item = paletteById.get(paletteId)
-      if (!item) return
+      if (!item) return undefined
       const nodeId = createNodeId()
       const label = options?.label ?? item.label
       handleChange((previous) => {
@@ -543,18 +576,20 @@ export default function AgentWorkflowPage() {
         })
         return { ...previous, nodes: [...nodes, node] }
       })
-      setSelection({ kind: 'node', id: nodeId })
+      if (!options?.keepSelection) setSelection({ kind: 'node', id: nodeId })
+      return nodeId
     },
     [paletteById, handleChange],
   )
 
   const attachCapabilityToAgent = useCallback(
-    (agentId: string, capability: AgentCapability) => {
+    (agentId: string, capability: AgentCapability, options?: { keepSelection?: boolean }) => {
       addToolForAgent(agentId, {
         paletteId: capability.paletteId,
         label: capability.nodeLabel ?? capability.label,
         toolId: capability.id,
         mcpUrl: capability.mcpUrl,
+        keepSelection: options?.keepSelection,
       })
       toast.success(`Added ${capability.label} under the agent`)
     },
@@ -567,8 +602,7 @@ export default function AgentWorkflowPage() {
       if (action === 'model' && !isMobile) {
         // The model slot: open the model clients, picking for this agent.
         setModelTargetAgentId(agentId)
-        setLibraryBlocksTab('models')
-        setLibrarySection('blocks')
+        setLibrarySection('models')
         expandLeftPanel()
         return
       }
@@ -598,12 +632,18 @@ export default function AgentWorkflowPage() {
   )
 
   /** Run an agent on a model client, keeping its model if the client offers it. */
+  const { catalog: modelCatalog } = useModelCatalog()
+
   const assignModelProvider = useCallback(
     (agentId: string, providerId: ModelProviderId) => {
       const provider = modelProviderById(providerId)
       const agentNode = diagram.nodes.find((node) => node.id === agentId)
       if (!provider || !agentNode?.agent || !isAgentNode(agentNode)) return
-      const model = modelForProvider(provider, agentNode.agent.model)
+      const model = modelForProvider(
+        provider,
+        agentNode.agent.model,
+        catalogModelsFor(modelCatalog, provider.id).map((item) => item.id),
+      )
       handleChange((previous) => ({
         ...previous,
         nodes: previous.nodes.map((node) =>
@@ -614,7 +654,7 @@ export default function AgentWorkflowPage() {
       }))
       toast.success(`${agentNode.label} runs on ${provider.label} · ${model}`)
     },
-    [diagram.nodes, handleChange],
+    [diagram.nodes, handleChange, modelCatalog],
   )
 
   /** A model client picked in the library goes to the agent it was opened for, else the open,
@@ -647,7 +687,7 @@ export default function AgentWorkflowPage() {
 
   // The model-client target only lasts while the library's blocks section is open.
   useEffect(() => {
-    if (librarySection !== 'blocks') setModelTargetAgentId(null)
+    if (librarySection !== 'models' && librarySection !== 'blocks') setModelTargetAgentId(null)
   }, [librarySection])
 
   const handleInsertHitlOnEdge = useCallback(
@@ -666,38 +706,53 @@ export default function AgentWorkflowPage() {
       })
       if (insertedId) {
         setSelection({ kind: 'node', id: insertedId })
-        toast.success('Added human-in-the-loop review on this connector')
+        toast.success('Added a Human Review step')
       }
     },
     [paletteById, handleChange],
   )
 
+  useEffect(() => {
+    const onInsertReview = (event: Event) => {
+      const edgeId = (event as CustomEvent<{ edgeId?: string }>).detail?.edgeId
+      if (edgeId) handleInsertHitlOnEdge(edgeId)
+    }
+    window.addEventListener(INSERT_REVIEW_ON_EDGE_EVENT, onInsertReview)
+    return () => window.removeEventListener(INSERT_REVIEW_ON_EDGE_EVENT, onInsertReview)
+  }, [handleInsertHitlOnEdge])
+
+  /** The agent library items go under: the open or selected agent, else the only one. */
+  const libraryTargetAgentId = useCallback((): string | null => {
+    const agents = listAgentNodes(diagram)
+    const isAgent = (id: string | null | undefined) => Boolean(id && agents.some((agent) => agent.id === id))
+    const focusedId = editorFocus?.kind === 'node' ? editorFocus.id : null
+    const selectedId = selection?.kind === 'node' ? selection.id : null
+    return [focusedId, selectedId].find(isAgent) ?? (agents.length === 1 ? agents[0].id : null)
+  }, [diagram, editorFocus, selection])
+
   const addBlock = useCallback(
-    (paletteId: string) => {
+    (paletteId: string, options?: { openAfter?: boolean }): string | undefined => {
       const item = paletteById.get(paletteId)
-      if (!item) return
+      if (!item) return undefined
 
       if (isMappedToolPalette(paletteId)) {
-        const agents = listAgentNodes(diagram)
-        if (agents.length === 0) {
+        if (listAgentNodes(diagram).length === 0) {
           toast.error('Add an agent before adding tools')
-          return
+          return undefined
         }
-        if (agents.length === 1) {
-          addToolForAgent(agents[0].id, { paletteId })
-          return
-        }
-        setAgentPickOpen(true)
-        return
+        const target = libraryTargetAgentId()
+        if (target) return addToolForAgent(target, { paletteId })
+        setPendingAttach({ kind: 'palette', paletteId, openAfter: options?.openAfter })
+        return undefined
       }
 
       if (paletteId === START_NODE_PALETTE_ID && findStartNode(diagram)) {
         toast.message('Start is already on this workflow tab')
-        return
+        return undefined
       }
       if (paletteId === END_NODE_PALETTE_ID && findEndNode(diagram)) {
         toast.message('End is already on this workflow tab')
-        return
+        return undefined
       }
 
       const anchor = getCanvasInsertAnchor()
@@ -729,8 +784,35 @@ export default function AgentWorkflowPage() {
       const node = enrichAgentNode(base, item)
       handleChange((previous) => ({ ...previous, nodes: [...previous.nodes, node] }))
       setSelection({ kind: 'node', id: node.id })
+      return node.id
     },
-    [paletteById, diagram, handleChange, addToolForAgent, getCanvasInsertAnchor],
+    [paletteById, diagram, handleChange, addToolForAgent, getCanvasInsertAnchor, libraryTargetAgentId],
+  )
+
+  /** A ready-made tool / skill / integration / MCP server / memory from the library, under an agent. */
+  const addCapabilityFromLibrary = useCallback(
+    (capabilityId: string) => {
+      const capability = findCapability(capabilityId)
+      if (!capability) return
+      if (listAgentNodes(diagram).length === 0) {
+        toast.error(`Add an agent first, then add ${capability.label}`)
+        return
+      }
+      const target = libraryTargetAgentId()
+      if (target) attachCapabilityToAgent(target, capability)
+      else setPendingAttach({ kind: 'capability', capability })
+    },
+    [diagram, libraryTargetAgentId, attachCapabilityToAgent],
+  )
+
+  /** "Create your own": a blank agent, tool or skill, opened so the user can define it. */
+  const createCustomBlock = useCallback(
+    (kind: CustomBlockKind) => {
+      const paletteId = kind === 'agent' ? AGENT_PALETTE_ID : kind === 'tool' ? TOOL_PALETTE_ID : SKILL_PALETTE_ID
+      const nodeId = addBlock(paletteId, { openAfter: true })
+      if (nodeId && !isMobile) setEditorFocus({ kind: 'node', id: nodeId })
+    },
+    [addBlock, isMobile],
   )
 
   const zoomBy = useCallback((factor: number) => {
@@ -768,7 +850,10 @@ export default function AgentWorkflowPage() {
     (plan: WorkflowGenerationPlan, base: CanvasPlan | null = null) => {
       const generated = diagramFromGenerationPlanSafe(plan, paletteById)
       // Every workflow begins at Start, wired to its entry agents.
-      const enrichedDiagram = withStartNode(enrichDiagram(generated.diagram, paletteById))
+      const reviewItem = paletteById.get(HITL_PALETTE_ID)
+      const withStart = withStartNode(enrichDiagram(generated.diagram, paletteById))
+      // Approvals in the plan become Human Review steps on the canvas.
+      const enrichedDiagram = reviewItem ? promoteConnectorApprovals(withStart, reviewItem) : withStart
       invalidateValidation()
       setDoc((previous) => {
         const current = previous.workflow ?? defaultWorkflowMeta()
@@ -812,8 +897,15 @@ export default function AgentWorkflowPage() {
     () =>
       generatePanelOpen
         ? {
-            messages: generateMessages,
-            onMessagesChange: setGenerateMessages,
+            messages: chats.active.messages,
+            onMessagesChange: chats.setMessages,
+            chats: {
+              sessions: chats.sessions,
+              activeId: chats.active.id,
+              onSelect: chats.selectChat,
+              onNew: chats.newChat,
+              onDelete: chats.deleteChat,
+            },
             model: generateModel,
             onModelChange: setGenerateModelChoice,
             ollamaBaseUrl,
@@ -825,7 +917,7 @@ export default function AgentWorkflowPage() {
         : null,
     [
       generatePanelOpen,
-      generateMessages,
+      chats,
       generateModel,
       ollamaBaseUrl,
       canvasHasAgents,
@@ -929,7 +1021,8 @@ export default function AgentWorkflowPage() {
     deleteNodesById(selectedNodeIds(selection))
   }, [selection, handleChange, deleteNodesById])
 
-  const handleValidate = useCallback(() => {
+  /** Check the workflow and save it as a draft. Run and Deploy call it on their own first. */
+  const handleValidate = useCallback((options?: { quiet?: boolean }): Promise<boolean> => {
     const issues = validateWorkflow(diagram, paletteById)
     setValidationIssues(issues)
     const hasErrors = issues.some((issue) => issue.severity === 'error')
@@ -946,20 +1039,20 @@ export default function AgentWorkflowPage() {
       toast.error(
         diagram.nodes.length === 0
           ? 'Add at least one block before validating.'
-          : `Validation found ${issues.filter((issue) => issue.severity === 'error').length} error(s)`,
+          : `Fix ${issues.filter((issue) => issue.severity === 'error').length} issue(s) before running`,
       )
-      return
+      return Promise.resolve(false)
     }
 
     const session = getSession()
     if (!session) {
-      toast.error('Sign in before validating the workflow.')
-      return
+      toast.error('Sign in before running the workflow.')
+      return Promise.resolve(false)
     }
     const page = doc.pages.find((candidate) => candidate.id === doc.activePageId) ?? doc.pages[0]
     if (!page) {
       toast.error('No workflow page found.')
-      return
+      return Promise.resolve(false)
     }
 
     const document = buildOrchestrationDocument({
@@ -969,7 +1062,7 @@ export default function AgentWorkflowPage() {
       workspaceId: session.workspaceId,
       userId: session.accountId,
     })
-    void saveOrchestration({
+    return saveOrchestration({
       identity: orchestrationIdentity(page.id),
       name: page.name,
       document,
@@ -984,11 +1077,13 @@ export default function AgentWorkflowPage() {
             status: 'validated',
           },
         }))
-        toast.success('Workflow validated and draft saved')
+        if (!options?.quiet) toast.success('Workflow checked and draft saved')
+        return true
       })
       .catch((error: unknown) => {
         setIsValidated(false)
-        toast.error(error instanceof Error ? error.message : 'Could not validate the workflow.')
+        toast.error(error instanceof Error ? error.message : 'Could not check the workflow.')
+        return false
       })
   }, [diagram, paletteById, inferredType, setDoc, doc])
 
@@ -1129,18 +1224,12 @@ export default function AgentWorkflowPage() {
     setLibrarySection(null)
   }, [])
 
-  const headerView: EditorView = showDeploymentsBoard ? 'deployments' : editorView === 'code' ? 'code' : 'editor'
-  const handleHeaderViewChange = useCallback(
-    (view: EditorView) => {
-      if (view === 'deployments') {
-        setLibrarySection('deployments')
-        return
-      }
-      setLibrarySection((section) => (section === 'deployments' ? null : section))
-      setEditorView(view === 'code' ? 'code' : 'canvas')
-    },
-    [],
-  )
+  const headerView: EditorView = showExecutions ? 'executions' : editorView === 'code' ? 'code' : 'editor'
+  const handleHeaderViewChange = useCallback((view: EditorView) => {
+    setLibrarySection((section) => (section === 'deployments' ? null : section))
+    setShowExecutions(view === 'executions')
+    if (view !== 'executions') setEditorView(view === 'code' ? 'code' : 'canvas')
+  }, [])
 
   const canvasView = useMemo(
     () => ({
@@ -1164,11 +1253,7 @@ export default function AgentWorkflowPage() {
       window.removeEventListener('eleven-nodes-open-library-deployments', openDeployments)
   }, [])
 
-  const handleDeploy = useCallback(() => {
-    if (!isValidated) {
-      toast.error('Validate the workflow before deploying')
-      return
-    }
+  const deployValidated = useCallback(() => {
     const session = getSession()
     if (!session) {
       toast.error('Sign in to deploy a workflow instance')
@@ -1234,12 +1319,14 @@ export default function AgentWorkflowPage() {
     })
   }, [isValidated, workflowMeta, testInput, setDoc, workflowName, handleViewInstance])
 
-  const handleExecute = useCallback(() => {
+  /** Deploy, checking (and saving) the workflow first when it changed since the last check. */
+  const handleDeploy = useCallback(async () => {
+    if (!isValidated && !(await handleValidate({ quiet: true }))) return
+    deployValidated()
+  }, [isValidated, handleValidate, deployValidated])
+
+  const executeValidated = useCallback(() => {
     if (runState.status === 'running' || runState.status === 'waiting-approval') {
-      return
-    }
-    if (!isValidated) {
-      toast.error('Validate the workflow before executing.')
       return
     }
     const session = getSession()
@@ -1325,6 +1412,13 @@ export default function AgentWorkflowPage() {
     startExecution,
   ])
 
+  /** Run, checking (and saving) the workflow first when it changed since the last check. */
+  const handleExecute = useCallback(async () => {
+    if (runState.status === 'running' || runState.status === 'waiting-approval') return
+    if (!isValidated && !(await handleValidate({ quiet: true }))) return
+    executeValidated()
+  }, [runState.status, isValidated, handleValidate, executeValidated])
+
   useEffect(() => {
     registerSaveHandler(handleSave)
   }, [registerSaveHandler, handleSave])
@@ -1366,6 +1460,38 @@ export default function AgentWorkflowPage() {
   const errorCount = validationIssues.filter((issue) => issue.severity === 'error').length
   const isExecutionMode = runState.status !== 'idle'
   const isExecuting = runState.status === 'running' || runState.status === 'waiting-approval'
+
+  // Each finished run goes into the execution history (the Executions view).
+  const runStartRef = useRef<{ startedAt: string; input: string } | null>(null)
+  useEffect(() => {
+    const status = runState.status
+    if (status === 'running' && !runStartRef.current) {
+      runStartRef.current = { startedAt: new Date().toISOString(), input: testInput }
+      return
+    }
+    if ((status === 'completed' || status === 'failed' || status === 'cancelled') && runStartRef.current) {
+      const start = runStartRef.current
+      runStartRef.current = null
+      addExecution({
+        id: runState.runId ?? `run-${Date.now().toString(36)}`,
+        runId: runState.runId,
+        workflowName,
+        pageId: doc.activePageId,
+        status,
+        input: start.input,
+        startedAt: start.startedAt,
+        finishedAt: new Date().toISOString(),
+        trace: runState.trace,
+        messages: runState.messages,
+        stepOutputs: runState.stepOutputs,
+        finalResponse: runState.finalResponse,
+        errors: runState.errors,
+        warnings: runState.warnings,
+      })
+    }
+    // Recorded once per transition; the other values are read as they are at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runState.status])
   const displayTrace = runState.trace
   const workflowDescription = useMemo(() => {
     const plan = getExecutablePlan(diagram)
@@ -1463,6 +1589,83 @@ export default function AgentWorkflowPage() {
     setNodeMenu({ nodeId, x, y })
   }, [])
 
+  /** A new, unplaced flow block (agent, review, End, …) sized for the current flow direction. */
+  const createFlowBlock = useCallback(
+    (paletteId: string, item: PaletteItem): DiagramNode =>
+      enrichAgentNode(
+        paletteId === END_NODE_PALETTE_ID
+          ? createFlowBoundaryNode(paletteId, 0, 0, item.label)
+          : {
+              id: createNodeId(),
+              paletteId,
+              label: item.label,
+              x: 0,
+              y: 0,
+              ...flowNodeSize({ id: '', paletteId, label: item.label, x: 0, y: 0 }, diagram.direction),
+            },
+        item,
+      ),
+    [diagram.direction],
+  )
+
+  /** A block added right after `sourceId`, connected from it. End is reused when the tab has one. */
+  const addBlockAfter = useCallback(
+    (sourceId: string, paletteId: string) => {
+      const item = paletteById.get(paletteId)
+      if (!item) return
+      const existingEnd = paletteId === END_NODE_PALETTE_ID ? findEndNode(diagram) : undefined
+      if (existingEnd) {
+        if (diagram.edges.some((edge) => edge.from === sourceId && edge.to === existingEnd.id)) {
+          toast.message('Already connected to End')
+          return
+        }
+        handleChange((previous) => ({
+          ...previous,
+          edges: [
+            ...previous.edges,
+            {
+              id: `edge-${createNodeId()}`,
+              from: sourceId,
+              to: existingEnd.id,
+              ...flowPortSides(previous.direction),
+              routing: 'curved',
+            },
+          ],
+        }))
+        return
+      }
+      const node = createFlowBlock(paletteId, item)
+      handleChange((previous) => addNodeAfter(previous, sourceId, node))
+      setSelection({ kind: 'node', id: node.id })
+    },
+    [paletteById, diagram, handleChange, createFlowBlock],
+  )
+
+  /** A block put on a connector, between its two ends. A Human Review reuses the review insert. */
+  const insertBlockOnEdge = useCallback(
+    (edgeId: string, paletteId: string) => {
+      if (paletteId === HITL_PALETTE_ID) {
+        handleInsertHitlOnEdge(edgeId)
+        return
+      }
+      const item = paletteById.get(paletteId)
+      if (!item) return
+      const node = createFlowBlock(paletteId, item)
+      handleChange((previous) => insertNodeOnEdge(previous, edgeId, node) ?? previous)
+      setSelection({ kind: 'node', id: node.id })
+    },
+    [paletteById, handleChange, handleInsertHitlOnEdge, createFlowBlock],
+  )
+
+  /** A picked capability goes under the node the "+" was clicked on (an agent). */
+  const attachCapabilityById = useCallback(
+    (agentId: string, capabilityId: string) => {
+      const capability = findCapability(capabilityId)
+      if (capability) attachCapabilityToAgent(agentId, capability)
+    },
+    [attachCapabilityToAgent],
+  )
+
   const canvasFocusBase = isMobile
     ? null
     : buildCanvasFocus({
@@ -1483,7 +1686,9 @@ export default function AgentWorkflowPage() {
               attachedIds: diagram.nodes
                 .filter((node) => node.mappedAgentId === attachTarget.agentId)
                 .flatMap((node) => node.agent?.tools ?? []),
-              onAttach: (capability) => attachCapabilityToAgent(attachTarget.agentId, capability),
+              // Stay on the attach list so several tools can be added in a row.
+              onAttach: (capability) =>
+                attachCapabilityToAgent(attachTarget.agentId, capability, { keepSelection: true }),
               onClose: () => setAttachTarget(null),
             }
           : null,
@@ -1508,23 +1713,7 @@ export default function AgentWorkflowPage() {
       : canvasFocusBase
 
   // Several nodes selected: the right panel used to offer "Convert to sub-workflow" here.
-  const multiSelectCount = selection?.kind === 'nodes' ? selection.ids.length : 0
-  const selectionBar =
-    !isMobile && multiSelectCount > 1 ? (
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-card py-1 pl-3 pr-1 text-xs shadow-md">
-        <span className="font-medium text-foreground">{multiSelectCount} selected</span>
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          className="h-7"
-          disabled={!subWorkflow.canConvert}
-          onClick={subWorkflow.requestConvert}
-        >
-          Convert to sub-workflow
-        </Button>
-      </div>
-    ) : null
+  const selectionBar = null
 
   if (!tool) return <Navigate to="/404" replace />
 
@@ -1547,7 +1736,6 @@ export default function AgentWorkflowPage() {
           validationErrorCount={errorCount}
           isDirty={isDirty}
           onSave={handleSave}
-          onValidate={handleValidate}
           onDeploy={handleDeploy}
           onGenerate={openGeneratePanel}
           onExecute={openExecutionPanel}
@@ -1567,7 +1755,6 @@ export default function AgentWorkflowPage() {
           status={workflowMeta.status}
           isDirty={isDirty}
           onSave={handleSave}
-          onValidate={handleValidate}
           onDeploy={handleDeploy}
           onGenerate={openGeneratePanel}
           isValidated={isValidated}
@@ -1599,13 +1786,6 @@ export default function AgentWorkflowPage() {
                 addBlock(paletteId)
                 navigate(ROUTES.agentWorkflow)
               }}
-              doc={doc}
-              activePageId={doc.activePageId}
-              onMountWorkflow={(pageId) => {
-                subWorkflow.mountWorkflow(pageId)
-                navigate(ROUTES.agentWorkflow)
-              }}
-              onCreateWorkflowTab={handleCreateWorkflowTab}
               onOpenSettings={openWorkflowSettings}
               serverModelConfig={toolbarModelConfig}
               llmConfigured={toolbarModelConfigured}
@@ -1632,8 +1812,6 @@ export default function AgentWorkflowPage() {
               onResizePointerDown={noopPointer}
               onToggleCollapse={() => navigate(ROUTES.agentWorkflow)}
               onOpenSubWorkflow={handleSelectPage}
-              onConvertToSubWorkflow={subWorkflow.requestConvert}
-              canConvertToSubWorkflow={subWorkflow.canConvert}
               onWorkflowMetaChange={handleWorkflowMetaChange}
               onModelConfigChange={handleModelConfigChange}
               serverModelConfig={serverModelConfig}
@@ -1652,7 +1830,7 @@ export default function AgentWorkflowPage() {
                         .filter((node) => node.mappedAgentId === attachTarget.agentId)
                         .flatMap((node) => node.agent?.tools ?? []),
                       onAttach: (capability) => {
-                        attachCapabilityToAgent(attachTarget.agentId, capability)
+                        attachCapabilityToAgent(attachTarget.agentId, capability, { keepSelection: true })
                       },
                       onClose: () => setAttachTarget(null),
                     }
@@ -1710,7 +1888,7 @@ export default function AgentWorkflowPage() {
           className={
             isMobile
               ? 'flex min-h-0 flex-1 flex-col overflow-hidden bg-[hsl(var(--canvas))]'
-              : 'flex min-h-0 min-w-0 flex-1 flex-col'
+              : cn('flex min-h-0 min-w-0 flex-col', aiExpanded && !showDeploymentsBoard ? 'flex-none' : 'flex-1')
           }
         >
           {showDeploymentsBoard ? (
@@ -1718,10 +1896,6 @@ export default function AgentWorkflowPage() {
               {!isMobile && (
                 <AgentLibrarySidebar
                   onAddAgent={addBlock}
-                  doc={doc}
-                  activePageId={doc.activePageId}
-                  onMountWorkflow={subWorkflow.mountWorkflow}
-                  onCreateWorkflowTab={handleCreateWorkflowTab}
                   onOpenSettings={openWorkflowSettings}
                   serverModelConfig={toolbarModelConfig}
                   llmConfigured={toolbarModelConfigured}
@@ -1735,6 +1909,8 @@ export default function AgentWorkflowPage() {
                   blocksTab={libraryBlocksTab}
                   onBlocksTabChange={setLibraryBlocksTab}
                   onPickModelProvider={handlePickModelProvider}
+                  onAddCapability={addCapabilityFromLibrary}
+                  onCreateCustom={createCustomBlock}
                   modelTargetLabel={modelTargetLabel}
                   activeModelProviderId={modelTargetProviderId}
                 />
@@ -1748,10 +1924,6 @@ export default function AgentWorkflowPage() {
             {!isMobile && (
               <AgentLibrarySidebar
                 onAddAgent={addBlock}
-                doc={doc}
-                activePageId={doc.activePageId}
-                onMountWorkflow={subWorkflow.mountWorkflow}
-                onCreateWorkflowTab={handleCreateWorkflowTab}
                 onOpenSettings={openWorkflowSettings}
                 serverModelConfig={toolbarModelConfig}
                 llmConfigured={toolbarModelConfigured}
@@ -1765,12 +1937,14 @@ export default function AgentWorkflowPage() {
                 blocksTab={libraryBlocksTab}
                 onBlocksTabChange={setLibraryBlocksTab}
                 onPickModelProvider={handlePickModelProvider}
+                onAddCapability={addCapabilityFromLibrary}
+                onCreateCustom={createCustomBlock}
                 modelTargetLabel={modelTargetLabel}
                 activeModelProviderId={modelTargetProviderId}
               />
             )}
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className={cn('flex min-h-0 min-w-0 flex-1 flex-col', aiExpanded && 'hidden')}>
               {/* Desktop runs stay on the canvas (nodes light up); mobile keeps the run view. */}
               {isExecutionMode && isMobile ? (
                 <div className="flex min-h-0 flex-1 flex-col">
@@ -1786,7 +1960,9 @@ export default function AgentWorkflowPage() {
                 </div>
               ) : (
                 <>
-                  {editorView === 'canvas' ? (
+                  {showExecutions ? (
+                    <ExecutionsView pageId={doc.activePageId} />
+                  ) : editorView === 'canvas' ? (
                     <AgentWorkflowCanvas
                       ref={canvasRef}
                       diagram={diagram}
@@ -1815,92 +1991,13 @@ export default function AgentWorkflowPage() {
                       onRedo={handleRedo}
                       onNodeAttachAction={handleAgentAttachAction}
                       onInsertHitlOnEdge={handleInsertHitlOnEdge}
-                      hideEmptyState={!(showCanvasEmptyState ?? isMobile)}
+                      onAddNodeAfter={(nodeId, x, y) => setAddAfterMenu({ nodeId, x, y })}
+                      onInsertNodeOnEdge={(edgeId, x, y) => setInsertMenu({ nodeId: edgeId, x, y })}
+                      hideEmptyState
                       onOpenLibrary={isMobile ? undefined : openLibrary}
-                      onBrowseTemplates={() => setShowCanvasEmptyState(true)}
+                      onBrowseTemplates={() => setImportOpen(true)}
                       onAskAi={openGeneratePanel}
                       onClearCanvas={handleClearCanvas}
-                      emptyState={
-                        isMobile ? (
-                          <div className="flex h-full min-h-0 flex-col">
-                            <div className="shrink-0 border-b border-border/80 px-4 pb-3 pt-4">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="text-[15px] font-semibold tracking-tight text-foreground">
-                                    Start from a template
-                                  </p>
-                                  <p className="mt-1 text-[12px] leading-snug text-muted-foreground">
-                                    Pick a pattern, then edit on the canvas. Or{' '}
-                                    <button
-                                      type="button"
-                                      className="font-medium text-foreground underline-offset-2 hover:underline dark:text-foreground"
-                                      onClick={openGeneratePanel}
-                                    >
-                                      ask Workflow AI
-                                    </button>
-                                    .
-                                  </p>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 shrink-0 px-2.5 text-muted-foreground"
-                                  onClick={() => setShowCanvasEmptyState(false)}
-                                >
-                                  Skip
-                                </Button>
-                              </div>
-                            </div>
-                            <div
-                              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3"
-                              style={{ touchAction: 'pan-y' }}
-                            >
-                              <WorkflowTemplateGrid
-                                density="mobile"
-                                onSelect={handleApplyTemplate}
-                              />
-                              <p className="px-1 pb-2 pt-3 text-center text-[11px] text-muted-foreground">
-                                Or open Library to add agents manually
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-4 px-5 py-5">
-                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-foreground">
-                                  Start from a workflow template
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  Sequential, Parallel, Handoff, Group chat, Magentic, or
-                                  Human-in-the-loop — then customize on the canvas. Or{' '}
-                                  <button
-                                    type="button"
-                                    className="font-medium text-foreground underline-offset-2 hover:underline dark:text-foreground"
-                                    onClick={openGeneratePanel}
-                                  >
-                                    ask Workflow AI
-                                  </button>
-                                  .
-                                </p>
-                              </div>
-                              <div className="flex items-center justify-between gap-2 sm:justify-end">
-                                <Button
-                                  type="button"
-                                  variant="secondary"
-                                  size="sm"
-                                  className="h-8"
-                                  onClick={() => setShowCanvasEmptyState(false)}
-                                >
-                                  Dismiss
-                                </Button>
-                              </div>
-                            </div>
-                            <WorkflowTemplateGrid compact onSelect={handleApplyTemplate} />
-                          </div>
-                        )
-                      }
                     />
                   ) : (
                     <WorkflowBuildCodeView
@@ -1919,34 +2016,13 @@ export default function AgentWorkflowPage() {
               <PagesBar
                 pages={doc.pages}
                 activePageId={doc.activePageId}
-                activeMainPageId={doc.activeMainPageId}
                 onSelect={handleSelectPage}
                 onAdd={handleAddMainPage}
                 onRename={renamePage}
                 onDelete={handleDeletePage}
-                onSetActiveMain={handleSetActiveMain}
-                onAddSubToMain={handleAddSubToMain}
                 density={isMobile ? 'comfortable' : 'compact'}
               />
 
-              {!isMobile && (
-                <BottomInspectorPanel
-                  validationIssues={validationIssues}
-                  trace={displayTrace}
-                  logs={logs}
-                  executionEvents={runState.events}
-                  executionErrors={runState.errors}
-                  executionWarnings={runState.warnings}
-                  isExecuting={isExecuting}
-                  activeTab={inspectorTab}
-                  onActiveTabChange={setInspectorTab}
-                  stepOutputs={runState.stepOutputs}
-                  height={bottom.size}
-                  collapsed={bottom.collapsed}
-                  onResizePointerDown={bottom.onResizePointerDown}
-                  onToggleCollapse={bottom.toggle}
-                />
-              )}
             </div>
           </div>
           </>
@@ -1966,14 +2042,14 @@ export default function AgentWorkflowPage() {
             onResizePointerDown={right.onResizePointerDown}
             onToggleCollapse={right.toggle}
             onOpenSubWorkflow={handleSelectPage}
-            onConvertToSubWorkflow={subWorkflow.requestConvert}
-            canConvertToSubWorkflow={subWorkflow.canConvert}
             onWorkflowMetaChange={handleWorkflowMetaChange}
             onModelConfigChange={handleModelConfigChange}
             serverModelConfig={serverModelConfig}
             llmConfigured={llmConfigured}
             executionPanelOpen={false}
             generate={generateOptions}
+            chatExpanded={aiExpanded}
+            onChatExpandedChange={setAiExpanded}
             attachCapability={null}
             execution={{
               testInput,
@@ -2026,24 +2102,21 @@ export default function AgentWorkflowPage() {
           snapToGrid={snapToGrid}
           showGrid={showGrid}
           codeViewActive={editorView === 'code'}
-          canConvertToSubWorkflow={subWorkflow.canConvert}
           onNewPage={handleAddPage}
           onNewWorkspace={handleCreateNewWorkspace}
           onSave={() => void handleSave()}
           onSaveAs={handleSaveAs}
-          onImport={() => subWorkflow.openInsert('import')}
+          onImport={() => setImportOpen(true)}
           onExportJson={() => toast.info('Export coming soon')}
           onExportSvg={() => toast.info('Export coming soon')}
           onExportPng={() => toast.info('Export coming soon')}
           onExportPdf={() => toast.info('Export coming soon')}
-          onInsertWorkflow={() => subWorkflow.openInsert('workflow')}
-          onInsertTemplates={() => setTemplatesOpen(true)}
+          onInsertTemplates={() => setImportOpen(true)}
           onCreateWorkflowTab={handleCreateWorkflowTab}
-          onInsertImport={() => subWorkflow.openInsert('import')}
+          onInsertImport={() => setImportOpen(true)}
           onToggleCodeView={toggleCodeView}
           onDuplicate={() => toast.info('Duplicate coming soon')}
           onDeleteSelection={handleDeleteSelection}
-          onConvertToSubWorkflow={subWorkflow.requestConvert}
           onClearCanvas={handleClearCanvas}
           onZoomIn={() => zoomBy(1.2)}
           onZoomOut={() => zoomBy(1 / 1.2)}
@@ -2066,6 +2139,32 @@ export default function AgentWorkflowPage() {
         />
       ) : null}
 
+      {addAfterMenu ? (
+        <BlockPicker
+          state={{
+            x: addAfterMenu.x,
+            y: addAfterMenu.y,
+            title: `Add after ${diagram.nodes.find((node) => node.id === addAfterMenu.nodeId)?.label ?? 'this node'}`,
+            allowCapabilities: Boolean(
+              diagram.nodes.find((node) => node.id === addAfterMenu.nodeId && isAgentNode(node)),
+            ),
+            allowEnd: true,
+          }}
+          onPickBlock={(paletteId) => addBlockAfter(addAfterMenu.nodeId, paletteId)}
+          onPickCapability={(capabilityId) => attachCapabilityById(addAfterMenu.nodeId, capabilityId)}
+          onClose={() => setAddAfterMenu(null)}
+        />
+      ) : null}
+
+      {insertMenu ? (
+        <BlockPicker
+          state={{ x: insertMenu.x, y: insertMenu.y, title: 'Insert between', allowCapabilities: false, allowEnd: false }}
+          onPickBlock={(paletteId) => insertBlockOnEdge(insertMenu.nodeId, paletteId)}
+          onPickCapability={() => {}}
+          onClose={() => setInsertMenu(null)}
+        />
+      ) : null}
+
       <ShareDialog
         open={shareOpen}
         onOpenChange={setShareOpen}
@@ -2074,10 +2173,22 @@ export default function AgentWorkflowPage() {
       />
 
       <SelectAgentDialog
-        open={agentPickOpen}
+        open={pendingAttach !== null}
         agents={agentNodes}
-        onOpenChange={setAgentPickOpen}
-        onSelect={(agentId) => addToolForAgent(agentId)}
+        onOpenChange={(open) => {
+          if (!open) setPendingAttach(null)
+        }}
+        onSelect={(agentId) => {
+          const pending = pendingAttach
+          setPendingAttach(null)
+          if (!pending) return
+          if (pending.kind === 'capability') {
+            attachCapabilityToAgent(agentId, pending.capability)
+            return
+          }
+          const nodeId = addToolForAgent(agentId, { paletteId: pending.paletteId })
+          if (nodeId && pending.openAfter && !isMobile) setEditorFocus({ kind: 'node', id: nodeId })
+        }}
       />
 
       {/* A model client picked with several agents and none chosen: ask which agent. */}
@@ -2093,23 +2204,10 @@ export default function AgentWorkflowPage() {
         }}
       />
 
-      <ConvertSubWorkflowDialog
-        open={subWorkflow.convertOpen}
-        onOpenChange={subWorkflow.setConvertOpen}
-        agentCount={subWorkflow.selectedAgentCount}
-        defaultName={subWorkflow.convertDefaultName}
-        onConfirm={subWorkflow.confirmConvert}
-      />
-
-      <InsertWorkflowDialog
-        open={subWorkflow.insertOpen}
-        onOpenChange={subWorkflow.setInsertOpen}
-        doc={doc}
-        activePageId={doc.activePageId}
-        defaultTab={subWorkflow.insertTab}
-        onInsertFromPage={subWorkflow.insertFromPage}
-        onImportDocument={subWorkflow.importDocument}
-        onCreateWorkflowTab={handleCreateWorkflowTab}
+      <ImportWorkflowDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImportDocument={importWorkflowDocument}
       />
 
       <WorkflowTemplatesDialog

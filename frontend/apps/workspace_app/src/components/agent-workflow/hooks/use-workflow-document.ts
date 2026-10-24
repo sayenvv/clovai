@@ -13,7 +13,7 @@ import {
 } from '@/components/agent-workflow/workflow-storage'
 import {
   shouldSyncToolLayout,
-  syncMappedToolLayout,
+  keepToolsWithAgents,
 } from '@/components/agent-workflow/tool-agent-mapping'
 import { persistWorkflowBuildSpec } from '@/components/agent-workflow/workflow-build-storage'
 import { getSession } from '@/services/project-auth-store'
@@ -34,6 +34,8 @@ export function useWorkflowDocument(
   const [workflowName, setWorkflowName] = useState(() => doc.pages[0]?.name ?? 'Untitled workflow')
   const historyRef = useRef(createDiagramHistoryStack())
   const historyPageIdRef = useRef<string | null>(null)
+  const docRef = useRef(doc)
+  docRef.current = doc
 
   const activePage = doc.pages.find((page) => page.id === doc.activePageId) ?? doc.pages[0]
   const diagram = useMemo(
@@ -80,9 +82,11 @@ export function useWorkflowDocument(
           pages: previous.pages.map((page) => {
             if (page.id !== previous.activePageId) return page
             const before = page.diagram
-            const enriched = enrichDiagram(updater(before), paletteById)
+            const updated = updater(before)
+            if (updated === before) return page
+            const enriched = enrichDiagram(updated, paletteById)
             const next = shouldSyncToolLayout(before, enriched)
-              ? syncMappedToolLayout(enriched)
+              ? keepToolsWithAgents(before, enriched)
               : enriched
             if (next === before) return page
             historyRef.current.push(before)
@@ -94,41 +98,30 @@ export function useWorkflowDocument(
     [paletteById, onInvalidate],
   )
 
-  const handleUndo = useCallback(() => {
-    setDoc((previous) => {
-      const page = previous.pages.find((candidate) => candidate.id === previous.activePageId)
-      if (!page) return previous
-      const restored = historyRef.current.undo(page.diagram)
-      if (!restored) return previous
+  /** Step the active page back (or forward). History is read outside the state updater, which
+   *  React may run twice, so one click moves exactly one step. */
+  const stepHistory = useCallback(
+    (direction: 'undo' | 'redo') => {
+      const current = docRef.current
+      const page = current.pages.find((candidate) => candidate.id === current.activePageId)
+      if (!page) return
+      const restored =
+        direction === 'undo' ? historyRef.current.undo(page.diagram) : historyRef.current.redo(page.diagram)
+      if (!restored) return
       onInvalidate?.()
-      return {
-        ...previous,
-        pages: previous.pages.map((candidate) =>
-          candidate.id === previous.activePageId
-            ? { ...candidate, diagram: restored }
-            : candidate,
+      const next = {
+        ...current,
+        pages: current.pages.map((candidate) =>
+          candidate.id === current.activePageId ? { ...candidate, diagram: restored } : candidate,
         ),
       }
-    })
-  }, [onInvalidate])
-
-  const handleRedo = useCallback(() => {
-    setDoc((previous) => {
-      const page = previous.pages.find((candidate) => candidate.id === previous.activePageId)
-      if (!page) return previous
-      const restored = historyRef.current.redo(page.diagram)
-      if (!restored) return previous
-      onInvalidate?.()
-      return {
-        ...previous,
-        pages: previous.pages.map((candidate) =>
-          candidate.id === previous.activePageId
-            ? { ...candidate, diagram: restored }
-            : candidate,
-        ),
-      }
-    })
-  }, [onInvalidate])
+      docRef.current = next
+      setDoc(next)
+    },
+    [onInvalidate],
+  )
+  const handleUndo = useCallback(() => stepHistory('undo'), [stepHistory])
+  const handleRedo = useCallback(() => stepHistory('redo'), [stepHistory])
 
   const selectPage = useCallback((pageId: string) => {
     historyRef.current.clear()

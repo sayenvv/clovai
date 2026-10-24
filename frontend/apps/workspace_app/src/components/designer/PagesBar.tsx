@@ -7,11 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  groupWorkflowPages,
-  resolveActiveMainPageId,
-  type DiagramPage,
-} from './diagram-types'
+import type { DiagramPage } from './diagram-types'
 
 interface PagesBarProps {
   pages: DiagramPage[]
@@ -20,9 +16,6 @@ interface PagesBarProps {
   onAdd?: () => void
   onRename: (pageId: string, name: string) => void
   onDelete: (pageId: string) => void
-  onSetActiveMain?: (pageId: string) => void
-  onAddSubToMain?: (pageId: string) => void
-  activeMainPageId?: string
   density?: 'compact' | 'comfortable'
 }
 
@@ -164,13 +157,7 @@ const PageTab = memo(function PageTab({
   )
 })
 
-function canDeletePage(page: DiagramPage, group: { main: DiagramPage; subs: DiagramPage[] }, totalPages: number): boolean {
-  if (totalPages <= 1) return false
-  if (page.id === group.main.id && group.subs.length > 0) return false
-  return true
-}
-
-/** Bottom sheet-tab bar for switching between diagram pages. */
+/** Bottom sheet-tab bar for switching between workflow tabs. */
 export const PagesBar = memo(function PagesBar({
   pages,
   activePageId,
@@ -178,16 +165,9 @@ export const PagesBar = memo(function PagesBar({
   onAdd,
   onRename,
   onDelete,
-  onSetActiveMain,
-  onAddSubToMain,
-  activeMainPageId,
   density = 'compact',
 }: PagesBarProps) {
   const comfortable = density === 'comfortable'
-  const groups = groupWorkflowPages(pages)
-  const currentMainId = onSetActiveMain
-    ? resolveActiveMainPageId(pages, activeMainPageId)
-    : resolveActiveMainPageId(pages, activePageId)
 
   return (
     <div
@@ -198,62 +178,26 @@ export const PagesBar = memo(function PagesBar({
       role="tablist"
       aria-label="Workflow tabs"
     >
-      {groups.map((group) => {
-        const grouped = group.subs.length > 0
-        return (
-          <div
-            key={group.main.id}
-            className={cn(
-              'flex min-w-0 shrink-0 items-center',
-              grouped
-                ? 'gap-0.5 rounded-lg border border-border bg-muted px-0.5 py-0.5'
-                : 'h-full',
-            )}
-            role="group"
-            aria-label={
-              grouped ? `${group.main.name} with nested sub-workflows` : group.main.name
-            }
-          >
-            <PageTab
-              page={group.main}
-              isActive={group.main.id === activePageId}
-              isCurrentMain={group.main.id === currentMainId}
-              canDelete={canDeletePage(group.main, group, pages.length)}
-              density={density}
-              variant="main"
-              inGroup={grouped}
-              onSelect={() => onSelect(group.main.id)}
-              onRename={(name) => onRename(group.main.id, name)}
-              onDelete={() => onDelete(group.main.id)}
-              onSetActive={onSetActiveMain ? () => onSetActiveMain(group.main.id) : undefined}
-              onAddSubToMain={onAddSubToMain ? () => onAddSubToMain(group.main.id) : undefined}
-            />
-            {grouped ? (
-              <span className="mx-0.5 h-4 w-px shrink-0 bg-border" aria-hidden />
-            ) : null}
-            {group.subs.map((sub) => (
-              <PageTab
-                key={sub.id}
-                page={sub}
-                isActive={sub.id === activePageId}
-                canDelete={canDeletePage(sub, group, pages.length)}
-                density={density}
-                variant="sub"
-                inGroup
-                onSelect={() => onSelect(sub.id)}
-                onRename={(name) => onRename(sub.id, name)}
-                onDelete={() => onDelete(sub.id)}
-              />
-            ))}
-          </div>
-        )
-      })}
+      {pages.map((page) => (
+        <div key={page.id} className="flex h-full min-w-0 shrink-0 items-center">
+          <PageTab
+            page={page}
+            isActive={page.id === activePageId}
+            canDelete={pages.length > 1}
+            density={density}
+            variant="main"
+            onSelect={() => onSelect(page.id)}
+            onRename={(name) => onRename(page.id, name)}
+            onDelete={() => onDelete(page.id)}
+          />
+        </div>
+      ))}
 
       <button
         type="button"
         onClick={onAdd}
-        aria-label="Add main workflow"
-        title="New main workflow"
+        aria-label="Add workflow tab"
+        title="New workflow tab"
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground/70 hover:bg-background hover:text-foreground"
       >
         <Plus className="h-3.5 w-3.5" />

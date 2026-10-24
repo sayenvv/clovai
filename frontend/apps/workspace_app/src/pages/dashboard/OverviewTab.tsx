@@ -14,6 +14,7 @@ import {
 } from '@/services/activity-api'
 import { readTokenUsage, subscribeTokenUsage } from '@/services/token-usage-store'
 import { cn } from '@/utils/cn'
+import { OverviewBodySkeleton } from '@/components/agent-workflow/dashboard/dashboard-skeletons'
 
 type Tab = 'agents' | 'usage' | 'workflows' | 'activity'
 const DAYS = 30
@@ -43,18 +44,21 @@ export default function OverviewTab({ onOpen, workspaceId }: { onOpen: (tab: Tab
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
+          loading={usage.isLoading && !usage.data}
           label={`Tokens · last ${DAYS} days`}
           value={totals ? formatCompact(totals.totalTokens) : '—'}
           hint={totals ? `${formatNumber(totals.calls)} model calls` : 'Loading'}
           icon={Hash}
         />
         <StatCard
+          loading={agents.isLoading && !agents.data}
           label="Active agents"
           value={agents.data ? formatNumber(list.length) : '—'}
           hint={failing.length ? `${failing.length} failing` : 'None failing'}
           icon={Bot}
         />
         <StatCard
+          loading={agents.isLoading && !agents.data}
           label="Step success rate"
           value={steps ? `${Math.round((succeeded / steps) * 100)}%` : '—'}
           hint={`${formatNumber(succeeded)} of ${formatNumber(steps)} plan steps`}
@@ -71,6 +75,7 @@ export default function OverviewTab({ onOpen, workspaceId }: { onOpen: (tab: Tab
       <div className="mt-6">
         <ReportState
           isLoading={usage.isLoading && !usage.data}
+          skeleton={<OverviewBodySkeleton />}
           error={usage.error ?? agents.error}
           empty={nothingYet}
           icon={Activity}

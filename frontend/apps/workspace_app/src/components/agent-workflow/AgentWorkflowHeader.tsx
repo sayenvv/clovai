@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Link2, Rocket, Save, ShieldCheck, Sparkles } from 'lucide-react'
+import { Link2, Rocket, Save, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,7 +18,6 @@ interface AgentWorkflowHeaderProps {
   status: DeploymentStatus
   isDirty?: boolean
   onSave: () => void
-  onValidate: () => void
   onDeploy: () => void
   /** Opens the Workflow AI chat. */
   onGenerate?: () => void
@@ -31,17 +30,17 @@ interface AgentWorkflowHeaderProps {
   onViewChange?: (view: EditorView) => void
 }
 
-export type EditorView = 'editor' | 'code' | 'deployments'
+export type EditorView = 'editor' | 'code' | 'executions'
 
 const VIEW_TABS: Array<{ value: EditorView; label: string }> = [
   { value: 'editor', label: 'Editor' },
   { value: 'code', label: 'Code' },
-  { value: 'deployments', label: 'Deployments' },
+  { value: 'executions', label: 'Executions' },
 ]
 
 /**
  * The editor's top bar, kept to the main actions: logo and workflow name on the left, the
- * Editor / Code / Deployments tabs in the centre, and Ask AI, Share, Save, Validate and Deploy
+ * Editor / Code / Deployments tabs in the centre, and Ask AI, Share, Save and Deploy
  * on the right. Status details (version, save state, issues, model, members) live in
  * `WorkspaceStatusBar` at the bottom.
  */
@@ -51,7 +50,6 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
   status,
   isDirty = false,
   onSave,
-  onValidate,
   onDeploy,
   onGenerate,
   isValidated,
@@ -139,10 +137,6 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
           {isDirty && (
             <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
           )}
-        </Button>
-        <Button variant="outline" size="sm" onClick={onValidate} className="h-8">
-          <ShieldCheck className="h-3.5 w-3.5" />
-          <span>Validate</span>
         </Button>
         {isDeployed && onViewInstance && !onViewChange ? (
           <Button

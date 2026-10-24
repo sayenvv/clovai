@@ -8,6 +8,9 @@ import type { Diagram, DiagramDocument } from '@/components/designer/diagram-typ
 import type { PaletteItem } from '@/types/config'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 import { buildWorkflowSpec } from '@/components/agent-workflow/build-workflow-spec'
+import { groupSpecWorkflows } from '@/components/agent-workflow/orchestration-patterns'
+import { withMafTools } from '@/components/agent-workflow/maf-tool'
+import { withAgentModelConfigs } from '@/components/agent-workflow/maf-agent'
 import {
   generateWorkflowCode,
   WORKFLOW_CODE_FORMATS,
@@ -68,9 +71,14 @@ export const WorkflowBuildCodeView = memo(function WorkflowBuildCodeView({
     WORKFLOW_CODE_FORMATS.find((option) => option.id === format) ?? WORKFLOW_CODE_FORMATS[0]
 
   const code = useMemo(() => {
-    if (format === 'json') return JSON.stringify(spec, null, 2)
+    // Orchestrators and their teams show as workflows (participants) in the JSON.
+    // Tools in the Agent Framework function-tool shape, agents listing them by name.
+    // Each agent with its own model config; tools in the function-tool shape, listed by name.
+    if (format === 'json') {
+      return JSON.stringify(withAgentModelConfigs(withMafTools(groupSpecWorkflows(spec, diagram)), diagram), null, 2)
+    }
     return generateWorkflowCode(spec)
-  }, [spec, format])
+  }, [spec, format, diagram])
 
   const fileName = `${slugifyFilename(pageName)}.${activeFormat.extension}`
 

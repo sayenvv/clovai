@@ -6,6 +6,7 @@ import {
   Copy,
   Lock,
   Scissors,
+  ShieldCheck,
   SendToBack,
   Tag,
   Trash2,
@@ -31,6 +32,8 @@ interface EdgeContextMenuProps {
   onCopy: () => void
   onCut: () => void
   onReverse: () => void
+  /** Agent workflow: put a Human Review step on this connector. */
+  onInsertReview?: () => void
   onAddLabel: () => void
   onToggleLock: () => void
   onRoutingChange: (routing: EdgeRouting) => void
@@ -78,6 +81,7 @@ export const EdgeContextMenu = memo(function EdgeContextMenu({
   onCopy,
   onCut,
   onReverse,
+  onInsertReview,
   onAddLabel,
   onToggleLock,
   onRoutingChange,
@@ -107,6 +111,12 @@ export const EdgeContextMenu = memo(function EdgeContextMenu({
         role="menu"
         onPointerDown={(event) => event.stopPropagation()}
       >
+        {onInsertReview ? (
+          <>
+            <Item icon={ShieldCheck} label="Insert human review" onClick={() => run(onInsertReview)} />
+            <div className="my-1 h-px bg-border" />
+          </>
+        ) : null}
         <Item icon={Tag} label="Add / edit label" onClick={() => run(onAddLabel)} />
         <Item icon={ArrowLeftRight} label="Reverse direction" onClick={() => run(onReverse)} />
         <Item

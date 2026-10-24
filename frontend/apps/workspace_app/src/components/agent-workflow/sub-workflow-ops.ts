@@ -1,3 +1,5 @@
+import type { RefObject } from 'react'
+import type { Viewport } from '@/components/designer/diagram-types'
 import {
   createNodeId,
   createPage,
@@ -387,5 +389,19 @@ export function mergeImportedDocument(
   return {
     doc: { ...doc, pages: [...doc.pages, ...newPages] },
     firstPageId: newPages[0]?.id ?? null,
+  }
+}
+
+/** The canvas point at the centre of the visible area, where new blocks are placed. */
+export function canvasInsertAnchor(
+  diagram: Diagram,
+  canvasRef: RefObject<HTMLDivElement | null>,
+  viewport: Viewport,
+): { x: number; y: number } {
+  const rect = canvasRef.current?.getBoundingClientRect()
+  if (!rect?.width || !rect?.height) return diagramContentCenter(diagram)
+  return {
+    x: (rect.width / 2 - viewport.x) / viewport.scale,
+    y: (rect.height / 2 - viewport.y) / viewport.scale,
   }
 }

@@ -1,22 +1,25 @@
-import { memo } from 'react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { memo, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
-import { Field } from '@/components/agent-workflow/FormField'
-import {
-  agentLabel,
-  isMcpToolNode,
-  listAgentNodes,
-  remapToolToAgent,
-} from '@/components/agent-workflow/tool-agent-mapping'
-import type { ToolApprovalMode } from '@/types/agent-workflow'
+import { Field, PanelSection } from '@/components/agent-workflow/FormField'
+import { isMcpToolNode, listAgentNodes, remapToolToAgent } from '@/components/agent-workflow/tool-agent-mapping'
+import { toolFunctionName } from '@/components/agent-workflow/maf-tool'
+import { normalizeApprovalMode, type ToolApprovalMode } from '@/types/agent-workflow'
 import type { Diagram, DiagramNode } from '@/components/designer/diagram-types'
 
 const APPROVAL_MODES: { value: ToolApprovalMode; label: string }[] = [
-  { value: 'never_required', label: 'Never required' },
-  { value: 'always_required', label: 'Always required' },
+  { value: 'never_require', label: 'Never require approval' },
+  { value: 'always_require', label: 'Always require approval' },
 ]
+
+const SCHEMA_PLACEHOLDER = `{
+  "type": "object",
+  "properties": {
+    "location": { "type": "string", "description": "The location to get weather for." }
+  },
+  "required": ["location"]
+}`
 
 interface ToolConfigPanelProps {
   node: DiagramNode
@@ -24,80 +27,66 @@ interface ToolConfigPanelProps {
   onChange: (updater: (previous: Diagram) => Diagram) => void
 }
 
-export const ToolConfigPanel = memo(function ToolConfigPanel({
-  node,
-  diagram,
-  onChange,
-}: ToolConfigPanelProps) {
+/**
+ * A tool's settings, exactly the Agent Framework function tool's: name, description, input schema
+ * and approval mode (plus which agent it belongs to, and the URL for an MCP server).
+ */
+export const ToolConfigPanel = memo(function ToolConfigPanel({ node, diagram, onChange }: ToolConfigPanelProps) {
   const agent = node.agent!
   const agents = listAgentNodes(diagram)
-  const toolsText = agent.tools.join(', ')
   const isMcp = isMcpToolNode(node)
-  const approvalMode = agent.approvalMode ?? 'never_required'
 
   const updateTool = (patch: Partial<typeof agent>, label?: string) => {
     onChange((previous) => ({
       ...previous,
-      nodes: previous.nodes.map((candidate) => {
-        if (candidate.id !== node.id || !candidate.agent) return candidate
-        return {
-          ...candidate,
-          label: label ?? candidate.label,
-          agent: { ...candidate.agent, ...patch },
-        }
-      }),
+      nodes: previous.nodes.map((candidate) =>
+        candidate.id !== node.id || !candidate.agent
+          ? candidate
+          : { ...candidate, label: label ?? candidate.label, agent: { ...candidate.agent, ...patch } },
+      ),
     }))
   }
 
-  const handleAgentChange = (agentId: string) => {
-    onChange((previous) => remapToolToAgent(previous, node.id, agentId))
-  }
+  const schemaError = useMemo(() => {
+    const text = agent.inputSchema?.trim()
+    if (!text) return null
+    try {
+      const parsed = JSON.parse(text) as unknown
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? null : 'The schema must be a JSON object.'
+    } catch {
+      return 'Not valid JSON yet.'
+    }
+  }, [agent.inputSchema])
 
   return (
-    <div className="flex h-full flex-col">
-      <Tabs defaultValue="mapping" className="flex min-h-0 flex-1 flex-col px-4 py-3">
-        <TabsList className="h-8 w-full shrink-0">
-          <TabsTrigger value="mapping" className="flex-1 text-xs">
-            Mapping
-          </TabsTrigger>
-          <TabsTrigger value="config" className="flex-1 text-xs">
-            Config
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="mapping" className="mt-3 flex-1 space-y-4 overflow-y-auto pb-4">
-          <Field label="Mapped agent" hint="This tool runs under the selected agent">
-            <Select
-              value={node.mappedAgentId ?? ''}
-              onChange={(event) => handleAgentChange(event.target.value)}
-            >
-              <option value="" disabled>
-                Select agent…
+    <div className="flex h-full flex-col overflow-y-auto px-4 py-3">
+      <div className="space-y-4 pb-4">
+        <Field label="Runs under" hint="The agent that can call this tool">
+          <Select
+            value={node.mappedAgentId ?? ''}
+            onChange={(event) => onChange((previous) => remapToolToAgent(previous, node.id, event.target.value))}
+          >
+            <option value="" disabled>
+              Select agent…
+            </option>
+            {agents.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.label}
               </option>
-              {agents.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {candidate.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <p className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs text-muted-foreground">
-            Currently mapped to{' '}
-            <span className="font-medium text-foreground">
-              {agentLabel(diagram, node.mappedAgentId)}
-            </span>
-            . Change the mapping anytime — the {isMcp ? 'MCP tool' : 'tool'} will reposition in the
-            row under that agent.
-          </p>
-        </TabsContent>
+            ))}
+          </Select>
+        </Field>
 
-        <TabsContent value="config" className="mt-3 flex-1 space-y-4 overflow-y-auto pb-4">
-          <Field label={isMcp ? 'MCP server name' : 'Tool name'}>
-            <Input value={node.label} onChange={(event) => updateTool({}, event.target.value)} />
+        <PanelSection title={isMcp ? 'MCP server' : 'Function tool'}>
+          <Field
+            label="Name"
+            hint={`The model calls it as ${toolFunctionName(node.label, node.id)}`}
+          >
+            <Input value={node.label} onChange={(event) => updateTool({}, event.target.value)} placeholder="get_weather" />
           </Field>
 
-          {isMcp && (
-            <Field label="MCP server URL" hint="HTTP(S) endpoint for the MCP server">
+          {isMcp ? (
+            <Field label="Server URL" hint="HTTP(S) endpoint of the MCP server">
               <Input
                 type="url"
                 value={agent.mcpUrl ?? ''}
@@ -105,52 +94,35 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({
                 placeholder="https://mcp.example.com/sse"
               />
             </Field>
-          )}
+          ) : null}
 
-          <Field label="Description">
+          <Field label="Description" hint="Tells the model when to use this tool">
             <Textarea
               rows={3}
               value={agent.description}
               onChange={(event) => updateTool({ description: event.target.value })}
+              placeholder="Get the weather for a given location."
             />
           </Field>
 
-          {!isMcp && (
-            <Field label="Tool identifiers" hint="Comma-separated integrations this node can call">
-              <Input
-                value={toolsText}
-                onChange={(event) =>
-                  updateTool({
-                    tools: event.target.value
-                      .split(',')
-                      .map((tool) => tool.trim())
-                      .filter(Boolean),
-                  })
-                }
-                placeholder="web_search, slack_notify"
+          {!isMcp ? (
+            <Field label="Input schema" hint="JSON Schema for the arguments the model passes">
+              <Textarea
+                rows={9}
+                className="font-mono text-xs"
+                value={agent.inputSchema}
+                onChange={(event) => updateTool({ inputSchema: event.target.value })}
+                placeholder={SCHEMA_PLACEHOLDER}
+                aria-invalid={Boolean(schemaError)}
               />
+              {schemaError ? <p className="text-[11px] text-destructive">{schemaError}</p> : null}
             </Field>
-          )}
+          ) : null}
 
-          <Field label="Input schema (JSON)" hint="Arguments this tool accepts when invoked">
-            <Textarea
-              rows={6}
-              className="font-mono text-xs"
-              value={agent.inputSchema}
-              onChange={(event) => updateTool({ inputSchema: event.target.value })}
-              placeholder='{\n  "type": "object",\n  "properties": {\n    "query": { "type": "string" }\n  }\n}'
-            />
-          </Field>
-
-          <Field
-            label="Approval mode"
-            hint="Whether a human must approve before this tool runs"
-          >
+          <Field label="Approval mode" hint="Whether a person must approve each call">
             <Select
-              value={approvalMode}
-              onChange={(event) =>
-                updateTool({ approvalMode: event.target.value as ToolApprovalMode })
-              }
+              value={normalizeApprovalMode(agent.approvalMode)}
+              onChange={(event) => updateTool({ approvalMode: event.target.value as ToolApprovalMode })}
             >
               {APPROVAL_MODES.map((mode) => (
                 <option key={mode.value} value={mode.value}>
@@ -159,17 +131,8 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({
               ))}
             </Select>
           </Field>
-
-          <Field label="Instructions">
-            <Textarea
-              rows={5}
-              className="font-mono text-xs"
-              value={agent.instructions}
-              onChange={(event) => updateTool({ instructions: event.target.value })}
-            />
-          </Field>
-        </TabsContent>
-      </Tabs>
+        </PanelSection>
+      </div>
     </div>
   )
 })

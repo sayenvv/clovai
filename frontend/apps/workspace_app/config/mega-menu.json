@@ -514,7 +514,7 @@
       "isEnabled": true,
       "order": 1,
       "designer": {
-        "paletteVersion": 4,
+        "paletteVersion": 6,
         "palette": [
           {
             "id": "aw-agent",
@@ -628,6 +628,42 @@
             "id": "aw-planner",
             "label": "Planner Agent",
             "description": "Decomposes goals into sub-tasks",
+            "shape": "subprocess",
+            "color": "slate",
+            "group": "Agents",
+            "order": 13
+          },
+          {
+            "id": "aw-orchestrator",
+            "label": "Magentic Orchestrator",
+            "description": "Plans the task and delegates to the agents connected below",
+            "shape": "subprocess",
+            "color": "slate",
+            "group": "Agents",
+            "order": 13
+          },
+          {
+            "id": "aw-sequential",
+            "label": "Sequential Workflow",
+            "description": "Runs the agents connected below one after another",
+            "shape": "subprocess",
+            "color": "slate",
+            "group": "Agents",
+            "order": 13
+          },
+          {
+            "id": "aw-concurrent",
+            "label": "Concurrent Workflow",
+            "description": "Runs the agents connected below at the same time",
+            "shape": "subprocess",
+            "color": "slate",
+            "group": "Agents",
+            "order": 13
+          },
+          {
+            "id": "aw-group-manager",
+            "label": "Group Chat Manager",
+            "description": "Moderates a conversation between the agents connected below",
             "shape": "subprocess",
             "color": "slate",
             "group": "Agents",

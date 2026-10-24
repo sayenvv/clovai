@@ -13,6 +13,7 @@ import {
   listToolsForAgent,
 } from '@/components/agent-workflow/tool-agent-mapping'
 import type { WorkflowExecutionType } from '@/types/agent-workflow'
+import { resolveExecutionType } from '@/components/agent-workflow/orchestration-patterns'
 
 function modeFor(type: WorkflowExecutionType): string {
   switch (type) {
@@ -71,10 +72,12 @@ function agentDefinition(node: DiagramNode, planner: boolean): Record<string, un
     name: node.label,
     role: node.agent?.description || node.label,
     instructions: node.agent?.instructions ?? '',
-    // An agent on a chosen model client runs through that client's connection.
-    ...(provider
-      ? { model: { connectionId: modelClientConnectionId(provider.id), ...(model ? { name: model } : {}) } }
-      : {}),
+    // An agent runs through its own saved connection, else its model client's connection.
+    ...(node.agent?.modelConnectionId
+      ? { model: { connectionId: node.agent.modelConnectionId, ...(model ? { name: model } : {}) } }
+      : provider
+        ? { model: { connectionId: modelClientConnectionId(provider.id), ...(model ? { name: model } : {}) } }
+        : {}),
     humanInTheLoop: enabled,
     ...(enabled
       ? {
@@ -148,7 +151,10 @@ export function buildOrchestrationDocument(input: {
 }): Record<string, unknown> {
   const page = input.doc.pages.find((candidate) => candidate.id === input.pageId)
   const name = page?.name ?? 'Untitled workflow'
-  const executionType = input.doc.workflow?.executionType ?? inferWorkflowType(input.diagram)
+  const executionType = resolveExecutionType(
+    input.doc.workflow?.executionType ?? inferWorkflowType(input.diagram),
+    input.diagram,
+  )
   const mode = modeFor(executionType)
   const agents = listAgentNodes(input.diagram)
   const planner =

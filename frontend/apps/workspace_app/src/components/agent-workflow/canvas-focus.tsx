@@ -54,8 +54,8 @@ export function FocusCardShell({
       aria-label={focus.title}
       className={cn(
         // The selected node, grown: same surface and outline as a selected node card.
-        'flex flex-col overflow-hidden rounded-xl border border-[hsl(var(--node-selected-border))] bg-[hsl(var(--node))] text-card-foreground',
-        'shadow-[0_18px_48px_-18px_rgba(0,0,0,0.45)] ring-[3px] ring-foreground/[0.06]',
+        'flex flex-col overflow-hidden rounded-xl bg-[hsl(var(--node))] text-card-foreground',
+        'shadow-[0_1px_2px_rgba(0,0,0,0.06),0_4px_14px_-4px_rgba(0,0,0,0.14)]',
         className,
       )}
       style={style}

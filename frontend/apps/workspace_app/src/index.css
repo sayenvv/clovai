@@ -58,22 +58,21 @@
     --canvas-grid: 0 0% 18%;
   }
 
-  /* Tool workspace — light mode: soft grey chrome, crisp white canvas.
-     Monochrome neutral palette (graphite greys with no colour tint, plus
-     a hairline border + soft elevation on cards). Marketing
-     site and other pages are unchanged. */
+  /* Tool workspace — light mode: muted grey surfaces instead of bright white. Chrome
+     (sidebars, panels: --background) is a soft grey, the canvas a touch deeper, and cards,
+     tiles and nodes (--card) stay near-white so they lift off both. Marketing site and other pages are unchanged. */
   .workspace-surface {
-    --background: 240 5% 97%;
-    --canvas: 0 0% 100%;
-    --card: 0 0% 100%;
-    --popover: 0 0% 100%;
-    --muted: 240 5% 95%;
-    --accent: 240 5% 93%;
-    --secondary: 240 5% 95%;
-    --muted-foreground: 240 4% 42%;
-    --border: 240 6% 90%;
-    --input: 240 6% 85%;
-    --canvas-grid: 240 5% 85%;
+    --background: 240 5% 94.5%;
+    --canvas: 240 5% 92.5%;
+    --card: 0 0% 99.5%;
+    --popover: 0 0% 99.5%;
+    --muted: 240 5% 91.5%;
+    --accent: 240 5% 90%;
+    --secondary: 240 5% 91.5%;
+    --muted-foreground: 240 4% 40%;
+    --border: 240 6% 86.5%;
+    --input: 240 6% 82%;
+    --canvas-grid: 240 5% 80%;
   }
 
   /* Tool workspace — dark mode: graphite chrome, darker recessed canvas. */
@@ -320,37 +319,5 @@
     .professional-home .hero-product-grid {
       grid-template-columns: minmax(0, 1fr);
     }
-  }
-}
-
-/* Petal loader (components/shared/PetalLoader.tsx): six petals lighting up in turn.
-   Petals are currentColor; the component sets the app's text colour, so it follows the theme. */
-.petal-loader {
-  --speed: 0.9s;
-}
-.petal-loader .spinner,
-.petal-loader .p {
-  transform-box: view-box;
-  transform-origin: 100px 100px;
-}
-.petal-loader .p {
-  animation: pl-chase var(--speed) ease-in-out infinite;
-  animation-delay: calc(var(--i) * var(--speed) / 6);
-}
-@keyframes pl-chase {
-  0%,
-  100% {
-    opacity: 0.25;
-    transform: scale(0.86);
-  }
-  30% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .petal-loader .spinner,
-  .petal-loader .p {
-    animation-duration: 4s;
   }
 }

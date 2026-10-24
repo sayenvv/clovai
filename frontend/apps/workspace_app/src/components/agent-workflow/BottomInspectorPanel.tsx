@@ -2,10 +2,10 @@ import { memo, useEffect, useRef, type PointerEvent as ReactPointerEvent } from 
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   ChevronUp,
   Clock,
   Loader2,
-  PanelBottomClose,
   Terminal,
   XCircle,
 } from 'lucide-react'
@@ -195,7 +195,7 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
             aria-label="Collapse output panel"
             title="Collapse output"
           >
-            <PanelBottomClose className="h-4 w-4" />
+            <ChevronDown className="h-4 w-4" />
           </Button>
         </div>
 

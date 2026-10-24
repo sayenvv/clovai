@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { Check, ChevronRight, FileText, Paperclip, Workflow, X, type LucideIcon } from 'lucide-react'
+import { Check, ChevronRight, FileText, Paperclip, X, type LucideIcon } from 'lucide-react'
+import { WorkflowIcon as Workflow } from '@/components/shared/WorkflowIcon'
 import { toast } from 'sonner'
 import {
   ChatComposer,
@@ -15,7 +16,6 @@ import {
   UserMessage,
 } from '@/components/agent-workflow/ExecutionSidebarPanel'
 import { applyChatMessage } from '@/components/agent-workflow/use-workflow-runner'
-import { TokenBudgetBar } from '@/components/agent-workflow/TokenBudgetBar'
 import { PetalLoader, PetalMark } from '@/components/shared/PetalLoader'
 import type { ExecutionLogEvent } from '@/services/orchestration-api'
 import { PlanReviewCard } from '@/components/agent-workflow/PlanReviewCard'
@@ -161,8 +161,7 @@ function planSummary(
     ),
   )
   if (reviews > 0) lines.push('', `Includes ${reviews} human review step${reviews === 1 ? '' : 's'}.`)
-  const used = meta.tokens ? ` · ${formatTokens(meta.tokens)} tokens` : ''
-  lines.push('', `_Generated with ${meta.model}${used}._`)
+  lines.push('', `_Generated with ${meta.model}._`)
   return lines.join('\n')
 }
 
@@ -200,13 +199,11 @@ function RunSteps({
   live,
   activities = {},
   fallbackActivity = 'Thinking',
-  tokens = 0,
 }: {
   steps: WorkflowChatMessage[]
   live: boolean
   activities?: Record<string, string>
   fallbackActivity?: string
-  tokens?: number
 }) {
   const running = (step: WorkflowChatMessage) => live && step.status === 'streaming'
   const shown = steps.filter((step) => !(running(step) && step.nodeId.endsWith(':thinking')))
@@ -226,9 +223,9 @@ function RunSteps({
   }
 
   return (
-    <ol className="pl-1">
+    <ol>
       {items.map((item, index) => (
-        <TimelineStep key={item.key} item={item} last={index === items.length - 1} tokens={tokens} />
+        <TimelineStep key={item.key} item={item} last={index === items.length - 1} />
       ))}
     </ol>
   )
@@ -275,17 +272,17 @@ function preview(content: string): string {
   return content.split('\n').map((line) => line.replace(/[#*_`>-]/g, '').trim()).find(Boolean) ?? ''
 }
 
-function TimelineStep({ item, last, tokens }: { item: TimelineItem; last: boolean; tokens: number }) {
+function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
   const [open, setOpen] = useState(false)
   const expandable = item.state !== 'running' && Boolean(item.content)
 
   return (
-    <li className="relative grid grid-cols-[16px_minmax(0,1fr)] gap-x-3">
+    <li className="relative grid grid-cols-[22px_minmax(0,1fr)] gap-x-2.5">
       {/* Marker column: the marker, then the rail down to the next item's marker. */}
       <div className="relative flex justify-center">
         <span className="flex h-5 items-center">
           {item.state === 'running' ? (
-            <PetalLoader size={14} label={item.title} />
+            <PetalLoader size={22} label={item.title} className="-my-0.5" />
           ) : (
             <span
               aria-hidden
@@ -300,9 +297,6 @@ function TimelineStep({ item, last, tokens }: { item: TimelineItem; last: boolea
         {item.state === 'running' ? (
           <div className="flex h-5 min-w-0 items-center gap-2" role="status" aria-live="polite">
             <span className="truncate text-[12.5px] font-medium text-foreground">{item.title}…</span>
-            {tokens > 0 ? (
-              <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">{formatTokens(tokens)} tokens</span>
-            ) : null}
           </div>
         ) : (
           <>
@@ -343,11 +337,6 @@ function TimelineStep({ item, last, tokens }: { item: TimelineItem; last: boolea
 }
 
 
-function formatTokens(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`
-  return String(value)
-}
 
 /** Earlier turns for the API, oldest first. Errors and "Stopped." notes are left out. */
 function chatHistory(messages: GenerateChatMessage[]) {
@@ -382,7 +371,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   const [pendingReview, setPendingReview] = useState<PlanReview | null>(null)
   const liveStepsRef = useRef<WorkflowChatMessage[]>([])
   /** Tokens the request in flight has used so far. */
-  const [runTokens, setRunTokens] = useState(0)
   /** What each running stage is doing, as the backend names it: Thinking, Planning, Designing… */
   const [activities, setActivities] = useState<Record<string, string>>({})
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -481,7 +469,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     setIsGenerating(true)
     liveStepsRef.current = []
     setLiveSteps([])
-    setRunTokens(0)
     setActivities({})
     const onAgentEvent = (event: ExecutionLogEvent) => {
       const stage = event.agentId
@@ -504,7 +491,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
         ],
         onAgentEvent,
         onPlanReview: setPendingReview,
-        onUsage: setRunTokens,
         signal: controller.signal,
       })
       const plan = result.plan
@@ -521,7 +507,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                 summary: result.summary,
                 tokens: result.tokens,
               })
-            : `${result.reply ?? ''}${result.tokens ? `\n\n_${formatTokens(result.tokens)} tokens._` : ''}`,
+            : result.reply ?? '',
           steps: finishSteps(liveStepsRef.current),
           seconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
         },
@@ -558,7 +544,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
       <div ref={scrollRef} className="min-h-0 w-full min-w-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        <TokenBudgetBar />
         {messages.length === 0 && (
           <ChatEmptyState
             icon={<PetalMark size={22} />}
@@ -619,7 +604,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
               live
               activities={activities}
               fallbackActivity="Thinking"
-              tokens={runTokens}
             />
             {pendingReview && (
               <PlanReviewCard
@@ -632,7 +616,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
         )}
       </div>
 
-      <div className="shrink-0 space-y-2 border-t border-border/60 bg-background p-3 backdrop-blur-sm">
+      <div className="shrink-0 space-y-2 bg-background p-3 backdrop-blur-sm">
         <input
           ref={fileInputRef}
           type="file"

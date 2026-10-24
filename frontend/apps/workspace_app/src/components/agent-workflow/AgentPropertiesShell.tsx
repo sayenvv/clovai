@@ -1,11 +1,26 @@
 import { memo, useEffect, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
-import { ChevronLeft, Flag, GitBranch, Info, PanelRightClose, Play, Sparkles, X } from 'lucide-react'
+import {
+  ChevronLeft,
+  Flag,
+  GitBranch,
+  Info,
+  Maximize,
+  MessageSquare,
+  Minimize,
+  PanelRightClose,
+  Play,
+  Plus,
+  Sparkles,
+  Trash2,
+} from 'lucide-react'
+import type { ChatSession } from '@/components/agent-workflow/hooks/use-chat-sessions'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
 import { AgentConfigPanel } from '@/components/agent-workflow/AgentConfigPanel'
 import { AttachCapabilityPanel } from '@/components/agent-workflow/AttachCapabilityPanel'
 import { ConnectorConfigPanel } from '@/components/agent-workflow/ConnectorConfigPanel'
+import { findOrchestration, resolveExecutionType } from '@/components/agent-workflow/orchestration-patterns'
 import { ExecutorConfigPanel } from '@/components/agent-workflow/ExecutorConfigPanel'
 import { ToolConfigPanel } from '@/components/agent-workflow/ToolConfigPanel'
 import { SubWorkflowConfigPanel } from '@/components/agent-workflow/SubWorkflowConfigPanel'
@@ -84,6 +99,92 @@ interface GenerateChatOptions {
   getCurrentWorkflow: () => CanvasPlan | null
   onGenerated: (plan: WorkflowGenerationPlan, base: CanvasPlan | null) => void
   onClose: () => void
+  /** Saved sessions, listed beside the chat when it is expanded. */
+  chats?: {
+    sessions: ChatSession[]
+    activeId: string
+    onSelect: (id: string) => void
+    onNew: () => void
+    onDelete: (id: string) => void
+  }
+}
+
+/** The session list shown to the left of the expanded Workflow AI chat. */
+function ChatList({ chats }: { chats: NonNullable<GenerateChatOptions['chats']> }) {
+  return (
+    <nav className="flex w-60 shrink-0 flex-col border-r border-border/60 bg-muted/20 px-2 py-3" aria-label="Sessions">
+      <button
+        type="button"
+        onClick={chats.onNew}
+        className="group mb-3 flex h-9 items-center gap-2.5 rounded-lg px-2 text-[12.5px] font-medium text-foreground transition-colors hover:bg-foreground/[0.05]"
+      >
+        <span className="flex h-6 w-6 items-center justify-center rounded-md border border-border bg-card shadow-sm transition-colors group-hover:border-foreground/30">
+          <Plus className="h-3.5 w-3.5" />
+        </span>
+        New session
+      </button>
+      <p className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Sessions</p>
+      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
+        {chats.sessions.map((session) => {
+          const active = session.id === chats.activeId
+          return (
+            <div
+              key={session.id}
+              className={cn(
+                'group flex items-center rounded-lg transition-colors',
+                active ? 'bg-foreground/[0.07]' : 'hover:bg-foreground/[0.04]',
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => chats.onSelect(session.id)}
+                className={cn(
+                  'min-w-0 flex-1 px-2.5 py-2 text-left',
+                  active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                  <span className="truncate text-[12.5px]">{session.title || 'New session'}</span>
+                </span>
+              </button>
+              {session.messages.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => chats.onDelete(session.id)}
+                  aria-label={`Delete ${session.title || 'session'}`}
+                  title="Delete session"
+                  className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
+/**
+ * A close cross drawn corner to corner (3→21), so it spans the same box as lucide's
+ * Maximize brackets beside it; lucide's X only spans 6→18 and looks smaller.
+ */
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M4 4 20 20M20 4 4 20" />
+    </svg>
+  )
 }
 
 const EXECUTION_PANEL_HINT =
@@ -112,6 +213,9 @@ interface AgentPropertiesShellProps {
   attachCapability?: AttachCapabilityOptions | null
   /** When set, the panel shows the Generate chat instead of details / execution. */
   generate?: GenerateChatOptions | null
+  /** Workflow AI widened over the workspace (controlled by the page, which hides the canvas). */
+  chatExpanded?: boolean
+  onChatExpandedChange?: (expanded: boolean) => void
 }
 
 export const AgentPropertiesShell = memo(function AgentPropertiesShell({
@@ -135,6 +239,8 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   attachCapability = null,
   embedded = false,
   generate = null,
+  chatExpanded: chatExpandedProp = false,
+  onChatExpandedChange,
 }: AgentPropertiesShellProps) {
   const workflowMeta = doc.workflow
   const modelConfig = workflowMeta?.modelConfig ?? serverModelConfig
@@ -160,6 +266,19 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
     setShowDetailsOverChat(Boolean(selectionKey))
   }, [selectionKey])
   const chatVisible = Boolean(generate) && !showDetailsOverChat
+  // Workflow AI can be widened to fill the whole workspace.
+  const chatExpanded = chatExpandedProp && chatVisible && !embedded
+  const setChatExpanded = (next: boolean | ((value: boolean) => boolean)) =>
+    onChatExpandedChange?.(typeof next === 'function' ? next(chatExpanded) : next)
+  useEffect(() => {
+    if (!chatExpanded) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setChatExpanded(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatExpanded])
 
   const detailsTitle = attaching
     ? 'Attach'
@@ -234,12 +353,16 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   return (
     <aside
       className={cn(
-        'relative flex h-full shrink-0 flex-col border-l border-border/60 bg-background',
+        'flex flex-col bg-background',
+        chatExpanded
+          ? 'relative h-full min-w-0 flex-1 animate-in fade-in-0 duration-200'
+          : cn('relative h-full shrink-0', !chatVisible && 'border-l border-border/60'),
         embedded && 'w-full border-l-0',
+        chatVisible && !chatExpanded && 'shadow-[-1px_0_0_hsl(var(--border)/0.35)]',
       )}
-      style={{ width: embedded ? '100%' : width }}
+      style={chatExpanded ? undefined : { width: embedded ? '100%' : width }}
     >
-      {!embedded && (
+      {!embedded && !chatExpanded && (
         <DesignerResizeHandle
           side="left"
           onPointerDown={onResizePointerDown}
@@ -248,7 +371,13 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
       )}
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-3 py-2">
+        <div
+          className={cn(
+            'flex shrink-0 items-center justify-between px-3 py-2',
+            (!chatVisible || chatExpanded) && 'border-b border-border/60',
+            chatExpanded && 'px-5 py-3',
+          )}
+        >
           <div className="min-w-0 flex-1">
             {chatVisible ? (
               <div className="flex min-w-0 items-center gap-2">
@@ -314,19 +443,38 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
               <Sparkles className="h-4 w-4" />
             </Button>
           )}
+          {generate && chatVisible && !embedded && onChatExpandedChange && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
+              onClick={() => setChatExpanded((value) => !value)}
+              aria-label={chatExpanded ? 'Exit full screen' : 'Expand Workflow AI to the workspace'}
+              title={chatExpanded ? 'Exit full screen (Esc)' : 'Expand to workspace'}
+            >
+              {chatExpanded ? (
+                <Minimize className="h-[17px] w-[17px]" strokeWidth={1.5} />
+              ) : (
+                <Maximize className="h-[17px] w-[17px]" strokeWidth={1.5} />
+              )}
+            </Button>
+          )}
           {generate && (
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 shrink-0"
-              onClick={generate.onClose}
+              className="h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
+              onClick={() => {
+                setChatExpanded(false)
+                generate.onClose()
+              }}
               aria-label="Close Workflow AI"
               title="Close"
             >
-              <X className="h-4 w-4" />
+              <CloseIcon className="h-[17px] w-[17px]" />
             </Button>
           )}
-          {!embedded && (
+          {!embedded && !chatVisible && (
             <Button
               variant="ghost"
               size="icon"
@@ -342,8 +490,11 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
 
         <div className="min-h-0 w-full min-w-0 flex-1 overflow-hidden">
           {generate && (
-            <div className={cn('h-full', !chatVisible && 'hidden')}>
+            <div className={cn('flex h-full', !chatVisible && 'hidden')}>
+              {chatExpanded && generate.chats ? <ChatList chats={generate.chats} /> : null}
+              <div className={cn('h-full min-w-0 flex-1', chatExpanded && 'mx-auto max-w-3xl')}>
               <GenerateWorkflowChat
+                key={generate.chats?.activeId}
                 messages={generate.messages}
                 onMessagesChange={generate.onMessagesChange}
                 model={generate.model}
@@ -357,6 +508,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 getCurrentWorkflow={generate.getCurrentWorkflow}
                 onGenerated={generate.onGenerated}
               />
+              </div>
             </div>
           )}
           {chatVisible ? null : generate ? (
@@ -490,7 +642,11 @@ export function DetailsPanelContent({
 
   return (
     <WorkflowSettingsPanel
-      executionType={workflowMeta?.executionType ?? 'sequential'}
+      executionType={resolveExecutionType(workflowMeta?.executionType, diagram)}
+      patternSetBy={(() => {
+        const orchestration = findOrchestration(diagram)
+        return orchestration ? diagram.nodes.find((node) => node.id === orchestration.orchestratorId)?.label : undefined
+      })()}
       onExecutionTypeChange={(type: WorkflowExecutionType) =>
         onWorkflowMetaChange?.({ executionType: type })
       }

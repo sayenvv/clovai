@@ -13,7 +13,6 @@ import {
 import {
   ArrowDown,
   ArrowRight,
-  LayoutTemplate,
   Sparkles,
   Trash2,
   LayoutGrid,
@@ -23,6 +22,7 @@ import {
   Undo2,
   ZoomIn,
   ZoomOut,
+  Upload,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -54,7 +54,7 @@ import {
 } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import type { Selection } from '@/components/designer/selection-utils'
-import { canvasInsertAnchor } from '@/components/agent-workflow/hooks/use-sub-workflow-actions'
+import { canvasInsertAnchor } from '@/components/agent-workflow/sub-workflow-ops'
 import type { AgentAttachAction } from '@/components/agent-workflow/AgentNodeCard'
 import { DevProfiler } from '@/utils/render-profiler'
 import { cn } from '@/utils/cn'
@@ -99,6 +99,10 @@ interface AgentWorkflowCanvasProps {
   onNodeAttachAction?: (agentId: string, action: AgentAttachAction) => void
   /** Insert Human Review (HITL) on a connector. */
   onInsertHitlOnEdge?: (edgeId: string) => void
+  /** The "+" on a connector was clicked, at screen position (x, y). */
+  onInsertNodeOnEdge?: (edgeId: string, x: number, y: number) => void
+  /** The "+" on a node's output port was clicked, at screen position (x, y). */
+  onAddNodeAfter?: (nodeId: string, x: number, y: number) => void
   /** Empty-canvas template picker. */
   emptyState?: ReactNode
   /** Removes every node and connector, after the user confirms (the canvas's trash button). */
@@ -106,6 +110,7 @@ interface AgentWorkflowCanvasProps {
   /** Opens the library to add agents and tools (the canvas's top-right + button). */
   onOpenLibrary?: () => void
   /** Shown on an empty canvas once the template picker is dismissed. */
+  /** Import a workflow from a JSON file (offered on an empty canvas). */
   onBrowseTemplates?: () => void
   onAskAi?: () => void
   /** The focused card: the canvas glides to its target, dims the rest and shows the card. */
@@ -139,6 +144,8 @@ export const AgentWorkflowCanvas = memo(
       transformDroppedNode,
       onNodeAttachAction,
       onInsertHitlOnEdge,
+      onAddNodeAfter,
+      onInsertNodeOnEdge,
       finalizeDroppedNode,
       onOpenExecution,
       executionPanelOpen = false,
@@ -582,32 +589,10 @@ export const AgentWorkflowCanvas = memo(
 
           {/* Bottom row: view controls on the left, the run button centred (pushed right when the
               canvas is too narrow for both, never overlapping). */}
-          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 flex items-center gap-3">
+          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 flex items-end gap-3">
             <div className="flex min-w-0 flex-1 basis-0 justify-start">
               {(diagram.nodes.length > 0 || hideEmptyState) && (
-                <div className="pointer-events-auto flex items-center gap-2">
-                  <CanvasControl label="Fit to view" onClick={fitView}>
-                    <Maximize2 />
-                  </CanvasControl>
-                  <CanvasControl label="Zoom in" onClick={() => zoomBy(1.2)}>
-                    <ZoomIn />
-                  </CanvasControl>
-                  <CanvasControl label="Zoom out" onClick={() => zoomBy(1 / 1.2)}>
-                    <ZoomOut />
-                  </CanvasControl>
-                  {onUndo && (
-                    <CanvasControl label="Undo" onClick={onUndo}>
-                      <Undo2 />
-                    </CanvasControl>
-                  )}
-                  <CanvasControl label="Tidy up (auto-layout)" onClick={onAutoLayout}>
-                    <LayoutGrid />
-                  </CanvasControl>
-                  {onClearCanvas && !isEmptyWorkflow && (
-                    <CanvasControl label="Clear canvas" onClick={() => setConfirmClearOpen(true)}>
-                      <Trash2 />
-                    </CanvasControl>
-                  )}
+                <div className="pointer-events-auto flex items-end gap-2">
                   {/* The flow direction is chosen while setting up a new workflow; once it has
                       nodes the layout is set, so the switch goes away. */}
                   {onFlowDirectionChange && isEmptyWorkflow && (
@@ -658,16 +643,44 @@ export const AgentWorkflowCanvas = memo(
                 </Button>
               </div>
             )}
-            <div className="flex-1 basis-0" aria-hidden />
+            {/* Zoom: bottom-right, stacked. */}
+            <div className="flex flex-1 basis-0 justify-end">
+              {(diagram.nodes.length > 0 || hideEmptyState) && (
+                <div className="pointer-events-auto flex flex-col items-center gap-2">
+                  <CanvasControl label="Zoom in" onClick={() => zoomBy(1.2)}>
+                    <ZoomIn />
+                  </CanvasControl>
+                  <CanvasControl label="Zoom out" onClick={() => zoomBy(1 / 1.2)}>
+                    <ZoomOut />
+                  </CanvasControl>
+                  <CanvasControl label="Fit to view" onClick={fitView}>
+                    <Maximize2 />
+                  </CanvasControl>
+                </div>
+              )}
+            </div>
           </div>
 
-          {onOpenLibrary && (
-            <div className="absolute right-4 top-4 z-20">
-              <CanvasControl label="Add agents and tools" onClick={onOpenLibrary} size="lg">
-                <Plus />
-              </CanvasControl>
-            </div>
-          )}
+          {/* Top-right: canvas actions (undo, tidy up, clear). */}
+          <div className="pointer-events-none absolute right-4 top-4 z-20 flex flex-col items-center gap-2">
+            {(diagram.nodes.length > 0 || hideEmptyState) && (
+              <div className="pointer-events-auto flex flex-col items-center gap-2">
+                {onUndo && (
+                  <CanvasControl label="Undo" onClick={onUndo}>
+                    <Undo2 />
+                  </CanvasControl>
+                )}
+                <CanvasControl label="Tidy up (auto-layout)" onClick={onAutoLayout}>
+                  <LayoutGrid />
+                </CanvasControl>
+                {onClearCanvas && !isEmptyWorkflow && (
+                  <CanvasControl label="Clear canvas" onClick={() => setConfirmClearOpen(true)}>
+                    <Trash2 />
+                  </CanvasControl>
+                )}
+              </div>
+            )}
+          </div>
 
           <DesignerCanvas
             diagram={diagram}
@@ -690,6 +703,8 @@ export const AgentWorkflowCanvas = memo(
             onRedo={onRedo}
             onNodeAttachAction={onNodeAttachAction}
             onInsertHitlOnEdge={onInsertHitlOnEdge}
+            onAddNodeAfter={onAddNodeAfter}
+            onInsertNodeOnEdge={onInsertNodeOnEdge}
             onRunWorkflow={runFromStart}
             onNodeOpen={onNodeOpen}
             onEdgeOpen={onEdgeOpen}
@@ -788,7 +803,7 @@ function CanvasControl({
 
 /**
  * The empty workflow's next step: a dashed "+" tile right after Start (where the first agent
- * will go), joined to it by a dashed line, with templates and AI as alternatives. Without
+ * will go), joined to it by a dashed line, with JSON import and AI as alternatives. Without
  * Start on screen it sits in the middle of the canvas.
  */
 function EmptyCanvasStart({
@@ -803,6 +818,7 @@ function EmptyCanvasStart({
   scale: number
   vertical: boolean
   onAddFirstStep: () => void
+  /** Import a workflow from a JSON file (offered on an empty canvas). */
   onBrowseTemplates?: () => void
   onAskAi?: () => void
 }) {
@@ -810,8 +826,8 @@ function EmptyCanvasStart({
     <div className="mt-3 flex items-center gap-2">
       {onBrowseTemplates && (
         <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={onBrowseTemplates}>
-          <LayoutTemplate className="h-3.5 w-3.5" />
-          Templates
+          <Upload className="h-3.5 w-3.5" />
+          Import JSON
         </Button>
       )}
       {onAskAi && (

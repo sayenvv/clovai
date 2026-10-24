@@ -18,6 +18,7 @@ import { WorkspaceAgentMonitor } from '@/components/agent-workflow/dashboard/Wor
 import { Badge } from '@/components/ui/badge'
 import { fetchAgentsReport } from '@/services/activity-api'
 import { cn } from '@/utils/cn'
+import { AgentsBodySkeleton } from '@/components/agent-workflow/dashboard/dashboard-skeletons'
 
 export default function AgentsPage() {
   const [days, setDays] = useState<RangeDays>(30)
@@ -43,20 +44,20 @@ export default function AgentsPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
+        <StatCard loading={isLoading && !data}
           label="Active agents"
           value={data ? formatNumber(agents.length) : '—'}
           hint={failing ? `${failing} failing` : 'None failing'}
           icon={Bot}
         />
-        <StatCard label="Model calls" value={data ? formatNumber(calls) : '—'} hint={`Last ${days} days`} icon={Repeat} />
-        <StatCard
+        <StatCard loading={isLoading && !data} label="Model calls" value={data ? formatNumber(calls) : '—'} hint={`Last ${days} days`} icon={Repeat} />
+        <StatCard loading={isLoading && !data}
           label="Step success rate"
           value={steps ? `${Math.round((succeeded / steps) * 100)}%` : '—'}
           hint={`${formatNumber(succeeded)} of ${formatNumber(steps)} plan steps`}
           icon={ShieldCheck}
         />
-        <StatCard
+        <StatCard loading={isLoading && !data}
           label="Avg attempts per step"
           value={avgAttempts !== null ? avgAttempts.toFixed(2) : '—'}
           hint="1.00 means no retries"
@@ -71,6 +72,7 @@ export default function AgentsPage() {
       <div className="mt-4">
         <ReportState
           isLoading={isLoading && !data}
+          skeleton={<AgentsBodySkeleton />}
           error={error}
           empty={Boolean(data) && agents.length === 0}
           icon={Bot}

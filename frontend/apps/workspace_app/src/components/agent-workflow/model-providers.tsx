@@ -4,6 +4,7 @@
  * their OpenAI-compatible APIs). Keys stay as environment placeholders resolved on the server.
  */
 
+import { Cpu } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
 export type ModelProviderId = 'openai' | 'azure-openai' | 'anthropic' | 'gemini' | 'mistral' | 'groq' | 'ollama'
@@ -131,10 +132,66 @@ export function resolveModelProvider(agent: { modelProvider?: string; model?: st
   return undefined
 }
 
+/** Name fragments that identify a provider; Azure is checked before OpenAI. */
+const PROVIDER_KEYWORDS: [string, ModelProviderId][] = [
+  ['azure', 'azure-openai'],
+  ['anthropic', 'anthropic'],
+  ['claude', 'anthropic'],
+  ['gemini', 'gemini'],
+  ['google', 'gemini'],
+  ['mistral', 'mistral'],
+  ['codestral', 'mistral'],
+  ['groq', 'groq'],
+  ['ollama', 'ollama'],
+  ['openai', 'openai'],
+]
+
+/**
+ * The provider behind a model from whatever names are at hand (a provider id, type or label,
+ * then the model name), first match wins. Undefined when nothing is recognised.
+ */
+export function providerFromHints(...hints: Array<string | null | undefined>): ModelProvider | undefined {
+  for (const hint of hints) {
+    const text = hint?.trim().toLowerCase()
+    if (!text) continue
+    const keyword = PROVIDER_KEYWORDS.find(([fragment]) => text.includes(fragment))
+    if (keyword) return BY_ID.get(keyword[1])
+    const byModel = resolveModelProvider({ model: text })
+    if (byModel) return byModel
+  }
+  return undefined
+}
+
+/** The provider's logo for a model, or a neutral chip when the provider isn't known. */
+export function ModelLogo({
+  hints,
+  className,
+}: {
+  /** Provider id / type / label and model name, most specific first. */
+  hints: Array<string | null | undefined>
+  className?: string
+}) {
+  const provider = providerFromHints(...hints)
+  if (provider) return <ModelProviderLogo provider={provider} className={cn('rounded-[5px]', className)} />
+  return (
+    <span
+      className={cn('flex shrink-0 items-center justify-center rounded-[5px] bg-muted text-muted-foreground', className)}
+      aria-hidden
+    >
+      <Cpu className="h-[60%] w-[60%]" />
+    </span>
+  )
+}
+
 /** The model to use after switching provider: keep the current one if the provider lists it. */
-export function modelForProvider(provider: ModelProvider, current: string | undefined): string {
+export function modelForProvider(
+  provider: ModelProvider,
+  current: string | undefined,
+  /** The models actually available (the model catalog's); falls back to the suggestions. */
+  available: string[] = provider.models,
+): string {
   const model = current?.trim()
-  return model && provider.models.includes(model) ? model : provider.models[0]
+  return model && available.includes(model) ? model : (available[0] ?? '')
 }
 
 /** A provider's logo, as a rounded tile. */

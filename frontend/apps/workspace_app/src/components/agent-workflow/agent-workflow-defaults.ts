@@ -26,6 +26,10 @@ const PALETTE_AGENT_TYPE: Record<string, AgentType> = {
   'aw-specialist': 'specialist',
   'aw-tool-agent': 'tool',
   'aw-planner': 'planner',
+  'aw-orchestrator': 'planner',
+  'aw-group-manager': 'llm',
+  'aw-sequential': 'control',
+  'aw-concurrent': 'control',
   'aw-sub-workflow': 'control',
   'aw-reviewer': 'human',
   'aw-router': 'router',
@@ -101,8 +105,12 @@ function findLibraryBlock(paletteId: string): SidebarBlock | undefined {
 /** Compact agent card body (docks hang below). */
 export const AGENT_NODE_WIDTH = 240
 export const AGENT_NODE_HEIGHT = 64
-export const TOOL_NODE_WIDTH = 180
-export const TOOL_NODE_HEIGHT = 56
+/** Tools, skills and other capabilities: small chips, well below an agent card. */
+export const TOOL_NODE_WIDTH = 152
+export const TOOL_NODE_HEIGHT = 40
+/** Workflows (an orchestrator and its team): larger than an agent card. */
+export const ORCHESTRATOR_NODE_WIDTH = 288
+export const ORCHESTRATOR_NODE_HEIGHT = 108
 /** Vertical flow: taller agent card with the capability bar built in (no hanging docks). */
 export const VERTICAL_AGENT_NODE_WIDTH = 304
 export const VERTICAL_AGENT_NODE_HEIGHT = 100
@@ -231,7 +239,7 @@ export function defaultAgentConfig(paletteId: string, label: string): AgentNodeC
       tools: isMcp ? [] : defaultToolsForPalette(paletteId),
       inputSchema: '{\n  "input": "string"\n}',
       outputSchema: '{\n  "result": "string"\n}',
-      approvalMode: 'never_required',
+      approvalMode: 'never_require',
       mcpUrl: isMcp ? 'https://' : undefined,
       memoryEnabled: false,
       memoryScope: 'workflow',
@@ -322,6 +330,20 @@ export function enrichAgentNode(node: DiagramNode, item: PaletteItem): DiagramNo
   }
 }
 
+/** Blocks that run a team of agents (Magentic, group chat, handoff); see orchestration-patterns.ts. */
+const ORCHESTRATOR_PALETTE_IDS = new Set([
+  'aw-orchestrator',
+  'aw-planner',
+  'aw-group-manager',
+  'aw-router',
+  'aw-sequential',
+  'aw-concurrent',
+])
+
+export function isOrchestratorNode(node: DiagramNode): boolean {
+  return ORCHESTRATOR_PALETTE_IDS.has(node.paletteId) || node.agent?.agentType === 'planner'
+}
+
 function isChildFlowNode(node: DiagramNode): boolean {
   return isAlwaysChildPalette(node.paletteId) || Boolean(node.mappedAgentId)
 }
@@ -334,11 +356,9 @@ export function flowNodeSize(
   const vertical = resolveFlowDirection(direction) === 'vertical'
   if (isChildFlowNode(node)) {
     if (vertical) return { width: VERTICAL_TOOL_NODE_WIDTH, height: VERTICAL_TOOL_NODE_HEIGHT }
-    // Horizontal tools may be resized larger; anything smaller (incl. the vertical strip) resets.
-    return node.width && node.height && node.width >= TOOL_NODE_WIDTH && node.height >= TOOL_NODE_HEIGHT
-      ? { width: node.width, height: node.height }
-      : { width: TOOL_NODE_WIDTH, height: TOOL_NODE_HEIGHT }
+    return { width: TOOL_NODE_WIDTH, height: TOOL_NODE_HEIGHT }
   }
+  if (isOrchestratorNode(node)) return { width: ORCHESTRATOR_NODE_WIDTH, height: ORCHESTRATOR_NODE_HEIGHT }
   if (!vertical) return { width: AGENT_NODE_WIDTH, height: AGENT_NODE_HEIGHT }
   const executor = node.paletteId === EXECUTOR_PALETTE_ID || node.agent?.agentType === 'executor'
   return {

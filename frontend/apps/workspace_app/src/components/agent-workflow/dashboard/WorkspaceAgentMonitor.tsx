@@ -13,6 +13,7 @@ import {
 } from '@/services/activity-api'
 import { getSession } from '@/services/project-auth-store'
 import { cn } from '@/utils/cn'
+import { AgentMonitorSkeleton } from '@/components/agent-workflow/dashboard/dashboard-skeletons'
 
 const NO_WORKSPACES: MonitoredWorkspace[] = []
 
@@ -78,6 +79,7 @@ export function WorkspaceAgentMonitor({ days }: { days: number }) {
       }
     >
       <ReportState
+        skeleton={<AgentMonitorSkeleton />}
         isLoading={(workspaces.isLoading && !workspaces.data) || (Boolean(workspaceId) && tabs.isLoading && !tabs.data)}
         error={workspaces.error ?? tabs.error}
         empty={Boolean(workspaces.data) && list.length === 0}

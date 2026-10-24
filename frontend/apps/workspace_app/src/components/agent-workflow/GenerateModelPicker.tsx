@@ -1,5 +1,5 @@
 import { memo, useCallback, useState } from 'react'
-import { Check, ChevronDown, Cpu, Loader2, RefreshCw } from 'lucide-react'
+import { Check, ChevronDown, Loader2, RefreshCw } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +11,7 @@ import {
 import { fetchModelCatalog, type ModelCatalog } from '@/services/models-api'
 import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
 import { cn } from '@/utils/cn'
+import { ModelLogo } from '@/components/agent-workflow/model-providers'
 
 interface GenerateModelPickerProps {
   value: GenerateWorkflowModel
@@ -50,6 +51,16 @@ export const GenerateModelPicker = memo(function GenerateModelPicker({
   const defaultLabel = defaultModelLabel(catalog) ?? serverModel
   const label =
     value.provider === 'catalog' ? value.label : value.provider === 'ollama' ? value.model : defaultLabel
+  const providerHints = (providerId: string | undefined) => {
+    const provider = catalog?.providers.find((item) => item.id === providerId)
+    return [provider?.type, providerId, provider?.label]
+  }
+  const triggerHints =
+    value.provider === 'catalog'
+      ? [...providerHints(value.providerId), value.modelId]
+      : value.provider === 'ollama'
+        ? ['ollama']
+        : [...providerHints(catalog?.default.provider), catalog?.default.modelId, serverModel]
 
   return (
     <DropdownMenu
@@ -69,7 +80,7 @@ export const GenerateModelPicker = memo(function GenerateModelPicker({
           aria-label={`Model: ${label}`}
           title={`Model: ${label}`}
         >
-          <Cpu className="h-3.5 w-3.5 shrink-0" />
+          <ModelLogo hints={triggerHints} className="h-4 w-4" />
           <span className="truncate">{label}</span>
           <ChevronDown className="h-3 w-3 shrink-0 opacity-70" />
         </button>
@@ -94,6 +105,7 @@ export const GenerateModelPicker = memo(function GenerateModelPicker({
         <ModelItem
           name={defaultLabel}
           detail="The application's default model"
+          hints={[...providerHints(catalog?.default.provider), catalog?.default.modelId, serverModel]}
           selected={value.provider === 'server'}
           onSelect={() => onChange({ provider: 'server' })}
         />
@@ -109,7 +121,10 @@ export const GenerateModelPicker = memo(function GenerateModelPicker({
           catalog?.providers.map((provider) => (
             <div key={provider.id}>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">{provider.label}</DropdownMenuLabel>
+              <DropdownMenuLabel className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+                <ModelLogo hints={[provider.type, provider.id, provider.label]} className="h-3.5 w-3.5" />
+                {provider.label}
+              </DropdownMenuLabel>
               {provider.error ? (
                 <p className="px-2 py-1.5 text-xs leading-snug text-muted-foreground">{provider.error}</p>
               ) : provider.models.length === 0 ? (
@@ -120,6 +135,7 @@ export const GenerateModelPicker = memo(function GenerateModelPicker({
                     key={model.id}
                     name={model.label}
                     detail={modelDetail(model)}
+                    hints={[provider.type, provider.id, provider.label, model.id]}
                     selected={isSelected(value, provider.id, model.id)}
                     onSelect={() =>
                       onChange({ provider: 'catalog', providerId: provider.id, modelId: model.id, label: model.label })
@@ -159,11 +175,14 @@ function modelDetail(model: { detail?: string; maxTokens?: number; supportsTools
 function ModelItem({
   name,
   detail,
+  hints,
   selected,
   onSelect,
 }: {
   name: string
   detail?: string
+  /** Provider and model names, for the provider's logo. */
+  hints: Array<string | undefined>
   selected: boolean
   onSelect: () => void
 }) {
@@ -172,6 +191,7 @@ function ModelItem({
       <span className="flex h-4 w-4 shrink-0 items-center justify-center pt-0.5">
         {selected ? <Check className="h-3.5 w-3.5 !text-foreground" /> : null}
       </span>
+      <ModelLogo hints={hints} className="mt-0.5 h-4 w-4" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] text-foreground">{name}</span>
         {detail ? <span className="block truncate text-[11px] text-muted-foreground">{detail}</span> : null}

@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, MessageSquareText, Save, ShieldCheck } from 'lucide-react'
+import { ChevronLeft, MessageSquareText, Save } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,7 +47,6 @@ interface MobileWorkspaceHeaderProps {
   validationErrorCount: number
   isValidated: boolean
   onSave: () => void
-  onValidate: () => void
   onDeploy: () => void
   onGenerate?: () => void
   onExecute?: () => void
@@ -70,7 +69,6 @@ export const MobileWorkspaceHeader = memo(function MobileWorkspaceHeader({
   validationErrorCount,
   isValidated,
   onSave,
-  onValidate,
   onDeploy,
   onGenerate,
   onExecute,
@@ -221,16 +219,6 @@ export const MobileWorkspaceHeader = memo(function MobileWorkspaceHeader({
               aria-label="Save draft"
             >
               <Save className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={onValidate}
-              className="h-8 w-8"
-              aria-label="Validate"
-            >
-              <ShieldCheck className="h-4 w-4" />
             </Button>
           </div>
         </div>

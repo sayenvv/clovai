@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Loader2, type LucideIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import {
   formatCompact,
   formatNumber,
@@ -7,6 +7,7 @@ import {
   type RangeDays,
 } from '@/components/agent-workflow/dashboard/dashboard-format'
 import type { DailyUsage } from '@/services/activity-api'
+import { AgentsBodySkeleton } from '@/components/agent-workflow/dashboard/dashboard-skeletons'
 import { cn } from '@/utils/cn'
 
 function formatDay(iso: string, style: 'short' | 'long' = 'short'): string {
@@ -17,7 +18,7 @@ function formatDay(iso: string, style: 'short' | 'long' = 'short'): string {
 /** Segmented control for the report window. */
 export function RangeSelect({ value, onChange }: { value: RangeDays; onChange: (days: RangeDays) => void }) {
   return (
-    <div className="inline-flex rounded-md border border-border/70 bg-card p-0.5" role="group" aria-label="Time range">
+    <div className="inline-flex rounded-lg border border-border/70 bg-card p-0.5 shadow-sm" role="group" aria-label="Time range">
       {RANGES.map((days) => (
         <button
           key={days}
@@ -25,7 +26,7 @@ export function RangeSelect({ value, onChange }: { value: RangeDays; onChange: (
           onClick={() => onChange(days)}
           aria-pressed={value === days}
           className={cn(
-            'rounded px-2.5 py-1 text-[11px] font-medium tabular-nums transition-colors',
+            'rounded-md px-3 py-1 text-[11.5px] font-medium tabular-nums transition-colors',
             value === days ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
           )}
         >
@@ -48,9 +49,14 @@ export function Section({
   className?: string
 }) {
   return (
-    <section className={cn('rounded-lg border border-border/70 bg-card p-5', className)}>
+    <section
+      className={cn(
+        'rounded-2xl border border-border/70 bg-card p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]',
+        className,
+      )}
+    >
       <div className="mb-4 flex items-center justify-between gap-2">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h2>
+        <h2 className="text-[13px] font-semibold tracking-tight text-foreground">{title}</h2>
         {action}
       </div>
       {children}
@@ -217,7 +223,10 @@ export function ReportState({
   icon: Icon,
   emptyTitle,
   emptyHint,
+  skeleton,
 }: {
+  /** The page's own shape in shimmer; a generic table when omitted. */
+  skeleton?: ReactNode
   isLoading: boolean
   error: string | null
   empty: boolean
@@ -226,12 +235,7 @@ export function ReportState({
   emptyHint: string
 }) {
   if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-card px-4 py-10 text-[12px] text-muted-foreground">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Loading…
-      </div>
-    )
+    return <>{skeleton ?? <AgentsBodySkeleton />}</>
   }
   if (error) {
     return (

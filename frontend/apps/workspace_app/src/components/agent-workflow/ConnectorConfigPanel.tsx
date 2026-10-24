@@ -3,11 +3,13 @@ import { ShieldCheck } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Field, PanelSection } from '@/components/agent-workflow/FormField'
 import type { Diagram, DiagramEdge } from '@/components/designer/diagram-types'
 import type { ConnectorConfig } from '@/types/agent-workflow'
+
+/** Asks the workflow page to put a Human Review step on a connector (`detail.edgeId`). */
+export const INSERT_REVIEW_ON_EDGE_EVENT = 'eleven-nodes-insert-review-on-edge'
 
 interface ConnectorConfigPanelProps {
   edge: DiagramEdge
@@ -44,14 +46,41 @@ export const ConnectorConfigPanel = memo(function ConnectorConfigPanel({
 
   return (
     <div className="flex h-full flex-col">
-      {connector.humanApproval && (
-        <div className="border-b border-border px-4 py-2">
-          <Badge className="bg-primary text-[10px] hover:bg-primary/90">
-            <ShieldCheck className="mr-1 h-3 w-3" />
-            Human approval
-          </Badge>
+      {connector.humanApproval ? (
+        <div className="mx-4 mt-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-3">
+          <div className="flex items-start gap-2.5">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300">
+              <ShieldCheck className="size-3.5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[12.5px] font-medium text-foreground">Approval set on this connector</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                Human approval now lives in a Human Review step, so the pause shows on the canvas and
+                keeps its own message, reviewer and timeout.
+              </p>
+            </div>
+          </div>
+          <div className="mt-2.5 flex gap-2 pl-[38px]">
+            <Button
+              size="sm"
+              className="h-7 text-[11.5px]"
+              onClick={() =>
+                window.dispatchEvent(new CustomEvent(INSERT_REVIEW_ON_EDGE_EVENT, { detail: { edgeId: edge.id } }))
+              }
+            >
+              Convert to review step
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-[11.5px] text-muted-foreground"
+              onClick={() => updateConnector(onChange, edge.id, { humanApproval: false })}
+            >
+              Remove approval
+            </Button>
+          </div>
         </div>
-      )}
+      ) : null}
 
       <Tabs defaultValue="flow" className="flex min-h-0 flex-1 flex-col px-4 py-3">
         <TabsList className="h-8 w-full shrink-0">
@@ -60,9 +89,6 @@ export const ConnectorConfigPanel = memo(function ConnectorConfigPanel({
           </TabsTrigger>
           <TabsTrigger value="mapping" className="flex-1 text-xs">
             Mapping
-          </TabsTrigger>
-          <TabsTrigger value="approval" className="flex-1 text-xs">
-            Approval
           </TabsTrigger>
         </TabsList>
 
@@ -139,84 +165,6 @@ export const ConnectorConfigPanel = memo(function ConnectorConfigPanel({
           </Field>
         </TabsContent>
 
-        <TabsContent value="approval" className="mt-3 flex-1 overflow-y-auto space-y-4 pb-4">
-          <div className="flex items-center justify-between rounded-lg border border-foreground/30 bg-foreground/5 px-3 py-2.5">
-            <div>
-              <p className="text-sm font-medium">Human approval required</p>
-              <p className="text-xs text-muted-foreground">Pause workflow until a reviewer approves</p>
-            </div>
-            <Switch
-              checked={connector.humanApproval}
-              onCheckedChange={(checked) =>
-                updateConnector(onChange, edge.id, { humanApproval: checked })
-              }
-            />
-          </div>
-
-          {connector.humanApproval && (
-            <>
-              <Field label="Approval message">
-                <Textarea
-                  rows={3}
-                  value={connector.approvalMessage}
-                  onChange={(event) =>
-                    updateConnector(onChange, edge.id, { approvalMessage: event.target.value })
-                  }
-                />
-              </Field>
-              <Field label="Approval role / user">
-                <Input
-                  value={connector.approvalRole}
-                  onChange={(event) =>
-                    updateConnector(onChange, edge.id, { approvalRole: event.target.value })
-                  }
-                  placeholder="reviewer, admin@company.com"
-                />
-              </Field>
-              <Field label="Approval timeout (minutes)">
-                <Input
-                  type="number"
-                  min={1}
-                  value={connector.approvalTimeoutMinutes}
-                  onChange={(event) =>
-                    updateConnector(onChange, edge.id, {
-                      approvalTimeoutMinutes: Number(event.target.value),
-                    })
-                  }
-                />
-              </Field>
-              <div className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
-                <div>
-                  <p className="text-sm font-medium">Request changes & re-run</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Send feedback to re-run the previous agent until approved.
-                  </p>
-                </div>
-                <Switch
-                  checked={Boolean(connector.feedbackRevisionsEnabled)}
-                  onCheckedChange={(checked) =>
-                    updateConnector(onChange, edge.id, { feedbackRevisionsEnabled: checked })
-                  }
-                />
-              </div>
-              {connector.feedbackRevisionsEnabled ? (
-                <Field label="Max revision rounds">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={connector.maxFeedbackRevisions ?? 5}
-                    onChange={(event) =>
-                      updateConnector(onChange, edge.id, {
-                        maxFeedbackRevisions: Number(event.target.value),
-                      })
-                    }
-                  />
-                </Field>
-              ) : null}
-            </>
-          )}
-        </TabsContent>
       </Tabs>
     </div>
   )

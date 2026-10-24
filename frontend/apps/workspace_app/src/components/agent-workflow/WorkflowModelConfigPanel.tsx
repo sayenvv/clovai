@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch'
 import { Field, PanelSection } from '@/components/agent-workflow/FormField'
 import { OLLAMA_DEFAULT_URL, isLocalModel } from '@/components/agent-workflow/workflow-model-config'
 import { fetchOllamaModels, type LocalModel } from '@/services/models-api'
+import { ModelLogo, providerFromHints } from '@/components/agent-workflow/model-providers'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 
 interface WorkflowModelConfigPanelProps {
@@ -55,6 +56,16 @@ export const WorkflowModelConfigPanel = memo(function WorkflowModelConfigPanel({
             <option value="ollama">Ollama (local)</option>
           </Select>
         </Field>
+
+        <div className="flex items-center gap-2.5 rounded-lg border border-border/70 bg-card px-3 py-2">
+          <ModelLogo hints={[shown.provider, shown.model]} className="h-7 w-7" />
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium text-foreground">
+              {providerFromHints(shown.provider, shown.model)?.label ?? (shown.provider || 'Model provider')}
+            </p>
+            <p className="truncate font-mono text-[11px] text-muted-foreground">{shown.model || 'No model selected'}</p>
+          </div>
+        </div>
 
         {local ? (
           <OllamaFields modelConfig={modelConfig} editable={editable} onChange={onChange} />

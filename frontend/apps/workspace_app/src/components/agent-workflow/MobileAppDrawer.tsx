@@ -6,7 +6,6 @@ import {
   Download,
   Eraser,
   FilePlus2,
-  GitBranch,
   Grid3x3,
   Layers,
   LayoutTemplate,
@@ -56,10 +55,7 @@ interface MobileAppDrawerProps {
   snapToGrid: boolean
   showGrid: boolean
   codeViewActive?: boolean
-  canConvertToSubWorkflow?: boolean
   onNewPage: () => void
-  onNewMainPage?: () => void
-  onNewSubPage?: () => void
   onNewWorkspace: () => void
   onSave: () => void
   onSaveAs: () => void
@@ -68,14 +64,12 @@ interface MobileAppDrawerProps {
   onExportSvg: () => void
   onExportPng: () => void
   onExportPdf: () => void
-  onInsertWorkflow: () => void
   onInsertTemplates: () => void
   onCreateWorkflowTab: () => void
   onInsertImport: () => void
   onToggleCodeView: () => void
   onDuplicate: () => void
   onDeleteSelection: () => void
-  onConvertToSubWorkflow: () => void
   onClearCanvas: () => void
   onZoomIn: () => void
   onZoomOut: () => void
@@ -158,10 +152,7 @@ export const MobileAppDrawer = memo(function MobileAppDrawer({
   snapToGrid,
   showGrid,
   codeViewActive = false,
-  canConvertToSubWorkflow = false,
   onNewPage,
-  onNewMainPage,
-  onNewSubPage,
   onNewWorkspace,
   onSave,
   onSaveAs,
@@ -170,14 +161,12 @@ export const MobileAppDrawer = memo(function MobileAppDrawer({
   onExportSvg,
   onExportPng,
   onExportPdf,
-  onInsertWorkflow,
   onInsertTemplates,
   onCreateWorkflowTab,
   onInsertImport,
   onToggleCodeView,
   onDuplicate,
   onDeleteSelection,
-  onConvertToSubWorkflow,
   onClearCanvas,
   onZoomIn,
   onZoomOut,
@@ -191,12 +180,7 @@ export const MobileAppDrawer = memo(function MobileAppDrawer({
   const hasSelection = Boolean(selection)
 
   const fileActions: DrawerAction[] = [
-    ...(onNewMainPage
-      ? [{ id: 'new-main', label: 'New main workflow', icon: Layers, onSelect: onNewMainPage }]
-      : [{ id: 'new-page', label: 'New page', icon: FilePlus2, onSelect: onNewPage }]),
-    ...(onNewSubPage
-      ? [{ id: 'new-sub', label: 'New sub-workflow', icon: GitBranch, onSelect: onNewSubPage }]
-      : []),
+    { id: 'new-page', label: 'New workflow tab', icon: FilePlus2, onSelect: onNewPage },
     { id: 'new-workspace', label: 'New workspace', icon: Layers, onSelect: onNewWorkspace },
     { id: 'save', label: 'Save', icon: Save, onSelect: onSave },
     { id: 'save-as', label: 'Save as…', icon: Download, onSelect: onSaveAs },
@@ -232,10 +216,9 @@ export const MobileAppDrawer = memo(function MobileAppDrawer({
   ]
 
   const insertActions: DrawerAction[] = [
-    { id: 'insert-workflow', label: 'Workflow…', icon: Layers, onSelect: onInsertWorkflow },
     {
       id: 'insert-templates',
-      label: 'Templates…',
+      label: 'Import JSON…',
       icon: LayoutTemplate,
       onSelect: onInsertTemplates,
     },
@@ -266,13 +249,6 @@ export const MobileAppDrawer = memo(function MobileAppDrawer({
       icon: Copy,
       onSelect: onDuplicate,
       disabled: selection?.kind !== 'node',
-    },
-    {
-      id: 'subflow',
-      label: 'Convert to sub-workflow',
-      icon: GitBranch,
-      onSelect: onConvertToSubWorkflow,
-      disabled: !canConvertToSubWorkflow,
     },
     {
       id: 'delete',

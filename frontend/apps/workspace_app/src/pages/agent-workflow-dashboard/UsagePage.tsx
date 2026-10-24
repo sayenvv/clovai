@@ -18,6 +18,7 @@ import { useActivityReport } from '@/components/agent-workflow/dashboard/use-act
 import { TokenBudgetBar } from '@/components/agent-workflow/TokenBudgetBar'
 import { fetchUsageReport } from '@/services/activity-api'
 import { readTokenUsage, subscribeTokenUsage } from '@/services/token-usage-store'
+import { UsageBodySkeleton } from '@/components/agent-workflow/dashboard/dashboard-skeletons'
 
 const SOURCE_LABEL: Record<string, string> = {
   'workflow-chat': 'Workflow AI chat',
@@ -41,25 +42,25 @@ export default function UsagePage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
+        <StatCard loading={isLoading && !data}
           label={`Tokens · last ${days} days`}
           value={totals ? formatNumber(totals.totalTokens) : '—'}
           hint={totals ? `${formatCompact(totals.inputTokens)} in · ${formatCompact(totals.outputTokens)} out` : 'Loading'}
           icon={Hash}
         />
-        <StatCard
+        <StatCard loading={isLoading && !data}
           label="Model calls"
           value={totals ? formatNumber(totals.calls) : '—'}
           hint="Each request to the model"
           icon={Repeat}
         />
-        <StatCard
+        <StatCard loading={isLoading && !data}
           label="Avg tokens per call"
           value={totals && totals.calls ? formatNumber(Math.round(totals.totalTokens / totals.calls)) : '—'}
           hint="Input and output together"
           icon={Coins}
         />
-        <StatCard
+        <StatCard loading={isLoading && !data}
           label="Allowance remaining"
           value={allowance ? formatCompact(allowance.tokensRemaining) : '—'}
           hint={allowance ? `of ${formatCompact(allowance.tokenLimit)} this period` : 'Loads with your account'}
@@ -70,6 +71,7 @@ export default function UsagePage() {
       <div className="mt-6">
         <ReportState
           isLoading={isLoading && !data}
+          skeleton={<UsageBodySkeleton />}
           error={error}
           empty={empty}
           icon={BarChart3}

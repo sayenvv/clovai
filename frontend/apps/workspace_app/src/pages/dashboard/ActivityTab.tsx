@@ -6,6 +6,7 @@ import { PageIntro } from '@/components/agent-workflow/dashboard/dashboard-ui'
 import { useActivityReport } from '@/components/agent-workflow/dashboard/use-activity-report'
 import { fetchRecentCalls } from '@/services/activity-api'
 import { cn } from '@/utils/cn'
+import { ActivityBodySkeleton } from '@/components/agent-workflow/dashboard/dashboard-skeletons'
 
 const LIMIT = 100
 const SOURCE_LABEL: Record<string, string> = { 'workflow-chat': 'Workflow AI', execute: 'Workflow run' }
@@ -47,6 +48,7 @@ export default function ActivityTab() {
 
       <ReportState
         isLoading={isLoading && !data}
+          skeleton={<ActivityBodySkeleton />}
         error={error}
         empty={Boolean(data) && calls.length === 0}
         icon={Activity}

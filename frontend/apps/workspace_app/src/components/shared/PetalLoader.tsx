@@ -1,14 +1,32 @@
 import { cn } from '@/utils/cn'
+import { LOGO_SRC, LOGO_SRC_DARK } from '@/components/shared/Logo'
 
-const PETAL = 'M97,93 C95,78 86,58 70,42 Q60,31 72,24 L104,10 Q122,3 125,20 Q128,42 97,93 Z'
-const ANGLES = [-15, 45, 105, 165, 225, 285]
+const LOADER_SRC = '/brand/loader-darkgreen.svg'
+const LOADER_SRC_DARK = '/brand/loader-white.svg'
+
+/** A light/dark pair of images: the dark-green one on light surfaces, the white one in dark mode. */
+function ThemedImage({
+  light,
+  dark,
+  size,
+  className,
+}: {
+  light: string
+  dark: string
+  size: number
+  className?: string
+}) {
+  return (
+    <span className={cn('inline-flex shrink-0', className)} style={{ width: size, height: size }}>
+      <img src={light} alt="" width={size} height={size} className="h-full w-full dark:hidden" decoding="async" />
+      <img src={dark} alt="" width={size} height={size} className="hidden h-full w-full dark:block" decoding="async" />
+    </span>
+  )
+}
 
 /**
- * The brand loading mark: six petals lighting up in turn.
- *
- * Petals use `currentColor`, which defaults to the app's text colour: black in
- * light mode, white in dark mode, following the app's theme toggle. Pass a
- * text class to recolour it. Animation styles live in `index.css` under `.petal-loader`.
+ * The brand loading mark: the workflow mark drawing itself in, then out.
+ * The animation lives inside the SVG; it swaps to the white version in dark mode.
  */
 export function PetalLoader({
   size = 64,
@@ -20,38 +38,17 @@ export function PetalLoader({
   className?: string
 }) {
   return (
-    <svg
-      className={cn('petal-loader shrink-0 text-foreground', className)}
-      width={size}
-      height={size}
-      viewBox="0 0 200 200"
-      role="img"
-      aria-label={label}
-    >
-      <g className="spinner">
-        {ANGLES.map((angle, index) => (
-          <g key={angle} className="p" style={{ '--i': index } as React.CSSProperties}>
-            <path d={PETAL} transform={`rotate(${angle} 100 100) translate(3,-7) scale(.96)`} fill="currentColor" />
-          </g>
-        ))}
-      </g>
-    </svg>
+    <span role="img" aria-label={label} className="inline-flex shrink-0">
+      <ThemedImage light={LOADER_SRC} dark={LOADER_SRC_DARK} size={size} className={className} />
+    </span>
   )
 }
 
-/** The same six-petal mark, still and fully filled, for use as the brand icon. */
+/** The brand mark, still, for use as the brand icon. */
 export function PetalMark({ size = 24, className }: { size?: number; className?: string }) {
   return (
-    <svg
-      className={cn('shrink-0 text-foreground', className)}
-      width={size}
-      height={size}
-      viewBox="0 0 200 200"
-      aria-hidden="true"
-    >
-      {ANGLES.map((angle) => (
-        <path key={angle} d={PETAL} transform={`rotate(${angle} 100 100) translate(3,-7) scale(.96)`} fill="currentColor" />
-      ))}
-    </svg>
+    <span aria-hidden="true" className="inline-flex shrink-0">
+      <ThemedImage light={LOGO_SRC} dark={LOGO_SRC_DARK} size={size} className={className} />
+    </span>
   )
 }

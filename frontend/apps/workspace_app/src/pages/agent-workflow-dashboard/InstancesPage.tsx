@@ -12,9 +12,9 @@ import {
   Rocket,
   Sparkles,
   Timer,
-  Workflow,
   Wrench,
 } from 'lucide-react'
+import { WorkflowIcon as Workflow } from '@/components/shared/WorkflowIcon'
 import {
   formatCurrency,
   formatLatency,

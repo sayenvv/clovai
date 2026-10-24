@@ -246,7 +246,38 @@ export function shouldSyncToolLayout(before: Diagram, after: Diagram): boolean {
   return false
 }
 
-/** Keep mapped tools in a row under their agent after agent moves or remapping. */
+/**
+ * Keep mapped tools with their agents while respecting where the user put them: when an agent
+ * moves, its tools move by the same amount; tools the user arranged otherwise stay put. Only a
+ * change of flow direction lays every tool out again in a row.
+ */
+export function keepToolsWithAgents(before: Diagram, after: Diagram): Diagram {
+  if (before.direction !== after.direction) return syncMappedToolLayout(after)
+  const beforeById = new Map(before.nodes.map((node) => [node.id, node]))
+  const deltaByAgent = new Map<string, { dx: number; dy: number }>()
+  for (const agent of listAgentNodes(after)) {
+    const previous = beforeById.get(agent.id)
+    if (!previous) continue
+    const dx = agent.x - previous.x
+    const dy = agent.y - previous.y
+    if (dx !== 0 || dy !== 0) deltaByAgent.set(agent.id, { dx, dy })
+  }
+  if (deltaByAgent.size === 0) return after
+  let changed = false
+  const nodes = after.nodes.map((node) => {
+    if (!isToolNode(node) || !node.mappedAgentId) return node
+    const delta = deltaByAgent.get(node.mappedAgentId)
+    const previous = beforeById.get(node.id)
+    // Only tools that stayed under the same agent and weren't moved in this same change.
+    if (!delta || !previous || previous.mappedAgentId !== node.mappedAgentId) return node
+    if (previous.x !== node.x || previous.y !== node.y) return node
+    changed = true
+    return { ...node, x: node.x + delta.dx, y: node.y + delta.dy }
+  })
+  return changed ? { ...after, nodes } : after
+}
+
+/** Lay mapped tools out in a row under their agent (used when the flow direction changes). */
 export function syncMappedToolLayout(diagram: Diagram): Diagram {
   const agents = listAgentNodes(diagram)
   if (agents.length === 0) return diagram

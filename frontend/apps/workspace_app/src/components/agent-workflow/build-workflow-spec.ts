@@ -1,7 +1,9 @@
+import { findOrchestrations, resolveExecutionType } from '@/components/agent-workflow/orchestration-patterns'
+import { BUILDER_SPECS, builderConfig } from '@/components/agent-workflow/workflow-builder-config'
 import type { Diagram, DiagramDocument, DiagramNode } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import { normalizeExecutorSource } from '@/components/agent-workflow/executor-source'
-import type { AgentNodeConfig, WorkflowExecutionType } from '@/types/agent-workflow'
+import { normalizeApprovalMode, type AgentNodeConfig, type WorkflowExecutionType } from '@/types/agent-workflow'
 import type {
   SchemaBlock,
   WorkflowBuildAgent,
@@ -113,11 +115,41 @@ function parseModelString(model: string): Pick<WorkflowModelConfig, 'provider' |
   return { provider: DEFAULT_WORKFLOW_MODEL_CONFIG.provider, model: trimmed }
 }
 
+/**
+ * The run's orchestration settings from its first workflow node (the one that sets the pattern),
+ * plus every workflow node's Agent Framework builder block in metadata for the backend to read.
+ */
+function orchestrationSettings(diagram: Diagram) {
+  const orchestrations = findOrchestrations(diagram)
+  const builders = orchestrations.flatMap((orchestration) => {
+    const node = diagram.nodes.find((candidate) => candidate.id === orchestration.orchestratorId)
+    return node
+      ? [{ workflowId: `wf_${node.id}`, ...builderConfig(orchestration.pattern, node, orchestration.participantIds, diagram) }]
+      : []
+  })
+  const first = orchestrations[0]
+  if (!first) return { orchestration: undefined, builders }
+  const values = diagram.nodes.find((node) => node.id === first.orchestratorId)?.agent?.workflowConfig
+  const maxRounds = Number(values?.max_round_count ?? values?.max_rounds)
+  const startAgent = typeof values?.start_agent === 'string' ? values.start_agent : null
+  return {
+    orchestration: {
+      managerAgentId: BUILDER_SPECS[first.pattern].managerKey ? first.orchestratorId : null,
+      ...(first.pattern === 'handoff' ? { startAgentId: startAgent ?? first.orchestratorId } : {}),
+      // The backend accepts 1–100 rounds.
+      ...(Number.isFinite(maxRounds) && maxRounds > 0 ? { maxRounds: Math.min(100, Math.round(maxRounds)) } : {}),
+    },
+    builders,
+  }
+}
+
 function buildSettings(
   agents: DiagramNode[],
   subWorkflows: WorkflowSubWorkflowExport[],
   modelConfig: WorkflowModelConfig,
+  diagram: Diagram,
 ): WorkflowSettings {
+  const { orchestration, builders } = orchestrationSettings(diagram)
   const configs = agents.map((node) => node.agent).filter(Boolean) as AgentNodeConfig[]
   const maxTimeout = configs.reduce((max, config) => Math.max(max, config.timeoutSeconds ?? 0), 0)
   const maxRetries = configs.reduce((max, config) => Math.max(max, config.retryCount ?? 0), 0)
@@ -135,7 +167,9 @@ function buildSettings(
     },
     metadata: {
       subWorkflows,
+      ...(builders.length > 0 ? { workflowBuilders: builders } : {}),
     },
+    ...(orchestration ? { orchestration } : {}),
   }
 }
 
@@ -143,6 +177,8 @@ function agentMetadata(node: DiagramNode): Record<string, unknown> {
   const metadata: Record<string, unknown> = {
     paletteId: node.paletteId,
     agentType: node.agent?.agentType,
+    // The user's own saved model: the server builds this agent's chat client from it.
+    ...(node.agent?.modelConnectionId ? { modelConnectionId: node.agent.modelConnectionId } : {}),
   }
 
   if (isSubWorkflowNode(node) && node.subWorkflowPageId) {
@@ -232,7 +268,7 @@ function buildToolSpecs(diagram: Diagram): WorkflowBuildTool[] {
         configuration: {
           integrations: [...config.tools],
           paletteId: tool.paletteId,
-          approvalMode: config.approvalMode ?? 'never_required',
+          approvalMode: normalizeApprovalMode(config.approvalMode),
           ...(isMcpToolNode(tool) && config.mcpUrl ? { url: config.mcpUrl } : {}),
         },
         inputSchema: toSchemaBlock(config.inputSchema),
@@ -381,7 +417,8 @@ export function buildWorkflowSpec({
   const workflowName = page?.name ?? 'Untitled workflow'
   const agentNodes = listAgentNodes(diagram)
   const body = buildWorkflowBody(doc, pageId, diagram, paletteById, visited)
-  const executionType = workflowMeta?.executionType ?? 'sequential'
+  // An orchestrator block on the canvas decides the pattern; otherwise the workflow's chosen type.
+  const executionType = resolveExecutionType(workflowMeta?.executionType, diagram)
   const modelConfig = resolveModelConfig(doc, agentNodes, serverModelConfig)
   const now = new Date().toISOString()
 
@@ -407,6 +444,6 @@ export function buildWorkflowSpec({
     agents: body.agents,
     tools: body.tools,
     edges: body.edges,
-    settings: buildSettings(agentNodes, body.subWorkflows, modelConfig),
+    settings: buildSettings(agentNodes, body.subWorkflows, modelConfig, diagram),
   }
 }

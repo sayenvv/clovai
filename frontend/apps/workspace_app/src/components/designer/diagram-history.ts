@@ -4,20 +4,35 @@ import type { Diagram } from './diagram-types'
 const MAX_HISTORY = 80
 
 /** Lightweight undo/redo stack for page-level diagram mutations. */
+/** Changes this close together (a drag, a resize) undo as one step. */
+const COALESCE_MS = 400
+
 export function createDiagramHistoryStack(max = MAX_HISTORY) {
   let past: Diagram[] = []
   let future: Diagram[] = []
+  let lastPushAt = 0
 
   return {
+    /**
+     * Record `previous` as an undo point. Safe to call twice with the same snapshot (React
+     * strict mode runs state updaters twice), and a burst of changes keeps only its first point.
+     */
     push(previous: Diagram) {
-      past = [...past.slice(-(max - 1)), previous]
+      const now = Date.now()
+      const top = past[past.length - 1]
+      const burst = now - lastPushAt < COALESCE_MS
+      lastPushAt = now
       future = []
+      if (top === previous || (burst && top !== undefined)) return
+      past = [...past.slice(-(max - 1)), previous]
     },
     clear() {
       past = []
       future = []
+      lastPushAt = 0
     },
     undo(current: Diagram): Diagram | null {
+      lastPushAt = 0
       if (past.length === 0) return null
       const previous = past[past.length - 1]
       past = past.slice(0, -1)
@@ -25,6 +40,7 @@ export function createDiagramHistoryStack(max = MAX_HISTORY) {
       return previous
     },
     redo(current: Diagram): Diagram | null {
+      lastPushAt = 0
       if (future.length === 0) return null
       const next = future[0]
       future = future.slice(1)

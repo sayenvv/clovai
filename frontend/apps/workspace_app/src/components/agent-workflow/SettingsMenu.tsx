@@ -1,7 +1,8 @@
 import { memo, useEffect, useState, useSyncExternalStore } from 'react'
-import { Link } from 'react-router-dom'
-import { Cpu, LayoutDashboard, Moon, Play, Rocket, Settings2, Sparkles, Sun, Workflow } from 'lucide-react'
+import { ExternalLink, LayoutDashboard, Moon, Play, Rocket, Settings2, Sparkles, Sun } from 'lucide-react'
+import { WorkflowIcon as Workflow } from '@/components/shared/WorkflowIcon'
 import { Badge } from '@/components/ui/badge'
+import { ModelLogo } from '@/components/agent-workflow/model-providers'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -27,7 +28,7 @@ import {
 } from '@/components/ui/tooltip'
 import { useTheme } from '@/hooks/use-theme'
 import { TokenBudgetBar } from '@/components/agent-workflow/TokenBudgetBar'
-import { ROUTES } from '@/constants'
+import { DASHBOARD_TAB_LINK, ROUTES } from '@/constants'
 import { getSession } from '@/services/project-auth-store'
 import { ensureTokenUsage, readTokenUsage, subscribeTokenUsage } from '@/services/token-usage-store'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
@@ -118,10 +119,11 @@ export const SettingsMenu = memo(function SettingsMenu({
               ) : null}
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link to={ROUTES.dashboard}>
+              <a href={ROUTES.dashboard} {...DASHBOARD_TAB_LINK}>
                 <LayoutDashboard />
                 Dashboard
-              </Link>
+                <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground" />
+              </a>
             </DropdownMenuItem>
             {onOpenWorkflowSettings ? (
               <DropdownMenuItem onSelect={() => onOpenWorkflowSettings()}>
@@ -202,7 +204,7 @@ export const SettingsMenu = memo(function SettingsMenu({
             <TokenBudgetBar />
             <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5">
               <div className="flex items-center gap-2 text-xs font-semibold">
-                <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
+                <ModelLogo hints={[modelConfig?.provider, modelConfig?.model]} className="h-4 w-4" />
                 Active model
               </div>
               <p className="mt-1 truncate font-mono text-[11px]">
@@ -215,10 +217,11 @@ export const SettingsMenu = memo(function SettingsMenu({
               </p>
             </div>
             <Button asChild variant="outline" size="sm" className="h-8 w-full rounded-lg">
-              <Link to={ROUTES.dashboard} onClick={() => setUsageOpen(false)}>
+              <a href={ROUTES.dashboard} {...DASHBOARD_TAB_LINK} onClick={() => setUsageOpen(false)}>
                 <LayoutDashboard className="h-3.5 w-3.5" />
                 Open dashboard
-              </Link>
+                <ExternalLink className="h-3 w-3" />
+              </a>
             </Button>
           </div>
         </DialogContent>

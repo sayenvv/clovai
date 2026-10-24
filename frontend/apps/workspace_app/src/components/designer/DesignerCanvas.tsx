@@ -8,12 +8,14 @@ import {
   type PointerEvent as ReactPointerEvent,
   type DragEvent as ReactDragEvent,
 } from 'react'
-import { MousePointerClick, Plus } from 'lucide-react'
+import { Check, CornerDownRight, MousePointerClick, Plus, Spline } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/utils/cn'
 import { useTheme } from '@/hooks/use-theme'
 import { NodeShape } from './NodeShape'
 import { AgentNodeCard, AGENT_DOCK_SLOTS } from '@/components/agent-workflow/AgentNodeCard'
-import type { AgentAttachAction, MappedChildCounts } from '@/components/agent-workflow/AgentNodeCard'
+import type { AgentAttachAction, MappedChildCounts, NodeOrchestration } from '@/components/agent-workflow/AgentNodeCard'
+import { findOrchestrations, PATTERN_META } from '@/components/agent-workflow/orchestration-patterns'
 import {
   VERTICAL_CAPABILITY_BAR_HEIGHT,
   childKindForPalette,
@@ -201,7 +203,7 @@ function makeRoomOffsets(
 const RUN_RING_CLASSES: Record<NodeRunStatus, string> = {
   running: 'border-sky-500 shadow-[0_0_0_4px_rgba(14,165,233,0.15)] motion-safe:animate-pulse',
   waiting: 'border-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.15)]',
-  completed: 'border-emerald-500/80',
+  completed: 'border-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.14)]',
   error: 'border-red-500',
 }
 
@@ -313,8 +315,12 @@ interface DesignerCanvasProps {
   agentMode?: boolean
   transformDroppedNode?: (node: DiagramNode, item: PaletteItem) => DiagramNode
   onNodeAttachAction?: (agentId: string, action: AgentAttachAction) => void
-  /** Insert a Human Review (HITL) node on the selected/hovered connector. */
+  /** Insert a Human Review step on a connector (from its right-click menu). */
   onInsertHitlOnEdge?: (edgeId: string) => void
+  /** Agent workflow: the "+" on a hovered or selected connector was clicked, at screen position (x, y). */
+  onInsertNodeOnEdge?: (edgeId: string, x: number, y: number) => void
+  /** Agent workflow: the "+" shown while hovering a node's output port was clicked, at screen position (x, y). */
+  onAddNodeAfter?: (nodeId: string, x: number, y: number) => void
   /** Run the workflow from the Start node's play button. */
   onRunWorkflow?: () => void
   /** A node was clicked (pressed and released without dragging). */
@@ -423,6 +429,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   transformDroppedNode,
   onNodeAttachAction,
   onInsertHitlOnEdge,
+  onInsertNodeOnEdge,
+  onAddNodeAfter,
   onRunWorkflow,
   onNodeOpen,
   onEdgeOpen,
@@ -437,6 +445,20 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   onRedo,
 }: DesignerCanvasProps) {
   const flowDirection = agentMode ? resolveFlowDirection(diagram.direction) : 'horizontal'
+  const flowOutSide = flowPortSides(flowDirection).fromSide
+  // Orchestrator blocks and the agents each one connects to (its team).
+  const orchestrations = useMemo(() => (agentMode ? findOrchestrations(diagram) : []), [agentMode, diagram])
+  const nodeOrchestration = (nodeId: string): NodeOrchestration | undefined => {
+    const own = orchestrations.find((item) => item.orchestratorId === nodeId)
+    if (own) {
+      const team = own.participantIds.map(
+        (id) => diagram.nodes.find((candidate) => candidate.id === id)?.label?.trim() || 'Agent',
+      )
+      return { role: 'orchestrator', pattern: PATTERN_META[own.pattern].label, teamSize: team.length, team }
+    }
+    const member = orchestrations.find((item) => item.participantIds.includes(nodeId))
+    return member ? { role: 'participant', teamLabel: PATTERN_META[member.pattern].teamLabel } : undefined
+  }
   const containerRef = useRef<HTMLDivElement>(null)
   const { isDark } = useTheme()
   const sessionRef = useRef<DragSession>(null)
@@ -449,6 +471,20 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   const [editingEdgeId, setEditingEdgeId] = useState<string | null>(null)
   const [isGrabbing, setIsGrabbing] = useState(false)
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
+  // A connector stays hovered briefly after the pointer leaves it, so its toolbar can be reached.
+  const edgeHoverTimerRef = useRef<number | undefined>(undefined)
+  const holdEdgeHover = useCallback((edgeId: string) => {
+    window.clearTimeout(edgeHoverTimerRef.current)
+    setHoveredEdgeId(edgeId)
+  }, [])
+  const releaseEdgeHover = useCallback((edgeId: string) => {
+    window.clearTimeout(edgeHoverTimerRef.current)
+    edgeHoverTimerRef.current = window.setTimeout(
+      () => setHoveredEdgeId((current) => (current === edgeId ? null : current)),
+      220,
+    )
+  }, [])
+  useEffect(() => () => window.clearTimeout(edgeHoverTimerRef.current), [])
   const [snapTarget, setSnapTarget] = useState<{ nodeId: string; side: PortSide } | null>(null)
   const [edgeMenu, setEdgeMenu] = useState<EdgeContextMenuState | null>(null)
   const edgeClipboardRef = useRef<DiagramEdge[]>([])
@@ -1425,8 +1461,12 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       const fromItem = from && paletteById.get(from.paletteId)
       const toItem = to && paletteById.get(to.paletteId)
       if (!from || !to || !fromItem || !toItem) return []
-      // Agent workflows use curved connectors — no orthogonal/straight rails.
-      const routing = agentMode ? 'curved' : resolveEdgeRouting(edge.routing)
+      // Agent workflows draw curved connectors unless one is explicitly set to right angles.
+      const routing = agentMode
+        ? edge.routing === 'orthogonal'
+          ? 'orthogonal'
+          : 'curved'
+        : resolveEdgeRouting(edge.routing)
       const fromPoint =
         expandedNode?.id === from.id
           ? expandedPortPoint(from, expandedNode, edge.fromSide)
@@ -1568,6 +1608,36 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   }, [connectSourceNode, connectSourceItem, connectFrom, connectCursor, agentMode])
 
   const isConnecting = Boolean(connectFrom || reconnectEnd)
+
+  // Nodes that get a "+" beside their output port: open (unconnected) output, editable canvas.
+  const canAddAfter = (node: DiagramNode) =>
+    Boolean(onAddNodeAfter) &&
+    agentMode &&
+    !selectionDisabled &&
+    !isToolNode(node) &&
+    node.id !== hiddenNodeId &&
+    canConnectFromFlowNode(node, agentMode) &&
+    !diagram.edges.some((edge) => edge.from === node.id && edge.fromSide === flowOutSide)
+  // Every node whose output port is still open shows its "+", always (not only on hover).
+  const addAfterTargets = (() => {
+    if (isConnecting || !onAddNodeAfter) return []
+    return diagram.nodes.flatMap((node) => {
+      if (!canAddAfter(node)) return []
+      const item = paletteById.get(node.paletteId)
+      if (!item) return []
+      const point = portPoint(node, resolvePortShape(node, item, agentMode), flowOutSide)
+      const offset = roomOffsets[node.id]
+      return [
+        {
+          nodeId: node.id,
+          label: node.label?.trim() || item.label,
+          x: point.x + (offset?.dx ?? 0),
+          y: point.y + (offset?.dy ?? 0),
+        },
+      ]
+    })
+  })()
+
   const gridSize = 24 * viewport.scale
 
   return (
@@ -1678,6 +1748,14 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   aria-hidden
                 />
               )}
+              {runStatusByNode?.[node.id] === 'completed' && (
+                <span
+                  className="pointer-events-none absolute -right-2 -top-2 z-[3] flex size-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm ring-2 ring-[hsl(var(--canvas))] animate-in zoom-in-50 duration-200"
+                  title="Completed"
+                >
+                  <Check className="size-3" strokeWidth={3} />
+                </span>
+              )}
               {agentMode && flowBoundary ? (
                 <FlowBoundaryCard
                   node={node}
@@ -1696,6 +1774,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   mappedChildren={mappedChildrenByAgentId.get(node.id)}
                   onAttachAction={onNodeAttachAction}
                   direction={flowDirection}
+                  orchestration={nodeOrchestration(node.id)}
                   className="cursor-inherit h-full w-full"
                 />
               ) : (
@@ -1919,7 +1998,12 @@ export const DesignerCanvas = memo(function DesignerCanvas({
               : isDark
                 ? '#38bdf8'
                 : '#0284c7'
-            const stroke = isSelected ? accentStroke : isHovered ? hoverStroke : baseStroke
+            // The run's path: a connector out of a finished node into one that ran (or is running).
+            const fromRun = runStatusByNode?.[edge.from]
+            const toRun = runStatusByNode?.[edge.to]
+            const onRunPath = fromRun === 'completed' && (toRun === 'completed' || toRun === 'running' || toRun === 'waiting')
+            const runPathStroke = isDark ? '#34d399' : '#10b981'
+            const stroke = onRunPath ? runPathStroke : isSelected ? accentStroke : isHovered ? hoverStroke : baseStroke
             const strokeWidth = agentMode
               ? isSelected
                 ? 2
@@ -1943,12 +2027,12 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 : undefined
             const labelWidth = connectorLabelWidth(text ?? '', endpointGap - 48, isEditing)
             const labelCharsPerLine = Math.max(8, Math.min(40, Math.floor((labelWidth - 16) / 6.5)))
-            const showHitlAffordance =
+            const showInsertStep =
               agentMode &&
-              onInsertHitlOnEdge &&
+              onInsertNodeOnEdge &&
               !selectionDisabled &&
+              !isConnecting &&
               !edge.locked &&
-              !approvalEdge &&
               (isSelected || isHovered)
 
             return (
@@ -1989,10 +2073,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   'pointer-events-auto cursor-pointer',
                   selectionDisabled && 'pointer-events-none',
                 )}
-                onPointerEnter={() => setHoveredEdgeId(edge.id)}
-                onPointerLeave={() =>
-                  setHoveredEdgeId((current) => (current === edge.id ? null : current))
-                }
+                onPointerEnter={() => holdEdgeHover(edge.id)}
+                onPointerLeave={() => releaseEdgeHover(edge.id)}
                 onPointerDown={(event) => {
                   event.stopPropagation()
                   event.preventDefault()
@@ -2088,7 +2170,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   />
                 </>
               )}
-              {showHitlAffordance && (
+              {showInsertStep && (
                 <foreignObject
                   x={labelPoint.x}
                   y={labelPoint.y}
@@ -2099,30 +2181,87 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   <div
                     className={cn(
                       'absolute left-0 top-0 -translate-x-1/2',
-                      text || isEditing ? '-translate-y-[calc(100%+12px)]' : '-translate-y-1/2',
+                      text || isEditing || approvalEdge ? '-translate-y-[calc(100%+12px)]' : '-translate-y-1/2',
                     )}
                   >
-                    <button
-                      type="button"
-                      title="Insert human approval on this path"
-                      aria-label="Add human-in-the-loop review on this connector"
-                      className={cn(
-                        'inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-card text-foreground shadow-sm transition',
-                        'hover:border-foreground/30 hover:bg-muted',
-                        isSelected && 'ring-1 ring-foreground/10',
-                      )}
-                      onPointerDown={(event) => {
-                        event.stopPropagation()
-                        event.preventDefault()
-                      }}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        event.preventDefault()
-                        onInsertHitlOnEdge(edge.id)
-                      }}
-                    >
-                      <Plus className="h-3.5 w-3.5 stroke-[2.5]" aria-hidden />
-                    </button>
+                    <TooltipProvider delayDuration={150}>
+                      <div
+                        className={cn(
+                          'flex items-center gap-0.5 rounded-full border border-border bg-card p-0.5',
+                          'shadow-[0_1px_2px_rgba(0,0,0,0.06),0_4px_12px_-2px_rgba(0,0,0,0.12)]',
+                          'animate-in fade-in zoom-in-90 duration-200',
+                        )}
+                        onPointerEnter={() => holdEdgeHover(edge.id)}
+                        onPointerLeave={() => releaseEdgeHover(edge.id)}
+                        onPointerDown={(event) => {
+                          event.stopPropagation()
+                          event.preventDefault()
+                        }}
+                      >
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Insert a step between these two nodes"
+                              className={cn(
+                                'group/insert flex size-6 items-center justify-center rounded-full text-muted-foreground',
+                                'transition-[background-color,color,transform] duration-200 ease-out',
+                                'hover:bg-foreground hover:text-background active:scale-95',
+                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                              )}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                event.preventDefault()
+                                onInsertNodeOnEdge(edge.id, event.clientX, event.clientY)
+                              }}
+                            >
+                              <Plus
+                                className="size-3.5 transition-transform duration-200 group-hover/insert:rotate-90"
+                                strokeWidth={2.5}
+                              />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={8} className="rounded-lg px-2.5 py-2 shadow-lg">
+                            <p className="text-[12px] font-semibold leading-none text-popover-foreground">Insert step</p>
+                            <p className="mt-1.5 text-[11px] leading-none text-muted-foreground">
+                              Add a node between these two
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <span className="h-3.5 w-px bg-border" aria-hidden />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label={edge.routing === 'orthogonal' ? 'Make this connector curved' : 'Make this connector right-angled'}
+                              className={cn(
+                                'flex size-6 items-center justify-center rounded-full text-muted-foreground',
+                                'transition-[background-color,color] duration-200 ease-out',
+                                'hover:bg-muted hover:text-foreground active:scale-95',
+                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                              )}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                event.preventDefault()
+                                updateEdgesByIds([edge.id], (current) => ({
+                                  ...current,
+                                  routing: current.routing === 'orthogonal' ? 'curved' : 'orthogonal',
+                                }))
+                              }}
+                            >
+                              {edge.routing === 'orthogonal' ? (
+                                <Spline className="size-3.5" strokeWidth={2.25} />
+                              ) : (
+                                <CornerDownRight className="size-3.5" strokeWidth={2.25} />
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={8} className="rounded-lg px-2.5 py-1.5 text-[12px] shadow-lg">
+                            {edge.routing === 'orthogonal' ? 'Make curved' : 'Make right-angled'}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TooltipProvider>
                   </div>
                 </foreignObject>
               )}
@@ -2269,6 +2408,72 @@ export const DesignerCanvas = memo(function DesignerCanvas({
             />
           )}
         </svg>
+
+        {/* "+" beside the hovered node's output port: adds a step after it, already connected. */}
+        {onAddNodeAfter && addAfterTargets.map((addAfter) => (
+          <div
+            key={addAfter.nodeId}
+            className={cn(
+              'absolute z-30 flex items-center',
+              flowOutSide === 'bottom' ? '-translate-x-1/2 flex-col px-3 pb-2' : '-translate-y-1/2 py-3 pr-2',
+            )}
+            style={
+              flowOutSide === 'bottom'
+                ? { left: addAfter.x, top: addAfter.y + 7 }
+                : { left: addAfter.x + 7, top: addAfter.y }
+            }
+          >
+            <span
+              className={cn(
+                'animate-in fade-in duration-200',
+                flowOutSide === 'bottom'
+                  ? 'h-4 w-px bg-gradient-to-b from-border to-foreground/40'
+                  : 'h-px w-4 bg-gradient-to-r from-border to-foreground/40',
+              )}
+              aria-hidden
+            />
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`Extend workflow after ${addAfter.label}`}
+                    className={cn(
+                      'group/add relative flex size-7 items-center justify-center rounded-full',
+                      'border border-border bg-card text-muted-foreground',
+                      'shadow-[0_1px_2px_rgba(0,0,0,0.06),0_4px_12px_-2px_rgba(0,0,0,0.12)]',
+                      'animate-in fade-in zoom-in-75 duration-200',
+                      'transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out',
+                      'hover:scale-110 hover:border-foreground hover:bg-foreground hover:text-background',
+                      'hover:shadow-[0_0_0_4px_hsl(var(--foreground)/0.08),0_6px_16px_-4px_rgba(0,0,0,0.25)]',
+                      'active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    )}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onAddNodeAfter(addAfter.nodeId, event.clientX, event.clientY)
+                    }}
+                  >
+                    <Plus
+                      className="size-3.5 transition-transform duration-200 group-hover/add:rotate-90"
+                      strokeWidth={2.5}
+                    />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side={flowOutSide === 'bottom' ? 'right' : 'top'}
+                  sideOffset={8}
+                  className="rounded-lg px-2.5 py-2 shadow-lg"
+                >
+                  <p className="text-[12px] font-semibold leading-none text-popover-foreground">Extend workflow</p>
+                  <p className="mt-1.5 text-[11px] leading-none text-muted-foreground">
+                    Add and connect a step after {addAfter.label}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        ))}
       </div>
 
       {edgeMenu && menuPrimaryEdge && (
@@ -2291,6 +2496,11 @@ export const DesignerCanvas = memo(function DesignerCanvas({
             deleteEdgesByIds(menuEdgeIds)
           }}
           onReverse={() => reverseEdgesByIds(menuEdgeIds)}
+          onInsertReview={
+            agentMode && onInsertHitlOnEdge && menuEdgeIds.length === 1 && !menuPrimaryEdge.locked
+              ? () => onInsertHitlOnEdge(menuEdgeIds[0])
+              : undefined
+          }
           onAddLabel={() => {
             const id = menuEdgeIds[0]
             if (!id) return
@@ -2339,6 +2549,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
         </div>
       )}
 
+      {/* Agent workflows have their own zoom controls (top-right of the workflow canvas). */}
+      {!agentMode && (
       <div className="pointer-events-auto absolute bottom-4 right-4 z-20">
         <CanvasZoomControls
           scale={viewport.scale}
@@ -2351,6 +2563,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
           flowMotionDisabled={diagram.edges.length === 0}
         />
       </div>
+      )}
     </div>
   )
 })

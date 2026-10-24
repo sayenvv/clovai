@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Cpu, Loader2, Sparkles } from 'lucide-react'
+import { Loader2, Sparkles } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/utils/cn'
 import { isLocalModel } from '@/components/agent-workflow/workflow-model-config'
+import { ModelLogo, providerFromHints } from '@/components/agent-workflow/model-providers'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 
 interface ServerLlmModelIndicatorProps {
@@ -62,14 +63,10 @@ export const ServerLlmModelIndicator = memo(function ServerLlmModelIndicator({
           )}
           aria-label={`Active model: ${modelConfig.model}`}
         >
-          <span
-            className={cn(
-              'flex shrink-0 items-center justify-center rounded bg-primary text-primary-foreground shadow-sm',
-              compact ? 'h-5 w-5' : 'h-6 w-6',
-            )}
-          >
-            <Cpu className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
-          </span>
+          <ModelLogo
+            hints={[modelConfig.provider, modelConfig.model]}
+            className={compact ? 'h-5 w-5' : 'h-6 w-6'}
+          />
 
           <span className={cn('min-w-0 text-left leading-tight', compact ? 'max-w-[9rem]' : 'max-w-[11rem]')}>
             <span className="block truncate text-[11px] font-semibold text-foreground">
@@ -101,6 +98,10 @@ export const ServerLlmModelIndicator = memo(function ServerLlmModelIndicator({
 
         <div className="space-y-2.5 px-2 py-1.5 text-xs">
           <DetailRow label="Source" value={local ? 'Ollama (local)' : 'Server (.env)'} />
+          <DetailRow
+            label="Provider"
+            value={providerFromHints(modelConfig.provider, modelConfig.model)?.label ?? modelConfig.provider ?? '—'}
+          />
           <DetailRow label="Model" value={modelConfig.model} mono />
           {local && modelConfig.baseUrl ? (
             <DetailRow label="Server URL" value={modelConfig.baseUrl} mono />

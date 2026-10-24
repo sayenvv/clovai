@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   formatCurrency,
   formatNumber,
@@ -26,22 +27,47 @@ export function StatCard({
   value,
   hint,
   icon: Icon,
+  loading = false,
 }: {
   label: string
   value: string
   hint: string
   icon: LucideIcon
+  /** Shimmer in place of the value and hint while the numbers load. */
+  loading?: boolean
 }) {
   return (
-    <div className="rounded-lg border border-border/70 bg-card p-3.5">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
+    <div
+      className={cn(
+        'group relative overflow-hidden rounded-2xl border border-border/70 bg-card p-4',
+        'shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-[box-shadow,transform] duration-200',
+        'hover:-translate-y-px hover:shadow-[0_10px_24px_-14px_rgba(16,24,40,0.25)]',
+      )}
+    >
+      {/* A soft corner glow behind the icon. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full bg-foreground/[0.04] blur-2xl transition-opacity group-hover:opacity-100"
+      />
+      <div className="relative flex items-center justify-between gap-2">
+        <p className="text-[11.5px] font-medium text-muted-foreground">{label}</p>
+        <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-b from-muted to-muted/40 text-foreground ring-1 ring-inset ring-border/70">
           <Icon className="h-3.5 w-3.5" />
         </div>
       </div>
-      <p className="mt-2 truncate text-lg font-semibold tracking-tight text-foreground">{value}</p>
-      <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>
+      {loading ? (
+        <div className="relative mt-3 space-y-2.5" role="status" aria-label={`Loading ${label}`}>
+          <Skeleton className="h-[26px] w-24 rounded-lg" />
+          <Skeleton className="h-3 w-32" />
+        </div>
+      ) : (
+        <>
+          <p className="relative mt-3 truncate text-[26px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-foreground">
+            {value}
+          </p>
+          <p className="relative mt-2 text-[11.5px] text-muted-foreground">{hint}</p>
+        </>
+      )}
     </div>
   )
 }
@@ -58,17 +84,17 @@ export function PageIntro({
   actions?: ReactNode
 }) {
   return (
-    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         {eyebrow ? (
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="inline-flex items-center rounded-full border border-border/70 bg-card px-2.5 py-0.5 text-[10.5px] font-medium text-muted-foreground shadow-sm">
             {eyebrow}
-          </p>
+          </span>
         ) : null}
-        <h1 className="mt-0.5 text-base font-semibold tracking-tight">{title}</h1>
-        <p className="mt-1 max-w-2xl text-xs text-muted-foreground">{description}</p>
+        <h1 className="mt-2.5 text-[22px] font-semibold leading-tight tracking-[-0.02em] text-foreground">{title}</h1>
+        <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">{description}</p>
       </div>
-      {actions ? <div className="flex flex-wrap gap-1.5">{actions}</div> : null}
+      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
   )
 }
@@ -214,6 +240,74 @@ export function DetailRow({
       >
         {value}
       </dd>
+    </div>
+  )
+}
+
+/** A settings block: what it is on the left, its fields on the right, and a footer for the action. */
+export function SettingsCard({
+  title,
+  description,
+  children,
+  footer,
+  tone = 'default',
+}: {
+  title: string
+  description: ReactNode
+  children?: ReactNode
+  /** Usually a hint on the left and the save button on the right. */
+  footer?: ReactNode
+  tone?: 'default' | 'danger'
+}) {
+  return (
+    <section
+      className={cn(
+        'overflow-hidden rounded-2xl border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)]',
+        tone === 'danger' ? 'border-destructive/35' : 'border-border/70',
+      )}
+    >
+      <div className="grid gap-4 p-5 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] md:gap-8 md:p-6">
+        <div>
+          <h2 className={cn('text-[13.5px] font-semibold tracking-tight', tone === 'danger' ? 'text-destructive' : 'text-foreground')}>
+            {title}
+          </h2>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{description}</p>
+        </div>
+        {children ? <div className="min-w-0 space-y-4">{children}</div> : null}
+      </div>
+      {footer ? (
+        <div
+          className={cn(
+            'flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3 md:px-6',
+            tone === 'danger' ? 'border-destructive/25 bg-destructive/[0.04]' : 'border-border/70 bg-muted/40',
+          )}
+        >
+          {footer}
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+/** Placeholder rows for a list that is loading (models, variables, workflows). */
+export function ListSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div
+      className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+      role="status"
+      aria-label="Loading"
+    >
+      {Array.from({ length: rows }, (_, index) => (
+        <div key={index} className="flex items-center gap-3 px-5 py-3.5">
+          <Skeleton className="size-8 shrink-0 rounded-lg" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-3.5" style={{ width: `${38 - index * 5}%` }} />
+            <Skeleton className="h-2.5" style={{ width: `${55 - index * 4}%` }} />
+          </div>
+          <Skeleton className="hidden h-3 w-20 sm:block" />
+          <Skeleton className="size-8 rounded-lg" />
+        </div>
+      ))}
     </div>
   )
 }

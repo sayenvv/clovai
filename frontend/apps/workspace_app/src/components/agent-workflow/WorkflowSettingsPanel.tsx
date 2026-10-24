@@ -10,6 +10,8 @@ import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 interface WorkflowSettingsPanelProps {
   executionType: WorkflowExecutionType
   onExecutionTypeChange: (type: WorkflowExecutionType) => void
+  /** Set when an orchestrator block on the canvas decides the pattern (its name). */
+  patternSetBy?: string
   modelConfig: WorkflowModelConfig
   serverModelConfig?: WorkflowModelConfig
   onModelConfigChange?: (patch: Partial<WorkflowModelConfig>) => void
@@ -49,6 +51,7 @@ const TAB_TRIGGER_CLASS =
 export const WorkflowSettingsPanel = memo(function WorkflowSettingsPanel({
   executionType,
   onExecutionTypeChange,
+  patternSetBy,
   modelConfig,
   serverModelConfig,
   onModelConfigChange,
@@ -85,6 +88,7 @@ export const WorkflowSettingsPanel = memo(function WorkflowSettingsPanel({
             <Field label="Pattern" hint="Maps to workflowType in exported JSON">
               <Select
                 value={executionType}
+                disabled={Boolean(patternSetBy)}
                 onChange={(event) =>
                   onExecutionTypeChange(event.target.value as WorkflowExecutionType)
                 }
@@ -99,6 +103,12 @@ export const WorkflowSettingsPanel = memo(function WorkflowSettingsPanel({
             <p className="text-xs text-muted-foreground">
               {EXECUTION_TYPES.find((type) => type.value === executionType)?.description}
             </p>
+            {patternSetBy ? (
+              <p className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                Set by <span className="font-medium text-foreground">{patternSetBy}</span> on the canvas: the agents
+                connected below it are its team. Remove it to choose a pattern here.
+              </p>
+            ) : null}
           </PanelSection>
 
           <PanelSection title="Workspace">

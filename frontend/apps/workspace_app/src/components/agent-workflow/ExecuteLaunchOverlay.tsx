@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Loader2, Play } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
 const SHIMMER =
@@ -36,6 +36,11 @@ export function WorkflowWorkspaceLoadingScreen() {
   )
 }
 
+/**
+ * The workspace as it looks once loaded, shimmering: header with the view tabs, the library
+ * rail, the canvas with its corner controls and a loading card in the middle, the workflow
+ * tabs bar and the status bar.
+ */
 function WorkflowWorkspaceShimmer({
   title,
   description,
@@ -55,88 +60,88 @@ function WorkflowWorkspaceShimmer({
       aria-live="polite"
       aria-label={title}
     >
-      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card/80 px-3">
-        <div className={cn('h-8 w-8 rounded-md border border-border', SHIMMER)} />
-        <div className="min-w-0">
-          <div className={cn('h-3.5 w-36', SHIMMER_LINE)} />
-          <div className={cn('mt-1.5 h-2 w-20', SHIMMER_LINE)} />
+      {/* Header: logo and name, Editor / Code / Executions, actions. */}
+      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card px-3">
+        <div className={cn('size-7 rounded-md', SHIMMER)} />
+        <div className={cn('h-3.5 w-36', SHIMMER_LINE)} />
+        <div className="mx-auto hidden items-center gap-1 rounded-md bg-muted p-0.5 md:flex">
+          {[52, 40, 72].map((width) => (
+            <div key={width} className={cn('h-6 rounded-[5px]', SHIMMER)} style={{ width }} />
+          ))}
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className={cn('h-8 w-20 rounded-md border border-border', SHIMMER)} />
-          <div className={cn('h-8 w-24 rounded-md border border-border', SHIMMER)} />
+        <div className="ml-auto flex items-center gap-2 md:ml-0">
+          <div className={cn('h-8 w-20 rounded-md', SHIMMER)} />
+          <div className={cn('size-8 rounded-md', SHIMMER)} />
+          <div className={cn('size-8 rounded-md', SHIMMER)} />
+          <div className={cn('h-8 w-24 rounded-md', SHIMMER)} />
         </div>
-      </div>
+      </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-[280px] shrink-0 border-r border-border bg-card/50 px-3 py-3 md:block">
-          <div className={cn('h-3.5 w-28', SHIMMER_LINE)} />
-          <div className={cn('mt-1.5 h-2.5 w-36', SHIMMER_LINE)} />
-          <div className="mt-4 space-y-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2">
-                <div className={cn('h-7 w-7 rounded-md', SHIMMER)} />
-                <div className={cn('h-3 w-28', SHIMMER_LINE)} />
-              </div>
-            ))}
-          </div>
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="mt-5 border-t border-border pt-4">
-              <div className="flex items-center gap-2">
-                <div className={cn('h-4 w-4 rounded-sm', SHIMMER)} />
-                <div className={cn('h-3 w-32', SHIMMER_LINE)} />
-              </div>
-            </div>
+        {/* Library rail */}
+        <aside className="hidden w-14 shrink-0 flex-col items-center gap-1.5 border-r border-border bg-background py-3 md:flex">
+          <div className={cn('size-9 rounded-lg', SHIMMER)} />
+          <div className={cn('size-9 rounded-lg', SHIMMER)} />
+          <div className="my-1 h-px w-6 bg-border" />
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className={cn('size-9 rounded-lg', SHIMMER)} />
           ))}
+          <div className="my-1 h-px w-6 bg-border" />
+          <div className={cn('size-9 rounded-lg', SHIMMER)} />
+          <div className="flex-1" />
+          <div className={cn('size-9 rounded-lg', SHIMMER)} />
+          <div className={cn('size-9 rounded-full', SHIMMER)} />
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border bg-background px-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className={cn('h-4 rounded-sm', index === 0 ? 'w-9' : 'w-12', SHIMMER)} />
-            ))}
-            <div className={cn('ml-auto h-4 w-28 rounded-sm', SHIMMER)} />
-          </div>
-
-          <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border bg-muted/30 px-2">
-            <div className={cn('h-7 w-20 rounded-md', SHIMMER)} />
-            <div className={cn('h-7 w-28 rounded-md', SHIMMER)} />
-            <div className={cn('h-3 w-44 rounded-sm', SHIMMER)} />
-          </div>
-
-          <div className="relative min-h-0 flex-1 overflow-hidden bg-canvas">
+          {/* Canvas */}
+          <div className="relative min-h-0 flex-1 overflow-hidden bg-[hsl(var(--canvas))]">
             <div
-              className="absolute inset-0 opacity-45"
+              className="absolute inset-0"
               style={{
-                backgroundImage:
-                  'linear-gradient(hsl(var(--canvas-grid) / 0.35) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--canvas-grid) / 0.35) 1px, transparent 1px)',
-                backgroundSize: '28px 28px',
+                backgroundImage: 'radial-gradient(circle, hsl(var(--canvas-grid)) 1px, transparent 1px)',
+                backgroundSize: '24px 24px',
               }}
             />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-card/90 px-5 py-4 text-center shadow-sm">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-emerald-500/10 ring-1 ring-emerald-500/20">
-                  <Play className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-                </div>
+            {/* Top-right: add + canvas actions; bottom-right: zoom. */}
+            <div className="absolute right-4 top-4 flex flex-col items-center gap-2">
+              <div className={cn('size-10 rounded-lg', SHIMMER)} />
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className={cn('size-9 rounded-md', SHIMMER)} />
+              ))}
+            </div>
+            <div className="absolute bottom-4 right-4 flex flex-col items-center gap-2">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className={cn('size-9 rounded-md', SHIMMER)} />
+              ))}
+            </div>
+
+            <div className="absolute inset-0 flex items-center justify-center p-6">
+              <div className="flex w-full max-w-xs flex-col items-center gap-3 rounded-2xl border border-border bg-card px-6 py-6 text-center shadow-[0_12px_32px_-16px_rgba(0,0,0,0.25)]">
+                <Loader2 className="size-6 animate-spin text-foreground/70" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">{title}</p>
-                  <p className="mt-1 max-w-xs text-xs text-muted-foreground">{description}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{description}</p>
                 </div>
-                <Loader2 className="h-5 w-5 animate-spin text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
           </div>
-        </main>
 
-        <aside className="hidden w-[340px] shrink-0 border-l border-border bg-card/50 px-4 py-3 lg:block">
-          <div className={cn('h-4 w-28', SHIMMER_LINE)} />
-          <div className={cn('mt-2 h-2.5 w-44', SHIMMER_LINE)} />
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="mt-4 rounded-lg border border-border bg-background p-3">
-              <div className={cn('h-3 w-24', SHIMMER_LINE)} />
-              <div className={cn('mt-2 h-8 w-full rounded-md', SHIMMER)} />
-            </div>
-          ))}
-        </aside>
+          {/* Workflow tabs */}
+          <div className="flex h-10 shrink-0 items-center gap-2 border-t border-border bg-muted/70 px-2">
+            <div className={cn('h-7 w-28 rounded-md', SHIMMER)} />
+            <div className={cn('h-7 w-24 rounded-md opacity-70', SHIMMER)} />
+            <div className={cn('size-7 rounded-md opacity-60', SHIMMER)} />
+          </div>
+        </main>
+      </div>
+
+      {/* Status bar */}
+      <div className="flex h-8 shrink-0 items-center gap-3 border-t border-border bg-card px-3">
+        <div className={cn('h-2.5 w-16', SHIMMER_LINE)} />
+        <div className={cn('h-2.5 w-20', SHIMMER_LINE)} />
+        <div className={cn('ml-auto h-2.5 w-28', SHIMMER_LINE)} />
+        <div className={cn('size-5 rounded-full', SHIMMER)} />
       </div>
     </div>
   )

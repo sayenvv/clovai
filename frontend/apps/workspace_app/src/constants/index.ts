@@ -46,6 +46,12 @@ export const ROUTES = {
 } as const
 
 /** Standalone Admin Center micro-app (separate Vite process / port). */
+/**
+ * Opens the dashboard in its own tab. `rel="opener"` keeps the tab linked to this one so the browser
+ * copies the signed-in session (sessionStorage) into it; it's our own page, so that's safe.
+ */
+export const DASHBOARD_TAB_LINK = { target: '_blank', rel: 'opener' } as const
+
 export const ADMIN_CENTER_URL =
   import.meta.env.VITE_ADMIN_CENTER_URL?.replace(/\/$/, '') || 'http://127.0.0.1:5174'
 
