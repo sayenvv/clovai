@@ -1,5 +1,6 @@
 import {
   Activity,
+  Cpu,
   Globe,
   LayoutDashboard,
   LayoutTemplate,
@@ -79,6 +80,12 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         to: ROUTES.environmentConfig,
         icon: Globe,
         description: 'Environment variables',
+      },
+      {
+        label: 'Model clients',
+        to: ROUTES.modelClients,
+        icon: Cpu,
+        description: 'Models offered to users',
       },
       { label: 'Template', to: ROUTES.template, icon: LayoutTemplate, description: 'Orchestration template' },
     ],

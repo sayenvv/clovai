@@ -68,8 +68,8 @@ export interface RecentCall {
 
 export interface SavedWorkflowSummary {
   id: string
-  workspace_id: string
-  tab_id: string
+  workflow_id: string
+  user_id: string
   name: string
   created_at: string
   updated_at: string
@@ -81,16 +81,9 @@ export async function fetchRecentCalls(limit = 50): Promise<RecentCall[]> {
   return body.calls
 }
 
-/** The workflows saved in one workspace, one per tab. */
-export function fetchSavedWorkflows(workspaceId: string): Promise<SavedWorkflowSummary[]> {
-  return getJson(`/api/v1/workflows?workspaceId=${encodeURIComponent(workspaceId)}`)
-}
-
-export interface MonitoredWorkspace {
-  workspaceId: string
-  name: string
-  tabs: number
-  updatedAt: string
+/** The signed-in user's saved workflows, newest first. */
+export function fetchSavedWorkflows(): Promise<SavedWorkflowSummary[]> {
+  return getJson('/api/v1/workflows')
 }
 
 export interface TabAgent {
@@ -99,13 +92,13 @@ export interface TabAgent {
   role: string
   calls: number
   totalTokens: number
-  /** Runs of this tab the agent took part in. */
+  /** Runs of this workflow the agent took part in. */
   runs: number
   lastActive: string | null
 }
 
-export interface MonitoredTab {
-  tabId: string
+export interface MonitoredWorkflow {
+  workflowId: string
   name: string
   updatedAt: string
   agents: TabAgent[]
@@ -120,16 +113,8 @@ export interface MonitoredTab {
   }
 }
 
-/** Workspaces with saved tabs that the signed-in user can monitor. */
-export async function fetchMonitoredWorkspaces(): Promise<MonitoredWorkspace[]> {
-  const body = await getJson<{ workspaces: MonitoredWorkspace[] }>('/api/v1/activity/workspaces')
-  return body.workspaces
-}
-
-/** Each saved tab in a workspace with its agents and their activity over the last `days` days. */
-export async function fetchWorkspaceTabs(workspaceId: string, days: number): Promise<MonitoredTab[]> {
-  const body = await getJson<{ tabs: MonitoredTab[] }>(
-    `/api/v1/activity/workspaces/${encodeURIComponent(workspaceId)}/tabs?days=${days}`,
-  )
-  return body.tabs
+/** Each of the user's saved workflows with its agents and their activity over the last `days` days. */
+export async function fetchMonitoredWorkflows(days: number): Promise<MonitoredWorkflow[]> {
+  const body = await getJson<{ workflows: MonitoredWorkflow[] }>(`/api/v1/activity/workflows?days=${days}`)
+  return body.workflows
 }

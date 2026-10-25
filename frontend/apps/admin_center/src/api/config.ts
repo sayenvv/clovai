@@ -113,3 +113,90 @@ export function saveConfigSection(current: AdminDocument, section: string, value
 export function errorMessage(reason: unknown, fallback: string): string {
   return reason instanceof Error ? reason.message : fallback
 }
+
+/** ``manual`` entries are stored as typed; ``secret`` ones are stored encrypted and never returned. */
+export type VariableType = 'manual' | 'secret'
+
+export interface ApplicationVariable {
+  name: string
+  type: VariableType
+  /** Empty for a secret; ``has_value`` says whether one is stored. */
+  value: string
+  has_value: boolean
+}
+
+export function listVariables(aiIntegrationId: string): Promise<ApplicationVariable[]> {
+  return request(withApplication('/api/v1/variables', aiIntegrationId))
+}
+
+/** Replace the application's variables. A secret sent with an empty value keeps its stored value. */
+export function replaceVariables(
+  aiIntegrationId: string,
+  variables: Array<{ name: string; type: VariableType; value: string }>,
+): Promise<ApplicationVariable[]> {
+  return request(withApplication('/api/v1/variables', aiIntegrationId), {
+    method: 'PUT',
+    body: JSON.stringify({ variables }),
+  })
+}
+
+export type ModelProvider =
+  | 'openai'
+  | 'azure-openai'
+  | 'anthropic'
+  | 'gemini'
+  | 'mistral'
+  | 'groq'
+  | 'ollama'
+  | 'openai-compatible'
+
+/** A model client the admin offers every user of the application. The key is never returned. */
+export interface ModelClient {
+  id: string
+  name: string
+  providerType: ModelProvider
+  model: string
+  endpoint: string
+  endpointVariable: string | null
+  apiVersion: string | null
+  apiKeyVariable: string | null
+  hasApiKey: boolean
+  updatedAt: string | null
+}
+
+export interface ModelClientInput {
+  name: string
+  providerType: ModelProvider
+  model: string
+  endpoint: string
+  endpointVariable: string | null
+  apiVersion: string | null
+  apiKeyVariable: string | null
+  /** Write-only; empty on update keeps the stored key. */
+  apiKey?: string
+}
+
+export async function listModelClients(aiIntegrationId: string): Promise<ModelClient[]> {
+  const body = await request<{ connections: ModelClient[] }>(withApplication('/api/v1/admin/model-clients', aiIntegrationId))
+  return body.connections
+}
+
+export function createModelClient(aiIntegrationId: string, input: ModelClientInput): Promise<ModelClient> {
+  return request(withApplication('/api/v1/admin/model-clients', aiIntegrationId), {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateModelClient(aiIntegrationId: string, id: string, input: ModelClientInput): Promise<ModelClient> {
+  return request(withApplication(`/api/v1/admin/model-clients/${encodeURIComponent(id)}`, aiIntegrationId), {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+}
+
+export function deleteModelClient(aiIntegrationId: string, id: string): Promise<void> {
+  return request(withApplication(`/api/v1/admin/model-clients/${encodeURIComponent(id)}`, aiIntegrationId), {
+    method: 'DELETE',
+  })
+}

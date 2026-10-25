@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { Field } from '@/components/agent-workflow/FormField'
 import {
   VARIABLE_NAME_PATTERN,
@@ -135,17 +134,13 @@ export const VariableDialog = memo(function VariableDialog({
               placeholder="Production OpenAI key"
             />
           </Field>
-          <label className="flex items-center justify-between gap-3 rounded-lg border border-border/70 px-3 py-2.5">
-            <span>
-              <span className="block text-[12.5px] font-medium text-foreground">Secret</span>
-              <span className="block text-[11px] text-muted-foreground">Hide the value after saving</span>
-            </span>
-            <Switch checked={form.secret} onCheckedChange={(secret) => set({ secret })} />
-          </label>
-          <Field label="Visible to">
-            <Select value={form.scope} onChange={(event) => set({ scope: event.target.value as EnvVariableInput['scope'] })}>
-              <option value="user">Only me</option>
-              <option value="workspace">Everyone in this workspace</option>
+          <Field
+            label="Type"
+            hint={form.secret ? 'Stored encrypted; the value is never shown again.' : 'Stored as entered and shown in the list.'}
+          >
+            <Select value={form.secret ? 'secret' : 'manual'} onChange={(event) => set({ secret: event.target.value === 'secret' })}>
+              <option value="manual">Manual entry</option>
+              <option value="secret">Secret</option>
             </Select>
           </Field>
         </div>

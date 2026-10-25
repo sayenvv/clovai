@@ -33,6 +33,7 @@ const PALETTE_AGENT_TYPE: Record<string, AgentType> = {
   'aw-sub-workflow': 'control',
   'aw-reviewer': 'human',
   'aw-router': 'router',
+  'aw-switch': 'control',
   'aw-parallel': 'control',
   'aw-merge': 'control',
   'aw-memory': 'memory',
@@ -426,6 +427,13 @@ export function enrichDiagram(diagram: Diagram, paletteById: Map<string, Palette
   }
 }
 
+/** A workflow id: a UUID (the `workflow_id` column is a unique uuid across all workspaces). */
 export function createWorkflowId(): string {
-  return `wf_${Date.now().toString(36)}`
+  return crypto.randomUUID()
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export function isWorkflowId(value: string | undefined): value is string {
+  return Boolean(value && UUID_PATTERN.test(value))
 }

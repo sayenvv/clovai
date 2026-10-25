@@ -34,6 +34,7 @@ export const ROUTES = {
   definition: (kind: string, id: string) => `/${kind}/${id}`,
   systemConfig: '/configuration/system',
   environmentConfig: '/configuration/environment',
+  modelClients: '/configuration/model-clients',
   template: '/template',
   access: '/access',
   settings: '/settings',

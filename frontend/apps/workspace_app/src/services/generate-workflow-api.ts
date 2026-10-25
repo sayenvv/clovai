@@ -19,6 +19,8 @@ export type GenerateWorkflowModel =
   | { provider: 'catalog'; providerId: string; modelId: string; label: string }
   /** A local Ollama model (older saved choice; runs on the catalog's `ollama` provider). */
   | { provider: 'ollama'; model: string; baseUrl: string }
+  /** A saved model client (Models): the user's own or the admin's. */
+  | { provider: 'client'; connectionId: string; label: string; providerType: string; model: string }
 
 export interface GenerateWorkflowHistoryMessage {
   role: 'user' | 'assistant'
@@ -93,11 +95,12 @@ function planBody(plan: WorkflowGenerationPlan): PlanBody {
 function catalogModel(model: GenerateWorkflowModel | undefined): CatalogModel | undefined {
   if (model?.provider === 'catalog') return { provider: model.providerId, modelId: model.modelId }
   if (model?.provider === 'ollama') return { provider: 'ollama', modelId: model.model }
+  if (model?.provider === 'client') return { connectionId: model.connectionId }
   return undefined
 }
 
 function modelLabel(model: GenerateWorkflowModel | undefined): string {
-  if (model?.provider === 'catalog') return model.label
+  if (model?.provider === 'catalog' || model?.provider === 'client') return model.label
   if (model?.provider === 'ollama') return model.model
   return 'the default model'
 }

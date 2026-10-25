@@ -1,3 +1,4 @@
+import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
 import {
   useCallback,
   useEffect,
@@ -101,6 +102,12 @@ import { ImportWorkflowDialog } from '@/components/agent-workflow/InsertWorkflow
 import { BlockPicker } from '@/components/agent-workflow/BlockPicker'
 import { useChatSessions } from '@/components/agent-workflow/hooks/use-chat-sessions'
 import { ExecutionsView } from '@/components/agent-workflow/ExecutionsView'
+import { WorkflowConfigurationView } from '@/components/agent-workflow/WorkflowConfigurationView'
+import { useModelConnections } from '@/components/agent-workflow/hooks/use-model-connections'
+import { connectionProviderId } from '@/components/agent-workflow/AgentConfigPanel'
+import { MODEL_CLIENT_REF_PREFIX, modelClientRef } from '@/services/model-connections-api'
+import { importIntoDocument, isBlankDiagram } from '@/components/agent-workflow/workflow-import'
+import { updateWorkflowConfiguration, type WorkflowConfiguration } from '@/services/workflow-configuration-store'
 import { addExecution } from '@/services/execution-history-store'
 import { catalogModelsFor, useModelCatalog } from '@/components/agent-workflow/hooks/use-model-catalog'
 import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
@@ -133,7 +140,6 @@ import {
 } from '@/components/agent-workflow/NodeContextMenu'
 import {
   diagramContentCenter,
-  insertDiagramAt,
   offsetToPlaceDiagram,
 } from '@/components/agent-workflow/sub-workflow-ops'
 import {
@@ -262,6 +268,7 @@ export default function AgentWorkflowPage() {
   const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
   // The Executions view (top nav): run history with each agent's trace and output.
   const [showExecutions, setShowExecutions] = useState(false)
+  const [showConfiguration, setShowConfiguration] = useState(false)
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('trace')
   const { state: runState, start: startExecution, submitApproval, submitFeedback, cancel: cancelExecution, reset: resetExecution } =
     useWorkflowRunner()
@@ -404,20 +411,37 @@ export default function AgentWorkflowPage() {
   // File → Import: a workflow JSON file whose nodes are copied onto this canvas.
   const [importOpen, setImportOpen] = useState(false)
   const importWorkflowDocument = useCallback(
-    (imported: DiagramDocument) => {
+    (imported: DiagramDocument, configuration?: Partial<WorkflowConfiguration>) => {
       const sourcePage = imported.pages.find((page) => page.id === imported.activePageId) ?? imported.pages[0]
-      if (!sourcePage) {
+      if (!sourcePage || sourcePage.diagram.nodes.length === 0) {
         toast.error('No workflow found in the file.')
         return
       }
-      const offset = offsetToPlaceDiagram(diagram, sourcePage.diagram, getCanvasInsertAnchor())
-      handleChange((previous) => insertDiagramAt(previous, sourcePage.diagram, offset))
-      toast.success(`Imported "${sourcePage.name}".`)
+      const startsEmpty = isBlankDiagram(diagram)
+      // Onto an empty tab the file keeps its own positions; otherwise it lands beside what's there.
+      const offset = startsEmpty
+        ? { x: 0, y: 0 }
+        : offsetToPlaceDiagram(diagram, sourcePage.diagram, getCanvasInsertAnchor())
+      const result = importIntoDocument(doc, imported, doc.activePageId, offset)
+      if (!result) {
+        toast.error('No workflow found in the file.')
+        return
+      }
+      invalidateValidation()
+      setDoc(result.document)
+      // The file's Configuration settings replace this workflow's only when starting from empty.
+      if (configuration && startsEmpty) {
+        updateWorkflowConfiguration(pageWorkflowId(doc, doc.activePageId), configuration)
+      }
+      setSelection(null)
+      requestAnimationFrame(() => canvasRef.current?.fitView())
+      toast.success(`Imported "${result.pageName}".`)
     },
-    [diagram, getCanvasInsertAnchor, handleChange],
+    [diagram, doc, getCanvasInsertAnchor, setDoc, invalidateValidation],
   )
 
   const workflowMeta = doc.workflow ?? defaultWorkflowMeta()
+  const activeWorkflowId = pageWorkflowId(doc, doc.activePageId)
   const toolbarModelConfig = useMemo(
     () => workflowActiveModelConfig(workflowMeta, serverModelConfig),
     [workflowMeta, serverModelConfig],
@@ -434,7 +458,10 @@ export default function AgentWorkflowPage() {
   const showExecutionLogs = useCallback(() => {
     setInspectorTab('logs')
     if (isMobile) navigate(ROUTES.agentWorkflowLogs)
-    else setShowExecutions(true)
+    else {
+      setShowConfiguration(false)
+      setShowExecutions(true)
+    }
   }, [isMobile, navigate])
 
   useEffect(() => {
@@ -634,8 +661,33 @@ export default function AgentWorkflowPage() {
   /** Run an agent on a model client, keeping its model if the client offers it. */
   const { catalog: modelCatalog } = useModelCatalog()
 
+  const { connections: modelClients } = useModelConnections()
   const assignModelProvider = useCallback(
     (agentId: string, providerId: ModelProviderId) => {
+      // A saved model client (yours or the admin's) picked or dropped from the library.
+      if (providerId.startsWith(MODEL_CLIENT_REF_PREFIX)) {
+        const client = modelClients.find((item) => modelClientRef(item.id) === providerId)
+        const target = diagram.nodes.find((node) => node.id === agentId)
+        if (!client || !target?.agent || !isAgentNode(target)) return
+        handleChange((previous) => ({
+          ...previous,
+          nodes: previous.nodes.map((node) =>
+            node.id === agentId && node.agent
+              ? {
+                  ...node,
+                  agent: {
+                    ...node.agent,
+                    modelConnectionId: client.id,
+                    modelProvider: connectionProviderId(client.providerType),
+                    model: client.model,
+                  },
+                }
+              : node,
+          ),
+        }))
+        toast.success(`${target.label} runs on ${client.name} · ${client.model}`)
+        return
+      }
       const provider = modelProviderById(providerId)
       const agentNode = diagram.nodes.find((node) => node.id === agentId)
       if (!provider || !agentNode?.agent || !isAgentNode(agentNode)) return
@@ -654,7 +706,7 @@ export default function AgentWorkflowPage() {
       }))
       toast.success(`${agentNode.label} runs on ${provider.label} · ${model}`)
     },
-    [diagram.nodes, handleChange, modelCatalog],
+    [diagram.nodes, handleChange, modelCatalog, modelClients],
   )
 
   /** A model client picked in the library goes to the agent it was opened for, else the open,
@@ -683,7 +735,9 @@ export default function AgentWorkflowPage() {
     ? diagram.nodes.find((node) => node.id === modelTargetAgentId)
     : undefined
   const modelTargetLabel = modelTargetNode?.label
-  const modelTargetProviderId = resolveModelProvider(modelTargetNode?.agent)?.id
+  const modelTargetProviderId = modelTargetNode?.agent?.modelConnectionId
+    ? modelClientRef(modelTargetNode.agent.modelConnectionId)
+    : resolveModelProvider(modelTargetNode?.agent)?.id
 
   // The model-client target only lasts while the library's blocks section is open.
   useEffect(() => {
@@ -961,9 +1015,11 @@ export default function AgentWorkflowPage() {
       serverModelConfig,
     })
     if (result.databaseRecordId) {
-      toast.success('Draft saved to PostgreSQL')
+      toast.success('Workflow saved to the database')
     } else {
-      toast.success('Draft saved · build spec cached locally')
+      toast.warning('Saved on this device only', {
+        description: result.databaseError ?? 'The database could not be reached.',
+      })
     }
     markSaved()
   }, [doc, setDoc, activePage.id, diagram, paletteById, serverModelConfig, markSaved])
@@ -1063,7 +1119,7 @@ export default function AgentWorkflowPage() {
       userId: session.accountId,
     })
     return saveOrchestration({
-      identity: orchestrationIdentity(page.id),
+      identity: orchestrationIdentity(page.id, pageWorkflowId(doc, page.id)),
       name: page.name,
       document,
     })
@@ -1224,11 +1280,18 @@ export default function AgentWorkflowPage() {
     setLibrarySection(null)
   }, [])
 
-  const headerView: EditorView = showExecutions ? 'executions' : editorView === 'code' ? 'code' : 'editor'
+  const headerView: EditorView = showConfiguration
+    ? 'configuration'
+    : showExecutions
+      ? 'executions'
+      : editorView === 'code'
+        ? 'code'
+        : 'editor'
   const handleHeaderViewChange = useCallback((view: EditorView) => {
     setLibrarySection((section) => (section === 'deployments' ? null : section))
     setShowExecutions(view === 'executions')
-    if (view !== 'executions') setEditorView(view === 'code' ? 'code' : 'canvas')
+    setShowConfiguration(view === 'configuration')
+    if (view === 'editor' || view === 'code') setEditorView(view === 'code' ? 'code' : 'canvas')
   }, [])
 
   const canvasView = useMemo(
@@ -1262,12 +1325,12 @@ export default function AgentWorkflowPage() {
     const version = getNextPublishedVersion(
       session.accountId,
       session.workspaceId,
-      workflowMeta.workflowId,
+      activeWorkflowId,
       workflowMeta.version ?? 0,
     )
     const deployment: WorkflowDeployment = {
-      workflowId: workflowMeta.workflowId,
-      endpointUrl: `https://api.elevennodes.app/v1/workflows/${workflowMeta.workflowId}/v/${version}/run`,
+      workflowId: activeWorkflowId,
+      endpointUrl: `https://api.elevennodes.app/v1/workflows/${activeWorkflowId}/v/${version}/run`,
       triggerMethod: 'POST',
       authType: 'api-key',
       requestSchema: '{\n  "prompt": "string"\n}',
@@ -1383,13 +1446,14 @@ export default function AgentWorkflowPage() {
       userId: session.accountId,
     })
     void saveOrchestration({
-      identity: orchestrationIdentity(page.id),
+      identity: orchestrationIdentity(page.id, pageWorkflowId(docToSave, page.id)),
       name: page.name,
       document,
     })
       .then(() => {
         resetExecution()
         return startExecution(executionPlan, testInput, {
+          workflowId: pageWorkflowId(docToSave, page.id),
           workspaceId: session.workspaceId,
           pageId: page.id,
           userId: session.accountId,
@@ -1763,6 +1827,7 @@ export default function AgentWorkflowPage() {
           onShare={() => setShareOpen(true)}
           view={headerView}
           onViewChange={handleHeaderViewChange}
+          viewTabs={tool?.designer?.views}
         />
       )}
 
@@ -1960,7 +2025,12 @@ export default function AgentWorkflowPage() {
                 </div>
               ) : (
                 <>
-                  {showExecutions ? (
+                  {showConfiguration ? (
+                    <WorkflowConfigurationView
+                      workflowId={activeWorkflowId}
+                      settings={tool?.designer?.configuration}
+                    />
+                  ) : showExecutions ? (
                     <ExecutionsView pageId={doc.activePageId} />
                   ) : editorView === 'canvas' ? (
                     <AgentWorkflowCanvas
@@ -2007,7 +2077,9 @@ export default function AgentWorkflowPage() {
                       diagram={diagram}
                       paletteById={paletteById}
                       serverModelConfig={serverModelConfig}
-                      onBackToCanvas={() => setEditorView('canvas')}
+                      configurationDefaults={
+                        tool?.designer?.configuration?.defaults as Partial<WorkflowConfiguration> | undefined
+                      }
                     />
                   )}
                 </>

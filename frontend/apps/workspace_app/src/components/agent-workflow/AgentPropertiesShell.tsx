@@ -1,3 +1,5 @@
+import { isGraphWorkflow } from '@/components/agent-workflow/workflow-edge-groups'
+import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
 import { memo, useEffect, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import {
   ChevronLeft,
@@ -643,6 +645,7 @@ export function DetailsPanelContent({
   return (
     <WorkflowSettingsPanel
       executionType={resolveExecutionType(workflowMeta?.executionType, diagram)}
+      runsAsGraph={isGraphWorkflow(diagram)}
       patternSetBy={(() => {
         const orchestration = findOrchestration(diagram)
         return orchestration ? diagram.nodes.find((node) => node.id === orchestration.orchestratorId)?.label : undefined
@@ -655,7 +658,7 @@ export function DetailsPanelContent({
       onModelConfigChange={onModelConfigChange}
       modelConfigReadOnly={!onModelConfigChange}
       llmConfigured={llmConfigured}
-      workflowId={workflowMeta?.workflowId ?? '—'}
+      workflowId={pageWorkflowId(doc, doc.activePageId)}
       pageCount={doc.pages.length}
       nodeCount={diagram.nodes.length}
       edgeCount={diagram.edges.length}

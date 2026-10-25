@@ -83,6 +83,32 @@ export const toolDesignerSchema = z.object({
   palette: z.array(paletteItemSchema),
   /** Bump when the bundled palette changes so cached configs can migrate. */
   paletteVersion: z.number().int().default(1),
+  /** Tabs shown in the editor header (Editor, Code, Executions, Configuration). */
+  views: z
+    .array(
+      z.object({
+        id: z.enum(['editor', 'code', 'executions', 'configuration']),
+        label: z.string(),
+        isVisible: z.boolean().default(true),
+        order: z.number().int().default(0),
+      }),
+    )
+    .optional(),
+  /** Sections and default values of the workflow Configuration tab. */
+  configuration: z
+    .object({
+      sections: z.array(
+        z.object({
+          id: z.enum(['tracing', 'otel', 'logging', 'runtime']),
+          title: z.string(),
+          description: z.string().optional(),
+          isVisible: z.boolean().default(true),
+          order: z.number().int().default(0),
+        }),
+      ),
+      defaults: z.record(z.string(), z.unknown()).optional(),
+    })
+    .optional(),
 })
 
 export const toolSchema = z.object({

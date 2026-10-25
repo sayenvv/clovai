@@ -7,6 +7,7 @@ import {
 } from '@/components/designer/diagram-types'
 import type { AgentWorkflowMeta } from '@/types/agent-workflow'
 import { createWorkflowId } from '@/components/agent-workflow/agent-workflow-defaults'
+import { withPageWorkflowIds, withUuidNodeIds } from '@/components/agent-workflow/page-workflow-id'
 import { getOrCreateWorkspaceId } from '@/components/agent-workflow/workflow-build-storage'
 import { resolveWorkflowModelConfig } from '@/components/agent-workflow/workflow-model-config'
 
@@ -84,7 +85,12 @@ function consumeWorkflowWorkspaceHandoff(): DiagramDocument | null {
   }
 }
 
+/** The stored workflow document, with a UUID on every node and every tab's workflow id. */
 export function loadWorkflowDocument(workspaceId?: string): DiagramDocument {
+  return withPageWorkflowIds(withUuidNodeIds(readWorkflowDocument(workspaceId)))
+}
+
+function readWorkflowDocument(workspaceId?: string): DiagramDocument {
   const handoff = consumeWorkflowWorkspaceHandoff()
   if (handoff) return handoff
 

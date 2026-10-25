@@ -50,11 +50,9 @@ import {
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { WorkflowIcon } from '@/components/shared/WorkflowIcon'
 import { ExternalAgentListItem } from '@/components/agent-workflow/external-agent-ui'
-import {
-  availableModelProviders,
-  catalogModelsFor,
-  useModelCatalog,
-} from '@/components/agent-workflow/hooks/use-model-catalog'
+import { useModelConnections } from '@/components/agent-workflow/hooks/use-model-connections'
+import { ModelOwnerBadge } from '@/components/agent-workflow/ModelConnectionDialog'
+import { modelClientRef, type ModelConnection } from '@/services/model-connections-api'
 import {
   AGENT_CAPABILITIES,
   type AgentCapability,
@@ -67,12 +65,7 @@ import {
 import { SIDE_PANEL_COLLAPSED_WIDTH } from '@/components/agent-workflow/panel-layout'
 import { OPEN_LIBRARY_DEPLOYMENTS_EVENT } from '@/components/agent-workflow/deployments-sidebar-ui'
 import { SettingsMenu, type CanvasViewSettings } from '@/components/agent-workflow/SettingsMenu'
-import {
-  MODEL_PROVIDER_DND_MIME,
-  ModelProviderLogo,
-  type ModelProvider,
-  type ModelProviderId,
-} from '@/components/agent-workflow/model-providers'
+import { MODEL_PROVIDER_DND_MIME, ModelLogo, type ModelProviderId } from '@/components/agent-workflow/model-providers'
 import { HelpMenu } from '@/components/agent-workflow/HelpMenu'
 import { ProfileMenu } from '@/components/shared/ProfileMenu'
 import { getSession } from '@/services/project-auth-store'
@@ -497,33 +490,29 @@ function CreateCustomCards({
   )
 }
 
-/** A model client in the library: logo, name, a few of its models; click or drag onto an agent. */
-function ModelProviderRow({
-  provider,
-  models,
+/** A saved model client in the library: logo, name, model, whose it is; click or drag onto an agent. */
+function ModelClientRow({
+  client,
   active,
   onPick,
   view = 'list',
 }: {
-  provider: ModelProvider
-  /** The client's models, from the model catalog. */
-  models: string[]
+  client: ModelConnection
   active: boolean
   onPick?: (providerId: ModelProviderId) => void
   view?: LibraryView
 }) {
-  const shown = models.slice(0, 2).join(' · ')
-  const more = models.length - 2
+  const ref = modelClientRef(client.id) as ModelProviderId
   return (
     <button
       type="button"
       draggable
       onDragStart={(event) => {
-        event.dataTransfer.setData(MODEL_PROVIDER_DND_MIME, provider.id)
+        event.dataTransfer.setData(MODEL_PROVIDER_DND_MIME, ref)
         event.dataTransfer.effectAllowed = 'link'
       }}
-      onClick={() => onPick?.(provider.id)}
-      title={`Use ${provider.label} · ${provider.description}`}
+      onClick={() => onPick?.(ref)}
+      title={`Use ${client.name} · ${client.model}`}
       className={cn(
         'group relative flex w-full rounded-lg border bg-card shadow-sm',
         view === 'grid'
@@ -535,35 +524,26 @@ function ModelProviderRow({
     >
       {view === 'grid' ? (
         <>
-          <ModelProviderLogo provider={provider} className="size-9" />
+          <ModelLogo hints={[client.providerType, client.model]} className="size-9" />
           <span className="line-clamp-1 w-full text-[11.5px] font-semibold leading-tight text-foreground">
-            {provider.label}
+            {client.name}
           </span>
-          <span className="line-clamp-1 w-full font-mono text-[9.5px] text-muted-foreground">
-            {models[0] ?? (provider.local ? 'Local' : '')}
-          </span>
+          <ModelOwnerBadge connection={client} />
           {active ? (
             <Check className="absolute right-1.5 top-1.5 size-3.5 text-foreground/70" aria-label="Current model client" />
           ) : null}
         </>
       ) : (
         <>
-      <ModelProviderLogo provider={provider} className="size-8" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="truncate text-[12.5px] font-semibold leading-tight text-foreground">{provider.label}</span>
-          {provider.local ? (
-            <span className="rounded border border-border/60 bg-muted/60 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
-              Local
-            </span>
-          ) : null}
-        </div>
-        <p className="mt-0.5 truncate font-mono text-[10.5px] text-muted-foreground">
-          {shown}
-          {more > 0 ? ` +${more}` : ''}
-        </p>
-      </div>
-      {active ? <Check className="size-4 shrink-0 text-foreground/70" aria-label="Current model client" /> : null}
+          <ModelLogo hints={[client.providerType, client.model]} className="size-8" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="truncate text-[12.5px] font-semibold leading-tight text-foreground">{client.name}</span>
+              <ModelOwnerBadge connection={client} />
+            </div>
+            <p className="mt-0.5 truncate font-mono text-[10.5px] text-muted-foreground">{client.model}</p>
+          </div>
+          {active ? <Check className="size-4 shrink-0 text-foreground/70" aria-label="Current model client" /> : null}
         </>
       )}
     </button>
@@ -776,23 +756,21 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
     [needle],
   )
 
-  // Model clients and their models come from the application's model catalog.
-  const { catalog: modelCatalog } = useModelCatalog()
-  const providerModels = useCallback(
-    (providerId: ModelProviderId) => catalogModelsFor(modelCatalog, providerId).map((model) => model.id),
-    [modelCatalog],
-  )
-  const filteredProviders = useMemo(() => {
+  // Model clients are the saved ones: the user's own, then the admin's for the application.
+  const { connections: modelClients } = useModelConnections()
+  const filteredClients = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    const available = availableModelProviders(modelCatalog)
-    if (!needle) return available
-    return available.filter(
-      (provider) =>
-        provider.label.toLowerCase().includes(needle) ||
-        provider.description.toLowerCase().includes(needle) ||
-        providerModels(provider.id).some((model) => model.toLowerCase().includes(needle)),
+    const sorted = [...modelClients].sort(
+      (a, b) => Number(a.scope === 'application') - Number(b.scope === 'application'),
     )
-  }, [query, modelCatalog, providerModels])
+    if (!needle) return sorted
+    return sorted.filter(
+      (client) =>
+        client.name.toLowerCase().includes(needle) ||
+        client.model.toLowerCase().includes(needle) ||
+        client.providerType.toLowerCase().includes(needle),
+    )
+  }, [query, modelClients])
 
   const filteredStore = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -1150,8 +1128,8 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                     )
                   })}
 
-                  {showCategory('models') && filteredProviders.length > 0 ? (
-                    <LibraryGroup view={libraryView} title="Model clients" count={filteredProviders.length}>
+                  {showCategory('models') && filteredClients.length > 0 ? (
+                    <LibraryGroup view={libraryView} title="Model clients" count={filteredClients.length}>
                       {category === 'models' || resolvedSection === 'models' ? (
                         <p className="px-0.5 pb-1 text-[11px] leading-snug text-muted-foreground">
                           {modelTargetLabel ? (
@@ -1165,13 +1143,12 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                           )}
                         </p>
                       ) : null}
-                      {filteredProviders.map((provider) => (
-                        <ModelProviderRow
+                      {filteredClients.map((client) => (
+                        <ModelClientRow
                           view={libraryView}
-                          key={provider.id}
-                          provider={provider}
-                          models={providerModels(provider.id)}
-                          active={provider.id === activeModelProviderId}
+                          key={client.id}
+                          client={client}
+                          active={modelClientRef(client.id) === activeModelProviderId}
                           onPick={onPickModelProvider}
                         />
                       ))}
@@ -1202,7 +1179,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                   libraryOrchestrators.length === 0 &&
                   libraryAgents.length === 0 &&
                   capabilitiesByKind.size === 0 &&
-                  filteredProviders.length === 0 &&
+                  filteredClients.length === 0 &&
                   flowBlocks.length === 0 ? (
                     <p className="py-6 text-center text-xs text-muted-foreground">Nothing matches “{query.trim()}”.</p>
                   ) : null}

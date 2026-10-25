@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { Link2, Rocket, Save, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -25,17 +25,20 @@ interface AgentWorkflowHeaderProps {
   onNavigateHome?: () => void
   onViewInstance?: () => void
   onShare?: () => void
-  /** The tab shown in the centre: the canvas, its code, or the deployments board. */
+  /** The tab shown in the centre: the canvas, its code, the executions board or the workflow configuration. */
   view?: EditorView
   onViewChange?: (view: EditorView) => void
+  /** Header tabs from `designer.views` in mega-menu.json; falls back to all four. */
+  viewTabs?: Array<{ id: EditorView; label: string; isVisible: boolean; order: number }>
 }
 
-export type EditorView = 'editor' | 'code' | 'executions'
+export type EditorView = 'editor' | 'code' | 'executions' | 'configuration'
 
 const VIEW_TABS: Array<{ value: EditorView; label: string }> = [
   { value: 'editor', label: 'Editor' },
   { value: 'code', label: 'Code' },
   { value: 'executions', label: 'Executions' },
+  { value: 'configuration', label: 'Configuration' },
 ]
 
 /**
@@ -58,6 +61,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
   onShare,
   view,
   onViewChange,
+  viewTabs,
 }: AgentWorkflowHeaderProps) {
   const isDeployed = status === 'deployed'
 
@@ -93,7 +97,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
       </div>
 
       {/* Centre: editor / code / deployments tabs */}
-      {view && onViewChange ? <ViewTabs view={view} onViewChange={onViewChange} /> : null}
+      {view && onViewChange ? <ViewTabs view={view} onViewChange={onViewChange} tabs={viewTabs} /> : null}
 
       {/* Right: Ask AI, share, then save / validate / deploy */}
       <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5">
@@ -158,10 +162,28 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
 })
 
 /** n8n-style segmented tabs: a soft grey track with the active tab cut out in the page colour. */
-function ViewTabs({ view, onViewChange }: { view: EditorView; onViewChange: (view: EditorView) => void }) {
+function ViewTabs({
+  view,
+  onViewChange,
+  tabs,
+}: {
+  view: EditorView
+  onViewChange: (view: EditorView) => void
+  tabs?: AgentWorkflowHeaderProps['viewTabs']
+}) {
+  const visibleTabs = useMemo(
+    () =>
+      tabs
+        ? tabs
+            .filter((tab) => tab.isVisible)
+            .sort((a, b) => a.order - b.order)
+            .map((tab) => ({ value: tab.id, label: tab.label }))
+        : VIEW_TABS,
+    [tabs],
+  )
   return (
     <div role="tablist" aria-label="Editor view" className="flex shrink-0 items-center gap-0.5 rounded-md bg-muted p-0.5">
-      {VIEW_TABS.map((tab) => {
+      {visibleTabs.map((tab) => {
         const active = view === tab.value
         return (
           <button

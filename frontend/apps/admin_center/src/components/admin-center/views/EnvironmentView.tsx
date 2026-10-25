@@ -1,62 +1,95 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Plus, Save, Trash2 } from 'lucide-react'
-import { asRecord, errorMessage, loadActiveConfig, saveConfigSection, type AdminDocument } from '@/api/config'
+import { Lock, Plus, Save, Trash2 } from 'lucide-react'
+import {
+  asRecord,
+  errorMessage,
+  listVariables,
+  loadActiveConfig,
+  replaceVariables,
+  type ApplicationVariable,
+  type VariableType,
+} from '@/api/config'
 import { ApplicationGate } from '@/components/admin-center/ApplicationGate'
 import { EmptyHint, PageBody, PageHeader } from '@/components/admin-center/PageShell'
 import { PremiumCard } from '@/components/admin-center/PremiumCard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useApplication } from '@/hooks/use-application'
+import { cn } from '@/utils/cn'
 
-type Variable = { name: string; value: string }
+/** A row on the page. ``hasValue`` is true when the server holds a secret's value. */
+type Variable = { name: string; type: VariableType; value: string; hasValue: boolean }
 
-const SECTION = 'environment'
+const SELECT_CLASS =
+  'h-8 rounded-md border border-input bg-transparent px-2 text-[12px] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
-/** The config's ``environment`` as table rows, in name order. */
-function rowsOf(config: AdminDocument): Variable[] {
-  return Object.entries(asRecord(asRecord(config.document)[SECTION]))
-    .map(([name, value]) => ({ name, value: typeof value === 'string' ? value : JSON.stringify(value) }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+function rowsOf(variables: ApplicationVariable[]): Variable[] {
+  return variables.map((item) => ({ name: item.name, type: item.type, value: item.value, hasValue: item.has_value }))
+}
+
+/** Variables still kept in the config's ``environment``, offered as manual entries to move into the table. */
+async function configEnvironment(aiIntegrationId: string): Promise<Variable[]> {
+  try {
+    const config = await loadActiveConfig(aiIntegrationId)
+    return Object.entries(asRecord(asRecord(config.document).environment))
+      .map(([name, value]) => ({
+        name,
+        type: 'manual' as const,
+        value: typeof value === 'string' ? value : JSON.stringify(value),
+        hasValue: false,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  } catch {
+    return []
+  }
 }
 
 /**
- * Configuration → Environment: the active configuration's ``environment``, one row per variable.
- * The template reads each as ``${NAME}``; a blank value or ``${NAME}`` falls back to the server's environment.
+ * Configuration → Environment: the application's variables. A **Manual entry** is stored as
+ * typed; a **Secret** is stored encrypted and never shown again (leave it empty to keep it).
+ * The template reads each as ``${NAME}``; a blank value uses the server's own environment.
  */
 export function EnvironmentView() {
   const { current } = useApplication()
   const aiIntegrationId = current?.ai_integration_id ?? ''
 
-  const [config, setConfig] = useState<AdminDocument | null>(null)
   const [variables, setVariables] = useState<Variable[]>([])
   const [saved, setSaved] = useState<Variable[]>([])
   const [name, setName] = useState('')
+  const [type, setType] = useState<VariableType>('manual')
   const [value, setValue] = useState('')
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [savedAt, setSavedAt] = useState<number | null>(null)
-
-  const show = (rows: Variable[]) => {
-    setVariables(rows)
-    setSaved(rows)
-  }
 
   useEffect(() => {
     if (!aiIntegrationId) return
     let live = true
     setError('')
+    setNotice('')
     setSavedAt(null)
     setLoading(true)
-    loadActiveConfig(aiIntegrationId)
-      .then((document) => {
+    listVariables(aiIntegrationId)
+      .then(async (stored) => {
         if (!live) return
-        setConfig(document)
-        show(rowsOf(document))
+        if (stored.length > 0) {
+          setVariables(rowsOf(stored))
+          setSaved(rowsOf(stored))
+          return
+        }
+        // Nothing in the table yet: offer the config's environment, unsaved, to move it over.
+        const fromConfig = await configEnvironment(aiIntegrationId)
+        if (!live) return
+        setSaved([])
+        setVariables(fromConfig)
+        if (fromConfig.length > 0) {
+          setNotice('These came from the configuration. Mark keys as Secret, then save to store them here.')
+        }
       })
       .catch((reason: unknown) => {
         if (!live) return
-        setConfig(null)
         setError(errorMessage(reason, 'Could not load the environment.'))
       })
       .finally(() => live && setLoading(false))
@@ -79,7 +112,14 @@ export function EnvironmentView() {
       setError(`${key} is already listed.`)
       return
     }
-    setVariables([...variables, { name: key, value: value.trim() || `\${${key}}` }])
+    if (type === 'secret' && !value) {
+      setError('Enter the secret value.')
+      return
+    }
+    setVariables([
+      ...variables,
+      { name: key, type, value: type === 'secret' ? value : value.trim() || `\${${key}}`, hasValue: false },
+    ])
     setName('')
     setValue('')
   }
@@ -88,7 +128,7 @@ export function EnvironmentView() {
     setVariables(variables.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)))
 
   const save = async () => {
-    if (!aiIntegrationId || !config) return
+    if (!aiIntegrationId) return
     setError('')
     const seen = new Set<string>()
     for (const item of variables) {
@@ -101,14 +141,21 @@ export function EnvironmentView() {
         setError(`${key} is listed more than once.`)
         return
       }
+      if (item.type === 'secret' && !item.value && !item.hasValue) {
+        setError(`Enter a value for the secret ${key}.`)
+        return
+      }
       seen.add(key)
     }
     setBusy(true)
     try {
-      const environment = Object.fromEntries(variables.map((item) => [item.name.trim(), item.value]))
-      const savedConfig = await saveConfigSection(config, SECTION, environment)
-      setConfig(savedConfig)
-      show(rowsOf(savedConfig))
+      const stored = await replaceVariables(
+        aiIntegrationId,
+        variables.map((item) => ({ name: item.name.trim(), type: item.type, value: item.value })),
+      )
+      setVariables(rowsOf(stored))
+      setSaved(rowsOf(stored))
+      setNotice('')
       setSavedAt(Date.now())
     } catch (reason) {
       setError(errorMessage(reason, 'Could not save the environment.'))
@@ -122,7 +169,7 @@ export function EnvironmentView() {
       <PageHeader
         eyebrow="Configuration"
         title="Environment"
-        description="Environment variables for this application. The template reads each as ${NAME}; a blank value uses the server's own environment."
+        description="Variables for this application. The template reads each as ${NAME}; a blank value uses the server's own environment. Secrets are stored encrypted and never shown again."
         actions={
           current && (
             <>
@@ -135,7 +182,7 @@ export function EnvironmentView() {
                 size="sm"
                 className="h-8 gap-1.5 text-[11.5px] font-semibold"
                 onClick={() => void save()}
-                disabled={busy || loading || !dirty || !config}
+                disabled={busy || loading || !dirty}
               >
                 <Save className="h-3.5 w-3.5" />
                 Save changes
@@ -151,6 +198,11 @@ export function EnvironmentView() {
               {error}
             </p>
           )}
+          {notice && (
+            <p className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11.5px] text-amber-700 dark:text-amber-300">
+              {notice}
+            </p>
+          )}
           <PremiumCard>
             <form onSubmit={add} className="flex flex-col gap-2 border-b border-border/60 p-3 sm:flex-row">
               <Input
@@ -160,9 +212,22 @@ export function EnvironmentView() {
                 onChange={(event) => setName(event.target.value)}
                 className="h-8 font-mono text-[12px] sm:w-56"
               />
+              <select
+                aria-label="Variable type"
+                value={type}
+                onChange={(event) => setType(event.target.value as VariableType)}
+                className={cn(SELECT_CLASS, 'sm:w-36')}
+              >
+                <option value="manual">Manual entry</option>
+                <option value="secret">Secret</option>
+              </select>
               <Input
                 aria-label="Variable value"
-                placeholder={name.trim() ? `\${${name.trim()}}` : 'Value (defaults to ${NAME})'}
+                type={type === 'secret' ? 'password' : 'text'}
+                autoComplete="new-password"
+                placeholder={
+                  type === 'secret' ? 'Secret value' : name.trim() ? `\${${name.trim()}}` : 'Value (defaults to ${NAME})'
+                }
                 value={value}
                 onChange={(event) => setValue(event.target.value)}
                 className="h-8 flex-1 font-mono text-[12px]"
@@ -185,44 +250,67 @@ export function EnvironmentView() {
                 <table className="w-full text-[12px]">
                   <thead>
                     <tr className="border-b border-border/60 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      <th className="w-[34%] px-3 py-2 font-semibold">Name</th>
+                      <th className="w-[30%] px-3 py-2 font-semibold">Name</th>
+                      <th className="w-36 px-3 py-2 font-semibold">Type</th>
                       <th className="px-3 py-2 font-semibold">Value</th>
                       <th className="w-10 px-3 py-2" />
                     </tr>
                   </thead>
                   <tbody>
-                    {variables.map((item, index) => (
-                      <tr key={index} className="border-b border-border/40 last:border-0">
-                        <td className="px-3 py-1.5">
-                          <Input
-                            aria-label={`Name ${index + 1}`}
-                            value={item.name}
-                            onChange={(event) => update(index, { name: event.target.value })}
-                            className="h-8 font-mono text-[12px]"
-                          />
-                        </td>
-                        <td className="px-3 py-1.5">
-                          <Input
-                            aria-label={`Value ${index + 1}`}
-                            value={item.value}
-                            onChange={(event) => update(index, { value: event.target.value })}
-                            className="h-8 font-mono text-[12px]"
-                          />
-                        </td>
-                        <td className="px-3 py-1.5">
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={() => setVariables(variables.filter((_, itemIndex) => itemIndex !== index))}
-                            aria-label={`Remove ${item.name || `variable ${index + 1}`}`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
+                    {variables.map((item, index) => {
+                      const secret = item.type === 'secret'
+                      return (
+                        <tr key={index} className="border-b border-border/40 last:border-0">
+                          <td className="px-3 py-1.5">
+                            <Input
+                              aria-label={`Name ${index + 1}`}
+                              value={item.name}
+                              onChange={(event) => update(index, { name: event.target.value })}
+                              className="h-8 font-mono text-[12px]"
+                            />
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <select
+                              aria-label={`Type ${index + 1}`}
+                              value={item.type}
+                              onChange={(event) => update(index, { type: event.target.value as VariableType })}
+                              className={cn(SELECT_CLASS, 'w-full')}
+                            >
+                              <option value="manual">Manual entry</option>
+                              <option value="secret">Secret</option>
+                            </select>
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <div className="relative">
+                              {secret ? (
+                                <Lock className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                              ) : null}
+                              <Input
+                                aria-label={`Value ${index + 1}`}
+                                type={secret ? 'password' : 'text'}
+                                autoComplete="new-password"
+                                value={item.value}
+                                placeholder={secret && item.hasValue ? '•••••••• saved — leave empty to keep' : undefined}
+                                onChange={(event) => update(index, { value: event.target.value })}
+                                className={cn('h-8 font-mono text-[12px]', secret && 'pl-7')}
+                              />
+                            </div>
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => setVariables(variables.filter((_, itemIndex) => itemIndex !== index))}
+                              aria-label={`Remove ${item.name || `variable ${index + 1}`}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

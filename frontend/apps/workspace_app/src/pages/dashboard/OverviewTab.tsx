@@ -20,11 +20,11 @@ type Tab = 'agents' | 'usage' | 'workflows' | 'activity'
 const DAYS = 30
 
 /** Everything at a glance over the last 30 days, with a way into each tab. */
-export default function OverviewTab({ onOpen, workspaceId }: { onOpen: (tab: Tab) => void; workspaceId: string }) {
+export default function OverviewTab({ onOpen }: { onOpen: (tab: Tab) => void }) {
   const usage = useActivityReport(fetchUsageReport, DAYS)
   const agents = useActivityReport(fetchAgentsReport, DAYS)
   const recent = useActivityReport(useCallback(() => fetchRecentCalls(8), []), DAYS)
-  const workflows = useActivityReport(useCallback(() => fetchSavedWorkflows(workspaceId), [workspaceId]), DAYS)
+  const workflows = useActivityReport(fetchSavedWorkflows, DAYS)
   const allowance = useSyncExternalStore(subscribeTokenUsage, readTokenUsage, () => null)
 
   const list = agents.data?.agents ?? []

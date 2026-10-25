@@ -158,6 +158,8 @@ export interface DiagramPage {
   kind?: WorkflowPageKind
   /** Parent main tab id when `kind` is `sub`. */
   parentPageId?: string
+  /** Agent workflow tabs: this tab's own unique workflow id (saved as `workflow_id`). */
+  workflowId?: string
 }
 
 /** A tool draft: multiple pages, one active at a time (like sheet tabs). */
@@ -188,6 +190,7 @@ interface StoredPage {
   diagram?: StoredDiagram
   kind?: WorkflowPageKind
   parentPageId?: string
+  workflowId?: string
 }
 
 interface StoredDocument {
@@ -216,7 +219,7 @@ export function normalizeDiagram(parsed: StoredDiagram): Diagram {
 let pageCounter = 0
 
 export function createNodeId(): string {
-  return `node-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
+  return crypto.randomUUID()
 }
 
 export function createPage(
@@ -352,6 +355,7 @@ export function normalizeDocument(parsed: unknown): DiagramDocument {
           diagram: normalizeDiagram(page.diagram ?? {}),
           kind: page.kind,
           parentPageId: page.parentPageId,
+          ...(page.workflowId ? { workflowId: page.workflowId } : {}),
         })),
       )
       const activePageId = pages.some((page) => page.id === asDocument.activePageId)

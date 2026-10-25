@@ -100,13 +100,16 @@ export const ConnectorConfigPanel = memo(function ConnectorConfigPanel({
               placeholder="e.g. On success, If score > 0.8"
             />
           </Field>
-          <Field label="Condition logic" hint="JavaScript-like expression evaluated on transition">
+          <Field
+            label="Condition logic"
+            hint='field op value on the previous agent&apos;s output: ==, !=, >, >=, <, <=, contains, in. Use "text" for its reply. Leave empty for the default path.'
+          >
             <Textarea
               rows={4}
               className="font-mono text-xs"
               value={connector.condition}
               onChange={(event) => updateConnector(onChange, edge.id, { condition: event.target.value })}
-              placeholder="output.confidence > 0.8"
+              placeholder={'category == "billing"'}
             />
           </Field>
           <Field label="Execution order">

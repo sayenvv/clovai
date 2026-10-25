@@ -13,9 +13,10 @@
  *   POST   /api/v1/models/connections/test         body ModelConnectionInput, or { id } to test a
  *                                                  saved one → { ok: boolean, message: string }
  *
- * Connections belong to the signed-in user (`scope: "user"`) or are shared with the workspace
- * (`scope: "workspace"`). Instead of a pasted key, `apiKeyVariable` can name an environment variable
- * (see variables-api.ts) that the server resolves at run time. At run time an agent points at a connection by `connectionId`; the server
+ * Connections are the signed-in user's own (`scope: "user"`); the admin's model clients for the
+ * application are listed too (`scope: "application"`), read-only. Instead of a pasted key and a
+ * literal endpoint, `apiKeyVariable` and `endpointVariable` can name variables (see variables-api.ts)
+ * that the server resolves at run time: the user's variable first, then the application's. At run time an agent points at a connection by `connectionId`; the server
  * builds that agent's chat client from the stored settings and key.
  */
 
@@ -32,7 +33,8 @@ export type ModelConnectionProvider =
   | 'ollama'
   | 'openai-compatible'
 
-export type ModelConnectionScope = 'user' | 'workspace'
+/** `user`: the user's own; `application`: the admin's, offered to every user read-only. */
+export type ModelConnectionScope = 'user' | 'workspace' | 'application'
 
 export interface ModelConnection {
   id: string
@@ -40,6 +42,8 @@ export interface ModelConnection {
   providerType: ModelConnectionProvider
   /** Base URL, e.g. https://my-gateway.example.com/v1. Empty for the provider's public API. */
   endpoint: string
+  /** The endpoint comes from this variable instead of `endpoint`. */
+  endpointVariable?: string | null
   /** Model name, or the deployment name for Azure OpenAI. */
   model: string
   /** Azure OpenAI only. */
@@ -48,6 +52,8 @@ export interface ModelConnection {
   hasApiKey: boolean
   /** The key comes from this environment variable instead of a stored key. */
   apiKeyVariable?: string | null
+  /** modelConfig options the model rejects, such as `temperature` on reasoning models. */
+  unsupportedOptions?: string[]
   scope: ModelConnectionScope
   createdAt: string
   updatedAt: string
@@ -63,6 +69,8 @@ export interface ModelConnectionInput {
   apiKey?: string
   /** Name of an environment variable holding the key; when set, `apiKey` is not sent. */
   apiKeyVariable?: string | null
+  /** Name of a variable holding the endpoint; when set, `endpoint` is not used. */
+  endpointVariable?: string | null
   scope: ModelConnectionScope
 }
 
@@ -117,4 +125,11 @@ export function deleteModelConnection(id: string): Promise<void> {
 
 export function testModelConnection(input: ModelConnectionInput | { id: string }): Promise<ModelConnectionTestResult> {
   return request<ModelConnectionTestResult>('/test', { method: 'POST', body: JSON.stringify(input) })
+}
+
+/** How the library refers to a saved model client when it is picked or dragged onto an agent. */
+export const MODEL_CLIENT_REF_PREFIX = 'client:'
+
+export function modelClientRef(id: string): string {
+  return `${MODEL_CLIENT_REF_PREFIX}${id}`
 }

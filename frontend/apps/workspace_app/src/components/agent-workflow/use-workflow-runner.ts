@@ -10,6 +10,8 @@ import type {
 } from '@/types/agent-workflow'
 
 interface BackendExecutionTarget {
+  /** The saved workflow to run. */
+  workflowId: string
   workspaceId: string
   pageId: string
   userId: string
@@ -311,6 +313,7 @@ export function useWorkflowRunner() {
         }
         await executeOrchestration({
           identity: {
+            workflowId: target.workflowId,
             workspaceId: target.workspaceId,
             tabId: target.pageId,
             userId: target.userId,

@@ -24,6 +24,7 @@ import { InstructionsEditorField } from '@/components/agent-workflow/Instruction
 import { HumanInTheLoopPanel } from '@/components/agent-workflow/HumanInTheLoopPanel'
 import { WorkflowBuilderSettings } from '@/components/agent-workflow/WorkflowBuilderSettings'
 import { AgentModelConnections } from '@/components/agent-workflow/AgentModelConnections'
+import { useModelConnections } from '@/components/agent-workflow/hooks/use-model-connections'
 import type { ModelConnectionProvider } from '@/services/model-connections-api'
 import { orchestratorPattern } from '@/components/agent-workflow/orchestration-patterns'
 import { teamOfWorkflowNode } from '@/components/agent-workflow/workflow-builder-config'
@@ -83,6 +84,11 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
   const currentProvider = resolveModelProvider(agent)
   const { catalog, error: catalogError, reload: reloadCatalog } = useModelCatalog()
   const providers = availableModelProviders(catalog)
+  const { connections } = useModelConnections()
+  const unsupportedOptions = agent.modelConnectionId
+    ? connections.find((connection) => connection.id === agent.modelConnectionId)?.unsupportedOptions
+    : catalogModelsFor(catalog, currentProvider?.id).find((model) => model.id === agent.model)?.unsupportedOptions
+  const temperatureSupported = !unsupportedOptions?.includes('temperature')
   const toolsText = agent.tools.join(', ')
   const isReviewAgent = agent.agentType === 'human'
   // Workflow nodes (an orchestrator and its team) get their builder settings first.
@@ -325,12 +331,13 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
               onChange={(model) => updateAgent(onChange, node.id, { model })}
             />
           </Field>
-          <Field label="Temperature">
+          <Field label="Temperature" hint={temperatureSupported ? undefined : `${agent.model} does not support temperature`}>
             <Input
               type="number"
               min={0}
               max={2}
               step={0.1}
+              disabled={!temperatureSupported}
               value={agent.temperature}
               onChange={(event) =>
                 updateAgent(onChange, node.id, { temperature: Number(event.target.value) })
@@ -536,6 +543,6 @@ function ModelList({
 }
 
 /** The model client logo / id used for a saved connection's provider. */
-function connectionProviderId(provider: ModelConnectionProvider): string {
+export function connectionProviderId(provider: ModelConnectionProvider): string {
   return provider === 'openai-compatible' ? 'openai' : provider
 }

@@ -1,3 +1,4 @@
+import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -256,6 +257,7 @@ export default function WorkflowExecutePage() {
       .then(() => {
         reset()
         return start(executionPlan, input, {
+          workflowId: pageWorkflowId(doc, page.id),
           workspaceId: session.workspaceId,
           pageId: page.id,
           userId: session.accountId,

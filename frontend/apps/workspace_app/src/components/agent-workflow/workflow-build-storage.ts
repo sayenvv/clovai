@@ -1,7 +1,9 @@
+import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
 import type { Diagram, DiagramDocument } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import type { WorkflowBuildSaveResult, WorkflowBuildSpec, WorkflowModelConfig } from '@/types/workflow-build-spec'
 import { buildWorkflowSpec } from '@/components/agent-workflow/build-workflow-spec'
+import { buildWorkflowDocument } from '@/components/agent-workflow/workflow-document'
 import { buildOrchestrationDocument } from '@/components/agent-workflow/build-orchestration-document'
 import { saveOrchestration } from '@/services/orchestration-api'
 import { getSession } from '@/services/project-auth-store'
@@ -93,7 +95,7 @@ export async function persistWorkflowBuildSpec({
 }: PersistWorkflowBuildOptions): Promise<WorkflowBuildSaveResult> {
   const withWorkspace = ensureDocumentWorkspaceId(doc)
   const workspaceId = withWorkspace.workspaceId!
-  const workflowId = withWorkspace.workflow?.workflowId ?? `wf_${pageId}`
+  const workflowId = pageWorkflowId(withWorkspace, pageId)
 
   const spec = buildWorkflowSpec({
     doc: withWorkspace,
@@ -104,11 +106,13 @@ export async function persistWorkflowBuildSpec({
     serverModelConfig,
   })
 
+  // The same JSON as the Code tab: one shape for display, the database and shared files.
+  const document = buildWorkflowDocument(spec, diagram) as typeof spec & Record<string, unknown>
   const localStorageKey = buildSpecStorageKey(workspaceId, pageId)
   const savedAt = spec.meta.updatedAt
 
   try {
-    localStorage.setItem(localStorageKey, JSON.stringify(spec, null, 2))
+    localStorage.setItem(localStorageKey, JSON.stringify(document, null, 2))
   } catch {
     // quota
   }
@@ -125,25 +129,23 @@ export async function persistWorkflowBuildSpec({
     try {
       const session = getSession()
       if (!session) throw new Error('Sign in before saving the workflow.')
-      const document = buildOrchestrationDocument({
-        doc: withWorkspace,
-        pageId,
-        diagram,
-        workspaceId: session.workspaceId,
-        userId: session.accountId,
-      })
+      // One row per workflow id: the canvas the execute pipeline runs and the Code tab's workflow JSON.
       const apiResult = await saveOrchestration({
-        identity: {
-          workspaceId: session.workspaceId,
-          tabId: pageId,
-          userId: session.accountId,
-        },
+        identity: { workflowId, workspaceId: session.workspaceId, tabId: pageId, userId: session.accountId },
         name: spec.meta.workflowName,
         description: spec.meta.description,
-        document,
+        document: buildOrchestrationDocument({
+          doc: withWorkspace,
+          pageId,
+          diagram,
+          workspaceId: session.workspaceId,
+          userId: session.accountId,
+        }),
+        definition: document,
       })
       result.databaseRecordId = apiResult.id
     } catch (error) {
+      result.databaseError = error instanceof Error ? error.message : String(error)
       if (requireApi) throw error
     }
   }

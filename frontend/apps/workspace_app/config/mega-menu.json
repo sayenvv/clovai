@@ -514,7 +514,82 @@
       "isEnabled": true,
       "order": 1,
       "designer": {
-        "paletteVersion": 6,
+        "paletteVersion": 8,
+        "views": [
+          {
+            "id": "editor",
+            "label": "Editor",
+            "isVisible": true,
+            "order": 1
+          },
+          {
+            "id": "code",
+            "label": "Code",
+            "isVisible": true,
+            "order": 2
+          },
+          {
+            "id": "executions",
+            "label": "Executions",
+            "isVisible": true,
+            "order": 3
+          },
+          {
+            "id": "configuration",
+            "label": "Configuration",
+            "isVisible": true,
+            "order": 4
+          }
+        ],
+        "configuration": {
+          "sections": [
+            {
+              "id": "tracing",
+              "title": "Traceability",
+              "description": "Record a step-by-step trace of every agent, tool call and handoff.",
+              "isVisible": true,
+              "order": 1
+            },
+            {
+              "id": "otel",
+              "title": "OpenTelemetry",
+              "description": "Export traces and metrics to an OpenTelemetry collector.",
+              "isVisible": true,
+              "order": 2
+            },
+            {
+              "id": "logging",
+              "title": "Logging",
+              "description": "How much detail runs write to the console and logs panel.",
+              "isVisible": true,
+              "order": 3
+            },
+            {
+              "id": "runtime",
+              "title": "Runtime limits",
+              "description": "Guard rails applied to every run of this workflow.",
+              "isVisible": true,
+              "order": 4
+            }
+          ],
+          "defaults": {
+            "tracingEnabled": true,
+            "captureSensitiveData": false,
+            "persistExecutionHistory": true,
+            "openTelemetryEnabled": false,
+            "otelExporter": "otlp-http",
+            "otelEndpoint": "http://localhost:4318",
+            "otelServiceName": "agent-workflow",
+            "otelHeaders": "",
+            "traceSampleRate": 1,
+            "metricsEnabled": false,
+            "logLevel": "info",
+            "maxIterations": 20,
+            "timeoutSeconds": 300,
+            "retryAttempts": 0,
+            "checkpointingEnabled": false
+          }
+        },
         "palette": [
           {
             "id": "aw-agent",
@@ -695,6 +770,15 @@
             "color": "slate",
             "group": "Control",
             "order": 20
+          },
+          {
+            "id": "aw-switch",
+            "label": "Switch",
+            "description": "Route an agent's output to one target by case; the connector without a condition is the default",
+            "shape": "decision",
+            "color": "slate",
+            "group": "Control",
+            "order": 21
           },
           {
             "id": "aw-parallel",

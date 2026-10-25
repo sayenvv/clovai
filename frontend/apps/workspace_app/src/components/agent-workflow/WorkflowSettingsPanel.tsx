@@ -12,6 +12,8 @@ interface WorkflowSettingsPanelProps {
   onExecutionTypeChange: (type: WorkflowExecutionType) => void
   /** Set when an orchestrator block on the canvas decides the pattern (its name). */
   patternSetBy?: string
+  /** True when the canvas runs as a WorkflowBuilder graph (workflowType "workflow"). */
+  runsAsGraph?: boolean
   modelConfig: WorkflowModelConfig
   serverModelConfig?: WorkflowModelConfig
   onModelConfigChange?: (patch: Partial<WorkflowModelConfig>) => void
@@ -52,6 +54,7 @@ export const WorkflowSettingsPanel = memo(function WorkflowSettingsPanel({
   executionType,
   onExecutionTypeChange,
   patternSetBy,
+  runsAsGraph = false,
   modelConfig,
   serverModelConfig,
   onModelConfigChange,
@@ -88,7 +91,7 @@ export const WorkflowSettingsPanel = memo(function WorkflowSettingsPanel({
             <Field label="Pattern" hint="Maps to workflowType in exported JSON">
               <Select
                 value={executionType}
-                disabled={Boolean(patternSetBy)}
+                disabled={Boolean(patternSetBy) || runsAsGraph}
                 onChange={(event) =>
                   onExecutionTypeChange(event.target.value as WorkflowExecutionType)
                 }
@@ -103,6 +106,13 @@ export const WorkflowSettingsPanel = memo(function WorkflowSettingsPanel({
             <p className="text-xs text-muted-foreground">
               {EXECUTION_TYPES.find((type) => type.value === executionType)?.description}
             </p>
+            {runsAsGraph ? (
+              <p className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                No orchestrator on the canvas, so this runs as a{' '}
+                <span className="font-medium text-foreground">workflow builder</span> graph that follows the
+                connectors (<code>workflowType: "workflow"</code>). Add an orchestrator block to use a pattern.
+              </p>
+            ) : null}
             {patternSetBy ? (
               <p className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
                 Set by <span className="font-medium text-foreground">{patternSetBy}</span> on the canvas: the agents

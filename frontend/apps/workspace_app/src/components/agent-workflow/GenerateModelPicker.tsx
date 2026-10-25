@@ -8,26 +8,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { fetchModelCatalog, type ModelCatalog } from '@/services/models-api'
+import { listModelConnections, ConnectionsUnavailableError, type ModelConnection } from '@/services/model-connections-api'
 import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
 import { cn } from '@/utils/cn'
 import { ModelLogo } from '@/components/agent-workflow/model-providers'
+import { CONNECTION_PROVIDERS } from '@/components/agent-workflow/ModelConnectionDialog'
 
 interface GenerateModelPickerProps {
   value: GenerateWorkflowModel
   onChange: (value: GenerateWorkflowModel) => void
-  /** Shown for the default choice until the catalog has loaded. */
+  /** Shown for the default choice. */
   serverModel: string
   serverConfigured: boolean
-  /** Kept for callers; models now come from the application's model catalog. */
+  /** Kept for callers; the list is the saved model clients. */
   ollamaBaseUrl?: string
   disabled?: boolean
 }
 
 /**
- * Model switcher for the Workflow AI composer. Lists the application's model catalog
- * (Admin center → Configuration → System → models): every provider with its models,
- * including the models installed on discover providers such as Ollama.
+ * Model switcher for the Workflow AI composer. Lists only the admin's model clients for this
+ * application (Admin center → Model clients); users' own models are for running their own
+ * workflows, not the assistant. "Default" runs on the application's default model.
  */
 export const GenerateModelPicker = memo(function GenerateModelPicker({
   value,
@@ -35,37 +36,62 @@ export const GenerateModelPicker = memo(function GenerateModelPicker({
   serverModel,
   disabled = false,
 }: GenerateModelPickerProps) {
-  const [catalog, setCatalog] = useState<ModelCatalog | null>(null)
+  const [clients, setClients] = useState<ModelConnection[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
     setError(null)
-    fetchModelCatalog()
-      .then(setCatalog)
-      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Could not load models.'))
+    listModelConnections()
+      .then(setClients)
+      .catch((reason: unknown) =>
+        setError(
+          reason instanceof ConnectionsUnavailableError
+            ? reason.message
+            : reason instanceof Error
+              ? reason.message
+              : 'Could not load models.',
+        ),
+      )
       .finally(() => setLoading(false))
   }, [])
 
-  const defaultLabel = defaultModelLabel(catalog) ?? serverModel
-  const label =
-    value.provider === 'catalog' ? value.label : value.provider === 'ollama' ? value.model : defaultLabel
-  const providerHints = (providerId: string | undefined) => {
-    const provider = catalog?.providers.find((item) => item.id === providerId)
-    return [provider?.type, providerId, provider?.label]
-  }
+  const label = value.provider === 'client' || value.provider === 'catalog' ? value.label : value.provider === 'ollama' ? value.model : 'Default'
   const triggerHints =
-    value.provider === 'catalog'
-      ? [...providerHints(value.providerId), value.modelId]
-      : value.provider === 'ollama'
-        ? ['ollama']
-        : [...providerHints(catalog?.default.provider), catalog?.default.modelId, serverModel]
+    value.provider === 'client' ? [value.providerType, value.model] : value.provider === 'ollama' ? ['ollama'] : [serverModel]
+  const admins = (clients ?? []).filter((client) => client.scope === 'application')
+
+  const group = (title: string, items: ModelConnection[]) =>
+    items.length === 0 ? null : (
+      <div key={title}>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">{title}</DropdownMenuLabel>
+        {items.map((client) => (
+          <ModelItem
+            key={client.id}
+            name={client.name}
+            detail={`${CONNECTION_PROVIDERS.find((item) => item.value === client.providerType)?.label ?? client.providerType} · ${client.model}`}
+            hints={[client.providerType, client.model]}
+            selected={value.provider === 'client' && value.connectionId === client.id}
+            onSelect={() =>
+              onChange({
+                provider: 'client',
+                connectionId: client.id,
+                label: client.name,
+                providerType: client.providerType,
+                model: client.model,
+              })
+            }
+          />
+        ))}
+      </div>
+    )
 
   return (
     <DropdownMenu
       onOpenChange={(open) => {
-        if (open && catalog === null && !loading) load()
+        if (open && clients === null && !loading) load()
       }}
     >
       <DropdownMenuTrigger asChild disabled={disabled}>
@@ -103,74 +129,34 @@ export const GenerateModelPicker = memo(function GenerateModelPicker({
           </button>
         </div>
         <ModelItem
-          name={defaultLabel}
+          name="Default"
           detail="The application's default model"
-          hints={[...providerHints(catalog?.default.provider), catalog?.default.modelId, serverModel]}
-          selected={value.provider === 'server'}
+          hints={[serverModel]}
+          selected={value.provider !== 'client'}
           onSelect={() => onChange({ provider: 'server' })}
         />
 
-        {loading && catalog === null ? (
+        {loading && clients === null ? (
           <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
             Loading models…
           </p>
         ) : error ? (
           <p className="px-2 py-1.5 text-xs leading-snug text-destructive">{error}</p>
+        ) : clients && admins.length === 0 ? (
+          <>
+            <DropdownMenuSeparator />
+            <p className="px-2 py-1.5 text-xs leading-snug text-muted-foreground">
+              No models yet. An admin adds them in Admin center → Model clients.
+            </p>
+          </>
         ) : (
-          catalog?.providers.map((provider) => (
-            <div key={provider.id}>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
-                <ModelLogo hints={[provider.type, provider.id, provider.label]} className="h-3.5 w-3.5" />
-                {provider.label}
-              </DropdownMenuLabel>
-              {provider.error ? (
-                <p className="px-2 py-1.5 text-xs leading-snug text-muted-foreground">{provider.error}</p>
-              ) : provider.models.length === 0 ? (
-                <p className="px-2 py-1.5 text-xs text-muted-foreground">No models.</p>
-              ) : (
-                provider.models.map((model) => (
-                  <ModelItem
-                    key={model.id}
-                    name={model.label}
-                    detail={modelDetail(model)}
-                    hints={[provider.type, provider.id, provider.label, model.id]}
-                    selected={isSelected(value, provider.id, model.id)}
-                    onSelect={() =>
-                      onChange({ provider: 'catalog', providerId: provider.id, modelId: model.id, label: model.label })
-                    }
-                  />
-                ))
-              )}
-            </div>
-          ))
+          group('Models', admins)
         )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
 })
-
-function defaultModelLabel(catalog: ModelCatalog | null): string | undefined {
-  const { provider, modelId } = catalog?.default ?? {}
-  const found = catalog?.providers.find((item) => item.id === provider)?.models.find((model) => model.id === modelId)
-  return found?.label ?? modelId
-}
-
-function isSelected(value: GenerateWorkflowModel, providerId: string, modelId: string): boolean {
-  if (value.provider === 'catalog') return value.providerId === providerId && value.modelId === modelId
-  // An older saved Ollama choice matches the same model in the catalog's ollama provider.
-  return value.provider === 'ollama' && providerId === 'ollama' && value.model === modelId
-}
-
-function modelDetail(model: { detail?: string; maxTokens?: number; supportsTools?: boolean }): string | undefined {
-  const parts = [
-    model.detail,
-    model.maxTokens ? `${Math.round(model.maxTokens / 1000)}k tokens` : undefined,
-    model.supportsTools ? 'tools' : undefined,
-  ]
-  return parts.filter(Boolean).join(' · ') || undefined
-}
 
 function ModelItem({
   name,

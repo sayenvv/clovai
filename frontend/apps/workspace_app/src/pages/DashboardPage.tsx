@@ -150,10 +150,10 @@ export default function DashboardPage() {
     <Suspense
       fallback={<DashboardPageSkeleton tab={tab} />}
     >
-      {tab === 'overview' ? <OverviewTab onOpen={select} workspaceId={session.workspaceId} /> : null}
+      {tab === 'overview' ? <OverviewTab onOpen={select} /> : null}
       {tab === 'agents' ? <AgentsTab /> : null}
       {tab === 'usage' ? <UsageTab /> : null}
-      {tab === 'workflows' ? <WorkflowsTab workspaceId={session.workspaceId} /> : null}
+      {tab === 'workflows' ? <WorkflowsTab /> : null}
       {tab === 'models' ? <ModelsTab /> : null}
       {tab === 'variables' ? <VariablesTab /> : null}
       {tab === 'activity' ? <ActivityTab /> : null}

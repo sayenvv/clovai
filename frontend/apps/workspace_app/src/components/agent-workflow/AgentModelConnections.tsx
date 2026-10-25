@@ -1,17 +1,17 @@
 import { memo, useState } from 'react'
-import { ArrowUpRight, Check, Pencil, Plus, Trash2, Users } from 'lucide-react'
+import { ArrowUpRight, Check, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DASHBOARD_TAB_LINK, ROUTES } from '@/constants'
 import { cn } from '@/utils/cn'
 import { Field } from '@/components/agent-workflow/FormField'
-import { ModelConnectionDialog } from '@/components/agent-workflow/ModelConnectionDialog'
+import { ModelConnectionDialog, ModelOwnerBadge } from '@/components/agent-workflow/ModelConnectionDialog'
 import { ModelLogo } from '@/components/agent-workflow/model-providers'
 import { useModelConnections } from '@/components/agent-workflow/hooks/use-model-connections'
 import type { ModelConnection } from '@/services/model-connections-api'
 
 /**
- * "My models" in an agent's Model tab: the user's saved connections (own endpoint, key and model).
- * Picking one runs the agent on it; the admin's catalog stays below as the alternative.
+ * "Models" in an agent's Model tab: the user's own model clients, then the admin's (read-only),
+ * each marked Yours or Admin. Picking one runs the agent on it.
  */
 export const AgentModelConnections = memo(function AgentModelConnections({
   selectedId,
@@ -42,7 +42,7 @@ export const AgentModelConnections = memo(function AgentModelConnections({
   }
 
   return (
-    <Field label="My models" hint="Your own models, managed in Dashboard → Models">
+    <Field label="Models" hint="Yours are marked; manage them in Dashboard → Models">
       {status === 'unavailable' ? (
         <p className="rounded-lg border border-dashed border-border px-3 py-2.5 text-[11.5px] leading-relaxed text-muted-foreground">
           Your own models will appear here once they’re added. For now, use a model client from the catalog below.
@@ -56,7 +56,10 @@ export const AgentModelConnections = memo(function AgentModelConnections({
         </p>
       ) : (
         <div className="space-y-1.5">
-          {connections.map((connection) => {
+          {/* Yours first, then the admin's. */}
+          {[...connections]
+            .sort((a, b) => Number(a.scope === 'application') - Number(b.scope === 'application'))
+            .map((connection) => {
             const selected = connection.id === selectedId
             return (
               <div
@@ -76,18 +79,26 @@ export const AgentModelConnections = memo(function AgentModelConnections({
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5">
                       <span className="truncate text-[12.5px] font-medium text-foreground">{connection.name}</span>
-                      {connection.scope === 'workspace' ? (
-                        <Users className="size-3 shrink-0 text-muted-foreground" aria-label="Shared with the workspace" />
-                      ) : null}
+                      <ModelOwnerBadge connection={connection} />
                     </span>
                     <span className="block truncate font-mono text-[10.5px] text-muted-foreground">
                       {connection.model}
-                      {connection.endpoint ? ` · ${connection.endpoint.replace(/^https?:\/\//, '')}` : ''}
+                      {connection.endpointVariable
+                        ? ` · ${connection.endpointVariable}`
+                        : connection.endpoint
+                          ? ` · ${connection.endpoint.replace(/^https?:\/\//, '')}`
+                          : ''}
                     </span>
                   </span>
                   {selected ? <Check className="size-3.5 shrink-0" /> : null}
                 </button>
-                <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                {/* The admin's model clients are offered to everyone, read-only. */}
+                <span
+                  className={cn(
+                    'flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100',
+                    connection.scope === 'application' && 'hidden',
+                  )}
+                >
                   <button
                     type="button"
                     onClick={() => {

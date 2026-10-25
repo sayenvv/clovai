@@ -2,6 +2,8 @@ import { authorizedFetch } from '@/services/api-auth'
 import { getSession } from '@/services/project-auth-store'
 
 export interface OrchestrationIdentity {
+  /** The tab's own workflow id (a UUID): the saved row's key. */
+  workflowId: string
   workspaceId: string
   tabId: string
   userId: string
@@ -81,12 +83,13 @@ export async function orchestrationHeaders(): Promise<Record<string, string>> {
   return tracingHeaders(await aiIntegrationId())
 }
 
-export function orchestrationIdentity(tabId: string): OrchestrationIdentity {
+export function orchestrationIdentity(tabId: string, workflowId: string): OrchestrationIdentity {
   const session = getSession()
   if (!session) {
     throw new Error('Sign in before using the workflow API.')
   }
   return {
+    workflowId,
     workspaceId: session.workspaceId,
     tabId,
     userId: session.accountId,
@@ -121,6 +124,8 @@ export async function saveOrchestration(input: {
   name?: string
   description?: string
   document: Record<string, unknown>
+  /** The Code tab's workflow JSON, saved in the row's `definition` column. */
+  definition?: Record<string, unknown>
 }): Promise<{ id: string }> {
   const response = await authorizedFetch('/api/v1/workflows', {
     method: 'PUT',
@@ -128,11 +133,11 @@ export async function saveOrchestration(input: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      workspaceId: input.identity.workspaceId,
-      tabId: input.identity.tabId,
+      workflowId: input.identity.workflowId,
       userId: input.identity.userId,
       name: input.name ?? '',
       document: input.document,
+      ...(input.definition ? { definition: input.definition } : {}),
     }),
   })
   if (!response.ok) throw new Error(await errorMessage(response))
@@ -145,6 +150,8 @@ export async function executeOrchestration(input: {
   inputs?: Record<string, unknown>
   onEvent: (event: ExecutionLogEvent) => void
 }): Promise<void> {
+  const inputs = input.inputs ?? {}
+  const message = typeof inputs.message === 'string' ? inputs.message : JSON.stringify(inputs)
   const response = await authorizedFetch('/api/v1/execute', {
     method: 'POST',
     headers: {
@@ -153,16 +160,92 @@ export async function executeOrchestration(input: {
       ...(await tracingHeaders(await aiIntegrationId())),
     },
     body: JSON.stringify({
-      workspaceId: input.identity.workspaceId,
-      tabId: input.identity.tabId,
-      inputs: input.inputs ?? {},
+      workflow_id: input.identity.workflowId,
+      message,
+      // Stream the agent framework's workflow events as they happen.
       events: true,
     }),
   })
   if (!response.ok) throw new Error(await errorMessage(response))
-  await readEventStream(response, (eventName, payload) =>
-    input.onEvent({ event: eventName, ...(payload as Omit<ExecutionLogEvent, 'event'>) }),
-  )
+  let failed = false
+  let finalOutput = ''
+  await readEventStream(response, (eventName, payload) => {
+    const translated = fromWorkflowEvent(eventName, payload as WorkflowStreamEvent)
+    if (!translated) return
+    if (translated.status === 'failed') failed = true
+    if (translated.event === 'agent' && translated.status === 'completed' && translated.message) {
+      finalOutput = translated.message
+    }
+    input.onEvent(translated)
+  })
+  if (!failed) {
+    input.onEvent({
+      event: 'progress',
+      status: 'completed',
+      message: 'Workflow completed',
+      result: { execution: { outputs: finalOutput } },
+    })
+  }
+}
+
+/** One frame of the `/execute` stream: an agent framework `WorkflowEvent` (see services/executions.py). */
+interface WorkflowStreamEvent {
+  type?: string
+  executor_id?: string
+  data?: unknown
+  details?: { message?: string; error_type?: string }
+  message?: string
+}
+
+/** Text in an agent framework value: a string, AgentResponse(Update), Message, or a list of them. */
+function workflowText(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.map(workflowText).filter(Boolean).join('\n\n')
+  if (!value || typeof value !== 'object') return ''
+  const record = value as Record<string, unknown>
+  if (typeof record.text === 'string') return record.text
+  if (Array.isArray(record.contents)) {
+    return record.contents
+      .map((content) => (content && typeof content === 'object' && typeof (content as { text?: unknown }).text === 'string' ? (content as { text: string }).text : ''))
+      .join('')
+  }
+  if (Array.isArray(record.messages)) return workflowText(record.messages)
+  if ('agent_response' in record) return workflowText(record.agent_response)
+  return ''
+}
+
+/** Map an agent framework workflow event onto the run log's `agent` / `progress` events. */
+function fromWorkflowEvent(eventName: string, payload: WorkflowStreamEvent): ExecutionLogEvent | null {
+  const agentId = payload.executor_id
+  const type = payload.type ?? eventName
+  switch (type) {
+    case 'executor_invoked':
+      return agentId ? { event: 'agent', agentId, agent: agentId, status: 'running' } : null
+    case 'executor_completed':
+      return agentId ? { event: 'agent', agentId, agent: agentId, status: 'completed' } : null
+    case 'executor_failed':
+      return agentId
+        ? { event: 'agent', agentId, agent: agentId, status: 'failed', message: payload.details?.message }
+        : null
+    case 'output':
+    case 'data': {
+      if (!agentId) return null
+      const data = payload.data as { type?: string } | undefined
+      const text = workflowText(data)
+      if (!text) return null
+      // Streaming updates extend the agent's open turn; a whole response completes it.
+      const isUpdate = typeof data?.type === 'string' && data.type.includes('update')
+      return isUpdate
+        ? { event: 'agent', agentId, agent: agentId, status: 'running', delta: true, message: text }
+        : { event: 'agent', agentId, agent: agentId, status: 'completed', message: text }
+    }
+    case 'failed':
+      return { event: 'progress', status: 'failed', message: payload.details?.message || 'Workflow execution failed.' }
+    case 'error':
+      return { event: 'progress', status: 'failed', message: payload.message || 'Workflow execution failed.' }
+    default:
+      return null
+  }
 }
 
 /** Read a server-sent event stream, calling `onEvent` with each event name and JSON payload. */
@@ -193,3 +276,4 @@ export async function readEventStream(
     }
   }
 }
+

@@ -3,6 +3,7 @@ import AdminCenterPage from '@/pages/AdminCenterPage'
 import { ConfigDocumentsView } from '@/components/admin-center/views/ConfigDocumentsView'
 import { ConfigSectionView } from '@/components/admin-center/views/ConfigSectionView'
 import { EnvironmentView } from '@/components/admin-center/views/EnvironmentView'
+import { ModelClientsView } from '@/components/admin-center/views/ModelClientsView'
 import { AccessView } from '@/components/admin-center/views/AccessView'
 import { ActivityView } from '@/components/admin-center/views/ActivityView'
 import { DashboardView } from '@/components/admin-center/views/DashboardView'
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { path: 'configuration', element: <Navigate to="/configuration/system" replace /> },
       { path: 'configuration/system', element: <ConfigSectionView /> },
       { path: 'configuration/environment', element: <EnvironmentView /> },
+      { path: 'configuration/model-clients', element: <ModelClientsView /> },
       // Old addresses, kept so bookmarks land on the new pages.
       { path: 'configurations', element: <Navigate to="/configuration/system" replace /> },
       { path: 'application-config', element: <Navigate to="/configuration/system" replace /> },

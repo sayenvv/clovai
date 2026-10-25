@@ -1,3 +1,4 @@
+import { parseWorkflowFile } from '@/components/agent-workflow/workflow-import'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Suspense, lazy } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Sparkles } from 'lucide-react'
@@ -413,7 +414,7 @@ export default function ToolDetailPage() {
       const reader = new FileReader()
       reader.onload = () => {
         try {
-          const imported = normalizeDocument(JSON.parse(String(reader.result)))
+          const imported = parseWorkflowFile(String(reader.result)).document
           const known = imported.pages.every((page) =>
             page.diagram.nodes.every((node) => paletteById.has(node.paletteId)),
           )

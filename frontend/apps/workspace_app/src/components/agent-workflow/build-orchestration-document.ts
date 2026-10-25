@@ -1,3 +1,4 @@
+import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
 import type { Diagram, DiagramDocument, DiagramNode } from '@/components/designer/diagram-types'
 import { resolvedAgentHitl } from '@/components/agent-workflow/agent-hitl'
 import { resolveAgentType } from '@/components/agent-workflow/agent-workflow-defaults'
@@ -216,7 +217,7 @@ export function buildOrchestrationDocument(input: {
   return {
     schemaVersion: '4.0',
     metadata: {
-      id: input.doc.workflow?.workflowId ?? `wf_${input.pageId}`,
+      id: pageWorkflowId(input.doc, input.pageId),
       name,
       description: input.doc.workflow?.deployment?.endpointUrl ?? name,
       version: String(input.doc.workflow?.version ?? 1),

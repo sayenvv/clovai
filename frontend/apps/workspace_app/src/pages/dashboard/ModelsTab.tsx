@@ -1,18 +1,19 @@
 import { useState } from 'react'
-import { KeyRound, Pencil, Plus, ServerCog, Trash2, Users } from 'lucide-react'
+import { KeyRound, Pencil, Plus, ServerCog, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ListSkeleton, PageIntro } from '@/components/agent-workflow/dashboard/dashboard-ui'
 import { Section } from '@/components/agent-workflow/dashboard/activity-ui'
 import { formatWhen } from '@/components/agent-workflow/dashboard/dashboard-format'
-import { ModelConnectionDialog, CONNECTION_PROVIDERS } from '@/components/agent-workflow/ModelConnectionDialog'
+import { ModelConnectionDialog, CONNECTION_PROVIDERS, ModelOwnerBadge } from '@/components/agent-workflow/ModelConnectionDialog'
 import { ModelLogo } from '@/components/agent-workflow/model-providers'
 import { useModelConnections } from '@/components/agent-workflow/hooks/use-model-connections'
 import type { ModelConnection } from '@/services/model-connections-api'
 
 /**
- * The user's own models: saved connections (endpoint, key, model) that any agent can then run on
- * from its Model tab. Keys go to the server once and are never shown again.
+ * Models: the user's own model clients (endpoint, key, model), then the admin's for the
+ * application (read-only). Any agent can run on either from its Model tab. Keys go to the
+ * server once and are never shown again.
  */
 export default function ModelsTab() {
   const { connections, status, error, reload, save, remove } = useModelConnections()
@@ -35,13 +36,15 @@ export default function ModelsTab() {
   }
 
   const unavailable = status === 'unavailable'
+  const own = connections.filter((connection) => connection.scope !== 'application')
+  const admins = connections.filter((connection) => connection.scope === 'application')
 
   return (
     <div>
       <PageIntro
         eyebrow="Models"
-        title="Your models"
-        description="Connect your own model (your endpoint, key and model) once here, then pick it in any agent’s Model tab."
+        title="Models"
+        description="Your own models (your endpoint, key and model) and the models available to everyone. Pick either in any agent’s Model tab."
         actions={
           <Button type="button" size="sm" onClick={() => open(null)} disabled={unavailable || status === 'loading'}>
             <Plus className="size-3.5" />
@@ -83,9 +86,17 @@ export default function ModelsTab() {
           </span>
         </button>
       ) : (
-        <Section title={`${connections.length} model${connections.length === 1 ? '' : 's'}`}>
-          <div className="-mx-5 -mb-5 divide-y divide-border/70 border-t border-border/70">
-            {connections.map((connection) => (
+        <>
+          {[
+            { title: 'Your models', hint: 'Added by you — only you can use them.', items: own },
+            { title: 'Available models', hint: 'Ready to use in any agent.', items: admins },
+          ]
+            .filter((group) => group.items.length > 0)
+            .map((group) => (
+              <Section key={group.title} title={`${group.title} · ${group.items.length}`} className="mb-5">
+                <p className="-mt-2 mb-3 text-[11.5px] text-muted-foreground">{group.hint}</p>
+                <div className="-mx-5 -mb-5 divide-y divide-border/70 border-t border-border/70">
+                  {group.items.map((connection) => (
               <div key={connection.id} className="group flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/40">
                 <ModelLogo hints={[connection.providerType, connection.model]} className="size-8" />
                 <div className="min-w-0 flex-1">
@@ -95,15 +106,15 @@ export default function ModelsTab() {
                       {CONNECTION_PROVIDERS.find((item) => item.value === connection.providerType)?.label ??
                         connection.providerType}
                     </span>
-                    {connection.scope === 'workspace' ? (
-                      <span className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
-                        <Users className="size-3" /> Workspace
-                      </span>
-                    ) : null}
+                    <ModelOwnerBadge connection={connection} />
                   </div>
                   <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
                     {connection.model}
-                    {connection.endpoint ? ` · ${connection.endpoint}` : ''}
+                    {connection.endpointVariable
+                      ? ` · ${connection.endpointVariable}`
+                      : connection.endpoint
+                        ? ` · ${connection.endpoint}`
+                        : ''}
                   </p>
                 </div>
                 <span className="hidden items-center gap-1 text-[11px] text-muted-foreground sm:inline-flex">
@@ -119,7 +130,8 @@ export default function ModelsTab() {
                 <span className="hidden w-28 text-right text-[11px] text-muted-foreground md:block">
                   {formatWhen(connection.updatedAt)}
                 </span>
-                <div className="flex shrink-0 gap-1">
+                {/* The admin's model clients are offered to everyone, read-only. */}
+                <div className={connection.scope === 'application' ? 'invisible flex shrink-0 gap-1' : 'flex shrink-0 gap-1'}>
                   <Button type="button" variant="ghost" size="icon" className="size-8" onClick={() => open(connection)} aria-label={`Edit ${connection.name}`}>
                     <Pencil className="size-3.5" />
                   </Button>
@@ -135,9 +147,11 @@ export default function ModelsTab() {
                   </Button>
                 </div>
               </div>
+                  ))}
+                </div>
+              </Section>
             ))}
-          </div>
-        </Section>
+        </>
       )}
 
       <ModelConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} connection={editing} onSave={save} />

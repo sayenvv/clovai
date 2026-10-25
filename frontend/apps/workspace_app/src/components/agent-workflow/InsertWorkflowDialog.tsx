@@ -10,13 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { normalizeDocument, type DiagramDocument } from '@/components/designer/diagram-types'
+import type { DiagramDocument } from '@/components/designer/diagram-types'
+import { parseWorkflowFile } from '@/components/agent-workflow/workflow-import'
+import type { WorkflowConfiguration } from '@/services/workflow-configuration-store'
 
 interface ImportWorkflowDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** The file's workflow, whose nodes are copied onto the current canvas. */
-  onImportDocument: (document: DiagramDocument) => void
+  onImportDocument: (document: DiagramDocument, configuration?: Partial<WorkflowConfiguration>) => void
 }
 
 /** Import a workflow JSON file and copy its nodes onto the current canvas. */
@@ -31,10 +33,15 @@ export const ImportWorkflowDialog = memo(function ImportWorkflowDialog({
     const reader = new FileReader()
     reader.onload = () => {
       try {
-        onImportDocument(normalizeDocument(JSON.parse(String(reader.result))))
+        const { document, configuration } = parseWorkflowFile(String(reader.result))
+        onImportDocument(document, configuration)
         onOpenChange(false)
-      } catch {
-        toast.error('Invalid workflow JSON file.')
+      } catch (error) {
+        toast.error(
+          error instanceof SyntaxError || !(error instanceof Error)
+            ? 'Invalid workflow JSON file.'
+            : error.message,
+        )
       }
     }
     reader.readAsText(file)

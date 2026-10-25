@@ -4,13 +4,17 @@
  *
  * API contract (secret values are stored encrypted and never returned):
  *
- *   GET    /api/v1/variables              → { variables: EnvVariable[] }
- *   POST   /api/v1/variables              body EnvVariableInput (value required) → EnvVariable
- *   PUT    /api/v1/variables/{id}         body EnvVariableInput (value omitted or empty keeps the
+ *   GET    /api/v1/me/variables           → { variables: EnvVariable[] }
+ *   POST   /api/v1/me/variables           body EnvVariableInput (value required) → EnvVariable
+ *   PUT    /api/v1/me/variables/{id}      body EnvVariableInput (value omitted or empty keeps the
  *                                         stored value) → EnvVariable
- *   DELETE /api/v1/variables/{id}         → 204
+ *   DELETE /api/v1/me/variables/{id}      → 204
  *
- * Names are unique per scope, UPPER_SNAKE_CASE. At run time the server resolves a reference such as
+ * Each variable is a "Manual entry" (`secret: false`, stored as entered) or a "Secret"
+ * (`secret: true`, stored encrypted). The admin's application variables live under
+ * /api/v1/variables; a model client looks up the user's variable first, then the application's.
+ *
+ * Names are unique per user, UPPER_SNAKE_CASE. At run time the server resolves a reference such as
  * `apiKeyVariable: "OPENAI_API_KEY"` to the stored value; workflow JSON only ever holds the name.
  */
 
@@ -24,7 +28,9 @@ export interface EnvVariable {
   /** UPPER_SNAKE_CASE, e.g. OPENAI_API_KEY. */
   name: string
   description: string
-  /** Secret values are write-only; plain ones come back in `value`. */
+  /** `manual` (Manual entry) or `secret`. */
+  type?: 'manual' | 'secret'
+  /** Secret values are write-only; manual ones come back in `value`. */
   secret: boolean
   /** Present for plain variables only. */
   value?: string | null
@@ -53,7 +59,7 @@ export class VariablesUnavailableError extends Error {
   }
 }
 
-const BASE = '/api/v1/variables'
+const BASE = '/api/v1/me/variables'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await authorizedFetch(`${BASE}${path}`, {

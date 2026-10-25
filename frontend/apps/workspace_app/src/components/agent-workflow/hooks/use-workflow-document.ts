@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react'
+import { withPageWorkflowIds } from '@/components/agent-workflow/page-workflow-id'
 import { toast } from 'sonner'
 import { createPage, resolveActiveMainPageId, type Diagram, type DiagramDocument } from '@/components/designer/diagram-types'
 import { createDiagramHistoryStack } from '@/components/designer/diagram-history'
@@ -27,10 +28,14 @@ export function useWorkflowDocument(
   paletteById: Map<string, PaletteItem>,
   onInvalidate?: () => void,
 ) {
-  const [doc, setDoc] = useState<DiagramDocument>(() => {
+  const [doc, setRawDoc] = useState<DiagramDocument>(() => {
     const session = getSession()
     return loadWorkflowDocument(session?.workspaceId)
   })
+  // Every change passes through here so new, copied and imported tabs all get their own workflow id.
+  const setDoc = useCallback((update: SetStateAction<DiagramDocument>) => {
+    setRawDoc((previous) => withPageWorkflowIds(typeof update === 'function' ? update(previous) : update))
+  }, [])
   const [workflowName, setWorkflowName] = useState(() => doc.pages[0]?.name ?? 'Untitled workflow')
   const historyRef = useRef(createDiagramHistoryStack())
   const historyPageIdRef = useRef<string | null>(null)

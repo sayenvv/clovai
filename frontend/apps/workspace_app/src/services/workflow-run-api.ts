@@ -8,10 +8,14 @@
 import { authorizedFetch } from '@/services/api-auth'
 import { errorMessage, orchestrationHeaders, readEventStream, type ExecutionLogEvent } from '@/services/orchestration-api'
 
-/** The model picked for the run, from the application's model catalog. */
+/**
+ * The model picked for the run: a model from the application's catalog (`provider` + `modelId`),
+ * or a saved model client (`connectionId`), the user's own or the admin's.
+ */
 export interface CatalogModel {
-  provider: string
-  modelId: string
+  provider?: string
+  modelId?: string
+  connectionId?: string
   temperature?: number
   maxTokens?: number
   /** Agent id or name -> the model that agent uses instead. */

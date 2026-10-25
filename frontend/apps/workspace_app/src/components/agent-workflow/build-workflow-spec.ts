@@ -1,6 +1,7 @@
+import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
 import { findOrchestrations, resolveExecutionType } from '@/components/agent-workflow/orchestration-patterns'
 import { BUILDER_SPECS, builderConfig } from '@/components/agent-workflow/workflow-builder-config'
-import type { Diagram, DiagramDocument, DiagramNode } from '@/components/designer/diagram-types'
+import type { Diagram, DiagramDocument, DiagramEdge, DiagramNode } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import { normalizeExecutorSource } from '@/components/agent-workflow/executor-source'
 import { normalizeApprovalMode, type AgentNodeConfig, type WorkflowExecutionType } from '@/types/agent-workflow'
@@ -34,6 +35,13 @@ import {
   resolveWorkflowModelConfig,
 } from '@/components/agent-workflow/workflow-model-config'
 import { slugifyIdentifier } from '@/utils/slug'
+import {
+  buildWorkflowBuilderGraph,
+  isGraphWorkflow,
+  isSwitchNode,
+  listExecutorNodes,
+} from '@/components/agent-workflow/workflow-edge-groups'
+import { getWorkflowConfiguration, type WorkflowConfiguration } from '@/services/workflow-configuration-store'
 
 function toSchemaBlock(raw: string | undefined): SchemaBlock {
   const value = raw?.trim() ?? ''
@@ -143,11 +151,23 @@ function orchestrationSettings(diagram: Diagram) {
   }
 }
 
+/** `Authorization=Bearer x` lines from the Configuration tab into a header map. */
+function parseHeaders(raw: string): Record<string, string> {
+  const headers: Record<string, string> = {}
+  for (const line of raw.split('\n')) {
+    const index = line.indexOf('=')
+    if (index <= 0) continue
+    headers[line.slice(0, index).trim()] = line.slice(index + 1).trim()
+  }
+  return headers
+}
+
 function buildSettings(
   agents: DiagramNode[],
   subWorkflows: WorkflowSubWorkflowExport[],
   modelConfig: WorkflowModelConfig,
   diagram: Diagram,
+  configuration: WorkflowConfiguration,
 ): WorkflowSettings {
   const { orchestration, builders } = orchestrationSettings(diagram)
   const configs = agents.map((node) => node.agent).filter(Boolean) as AgentNodeConfig[]
@@ -163,13 +183,35 @@ function buildSettings(
     },
     logging: {
       enabled: true,
-      level: 'info',
+      level: configuration.logLevel,
     },
     metadata: {
       subWorkflows,
       ...(builders.length > 0 ? { workflowBuilders: builders } : {}),
     },
     ...(orchestration ? { orchestration } : {}),
+    observability: {
+      tracing: {
+        enabled: configuration.tracingEnabled,
+        captureSensitiveData: configuration.captureSensitiveData,
+        persistExecutionHistory: configuration.persistExecutionHistory,
+      },
+      openTelemetry: {
+        enabled: configuration.openTelemetryEnabled,
+        exporter: configuration.otelExporter,
+        endpoint: configuration.otelEndpoint,
+        serviceName: configuration.otelServiceName,
+        headers: parseHeaders(configuration.otelHeaders),
+        sampleRate: configuration.traceSampleRate,
+        metricsEnabled: configuration.metricsEnabled,
+      },
+    },
+    runtime: {
+      maxIterations: configuration.maxIterations,
+      timeoutSeconds: configuration.timeoutSeconds,
+      retryAttempts: configuration.retryAttempts,
+      checkpointingEnabled: configuration.checkpointingEnabled,
+    },
   }
 }
 
@@ -284,11 +326,25 @@ function buildToolSpecs(diagram: Diagram): WorkflowBuildTool[] {
   return tools
 }
 
+/** Agent → Switch → agent connectors as direct agent → agent ones (the case rules are in workflowBuilder). */
+function bridgeSwitchEdges(diagram: Diagram): DiagramEdge[] {
+  const switchIds = new Set(diagram.nodes.filter(isSwitchNode).map((node) => node.id))
+  const direct = diagram.edges.filter((edge) => !switchIds.has(edge.from) && !switchIds.has(edge.to))
+  const bridged = diagram.edges
+    .filter((edge) => switchIds.has(edge.to))
+    .flatMap((input) =>
+      diagram.edges
+        .filter((edge) => edge.from === input.to)
+        .map((output) => ({ ...output, id: `${input.id}__${output.id}`, from: input.from })),
+    )
+  return [...direct, ...bridged]
+}
+
 function buildEdgeSpecs(diagram: Diagram): WorkflowBuildEdge[] {
-  const agentIds = new Set(listAgentNodes(diagram).map((agent) => agent.id))
+  const agentIds = new Set(listExecutorNodes(diagram).map((agent) => agent.id))
   const nodesById = new Map(diagram.nodes.map((node) => [node.id, node]))
 
-  return diagram.edges
+  return bridgeSwitchEdges(diagram)
     .filter((edge) => agentIds.has(edge.from) && agentIds.has(edge.to))
     .map((edge) => {
       const fromAgent = nodesById.get(edge.from)?.agent
@@ -380,7 +436,7 @@ function buildWorkflowBody(
   visited: Set<string>,
 ): WorkflowBody {
   visited.add(pageId)
-  const agentNodes = listAgentNodes(diagram)
+  const agentNodes = listExecutorNodes(diagram)
 
   return {
     agents: agentNodes.map((node) => buildAgentSpec(diagram, node)),
@@ -399,6 +455,22 @@ export interface BuildWorkflowSpecOptions {
   createdAt?: string
   visited?: Set<string>
   serverModelConfig?: WorkflowModelConfig
+  /** Configuration tab settings; read from the store when not passed. */
+  configuration?: WorkflowConfiguration
+}
+
+/** This tab and the sub-workflow pages it uses (and theirs), not the document's other tabs. */
+function canvasPages(doc: DiagramDocument, pageId: string, diagram: Diagram): DiagramDocument['pages'] {
+  const pagesById = new Map(doc.pages.map((page) => [page.id, page]))
+  const current = pagesById.get(pageId)
+  const pages = [current ? { ...current, diagram } : { id: pageId, name: 'Untitled workflow', diagram }]
+  for (let index = 0; index < pages.length; index++) {
+    for (const node of pages[index].diagram.nodes) {
+      const sub = node.subWorkflowPageId ? pagesById.get(node.subWorkflowPageId) : undefined
+      if (sub && !pages.some((page) => page.id === sub.id)) pages.push(sub)
+    }
+  }
+  return pages
 }
 
 /** Serialize the canvas into the agent workflow JSON schema. */
@@ -411,6 +483,7 @@ export function buildWorkflowSpec({
   createdAt,
   visited = new Set<string>(),
   serverModelConfig,
+  configuration,
 }: BuildWorkflowSpecOptions): WorkflowBuildSpec {
   const page = doc.pages.find((candidate) => candidate.id === pageId)
   const workflowMeta = doc.workflow
@@ -421,6 +494,9 @@ export function buildWorkflowSpec({
   const executionType = resolveExecutionType(workflowMeta?.executionType, diagram)
   const modelConfig = resolveModelConfig(doc, agentNodes, serverModelConfig)
   const now = new Date().toISOString()
+  const workflowId = pageWorkflowId(doc, pageId)
+  // Agents wired with connectors and nothing deciding a team pattern: a WorkflowBuilder graph.
+  const graphWorkflow = isGraphWorkflow(diagram)
 
   return {
     meta: {
@@ -428,10 +504,10 @@ export function buildWorkflowSpec({
       workspaceId,
       pageId,
       pageName: workflowName,
-      workflowId: workflowMeta?.workflowId ?? `wf_${pageId}`,
+      workflowId,
       workflowName,
       workflowVersion: workflowMeta?.version ?? 1,
-      workflowType: mapWorkflowType(executionType),
+      workflowType: graphWorkflow ? 'workflow' : mapWorkflowType(executionType),
       executionMode: resolveExecutionMode(executionType, body.edges),
       status: mapStatus(workflowMeta?.status),
       description: workflowMeta?.deployment?.endpointUrl
@@ -444,6 +520,19 @@ export function buildWorkflowSpec({
     agents: body.agents,
     tools: body.tools,
     edges: body.edges,
-    settings: buildSettings(agentNodes, body.subWorkflows, modelConfig, diagram),
+    ...(graphWorkflow ? { workflowBuilder: buildWorkflowBuilderGraph(diagram) } : {}),
+    settings: buildSettings(
+      agentNodes,
+      body.subWorkflows,
+      modelConfig,
+      diagram,
+      configuration ?? getWorkflowConfiguration(workflowId),
+    ),
+    canvas: {
+      activePageId: pageId,
+      activeMainPageId: pageId,
+      pages: canvasPages(doc, pageId, diagram),
+      workflow: workflowMeta ? { ...workflowMeta, workflowId } : workflowMeta,
+    },
   }
 }

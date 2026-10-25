@@ -28,6 +28,8 @@ export interface CatalogModelOption {
   maxTokens?: number
   supportsTools?: boolean
   supportsJsonSchema?: boolean
+  /** modelConfig options the model rejects, such as `temperature` on reasoning models. */
+  unsupportedOptions?: string[]
 }
 
 export interface CatalogProvider {

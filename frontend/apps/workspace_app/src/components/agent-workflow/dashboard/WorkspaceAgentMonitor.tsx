@@ -1,21 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AlertTriangle, Bot, CheckCircle2, ChevronRight, CircleDashed, Layers, XCircle } from 'lucide-react'
 import { ReportState, Section } from '@/components/agent-workflow/dashboard/activity-ui'
 import { formatCompact, formatLatency, formatNumber, formatWhen } from '@/components/agent-workflow/dashboard/dashboard-format'
 import { useActivityReport } from '@/components/agent-workflow/dashboard/use-activity-report'
 import { Badge } from '@/components/ui/badge'
-import { Select } from '@/components/ui/select'
-import {
-  fetchMonitoredWorkspaces,
-  fetchWorkspaceTabs,
-  type MonitoredTab,
-  type MonitoredWorkspace,
-} from '@/services/activity-api'
-import { getSession } from '@/services/project-auth-store'
+import { fetchMonitoredWorkflows, type MonitoredWorkflow } from '@/services/activity-api'
 import { cn } from '@/utils/cn'
 import { AgentMonitorSkeleton } from '@/components/agent-workflow/dashboard/dashboard-skeletons'
-
-const NO_WORKSPACES: MonitoredWorkspace[] = []
 
 type TabHealth = 'healthy' | 'degraded' | 'failing' | 'idle'
 
@@ -26,8 +17,8 @@ const TAB_HEALTH: Record<TabHealth, { label: string; tone: string; icon: typeof 
   idle: { label: 'Not run', tone: 'border-border bg-muted text-muted-foreground', icon: CircleDashed },
 }
 
-/** Health from how the tab's runs ended in the window. */
-function tabHealth(tab: MonitoredTab): TabHealth {
+/** Health from how the workflow's runs ended in the window. */
+function tabHealth(tab: MonitoredWorkflow): TabHealth {
   if (tab.runs.total === 0) return 'idle'
   const rate = tab.runs.succeeded / tab.runs.total
   if (rate >= 0.9) return 'healthy'
@@ -36,61 +27,28 @@ function tabHealth(tab: MonitoredTab): TabHealth {
 }
 
 /**
- * Agent monitoring per workspace tab: pick a workspace, and each saved tab
- * lists its agents with calls, tokens, runs, and last activity, under the
- * tab's own run health.
+ * Agent monitoring per saved workflow: each of the user's saved workflows lists
+ * its agents with calls, tokens, runs, and last activity, under the workflow's
+ * own run health.
  */
 export function WorkspaceAgentMonitor({ days }: { days: number }) {
-  const workspaces = useActivityReport(fetchMonitoredWorkspaces, 0)
-  const [workspaceId, setWorkspaceId] = useState<string>('')
-  const list = workspaces.data ?? NO_WORKSPACES
-
-  // Start on the signed-in workspace when it has tabs, otherwise the most recently changed one.
-  useEffect(() => {
-    if (workspaceId || list.length === 0) return
-    const own = getSession()?.workspaceId
-    setWorkspaceId(list.find((item) => item.workspaceId === own)?.workspaceId ?? list[0].workspaceId)
-  }, [list, workspaceId])
-
-  const loadTabs = useCallback((window: number) => fetchWorkspaceTabs(workspaceId, window), [workspaceId])
-  const tabs = useActivityReport(workspaceId ? loadTabs : noTabs, days)
+  const workflows = useActivityReport(fetchMonitoredWorkflows, days)
 
   return (
-    <Section
-      title="By workspace tab"
-      className="mt-0"
-      action={
-        list.length > 0 ? (
-          <div className="w-56">
-            <Select
-              value={workspaceId}
-              onChange={(event) => setWorkspaceId(event.target.value)}
-              aria-label="Workspace"
-              className="h-8 text-[12px]"
-            >
-              {list.map((item) => (
-                <option key={item.workspaceId} value={item.workspaceId}>
-                  {item.name} · {item.tabs} tab{item.tabs === 1 ? '' : 's'}
-                </option>
-              ))}
-            </Select>
-          </div>
-        ) : null
-      }
-    >
+    <Section title="By saved workflow" className="mt-0">
       <ReportState
         skeleton={<AgentMonitorSkeleton />}
-        isLoading={(workspaces.isLoading && !workspaces.data) || (Boolean(workspaceId) && tabs.isLoading && !tabs.data)}
-        error={workspaces.error ?? tabs.error}
-        empty={Boolean(workspaces.data) && list.length === 0}
+        isLoading={workflows.isLoading && !workflows.data}
+        error={workflows.error}
+        empty={Boolean(workflows.data) && workflows.data!.length === 0}
         icon={Layers}
         emptyTitle="No saved workflows yet"
-        emptyHint="Save a tab in the designer and run it. Each tab's agents are monitored here."
+        emptyHint="Save a workflow in the designer and run it. Each workflow's agents are monitored here."
       />
-      {tabs.data && tabs.data.length > 0 ? (
+      {workflows.data && workflows.data.length > 0 ? (
         <div className="space-y-2">
-          {tabs.data.map((tab, index) => (
-            <TabCard key={tab.tabId} tab={tab} defaultOpen={index === 0} />
+          {workflows.data.map((workflow, index) => (
+            <TabCard key={workflow.workflowId} tab={workflow} defaultOpen={index === 0} />
           ))}
         </div>
       ) : null}
@@ -98,11 +56,7 @@ export function WorkspaceAgentMonitor({ days }: { days: number }) {
   )
 }
 
-function noTabs(): Promise<MonitoredTab[]> {
-  return Promise.resolve([])
-}
-
-function TabCard({ tab, defaultOpen }: { tab: MonitoredTab; defaultOpen: boolean }) {
+function TabCard({ tab, defaultOpen }: { tab: MonitoredWorkflow; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen)
   const health = TAB_HEALTH[tabHealth(tab)]
   const HealthIcon = health.icon

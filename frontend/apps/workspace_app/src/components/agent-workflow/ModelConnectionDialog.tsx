@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react'
-import { Braces, CheckCircle2, KeyRound, Loader2, XCircle } from 'lucide-react'
+import { Braces, CheckCircle2, KeyRound, Link2, Loader2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -42,6 +42,7 @@ const EMPTY: ModelConnectionInput = {
   apiVersion: null,
   apiKey: '',
   apiKeyVariable: null,
+  endpointVariable: null,
   scope: 'user',
 }
 
@@ -68,11 +69,14 @@ export const ModelConnectionDialog = memo(function ModelConnectionDialog({
   const { variables, status: variablesStatus } = useVariables()
   const [keySource, setKeySource] = useState<'paste' | 'variable'>('paste')
   const fromVariable = needsKey && keySource === 'variable'
+  const [endpointSource, setEndpointSource] = useState<'manual' | 'variable'>('manual')
+  const endpointFromVariable = endpointSource === 'variable'
 
   useEffect(() => {
     if (!open) return
     setTest(null)
     setKeySource(connection?.apiKeyVariable ? 'variable' : 'paste')
+    setEndpointSource(connection?.endpointVariable ? 'variable' : 'manual')
     setForm(
       connection
         ? {
@@ -83,7 +87,8 @@ export const ModelConnectionDialog = memo(function ModelConnectionDialog({
             apiVersion: connection.apiVersion ?? null,
             apiKey: '',
             apiKeyVariable: connection.apiKeyVariable ?? null,
-            scope: connection.scope,
+            endpointVariable: connection.endpointVariable ?? null,
+            scope: 'user',
           }
         : EMPTY,
     )
@@ -96,7 +101,9 @@ export const ModelConnectionDialog = memo(function ModelConnectionDialog({
   const missing =
     !form.name.trim() || !form.model.trim() ||
     (fromVariable ? !form.apiKeyVariable : needsKey && !(editing && connection?.hasApiKey) && !form.apiKey?.trim()) ||
-    (form.providerType === 'azure-openai' && !form.endpoint.trim())
+    (endpointFromVariable
+      ? !form.endpointVariable
+      : form.providerType === 'azure-openai' && !form.endpoint.trim())
 
   // Only the chosen key source is sent.
   const payload = (): ModelConnectionInput => ({
@@ -104,6 +111,8 @@ export const ModelConnectionDialog = memo(function ModelConnectionDialog({
     apiVersion: form.providerType === 'azure-openai' ? form.apiVersion || null : null,
     apiKey: fromVariable ? '' : form.apiKey,
     apiKeyVariable: fromVariable ? form.apiKeyVariable : null,
+    endpoint: endpointFromVariable ? '' : form.endpoint,
+    endpointVariable: endpointFromVariable ? form.endpointVariable : null,
   })
 
   const runTest = async () => {
@@ -162,14 +171,41 @@ export const ModelConnectionDialog = memo(function ModelConnectionDialog({
           </Field>
           <Field
             label="Endpoint"
-            hint={form.providerType === 'azure-openai' ? 'Your Azure OpenAI resource URL' : 'Leave empty for the provider’s public API'}
+            hint={
+              endpointFromVariable
+                ? 'Resolved on the server when the agent runs.'
+                : form.providerType === 'azure-openai'
+                  ? 'Your Azure OpenAI resource URL'
+                  : 'Leave empty for the provider’s public API'
+            }
           >
-            <Input
-              type="url"
-              value={form.endpoint}
-              onChange={(event) => set({ endpoint: event.target.value })}
-              placeholder={provider.endpoint}
+            <SourceToggle
+              label="Endpoint source"
+              value={endpointSource}
+              options={[
+                ['manual', 'Enter URL', Link2],
+                ['variable', 'From variable', Braces],
+              ]}
+              onChange={(value) => {
+                setEndpointSource(value)
+                setTest(null)
+              }}
             />
+            {endpointFromVariable ? (
+              <VariablePicker
+                status={variablesStatus}
+                variables={variables}
+                value={form.endpointVariable ?? null}
+                onChange={(endpointVariable) => set({ endpointVariable })}
+              />
+            ) : (
+              <Input
+                type="url"
+                value={form.endpoint}
+                onChange={(event) => set({ endpoint: event.target.value })}
+                placeholder={provider.endpoint}
+              />
+            )}
           </Field>
           <Field label={form.providerType === 'azure-openai' ? 'Deployment name' : 'Model'}>
             <Input
@@ -200,50 +236,25 @@ export const ModelConnectionDialog = memo(function ModelConnectionDialog({
                     : 'Sent once, stored encrypted.'
               }
             >
-              <div className="mb-1.5 inline-flex rounded-lg border border-border/70 bg-muted/40 p-0.5" role="group" aria-label="Key source">
-                {(
-                  [
-                    ['paste', 'Paste key', KeyRound],
-                    ['variable', 'From variable', Braces],
-                  ] as const
-                ).map(([value, label, Icon]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => {
-                      setKeySource(value)
-                      setTest(null)
-                    }}
-                    aria-pressed={keySource === value}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors',
-                      keySource === value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    <Icon className="size-3" />
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <SourceToggle
+                label="Key source"
+                value={keySource}
+                options={[
+                  ['paste', 'Paste key', KeyRound],
+                  ['variable', 'From variable', Braces],
+                ]}
+                onChange={(value) => {
+                  setKeySource(value)
+                  setTest(null)
+                }}
+              />
               {fromVariable ? (
-                variablesStatus === 'unavailable' ? (
-                  <p className="text-[11.5px] text-muted-foreground">Environment variables aren’t available on this server yet.</p>
-                ) : (
-                  <Select
-                    value={form.apiKeyVariable ?? ''}
-                    onChange={(event) => set({ apiKeyVariable: event.target.value || null })}
-                    className="font-mono text-xs"
-                  >
-                    <option value="">
-                      {variablesStatus === 'loading' ? 'Loading variables…' : variables.length ? 'Choose a variable' : 'No variables yet — add one in Dashboard → Variables'}
-                    </option>
-                    {variables.map((variable) => (
-                      <option key={variable.id} value={variable.name}>
-                        {variable.name}
-                      </option>
-                    ))}
-                  </Select>
-                )
+                <VariablePicker
+                  status={variablesStatus}
+                  variables={variables}
+                  value={form.apiKeyVariable ?? null}
+                  onChange={(apiKeyVariable) => set({ apiKeyVariable })}
+                />
               ) : (
               <div className="relative">
                 <KeyRound className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -259,12 +270,6 @@ export const ModelConnectionDialog = memo(function ModelConnectionDialog({
               )}
             </Field>
           ) : null}
-          <Field label="Visible to">
-            <Select value={form.scope} onChange={(event) => set({ scope: event.target.value as ModelConnectionInput['scope'] })}>
-              <option value="user">Only me</option>
-              <option value="workspace">Everyone in this workspace</option>
-            </Select>
-          </Field>
 
           {test ? (
             <p
@@ -299,3 +304,85 @@ export const ModelConnectionDialog = memo(function ModelConnectionDialog({
     </Dialog>
   )
 })
+
+function SourceToggle<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: T
+  options: ReadonlyArray<readonly [T, string, typeof Braces]>
+  onChange: (value: T) => void
+}) {
+  return (
+    <div className="mb-1.5 inline-flex rounded-lg border border-border/70 bg-muted/40 p-0.5" role="group" aria-label={label}>
+      {options.map(([option, text, Icon]) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => onChange(option)}
+          aria-pressed={value === option}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors',
+            value === option ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Icon className="size-3" />
+          {text}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Pick one of the user's variables by name (the server also checks the application's). */
+function VariablePicker({
+  status,
+  variables,
+  value,
+  onChange,
+}: {
+  status: ReturnType<typeof useVariables>['status']
+  variables: ReturnType<typeof useVariables>['variables']
+  value: string | null
+  onChange: (name: string | null) => void
+}) {
+  if (status === 'unavailable') {
+    return <p className="text-[11.5px] text-muted-foreground">Variables aren’t available on this server yet.</p>
+  }
+  return (
+    <Select value={value ?? ''} onChange={(event) => onChange(event.target.value || null)} className="font-mono text-xs">
+      <option value="">
+        {status === 'loading'
+          ? 'Loading variables…'
+          : variables.length
+            ? 'Choose a variable'
+            : 'No variables yet — add one in Dashboard → Variables'}
+      </option>
+      {variables.map((variable) => (
+        <option key={variable.id} value={variable.name}>
+          {variable.name}
+          {variable.secret ? ' (secret)' : ''}
+        </option>
+      ))}
+    </Select>
+  )
+}
+
+/** Marks the user's own model clients ("Yours"); the admin's show no tag. */
+export function ModelOwnerBadge({ connection, className }: { connection: ModelConnection; className?: string }) {
+  if (connection.scope === 'application') return null
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-px text-[10px] font-medium text-emerald-700 dark:text-emerald-300',
+        className,
+      )}
+      title="Your own model"
+    >
+      Yours
+    </span>
+  )
+}

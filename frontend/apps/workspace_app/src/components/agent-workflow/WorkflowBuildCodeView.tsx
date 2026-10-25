@@ -1,26 +1,16 @@
-import { Suspense, lazy, memo, useMemo, useState } from 'react'
-import { LayoutTemplate } from 'lucide-react'
+import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
+import { Suspense, lazy, memo, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { Diagram, DiagramDocument } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 import { buildWorkflowSpec } from '@/components/agent-workflow/build-workflow-spec'
-import { groupSpecWorkflows } from '@/components/agent-workflow/orchestration-patterns'
-import { withMafTools } from '@/components/agent-workflow/maf-tool'
-import { withAgentModelConfigs } from '@/components/agent-workflow/maf-agent'
-import {
-  generateWorkflowCode,
-  WORKFLOW_CODE_FORMATS,
-  type WorkflowCodeFormat,
-} from '@/components/agent-workflow/generate-workflow-code'
+import { buildWorkflowDocument } from '@/components/agent-workflow/workflow-document'
+import { useWorkflowConfiguration, type WorkflowConfiguration } from '@/services/workflow-configuration-store'
 import { ensureDocumentWorkspaceId } from '@/components/agent-workflow/workflow-build-storage'
 import { useCopyToClipboard } from '@/hooks/use-clipboard'
 import { downloadText } from '@/utils/download'
 import { slugifyFilename } from '@/utils/slug'
-import { cn } from '@/utils/cn'
 
 const CodeEditorView = lazy(() =>
   import('@/components/designer/CodeEditorView').then((module) => ({
@@ -35,14 +25,11 @@ interface WorkflowBuildCodeViewProps {
   diagram: Diagram
   paletteById: Map<string, PaletteItem>
   serverModelConfig?: WorkflowModelConfig
-  onBackToCanvas?: () => void
+  /** Default values from `designer.configuration` in mega-menu.json. */
+  configurationDefaults?: Partial<WorkflowConfiguration>
 }
 
-function syntaxLanguage(format: WorkflowCodeFormat): 'json' | 'python' {
-  return format
-}
-
-/** IDE-style view of workflow build spec and generated Python code. */
+/** IDE-style view of the workflow build spec JSON. */
 export const WorkflowBuildCodeView = memo(function WorkflowBuildCodeView({
   doc,
   pageId,
@@ -50,10 +37,13 @@ export const WorkflowBuildCodeView = memo(function WorkflowBuildCodeView({
   diagram,
   paletteById,
   serverModelConfig,
-  onBackToCanvas,
+  configurationDefaults,
 }: WorkflowBuildCodeViewProps) {
-  const [format, setFormat] = useState<WorkflowCodeFormat>('json')
-  const { copied, copy, resetCopied } = useCopyToClipboard()
+  const configuration = useWorkflowConfiguration(
+    pageWorkflowId(doc, pageId),
+    configurationDefaults,
+  )
+  const { copied, copy } = useCopyToClipboard()
 
   const spec = useMemo(() => {
     const withWorkspace = ensureDocumentWorkspaceId(doc)
@@ -64,98 +54,41 @@ export const WorkflowBuildCodeView = memo(function WorkflowBuildCodeView({
       paletteById,
       workspaceId: withWorkspace.workspaceId!,
       serverModelConfig,
+      configuration,
     })
-  }, [doc, pageId, diagram, paletteById, serverModelConfig])
+  }, [doc, pageId, diagram, paletteById, serverModelConfig, configuration])
 
-  const activeFormat =
-    WORKFLOW_CODE_FORMATS.find((option) => option.id === format) ?? WORKFLOW_CODE_FORMATS[0]
+  // The pattern's own object holds its connections; agents and tools are shared (see workflow-document).
+  const code = useMemo(() => JSON.stringify(buildWorkflowDocument(spec, diagram), null, 2), [spec, diagram])
 
-  const code = useMemo(() => {
-    // Orchestrators and their teams show as workflows (participants) in the JSON.
-    // Tools in the Agent Framework function-tool shape, agents listing them by name.
-    // Each agent with its own model config; tools in the function-tool shape, listed by name.
-    if (format === 'json') {
-      return JSON.stringify(withAgentModelConfigs(withMafTools(groupSpecWorkflows(spec, diagram)), diagram), null, 2)
-    }
-    return generateWorkflowCode(spec)
-  }, [spec, format, diagram])
+  const fileName = `${slugifyFilename(pageName)}.json`
 
-  const fileName = `${slugifyFilename(pageName)}.${activeFormat.extension}`
-
-  const handleFormatChange = (value: string) => {
-    setFormat(value as WorkflowCodeFormat)
-    resetCopied()
-  }
-
-  const handleCopy = () => {
-    const label = format === 'json' ? 'build spec JSON' : activeFormat.label
-    copy(code, `Copied ${label}`)
-  }
+  const handleCopy = () => copy(code, 'Copied build spec JSON')
 
   const handleDownload = () => {
     downloadText(code, fileName)
-    toast.success(`Downloaded ${activeFormat.label}`)
+    toast.success('Downloaded JSON')
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <Tabs
-        value={format}
-        onValueChange={handleFormatChange}
-        className="flex min-h-0 flex-1 flex-col"
+      <Suspense
+        fallback={
+          <pre className="min-h-0 flex-1 overflow-auto bg-[#1e1e1e] p-3 font-mono text-[11px] leading-relaxed text-[#cccccc]">
+            {code}
+          </pre>
+        }
       >
-        <div className="flex shrink-0 items-center gap-2 border-b bg-muted/20 px-2 py-1.5">
-          {onBackToCanvas ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
-              onClick={onBackToCanvas}
-            >
-              <LayoutTemplate className="h-3.5 w-3.5" />
-              Canvas
-            </Button>
-          ) : null}
-          <TabsList className="h-auto flex-wrap justify-start gap-1 bg-transparent p-0">
-            {WORKFLOW_CODE_FORMATS.map((option) => (
-              <TabsTrigger
-                key={option.id}
-                value={option.id}
-                className="h-7 px-2.5 text-[11px] data-[state=active]:bg-muted"
-              >
-                {option.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <Badge variant="secondary" className="ml-auto shrink-0 px-1.5 py-0 text-[10px]">
-            {format === 'json' ? 'Build spec' : 'Generated'}
-          </Badge>
-        </div>
-
-        <TabsContent
-          value={format}
-          className={cn('mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden')}
-        >
-          <Suspense
-            fallback={
-              <pre className="min-h-0 flex-1 overflow-auto bg-[#1e1e1e] p-3 font-mono text-[11px] leading-relaxed text-[#cccccc]">
-                {code}
-              </pre>
-            }
-          >
-            <CodeEditorView
-              code={code}
-              language={syntaxLanguage(format)}
-              fileName={fileName}
-              copied={copied}
-              onCopy={handleCopy}
-              onDownload={handleDownload}
-              className="min-h-0 flex-1"
-            />
-          </Suspense>
-        </TabsContent>
-      </Tabs>
+        <CodeEditorView
+          code={code}
+          language="json"
+          fileName={fileName}
+          copied={copied}
+          onCopy={handleCopy}
+          onDownload={handleDownload}
+          className="min-h-0 flex-1"
+        />
+      </Suspense>
     </div>
   )
 })

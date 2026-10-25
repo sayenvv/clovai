@@ -1,4 +1,3 @@
-import { useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Clock } from 'lucide-react'
 import { WorkflowIcon as Workflow } from '@/components/shared/WorkflowIcon'
@@ -14,8 +13,8 @@ import { WorkflowsBodySkeleton } from '@/components/agent-workflow/dashboard/das
 const DAYS = 30
 
 /** The workflows saved in this workspace, with the tokens each one's runs used. */
-export default function WorkflowsTab({ workspaceId }: { workspaceId: string }) {
-  const workflows = useActivityReport(useCallback(() => fetchSavedWorkflows(workspaceId), [workspaceId]), DAYS)
+export default function WorkflowsTab() {
+  const workflows = useActivityReport(fetchSavedWorkflows, DAYS)
   const usage = useActivityReport(fetchUsageReport, DAYS)
   const saved = workflows.data ?? []
   // Runs are recorded under the workflow's name, so match on it.
