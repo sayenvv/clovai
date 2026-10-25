@@ -21,6 +21,7 @@ import type {
 import { WORKFLOW_BUILD_SPEC_VERSION } from '@/types/workflow-build-spec'
 import {
   isExternalAgentPalette,
+  normalizeAgentType,
   resolveExternalAgent,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import {
@@ -218,7 +219,7 @@ function buildSettings(
 function agentMetadata(node: DiagramNode): Record<string, unknown> {
   const metadata: Record<string, unknown> = {
     paletteId: node.paletteId,
-    agentType: node.agent?.agentType,
+    agentType: normalizeAgentType(node),
     // The user's own saved model: the server builds this agent's chat client from it.
     ...(node.agent?.modelConnectionId ? { modelConnectionId: node.agent.modelConnectionId } : {}),
   }

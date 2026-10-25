@@ -1,3 +1,4 @@
+import { isSwitchNode } from '@/components/agent-workflow/workflow-edge-groups'
 import type { Diagram, DiagramEdge } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import type { WorkflowExecutionType, WorkflowValidationIssue } from '@/types/agent-workflow'
@@ -118,6 +119,47 @@ export function validateWorkflow(
         message: 'Human approval connector requires an approval role.',
         edgeId: edge.id,
       })
+    }
+  })
+
+  // A Switch routes one node's output by its outgoing connectors: cases have a condition, the default has none
+  diagram.nodes.filter(isSwitchNode).forEach((node) => {
+    const outgoing = diagram.edges.filter((edge) => edge.from === node.id)
+    const defaults = outgoing.filter((edge) => !edge.connector?.condition?.trim()).length
+    const problems = [
+      !diagram.edges.some((edge) => edge.to === node.id) && 'has no source node',
+      outgoing.length === defaults && 'has no cases',
+      defaults === 0 && 'needs a default path (one connector without a condition)',
+      defaults > 1 && `has ${defaults} default paths; keep one connector without a condition`,
+    ].filter(Boolean)
+    problems.forEach((problem, index) =>
+      issues.push({ id: `switch-${node.id}-${index}`, severity: 'error', message: `${node.label} ${problem}.`, nodeId: node.id }),
+    )
+
+    // A case with no value (`text == ""`) never matches a real reply
+    outgoing
+      .filter((edge) => /^\s*[\w.]+\s*(==|=|!=|contains)\s*(""|'')\s*$/.test(edge.connector?.condition ?? ''))
+      .forEach((edge) =>
+        issues.push({
+          id: `switch-empty-case-${edge.id}`,
+          severity: 'warning',
+          message: `${node.label}: the case for ${nodesById.get(edge.to)?.label ?? 'a node'} has no value, so it never matches.`,
+          edgeId: edge.id,
+        }),
+      )
+
+    // The source also wired straight to a Switch target is the same edge twice (Agent Framework rejects it)
+    for (const input of diagram.edges.filter((edge) => edge.to === node.id)) {
+      for (const output of outgoing) {
+        const direct = diagram.edges.find((edge) => edge.from === input.from && edge.to === output.to)
+        if (!direct) continue
+        issues.push({
+          id: `switch-duplicate-${direct.id}`,
+          severity: 'error',
+          message: `${nodesById.get(input.from)?.label ?? 'A node'} connects to ${nodesById.get(output.to)?.label ?? 'a node'} both directly and through ${node.label}. Remove the direct connector.`,
+          edgeId: direct.id,
+        })
+      }
     }
   })
 

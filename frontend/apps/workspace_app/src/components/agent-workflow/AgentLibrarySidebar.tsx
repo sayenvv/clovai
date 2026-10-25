@@ -233,6 +233,8 @@ function resolveBlockVisual(block: SidebarBlock) {
       ? Play
       : block.id === 'end'
         ? CircleStop
+        : block.id === 'switch'
+          ? GitFork
         : block.paletteId === MCP_TOOL_PALETTE_ID
           ? Plug
           : block.paletteId === EXECUTOR_PALETTE_ID
@@ -751,7 +753,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   const flowBlocks = useMemo(
     () =>
       SIDEBAR_BLOCKS.filter(
-        (block) => (block.id === 'start' || block.id === 'end') && matches(needle, block.label, block.description),
+        (block) => (block.id === 'start' || block.id === 'end' || block.id === 'switch') && matches(needle, block.label, block.description),
       ),
     [needle],
   )

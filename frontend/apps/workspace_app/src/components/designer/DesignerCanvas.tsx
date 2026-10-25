@@ -36,6 +36,8 @@ import {
   isFlowBoundaryNode,
 } from '@/components/agent-workflow/workflow-flow-nodes'
 import { FlowBoundaryCard } from '@/components/agent-workflow/FlowBoundaryCard'
+import { SwitchNodeCard } from '@/components/agent-workflow/SwitchNodeCard'
+import { isSwitchNode } from '@/components/agent-workflow/workflow-edge-groups'
 import type { NodeRunStatus } from '@/components/agent-workflow/canvas-focus'
 import { resolveEdgeColors } from './diagram-colors'
 import { connectorLabelWidth, formatConnectorLabel } from './connector-label'
@@ -83,6 +85,8 @@ import {
 
 const GRID_STEP = 12
 const MAGNETIC_SNAP_PX = 28
+/** How far (screen px) a pressed node must move before it is dragged rather than clicked. */
+const NODE_DRAG_THRESHOLD_PX = 4
 
 export type { Selection } from '@/components/designer/selection-utils'
 
@@ -218,6 +222,8 @@ type DragSession =
       startClientY: number
       groupIds?: string[]
       groupStarts?: Record<string, { x: number; y: number }>
+      /** Set once the pointer moves past NODE_DRAG_THRESHOLD_PX; until then it is a click. */
+      dragging?: boolean
     }
   | {
       type: 'resize'
@@ -1058,6 +1064,15 @@ export const DesignerCanvas = memo(function DesignerCanvas({
 
     if (session.type === 'node') {
       const { id, offsetX, offsetY, groupIds, groupStarts } = session
+      // A click wobbles a pixel or two; moving (and grid-snapping) the node then would edit the
+      // workflow just by selecting it. Start moving only once the pointer has really travelled.
+      if (
+        !session.dragging &&
+        Math.hypot(event.clientX - session.startClientX, event.clientY - session.startClientY) < NODE_DRAG_THRESHOLD_PX
+      ) {
+        return
+      }
+      session.dragging = true
       const x = snap(world.x - offsetX)
       const y = snap(world.y - offsetY)
       const dragged = diagram.nodes.find((node) => node.id === id)
@@ -1762,6 +1777,14 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                   isSelected={isSelected}
                   direction={flowDirection}
                   onRun={isConnecting ? undefined : onRunWorkflow}
+                  className="cursor-inherit"
+                />
+              ) : agentMode && isSwitchNode(node) ? (
+                <SwitchNodeCard
+                  node={node}
+                  isSelected={isSelected}
+                  caseCount={diagram.edges.filter((edge) => edge.from === node.id && edge.connector?.condition?.trim()).length}
+                  hasDefault={diagram.edges.some((edge) => edge.from === node.id && !edge.connector?.condition?.trim())}
                   className="cursor-inherit"
                 />
               ) : agentMode && node.agent ? (

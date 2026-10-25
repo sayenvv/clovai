@@ -2,6 +2,9 @@ import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 
 export type AgentStatus = 'active' | 'inactive' | 'draft'
 export type AgentType =
+  /** Every AI agent block (Agent, LLM agent, Specialist, Tool agent, external agents). */
+  | 'agent'
+  /** Legacy: saved before all agents became 'agent'; read as 'agent'. */
   | 'llm'
   | 'specialist'
   | 'tool'

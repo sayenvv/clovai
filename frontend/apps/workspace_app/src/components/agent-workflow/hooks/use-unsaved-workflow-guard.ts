@@ -3,9 +3,12 @@ import { useBeforeUnload, useBlocker } from 'react-router-dom'
 import type { DiagramDocument } from '@/components/designer/diagram-types'
 
 function workflowFingerprint(doc: DiagramDocument, testInput: string): string {
+  // Validating (also before every run) writes status and the inferred execution type;
+  // they are not edits, so they never make the workflow unsaved.
+  const { status: _status, executionType: _executionType, ...workflow } = doc.workflow ?? {}
   return JSON.stringify({
     pages: doc.pages,
-    workflow: doc.workflow,
+    workflow,
     testInput,
   })
 }
@@ -48,9 +51,13 @@ export function useUnsavedWorkflowGuard(doc: DiagramDocument, testInput: string)
     setDialogOpen(true)
   }, [blocker.state, blocker])
 
-  const markSaved = useCallback(() => {
-    setSavedFingerprint(fingerprint)
-  }, [fingerprint])
+  /** Pass the saved doc when the save itself changed it (e.g. version bump). */
+  const markSaved = useCallback(
+    (savedDoc?: DiagramDocument) => {
+      setSavedFingerprint(savedDoc ? workflowFingerprint(savedDoc, testInput) : fingerprint)
+    },
+    [fingerprint, testInput],
+  )
 
   const registerSaveHandler = useCallback((handler: () => void | Promise<void>) => {
     saveHandlerRef.current = handler
@@ -91,7 +98,6 @@ export function useUnsavedWorkflowGuard(doc: DiagramDocument, testInput: string)
     setIsSaving(true)
     try {
       await saveHandlerRef.current()
-      markSaved()
       const pending = pendingRef.current
       setDialogOpen(false)
       pendingRef.current = null
@@ -100,7 +106,7 @@ export function useUnsavedWorkflowGuard(doc: DiagramDocument, testInput: string)
     } finally {
       setIsSaving(false)
     }
-  }, [blocker, discardPending, markSaved])
+  }, [blocker, discardPending])
 
   return {
     isDirty,

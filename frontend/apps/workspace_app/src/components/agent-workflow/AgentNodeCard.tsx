@@ -95,8 +95,9 @@ export const AGENT_DOCK_SLOTS: AgentDockSlot[] = [
 export const AGENT_DOCK_HANG = 44
 
 const TYPE_LABELS: Record<string, string> = {
-  llm: 'AI Agent',
-  specialist: 'Specialist',
+  agent: 'Agent',
+  llm: 'Agent',
+  specialist: 'Agent',
   tool: 'Tool',
   planner: 'Planner',
   human: 'Human review',

@@ -1,4 +1,5 @@
-import { isGraphWorkflow } from '@/components/agent-workflow/workflow-edge-groups'
+import type { ExecutionRecord } from '@/services/execution-history-store'
+import { isGraphWorkflow, isSwitchNode } from '@/components/agent-workflow/workflow-edge-groups'
 import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
 import { memo, useEffect, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import {
@@ -20,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
 import { AgentConfigPanel } from '@/components/agent-workflow/AgentConfigPanel'
+import { SwitchConfigPanel } from '@/components/agent-workflow/SwitchConfigPanel'
 import { AttachCapabilityPanel } from '@/components/agent-workflow/AttachCapabilityPanel'
 import { ConnectorConfigPanel } from '@/components/agent-workflow/ConnectorConfigPanel'
 import { findOrchestration, resolveExecutionType } from '@/components/agent-workflow/orchestration-patterns'
@@ -77,6 +79,7 @@ interface ExecutionSidebarOptions {
   stepOutputs?: Record<string, string>
   trace?: ExecutionTraceStep[]
   messages?: WorkflowChatMessage[]
+  history?: ExecutionRecord[]
   finalResponse?: string | null
   errors?: WorkflowExecutionEvent[]
   onShowDetails?: () => void
@@ -532,6 +535,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 stepOutputs={execution.stepOutputs}
                 trace={execution.trace}
                 messages={execution.messages}
+                history={execution.history}
                 finalResponse={execution.finalResponse}
                 errors={execution.errors}
                 onShowDetails={execution.onShowDetails}
@@ -607,6 +611,10 @@ export function DetailsPanelContent({
 
   if (selection?.kind === 'node' && selectedNode && isFlowBoundaryNode(selectedNode)) {
     return <FlowBoundaryState node={selectedNode} diagram={diagram} />
+  }
+
+  if (selection?.kind === 'node' && selectedNode && isSwitchNode(selectedNode)) {
+    return <SwitchConfigPanel node={selectedNode} diagram={diagram} onChange={onChange} />
   }
 
   if (selection?.kind === 'node' && selectedNode && isSubWorkflowNode(selectedNode)) {

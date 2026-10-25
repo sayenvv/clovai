@@ -18,6 +18,9 @@ import {
   type ExecutionRecord,
 } from '@/services/execution-history-store'
 import type { ExecutionTraceStep } from '@/types/agent-workflow'
+import { Link } from 'react-router-dom'
+import { ROUTES } from '@/constants'
+import { fetchTrace, type TraceDetail } from '@/services/traces-api'
 
 const STATUS_META: Record<ExecutionRecord['status'], { label: string; icon: typeof CheckCircle2; tone: string }> = {
   completed: { label: 'Completed', icon: CheckCircle2, tone: 'text-emerald-600 dark:text-emerald-400' },
@@ -147,6 +150,8 @@ function ExecutionDetail({ record }: { record: ExecutionRecord }) {
           {record.input.trim() || <span className="text-muted-foreground">No input</span>}
         </div>
       </section>
+
+      {record.runId && TRACE_ID.test(record.runId) ? <ServerTrace traceId={record.runId} /> : null}
 
       <section className="space-y-2">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Agent trace</h3>
@@ -289,3 +294,115 @@ export const ExecutionsView = memo(function ExecutionsView({ pageId }: { pageId:
     </div>
   )
 })
+
+/** Runs started on the /execute API carry their OpenTelemetry trace id as the run id. */
+const TRACE_ID = /^[0-9a-f]{32}$/
+
+/** The run's spans stored by the server: each agent's calls, model calls and tool calls. */
+function ServerTrace({ traceId }: { traceId: string }) {
+  const [trace, setTrace] = useState<TraceDetail | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setTrace(null)
+    setError(null)
+    // Spans are stored as they end, so a run that just finished may need a moment
+    const load = (attempt: number) =>
+      fetchTrace(traceId)
+        .then((detail) => !cancelled && setTrace(detail))
+        .catch((reason: unknown) => {
+          if (cancelled) return
+          if (attempt < 3) window.setTimeout(() => load(attempt + 1), 1500)
+          else setError(reason instanceof Error ? reason.message : 'Could not load the trace.')
+        })
+    load(0)
+    return () => {
+      cancelled = true
+    }
+  }, [traceId])
+
+  const spans = trace?.spans ?? []
+  const start = spans.length ? Math.min(...spans.map((span) => Date.parse(span.start_time))) : 0
+  const end = spans.length ? Math.max(...spans.map((span) => Date.parse(span.end_time))) : 0
+  const total = Math.max(1, end - start)
+  const calls = spans.filter((span) => span.operation === 'invoke_agent' || span.operation === 'chat' || span.operation === 'execute_tool')
+
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Server trace</h3>
+        <Link to={`${ROUTES.agentWorkflowDashboardTraces}/${traceId}`} className="text-[11px] font-medium text-foreground underline-offset-2 hover:underline">
+          Open full trace
+        </Link>
+      </div>
+      {error ? (
+        <p className="text-xs text-muted-foreground">{error}</p>
+      ) : !trace ? (
+        <p className="text-xs text-muted-foreground">Loading trace…</p>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            {formatDuration(total)} · {trace.agents.length} agent{trace.agents.length === 1 ? '' : 's'} ·{' '}
+            {trace.total_tokens.toLocaleString()} tokens ({trace.input_tokens.toLocaleString()} in, {trace.output_tokens.toLocaleString()} out)
+          </p>
+          {trace.agents.length > 0 ? (
+            <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+              <table className="w-full text-left text-[12px]">
+                <thead className="text-[11px] text-muted-foreground">
+                  <tr>
+                    {['Agent', 'Runs', 'Time', 'Model calls', 'Tool calls', 'Tokens', 'Errors'].map((label) => (
+                      <th key={label} className="whitespace-nowrap px-3 py-2 font-medium">{label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="tabular-nums">
+                  {trace.agents.map((agent) => (
+                    <tr key={agent.name} className="border-t border-border/60">
+                      <td className="px-3 py-2 font-medium text-foreground">{agent.name}</td>
+                      <td className="px-3 py-2">{agent.invocations}</td>
+                      <td className="px-3 py-2">{formatDuration(agent.duration_ms)}</td>
+                      <td className="px-3 py-2">{agent.model_calls}</td>
+                      <td className="px-3 py-2">{agent.tool_calls}</td>
+                      <td className="px-3 py-2">{(agent.input_tokens + agent.output_tokens).toLocaleString()}</td>
+                      <td className={cn('px-3 py-2', agent.errors > 0 && 'font-semibold text-red-600 dark:text-red-400')}>{agent.errors}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {calls.length > 0 ? (
+            <ol className="space-y-0.5 rounded-lg border border-border bg-card p-2 shadow-sm">
+              {calls.map((span) => {
+                const offset = ((Date.parse(span.start_time) - start) / total) * 100
+                const width = Math.max(0.5, (span.duration_ms / total) * 100)
+                return (
+                  <li key={span.span_id} className="grid grid-cols-[minmax(8rem,40%)_1fr] items-center gap-2 px-1 py-0.5">
+                    <span className="truncate text-[11.5px] text-foreground" title={span.name}>{span.name}</span>
+                    <span className="relative h-3">
+                      <span
+                        className={cn(
+                          'absolute top-0 h-3 rounded-sm',
+                          span.status === 'ERROR'
+                            ? 'bg-red-500/80'
+                            : span.operation === 'invoke_agent'
+                              ? 'bg-violet-500/80'
+                              : span.operation === 'chat'
+                                ? 'bg-sky-500/80'
+                                : 'bg-amber-500/80',
+                        )}
+                        style={{ left: `${offset}%`, width: `${width}%` }}
+                        title={`${formatDuration(span.duration_ms)}${span.status_message ? ` · ${span.status_message}` : ''}`}
+                      />
+                    </span>
+                  </li>
+                )
+              })}
+            </ol>
+          ) : null}
+        </div>
+      )}
+    </section>
+  )
+}

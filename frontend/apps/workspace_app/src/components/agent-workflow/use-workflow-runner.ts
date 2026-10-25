@@ -175,8 +175,9 @@ function applyAgentUpdate(
   plan: ExecutionPlanStep[],
   event: ExecutionLogEvent,
 ): WorkflowRunState {
-  const agentName = event.agent?.trim() || 'Agent'
-  const matched = matchPlanStep(plan, event.agentId ?? '', agentName)
+  const matched = matchPlanStep(plan, event.agentId ?? '', event.agent?.trim() || '')
+  // The stream names agents by node id; the plan step carries the node's label
+  const agentName = matched?.agentName || event.agent?.trim() || 'Agent'
   const nodeId = matched?.nodeId || event.agentId || ''
   const reasoning = event.message ?? ''
   const phase = event.status
@@ -319,6 +320,10 @@ export function useWorkflowRunner() {
             userId: target.userId,
           },
           inputs: parseWorkflowInput(input),
+          // The server trace id identifies this run, so its history entry can load the full trace
+          onTrace: (traceId) => {
+            if (!cancelRef.current) setState((previous) => ({ ...previous, runId: traceId }))
+          },
           onEvent: (event) => {
             if (cancelRef.current) return
             if (event.event === 'usage') {
@@ -327,8 +332,8 @@ export function useWorkflowRunner() {
               return
             }
             if (event.event === 'agent') {
-              const agentName = event.agent?.trim() || 'Agent'
-              const matched = matchPlanStep(plan, event.agentId ?? '', agentName)
+              const matched = matchPlanStep(plan, event.agentId ?? '', event.agent?.trim() || '')
+              const agentName = matched?.agentName || event.agent?.trim() || 'Agent'
               const reasoning = event.message ?? ''
               const phase = event.status === 'failed' ? 'failed' : event.status === 'completed' ? 'completed' : 'running'
               const nodeId = matched?.nodeId || event.agentId

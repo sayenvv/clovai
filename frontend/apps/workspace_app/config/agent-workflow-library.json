@@ -54,11 +54,19 @@
       "toolCount": 0
     },
     {
+      "id": "switch",
+      "paletteId": "aw-switch",
+      "label": "Switch",
+      "description": "Route an agent's output to one next agent by case; the connector without a condition is the default.",
+      "agentType": "control",
+      "toolCount": 0
+    },
+    {
       "id": "agent",
       "paletteId": "aw-agent",
       "label": "Agent",
       "description": "AI agent that reasons, plans, and calls tools mapped beneath it on the canvas.",
-      "agentType": "llm",
+      "agentType": "agent",
       "toolCount": 0
     },
     {
@@ -110,7 +118,7 @@
       "provider": "LangChain",
       "logo": "/agent-providers/langchain.svg",
       "description": "Stateful graph agent with tool routing and memory checkpoints.",
-      "agentType": "specialist",
+      "agentType": "agent",
       "toolCount": 2,
       "featured": true
     },
@@ -121,7 +129,7 @@
       "provider": "AWS",
       "logo": "/agent-providers/aws.svg",
       "description": "Managed agent on Amazon Bedrock with knowledge bases and action groups.",
-      "agentType": "specialist",
+      "agentType": "agent",
       "toolCount": 3,
       "featured": true
     },
@@ -132,7 +140,7 @@
       "provider": "Google",
       "logo": "/agent-providers/google.svg",
       "description": "Gemini-powered agent with grounding and enterprise search.",
-      "agentType": "llm",
+      "agentType": "agent",
       "toolCount": 2,
       "featured": true
     },
@@ -143,7 +151,7 @@
       "provider": "CrewAI",
       "logo": "/agent-providers/crewai.svg",
       "description": "Role-based multi-agent crew member with delegated tasks.",
-      "agentType": "specialist",
+      "agentType": "agent",
       "toolCount": 2
     },
     {
@@ -153,7 +161,7 @@
       "provider": "Microsoft",
       "logo": "/agent-providers/microsoft.svg",
       "description": "Conversational agent from the AutoGen multi-agent framework.",
-      "agentType": "llm",
+      "agentType": "agent",
       "toolCount": 1
     },
     {
@@ -163,7 +171,7 @@
       "provider": "Microsoft",
       "logo": "/agent-providers/microsoft.svg",
       "description": "Low-code agent from Microsoft Copilot Studio with M365 connectors.",
-      "agentType": "specialist",
+      "agentType": "agent",
       "toolCount": 2
     },
     {
@@ -173,7 +181,7 @@
       "provider": "Databricks",
       "logo": "/agent-providers/databricks.svg",
       "description": "Lakehouse-native agent with SQL, ML, and Unity Catalog tools.",
-      "agentType": "specialist",
+      "agentType": "agent",
       "toolCount": 2
     },
     {
@@ -183,7 +191,7 @@
       "provider": "Salesforce",
       "logo": "/agent-providers/salesforce.svg",
       "description": "CRM-aware agent with Einstein trust layer and Data Cloud context.",
-      "agentType": "specialist",
+      "agentType": "agent",
       "toolCount": 2
     },
     {
@@ -193,7 +201,7 @@
       "provider": "OpenAI",
       "logo": "/agent-providers/openai.svg",
       "description": "OpenAI Assistants with code interpreter, file search, and function calling.",
-      "agentType": "llm",
+      "agentType": "agent",
       "toolCount": 3
     },
     {
@@ -203,7 +211,7 @@
       "provider": "Anthropic",
       "logo": "/agent-providers/anthropic.svg",
       "description": "Anthropic Claude agent with extended context and tool use.",
-      "agentType": "llm",
+      "agentType": "agent",
       "toolCount": 2
     },
     {
@@ -213,7 +221,7 @@
       "provider": "LlamaIndex",
       "logo": "/agent-providers/llamaindex.svg",
       "description": "RAG-first agent with document indexes and query engines.",
-      "agentType": "specialist",
+      "agentType": "agent",
       "toolCount": 2
     },
     {
@@ -223,7 +231,7 @@
       "provider": "Hugging Face",
       "logo": "/agent-providers/huggingface.svg",
       "description": "Open-model agent hub with transformers and inference endpoints.",
-      "agentType": "llm",
+      "agentType": "agent",
       "toolCount": 2
     }
   ]

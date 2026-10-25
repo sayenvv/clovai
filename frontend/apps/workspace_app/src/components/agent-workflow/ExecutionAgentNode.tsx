@@ -12,8 +12,9 @@ import { NODE_SURFACE } from '@/components/agent-workflow/node-surface'
 import { resolveFlowDirection, type DiagramNode, type FlowDirection } from '@/components/designer/diagram-types'
 
 const TYPE_LABELS: Record<string, string> = {
-  llm: 'LLM Agent',
-  specialist: 'Specialist',
+  agent: 'Agent',
+  llm: 'Agent',
+  specialist: 'Agent',
   tool: 'Tool Agent',
   planner: 'Planner',
   human: 'Human Review',

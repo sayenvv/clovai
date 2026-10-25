@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { CircleStop, Search } from 'lucide-react'
+import { CircleStop, GitFork, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import {
@@ -72,6 +72,15 @@ export const BlockPicker = memo(function BlockPicker({
         pick: () => onPickBlock(item.paletteId),
       })),
     ]
+    blocks.push({
+      key: 'aw-switch',
+      group: 'Flow',
+      label: 'Switch',
+      description: 'Route to one next agent by case; the connector without a condition is the default',
+      icon: GitFork,
+      tile: 'bg-muted text-foreground/70 ring-border',
+      pick: () => onPickBlock('aw-switch'),
+    })
     if (state.allowEnd) {
       blocks.push({
         key: 'aw-end',

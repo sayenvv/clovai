@@ -30,6 +30,12 @@ const AgentWorkflowDashboardUsage = lazy(
 const AgentWorkflowDashboardAgents = lazy(
   () => import('@/pages/agent-workflow-dashboard/AgentsPage'),
 )
+const AgentWorkflowDashboardTraces = lazy(
+  () => import('@/pages/agent-workflow-dashboard/TracesPage'),
+)
+const AgentWorkflowDashboardTraceDetail = lazy(
+  () => import('@/pages/agent-workflow-dashboard/TraceDetailPage'),
+)
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
 const WorkflowExecutePage = lazy(() => import('@/pages/WorkflowExecutePage'))
 const AdminConfigPage = lazy(() => import('@/pages/admin/AdminConfigPage'))
@@ -51,6 +57,8 @@ export const router = createBrowserRouter([
           { path: 'performance', element: <AgentWorkflowDashboardPerformance /> },
           { path: 'usage', element: <AgentWorkflowDashboardUsage /> },
           { path: 'agents', element: <AgentWorkflowDashboardAgents /> },
+          { path: 'traces', element: <AgentWorkflowDashboardTraces /> },
+          { path: 'traces/:traceId', element: <AgentWorkflowDashboardTraceDetail /> },
         ],
       },
       {

@@ -8,8 +8,9 @@ import type { ExternalAgentBlock } from '@/components/agent-workflow/agent-workf
 import type { AgentType } from '@/types/agent-workflow'
 
 export const TYPE_LABELS: Record<AgentType, string> = {
-  llm: 'LLM',
-  specialist: 'Specialist',
+  agent: 'Agent',
+  llm: 'Agent',
+  specialist: 'Agent',
   tool: 'Tool',
   planner: 'Planner',
   human: 'Human review',

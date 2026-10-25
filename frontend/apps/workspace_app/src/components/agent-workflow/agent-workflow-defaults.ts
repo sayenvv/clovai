@@ -13,7 +13,7 @@ import {
 } from '@/components/agent-workflow/workflow-flow-nodes'
 
 const PALETTE_AGENT_TYPE: Record<string, AgentType> = {
-  'aw-agent': 'llm',
+  'aw-agent': 'agent',
   'aw-tool': 'tool',
   'aw-mcp-tool': 'tool',
   'aw-skill': 'tool',
@@ -22,12 +22,12 @@ const PALETTE_AGENT_TYPE: Record<string, AgentType> = {
   'aw-start': 'trigger',
   'aw-event': 'trigger',
   'aw-schedule': 'trigger',
-  'aw-llm-agent': 'llm',
-  'aw-specialist': 'specialist',
-  'aw-tool-agent': 'tool',
+  'aw-llm-agent': 'agent',
+  'aw-specialist': 'agent',
+  'aw-tool-agent': 'agent',
   'aw-planner': 'planner',
   'aw-orchestrator': 'planner',
-  'aw-group-manager': 'llm',
+  'aw-group-manager': 'agent',
   'aw-sequential': 'control',
   'aw-concurrent': 'control',
   'aw-sub-workflow': 'control',
@@ -40,18 +40,18 @@ const PALETTE_AGENT_TYPE: Record<string, AgentType> = {
   'aw-vector': 'memory',
   'aw-output': 'output',
   'aw-end': 'output',
-  'aw-ext-langgraph': 'specialist',
-  'aw-ext-crewai': 'specialist',
-  'aw-ext-autogen': 'llm',
-  'aw-ext-bedrock': 'specialist',
-  'aw-ext-vertex': 'llm',
-  'aw-ext-copilot': 'specialist',
-  'aw-ext-databricks': 'specialist',
-  'aw-ext-agentforce': 'specialist',
-  'aw-ext-openai': 'llm',
-  'aw-ext-anthropic': 'llm',
-  'aw-ext-llamaindex': 'specialist',
-  'aw-ext-huggingface': 'llm',
+  'aw-ext-langgraph': 'agent',
+  'aw-ext-crewai': 'agent',
+  'aw-ext-autogen': 'agent',
+  'aw-ext-bedrock': 'agent',
+  'aw-ext-vertex': 'agent',
+  'aw-ext-copilot': 'agent',
+  'aw-ext-databricks': 'agent',
+  'aw-ext-agentforce': 'agent',
+  'aw-ext-openai': 'agent',
+  'aw-ext-anthropic': 'agent',
+  'aw-ext-llamaindex': 'agent',
+  'aw-ext-huggingface': 'agent',
 }
 
 export interface SidebarBlock {
@@ -212,10 +212,19 @@ function defaultToolsForPalette(paletteId: string): string[] {
   return Array.from({ length: count }, (_, index) => presets[index] ?? `tool_${index + 1}`)
 }
 
+/** The type sent to the backend: every AI agent is 'agent', also on nodes saved as 'llm' or 'specialist'. */
+export function normalizeAgentType(node: DiagramNode): AgentType | undefined {
+  const type = node.agent?.agentType
+  if (type === 'llm' || type === 'specialist') return 'agent'
+  // Tool agents used to be typed 'tool', like the tool chips under an agent
+  if (type === 'tool' && node.paletteId === 'aw-tool-agent') return 'agent'
+  return type
+}
+
 export function resolveAgentType(paletteId: string): AgentType {
   const block = findLibraryBlock(paletteId)
   if (block) return block.agentType
-  return PALETTE_AGENT_TYPE[paletteId] ?? 'llm'
+  return PALETTE_AGENT_TYPE[paletteId] ?? 'agent'
 }
 
 export function defaultAgentConfig(paletteId: string, label: string): AgentNodeConfig {
@@ -293,7 +302,7 @@ export function defaultAgentConfig(paletteId: string, label: string): AgentNodeC
       agentType === 'human' ? 'Please review and approve this step to continue.' : undefined,
     approvalRole: agentType === 'human' ? 'reviewer' : undefined,
     approvalTimeoutMinutes: agentType === 'human' ? 60 : undefined,
-    memoryEnabled: agentType === 'llm' || agentType === 'specialist',
+    memoryEnabled: agentType === 'agent',
     memoryScope: 'workflow',
     retryCount: 2,
     timeoutSeconds: 120,

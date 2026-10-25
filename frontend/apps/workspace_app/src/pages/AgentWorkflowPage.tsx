@@ -108,7 +108,7 @@ import { connectionProviderId } from '@/components/agent-workflow/AgentConfigPan
 import { MODEL_CLIENT_REF_PREFIX, modelClientRef } from '@/services/model-connections-api'
 import { importIntoDocument, isBlankDiagram } from '@/components/agent-workflow/workflow-import'
 import { updateWorkflowConfiguration, type WorkflowConfiguration } from '@/services/workflow-configuration-store'
-import { addExecution } from '@/services/execution-history-store'
+import { addExecution, useExecutions } from '@/services/execution-history-store'
 import { catalogModelsFor, useModelCatalog } from '@/components/agent-workflow/hooks/use-model-catalog'
 import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
 import {
@@ -1021,7 +1021,7 @@ export default function AgentWorkflowPage() {
         description: result.databaseError ?? 'The database could not be reached.',
       })
     }
-    markSaved()
+    markSaved(nextDoc)
   }, [doc, setDoc, activePage.id, diagram, paletteById, serverModelConfig, markSaved])
 
   const handleSaveAs = useCallback(() => {
@@ -1522,6 +1522,20 @@ export default function AgentWorkflowPage() {
 
   const agentNodes = useMemo(() => listAgentNodes(diagram), [diagram])
   const errorCount = validationIssues.filter((issue) => issue.severity === 'error').length
+  // The status bar's issues follow the canvas as it is edited, not just the last Validate
+  const liveIssues = useMemo(() => validateWorkflow(diagram, paletteById), [diagram, paletteById])
+  const handleSelectIssue = useCallback(
+    (issue: WorkflowValidationIssue) => {
+      if (issue.nodeId) {
+        setSelection({ kind: 'node', id: issue.nodeId })
+        handleNodeOpen(issue.nodeId)
+      } else if (issue.edgeId) {
+        setSelection({ kind: 'edge', id: issue.edgeId })
+        handleEdgeOpen(issue.edgeId)
+      }
+    },
+    [handleNodeOpen, handleEdgeOpen],
+  )
   const isExecutionMode = runState.status !== 'idle'
   const isExecuting = runState.status === 'running' || runState.status === 'waiting-approval'
 
@@ -1557,6 +1571,15 @@ export default function AgentWorkflowPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runState.status])
   const displayTrace = runState.trace
+
+  // Earlier runs of this tab stay in the run chat (oldest first). Once a run ends it is also the
+  // newest history entry, so it is left out while it is still the run on screen.
+  const executions = useExecutions()
+  const chatHistory = useMemo(() => {
+    const runs = executions.filter((record) => record.pageId === doc.activePageId)
+    const finished = runState.status === 'completed' || runState.status === 'failed' || runState.status === 'cancelled'
+    return (finished ? runs.slice(1) : runs).reverse()
+  }, [executions, doc.activePageId, runState.status])
   const workflowDescription = useMemo(() => {
     const plan = getExecutablePlan(diagram)
     const approvalEdges = diagram.edges.filter((edge) => edge.connector?.humanApproval).length
@@ -2138,6 +2161,7 @@ export default function AgentWorkflowPage() {
               stepOutputs: runState.stepOutputs,
               trace: displayTrace,
               messages: runState.messages,
+              history: chatHistory,
               finalResponse: runState.finalResponse,
               errors: runState.errors,
               onShowDetails: showExecutionLogs,
@@ -2152,8 +2176,8 @@ export default function AgentWorkflowPage() {
           version={workflowMeta.version}
           status={workflowMeta.status}
           isDirty={isDirty}
-          validationErrorCount={errorCount}
-          onValidate={handleValidate}
+          issues={liveIssues}
+          onSelectIssue={handleSelectIssue}
           toolId={TOOL_ID}
           onManageAccess={() => setShareOpen(true)}
           serverModelConfig={toolbarModelConfig}

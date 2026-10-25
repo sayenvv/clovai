@@ -28,6 +28,7 @@ import {
 } from '@/components/agent-workflow/execution-error-summary'
 import { ChatMarkdown, useSmoothText } from '@/components/agent-workflow/ChatMarkdown'
 import { TokenBudgetBar } from '@/components/agent-workflow/TokenBudgetBar'
+import type { ExecutionRecord } from '@/services/execution-history-store'
 import type {
   ExecutionTraceStep,
   WorkflowChatMessage,
@@ -51,6 +52,8 @@ interface ExecutionSidebarPanelProps {
   stepOutputs?: Record<string, string>
   trace?: ExecutionTraceStep[]
   messages?: WorkflowChatMessage[]
+  /** Earlier runs of this workflow tab, oldest first; shown above the current run. */
+  history?: ExecutionRecord[]
   finalResponse?: string | null
   errors?: WorkflowExecutionEvent[]
   onShowDetails?: () => void
@@ -71,6 +74,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
   onSubmitFeedback,
   trace = [],
   messages = [],
+  history = [],
   finalResponse = null,
   errors = [],
   onShowDetails,
@@ -110,7 +114,12 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
       <div ref={scrollRef} className="min-h-0 w-full min-w-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
         <TokenBudgetBar />
 
-        {runStatus === 'idle' && trace.length === 0 && (
+        {history.map((record) => (
+          <PastRun key={record.id} record={record} />
+        ))}
+        {history.length > 0 && runStatus !== 'idle' ? <RunDivider label="Current run" /> : null}
+
+        {runStatus === 'idle' && trace.length === 0 && history.length === 0 && (
           <ChatEmptyState
             icon={<Play className="h-4 w-4 fill-current text-foreground" />}
             title="Run this workflow"
@@ -430,6 +439,48 @@ function ReasoningBlock({ title, content, typing }: { title?: string; content: s
           />
         </div>
       )}
+    </div>
+  )
+}
+
+function RunDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 pt-1 text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+      <span className="h-px flex-1 bg-border" />
+      <span className="max-w-[80%] truncate">{label}</span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  )
+}
+
+const PAST_RUN_STATUS: Record<ExecutionRecord['status'], string> = {
+  completed: 'Completed',
+  failed: 'Failed',
+  cancelled: 'Cancelled',
+}
+
+/** A finished run of this tab: its input and each agent's replies, as they were. */
+function PastRun({ record }: { record: ExecutionRecord }) {
+  const when = new Date(record.startedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  return (
+    <div className="space-y-4">
+      <RunDivider label={`${when} · ${PAST_RUN_STATUS[record.status]}`} />
+      {record.input.trim() ? <UserMessage content={record.input} /> : null}
+      {record.messages.map((message, index) => (
+        <AgentMessage
+          key={message.id}
+          message={message}
+          showHeader={index === 0 || record.messages[index - 1].nodeId !== message.nodeId}
+          live={false}
+        />
+      ))}
+      {record.messages.length === 0 && record.finalResponse ? (
+        <AgentMessage
+          message={{ id: `${record.id}-final`, nodeId: 'final', agentName: 'Assistant', content: record.finalResponse, kind: 'response', status: 'done' }}
+          showHeader
+          live={false}
+        />
+      ) : null}
     </div>
   )
 }

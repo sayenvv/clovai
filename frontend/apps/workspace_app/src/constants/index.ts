@@ -42,6 +42,7 @@ export const ROUTES = {
   agentWorkflowDashboardPerformance: '/tools/agent-workflow/dashboard/performance',
   agentWorkflowDashboardUsage: '/tools/agent-workflow/dashboard/usage',
   agentWorkflowDashboardAgents: '/tools/agent-workflow/dashboard/agents',
+  agentWorkflowDashboardTraces: '/tools/agent-workflow/dashboard/traces',
   agentWorkflowExecute: '/tools/agent-workflow/execute',
 } as const
 

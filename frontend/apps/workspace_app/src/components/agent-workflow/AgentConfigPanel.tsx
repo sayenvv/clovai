@@ -34,27 +34,13 @@ import {
 } from '@/components/agent-workflow/agent-hitl'
 import { generateAgentInstructions } from '@/services/generate-agent-instructions-api'
 import type { Diagram, DiagramNode } from '@/components/designer/diagram-types'
-import type { AgentNodeConfig, AgentStatus, AgentType } from '@/types/agent-workflow'
+import type { AgentNodeConfig, AgentStatus } from '@/types/agent-workflow'
 
 interface AgentConfigPanelProps {
   node: DiagramNode
   diagram: Diagram
   onChange: (updater: (previous: Diagram) => Diagram) => void
 }
-
-const AGENT_TYPES: { value: AgentType; label: string }[] = [
-  { value: 'llm', label: 'LLM Agent' },
-  { value: 'specialist', label: 'Specialist' },
-  { value: 'tool', label: 'Tool Agent' },
-  { value: 'planner', label: 'Planner' },
-  { value: 'human', label: 'Human Review' },
-  { value: 'router', label: 'Router' },
-  { value: 'trigger', label: 'Trigger' },
-  { value: 'memory', label: 'Memory' },
-  { value: 'output', label: 'Output' },
-  { value: 'control', label: 'Control' },
-]
-
 
 function updateAgent(
   onChange: AgentConfigPanelProps['onChange'],
@@ -185,38 +171,6 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
               isGenerating={isGenerating}
               previewToken={previewToken}
             />
-          </Field>
-          <Field label="Agent type">
-            <Select
-              value={agent.agentType}
-              onChange={(event) => {
-                const agentType = event.target.value as AgentType
-                if (agentType === 'human') {
-                  onChange((previous) =>
-                    applyAgentHumanInTheLoop(
-                      {
-                        ...previous,
-                        nodes: previous.nodes.map((candidate) =>
-                          candidate.id === node.id && candidate.agent
-                            ? { ...candidate, agent: { ...candidate.agent, agentType } }
-                            : candidate,
-                        ),
-                      },
-                      node.id,
-                      { humanInTheLoop: true },
-                    ),
-                  )
-                  return
-                }
-                updateAgent(onChange, node.id, { agentType })
-              }}
-            >
-              {AGENT_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </Select>
           </Field>
           <Field label="Status">
             <Select

@@ -4,6 +4,7 @@ import {
   Bot,
   Gauge,
   LayoutDashboard,
+  ListTree,
   Rocket,
   type LucideIcon,
 } from 'lucide-react'
@@ -46,6 +47,12 @@ export const DASHBOARD_NAV: DashboardNavItem[] = [
     to: ROUTES.agentWorkflowDashboardAgents,
     icon: Bot,
     description: 'Monitor agent activity',
+  },
+  {
+    label: 'Traces',
+    to: ROUTES.agentWorkflowDashboardTraces,
+    icon: ListTree,
+    description: 'Run traces: agents, model & tool calls',
   },
   {
     label: 'Activity',

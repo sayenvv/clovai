@@ -149,6 +149,8 @@ export async function executeOrchestration(input: {
   identity: OrchestrationIdentity
   inputs?: Record<string, unknown>
   onEvent: (event: ExecutionLogEvent) => void
+  /** The run's OpenTelemetry trace id, sent first on the stream (open it with fetchTrace). */
+  onTrace?: (traceId: string) => void
 }): Promise<void> {
   const inputs = input.inputs ?? {}
   const message = typeof inputs.message === 'string' ? inputs.message : JSON.stringify(inputs)
@@ -170,6 +172,10 @@ export async function executeOrchestration(input: {
   let failed = false
   let finalOutput = ''
   await readEventStream(response, (eventName, payload) => {
+    if (eventName === 'trace') {
+      if (typeof payload.trace_id === 'string') input.onTrace?.(payload.trace_id)
+      return
+    }
     const translated = fromWorkflowEvent(eventName, payload as WorkflowStreamEvent)
     if (!translated) return
     if (translated.status === 'failed') failed = true
@@ -227,6 +233,16 @@ function fromWorkflowEvent(eventName: string, payload: WorkflowStreamEvent): Exe
       return agentId
         ? { event: 'agent', agentId, agent: agentId, status: 'failed', message: payload.details?.message }
         : null
+    case 'magentic_orchestrator': {
+      // The Magentic manager's plan, or its hand-off to the next agent (services/executions.py)
+      const data = payload.data as { event_type?: string; text?: string } | undefined
+      const text = data?.text?.trim()
+      if (!agentId || !text) return null
+      const title = data?.event_type === 'plan_created' ? 'Plan' : data?.event_type === 'replanned' ? 'Revised plan' : 'Next step'
+      return { event: 'agent', agentId, agent: agentId, kind: 'reasoning', title, status: 'completed', message: text }
+    }
+    // "intermediate": a participant's reply streamed while the run goes on (e.g. each Magentic agent)
+    case 'intermediate':
     case 'output':
     case 'data': {
       if (!agentId) return null
