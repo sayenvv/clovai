@@ -30,7 +30,7 @@ export default function WorkflowsTab() {
         title="Saved workflows"
         description={`Every workflow saved in this workspace, with the tokens its runs used in the last ${DAYS} days.`}
         actions={
-          <Button asChild size="sm" variant="outline" className="h-8 rounded-lg">
+          <Button asChild size="sm" variant="outline" className="h-8 rounded-[3px]">
             <Link to={ROUTES.agentWorkflow}>Open designer</Link>
           </Button>
         }
@@ -69,10 +69,10 @@ export default function WorkflowsTab() {
                 return (
                   <div
                     key={row.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/50 px-3 py-2.5"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-[3px] border border-border/70 bg-background/50 px-3 py-2.5"
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] bg-muted text-muted-foreground">
                         <Workflow className="h-3.5 w-3.5" />
                       </span>
                       <div className="min-w-0">

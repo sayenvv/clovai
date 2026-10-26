@@ -1,7 +1,8 @@
 import { lazy } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { WorkspaceLayout } from '@/components/layout/WorkspaceLayout'
+import { ROUTES } from '@/constants'
 
 /** Every page is code-split; the layout shell loads instantly while
  *  page chunks stream in behind the Suspense fallback. */
@@ -36,11 +37,15 @@ const AgentWorkflowDashboardTraces = lazy(
 const AgentWorkflowDashboardTraceDetail = lazy(
   () => import('@/pages/agent-workflow-dashboard/TraceDetailPage'),
 )
-const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
 const WorkflowExecutePage = lazy(() => import('@/pages/WorkflowExecutePage'))
 const AdminConfigPage = lazy(() => import('@/pages/admin/AdminConfigPage'))
 const DynamicPage = lazy(() => import('@/pages/DynamicPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+
+function DashboardRedirect() {
+  const [params] = useSearchParams()
+  return <Navigate to={ROUTES.workspaceSettings(params.get('tab') ?? 'overview')} replace />
+}
 
 export const router = createBrowserRouter([
   // Tool workspaces open in their own tab with no site chrome (like n8n/Figma).
@@ -72,7 +77,8 @@ export const router = createBrowserRouter([
         ],
       },
       { path: '/tools/agent-workflow/execute', element: <WorkflowExecutePage /> },
-      { path: '/dashboard', element: <DashboardPage /> },
+      // The dashboard now lives in the workspace's Settings; old links land on the same tab there.
+      { path: '/dashboard', element: <DashboardRedirect /> },
       { path: '/tools/:toolId', element: <ToolDetailPage /> },
     ],
   },

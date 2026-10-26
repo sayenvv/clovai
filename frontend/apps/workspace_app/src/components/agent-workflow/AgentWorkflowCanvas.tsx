@@ -107,6 +107,8 @@ interface AgentWorkflowCanvasProps {
   emptyState?: ReactNode
   /** Removes every node and connector, after the user confirms (the canvas's trash button). */
   onClearCanvas?: () => void
+  /** The page header carries zoom, tidy-up and undo: hide the canvas's own floating controls. */
+  hideControls?: boolean
   /** Opens the library to add agents and tools (the canvas's top-right + button). */
   onOpenLibrary?: () => void
   /** Shown on an empty canvas once the template picker is dismissed. */
@@ -154,6 +156,7 @@ export const AgentWorkflowCanvas = memo(
       onRedo,
       emptyState,
       onClearCanvas,
+      hideControls = false,
       onOpenLibrary,
       onBrowseTemplates,
       onAskAi,
@@ -645,7 +648,7 @@ export const AgentWorkflowCanvas = memo(
             )}
             {/* Zoom: bottom-right, stacked. */}
             <div className="flex flex-1 basis-0 justify-end">
-              {(diagram.nodes.length > 0 || hideEmptyState) && (
+              {(diagram.nodes.length > 0 || hideEmptyState) && !hideControls && (
                 <div className="pointer-events-auto flex flex-col items-center gap-2">
                   <CanvasControl label="Zoom in" onClick={() => zoomBy(1.2)}>
                     <ZoomIn />
@@ -663,7 +666,7 @@ export const AgentWorkflowCanvas = memo(
 
           {/* Top-right: canvas actions (undo, tidy up, clear). */}
           <div className="pointer-events-none absolute right-4 top-4 z-20 flex flex-col items-center gap-2">
-            {(diagram.nodes.length > 0 || hideEmptyState) && (
+            {(diagram.nodes.length > 0 || hideEmptyState) && !hideControls && (
               <div className="pointer-events-auto flex flex-col items-center gap-2">
                 {onUndo && (
                   <CanvasControl label="Undo" onClick={onUndo}>

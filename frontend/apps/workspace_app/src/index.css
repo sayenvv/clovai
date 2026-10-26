@@ -4,33 +4,38 @@
 @tailwind utilities;
 
 @layer base {
-  /* Emerald on black. Dark: a black page and canvas, neutral graphite panels and cards (#1F1F21),
-     emerald (#10B981, dark text) for primary actions, selection, focus and active connectors, sky
-     blue for info. Light: emerald-700 (#047857, white text 5.5:1) on clean neutral greys. */
+  /* Light: after the Fluent-style monitoring reference: white canvas and panels, warm neutral greys,
+     brand blue #0F6CBD (white text 5.4:1), deep-blue left rail (.rail-surface). Dark: black page and
+     canvas, graphite panels and cards, the same blue lightened (#479EF5, dark text) so both match. */
   :root {
-    --background: 0 0% 98%;
-    --foreground: 240 10% 3.9%;
+    --background: 30 16.7% 97.6%;
+    --foreground: 30 2% 19.2%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 30 2% 19.2%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 163 93.5% 24.3%;
+    --popover-foreground: 30 2% 19.2%;
+    --primary: 21 85% 43%;
     --primary-foreground: 0 0% 100%;
-    --primary-deep: 163 88.1% 19.8%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 10% 3.9%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 152 81% 95.9%;
-    --accent-foreground: 164 85.7% 16.5%;
+    --primary-deep: 21 85% 36%;
+    --secondary: 0 0% 92.5%;
+    --secondary-foreground: 30 2% 19.2%;
+    --muted: 30 10% 92.2%;
+    --muted-foreground: 30 2.1% 36.9%;
+    --accent: 30 100% 93%;
+    --accent-foreground: 20 85% 28%;
     --destructive: 0 72.2% 50.6%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 5.9% 90%;
-    --input: 240 4.9% 83.9%;
-    --ring: 161 93.5% 30.4%;
-    --radius: 0.625rem;
-    --canvas: 0 0% 98%;
-    --canvas-grid: 240 6.1% 87.1%;
+    --border: 30 6.2% 87.5%;
+    --input: 30 3.5% 77.6%;
+    --ring: 21 85% 43%;
+    --radius: 0.25rem;
+    --canvas: 0 0% 100%;
+    --canvas-grid: 30 5% 84%;
+    --rail: 21 85% 38%;
+    /* App chrome beside the rail: top bar and outline panel, the icon column, the search field */
+    --chrome: 0 0% 98%;
+    --chrome-strong: 240 3% 94.5%;
+    --chrome-input: 0 0% 92.5%;
   }
 
   .dark {
@@ -40,20 +45,24 @@
     --card-foreground: 240 4% 95.1%;
     --popover: 240 2.6% 14.9%;
     --popover-foreground: 240 4% 95.1%;
-    --primary: 160 84.1% 39.4%;
-    --primary-foreground: 166 91.3% 9%;
-    --primary-deep: 158 64.4% 51.6%;
+    --primary: 22 94% 51%;
+    --primary-foreground: 0 0% 0%;
+    --primary-deep: 24 95% 60%;
     --secondary: 240 2.3% 16.9%;
     --secondary-foreground: 240 4% 95.1%;
     --muted: 240 2.3% 16.9%;
     --muted-foreground: 240 2.7% 64.1%;
-    --accent: 162 47.4% 11.2%;
-    --accent-foreground: 149 80.4% 90%;
+    --accent: 21 50% 13%;
+    --accent-foreground: 25 95% 75%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
     --border: 240 2.3% 16.9%;
     --input: 240 1.8% 21.6%;
-    --ring: 158 64.4% 51.6%;
+    --ring: 22 94% 51%;
+    --rail: 240 3% 5.5%;
+    --chrome: 240 3% 6.5%;
+    --chrome-strong: 240 3% 9%;
+    --chrome-input: 240 3% 13.5%;
   }
 
   .dark {
@@ -61,20 +70,20 @@
     --canvas-grid: 240 1.7% 16%;
   }
 
-  /* Tool workspace — light mode: chrome (sidebars, panels: --background) a soft grey, the canvas
-     a touch deeper, cards and nodes (--card) white so they lift off both. */
+  /* Tool workspace — light mode: chrome (top bar, side panels: --background) the reference's off-white,
+     the canvas and cards white, thin warm-grey borders. */
   .workspace-surface {
-    --background: 240 4.8% 95.9%;
-    --canvas: 240 6.7% 94.1%;
+    --background: 0 0% 98.4%;
+    --canvas: 0 0% 100%;
     --card: 0 0% 100%;
     --popover: 0 0% 100%;
-    --muted: 240 8.1% 92.7%;
-    --accent: 154 60% 93.1%;
-    --secondary: 240 8.1% 92.7%;
-    --muted-foreground: 240 3.9% 40.4%;
-    --border: 240 6.9% 88.6%;
-    --input: 240 6.7% 82.4%;
-    --canvas-grid: 240 6.8% 82.7%;
+    --muted: 240 3.2% 93.9%;
+    --accent: 28 95% 90%;
+    --secondary: 0 0% 92.5%;
+    --muted-foreground: 30 2.1% 36.9%;
+    --border: 30 10% 92.2%;
+    --input: 30 3.5% 77.6%;
+    --canvas-grid: 30 5% 84%;
   }
 
   /* Tool workspace — dark mode: black chrome and canvas, graphite cards and nodes on top. */
@@ -84,7 +93,7 @@
     --card: 240 3.1% 12.5%;
     --popover: 240 2.6% 14.9%;
     --muted: 240 2.3% 16.9%;
-    --accent: 162 47.4% 11.2%;
+    --accent: 21 50% 13%;
     --secondary: 240 2.3% 16.9%;
     --border: 240 2.3% 16.9%;
     --input: 240 1.8% 21.6%;
@@ -92,33 +101,77 @@
     --canvas-grid: 240 1.7% 16%;
   }
 
+  /* The deep-blue left rail: everything inside reads its tokens, so items need no colour of their
+     own. White content, translucent-white hover and selection; the + button turns white. */
+  .rail-surface {
+    --background: var(--rail);
+    --foreground: 0 0% 100%;
+    --muted-foreground: 28 90% 88%;
+    --accent: 24 85% 52%;
+    --accent-foreground: 0 0% 100%;
+    --border: 18 85% 33%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 21 85% 38%;
+    --ring: 0 0% 100%;
+    background-color: hsl(var(--rail));
+    color: hsl(var(--foreground));
+  }
+
+  /* Dark mode: the rail is part of the black chrome, with the blue accent as elsewhere. */
+  .dark .rail-surface {
+    --foreground: 240 4% 95.1%;
+    --muted-foreground: 240 2.7% 64.1%;
+    --accent: 21 50% 13%;
+    --accent-foreground: 25 95% 75%;
+    --border: 240 2.3% 16.9%;
+    --primary: 22 94% 51%;
+    --primary-foreground: 0 0% 0%;
+    --ring: 22 94% 51%;
+  }
+
+  /* Workflow AI panel: a neutral grey accent instead of the brand orange */
+  .chat-neutral {
+    --primary: 0 0% 24%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 0 0% 94.5%;
+    --accent-foreground: 0 0% 15%;
+    --ring: 0 0% 45%;
+  }
+  .dark .chat-neutral {
+    --primary: 0 0% 86%;
+    --primary-foreground: 0 0% 8%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 92%;
+    --ring: 0 0% 60%;
+  }
+
   /* Workspace-only extras (not in admin_center): node, connector and status colours,
-     derived from the shared palette above. Selection and active connectors use the emerald. */
+     derived from the shared palette above. Selection and active connectors use the blue. */
   :root {
     --node: 0 0% 100%;
-    --node-hover: 240 11.1% 98.2%;
+    --node-hover: 30 16.7% 97.6%;
     --node-selected: 0 0% 100%;
-    --node-border: 240 5.9% 90%;
-    --node-selected-border: 161 93.5% 30.4%;
-    --edge: 240 5.6% 72.2%;
-    --edge-active: 161 93.5% 30.4%;
-    --success: 142 76.2% 36.3%;
+    --node-border: 30 6.2% 87.5%;
+    --node-selected-border: 21 85% 43%;
+    --edge: 30 3.5% 70%;
+    --edge-active: 21 85% 43%;
+    --success: 142 76.2% 30%;
     --warning: 32 94.6% 43.7%;
-    --info: 200 98% 39.4%;
+    --info: 22 94% 51%;
     --violet: 263 70% 50.4%;
   }
 
   .dark {
     --node: 240 3.1% 12.5%;
     --node-hover: 240 2.6% 14.9%;
-    --node-selected: 159 29.8% 11.2%;
+    --node-selected: 22 40% 13%;
     --node-border: 240 2.3% 16.9%;
-    --node-selected-border: 158 64.4% 51.6%;
+    --node-selected-border: 22 94% 51%;
     --edge: 240 1.7% 23.1%;
-    --edge-active: 158 64.4% 51.6%;
+    --edge-active: 22 94% 51%;
     --success: 142 70.6% 45.3%;
     --warning: 38 92.1% 50.2%;
-    --info: 198 93.2% 59.6%;
+    --info: 22 94% 56%;
     --violet: 255 91.7% 76.3%;
   }
 }

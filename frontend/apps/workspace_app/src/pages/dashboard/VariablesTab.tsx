@@ -70,7 +70,7 @@ export default function VariablesTab() {
       />
 
       {unavailable ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-card/50 px-6 py-14 text-center">
+        <div className="flex flex-col items-center gap-2 rounded-[3px] border border-dashed border-border bg-card/50 px-6 py-14 text-center">
           <ServerCog className="size-7 text-muted-foreground/70" />
           <p className="text-sm font-medium text-foreground">Not available on this server yet</p>
           <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
@@ -90,9 +90,9 @@ export default function VariablesTab() {
         <button
           type="button"
           onClick={() => open(null)}
-          className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-card/50 px-6 py-14 text-center transition-colors hover:border-foreground/30 hover:bg-card"
+          className="flex w-full flex-col items-center gap-2 rounded-[3px] border border-dashed border-border bg-card/50 px-6 py-14 text-center transition-colors hover:border-foreground/30 hover:bg-card"
         >
-          <span className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-b from-muted to-muted/40 ring-1 ring-inset ring-border/70">
+          <span className="flex size-11 items-center justify-center rounded-[3px] bg-gradient-to-b from-muted to-muted/40 ring-1 ring-inset ring-border/70">
             <Braces className="size-5 text-muted-foreground" />
           </span>
           <span className="text-sm font-medium text-foreground">Add your first variable</span>
@@ -116,10 +116,10 @@ export default function VariablesTab() {
             </div>
           }
         >
-          <div className="-mx-5 -mb-5 divide-y divide-border/70 border-t border-border/70">
+          <div className="-mx-3 -mb-2.5 divide-y divide-border/70 border-t border-border/70">
             {shown.map((variable) => (
               <div key={variable.id} className="group flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/40">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-b from-muted to-muted/40 text-muted-foreground ring-1 ring-inset ring-border/70">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-[3px] bg-gradient-to-b from-muted to-muted/40 text-muted-foreground ring-1 ring-inset ring-border/70">
                   {variable.secret ? <Lock className="size-3.5" /> : <Eye className="size-3.5" />}
                 </span>
                 <div className="min-w-0 flex-1">

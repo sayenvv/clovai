@@ -54,7 +54,7 @@ export default function ModelsTab() {
       />
 
       {unavailable ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-card/50 px-6 py-14 text-center">
+        <div className="flex flex-col items-center gap-2 rounded-[3px] border border-dashed border-border bg-card/50 px-6 py-14 text-center">
           <ServerCog className="size-7 text-muted-foreground/70" />
           <p className="text-sm font-medium text-foreground">Not available on this server yet</p>
           <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
@@ -75,9 +75,9 @@ export default function ModelsTab() {
         <button
           type="button"
           onClick={() => open(null)}
-          className="flex w-full flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-card/50 px-6 py-14 text-center transition-colors hover:border-foreground/30 hover:bg-card"
+          className="flex w-full flex-col items-center gap-2 rounded-[3px] border border-dashed border-border bg-card/50 px-6 py-14 text-center transition-colors hover:border-foreground/30 hover:bg-card"
         >
-          <span className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-b from-muted to-muted/40 ring-1 ring-inset ring-border/70">
+          <span className="flex size-11 items-center justify-center rounded-[3px] bg-gradient-to-b from-muted to-muted/40 ring-1 ring-inset ring-border/70">
             <Plus className="size-5 text-muted-foreground" />
           </span>
           <span className="text-sm font-medium text-foreground">Add your first model</span>
@@ -95,7 +95,7 @@ export default function ModelsTab() {
             .map((group) => (
               <Section key={group.title} title={`${group.title} · ${group.items.length}`} className="mb-5">
                 <p className="-mt-2 mb-3 text-[11.5px] text-muted-foreground">{group.hint}</p>
-                <div className="-mx-5 -mb-5 divide-y divide-border/70 border-t border-border/70">
+                <div className="-mx-3 -mb-2.5 divide-y divide-border/70 border-t border-border/70">
                   {group.items.map((connection) => (
               <div key={connection.id} className="group flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/40">
                 <ModelLogo hints={[connection.providerType, connection.model]} className="size-8" />

@@ -588,7 +588,13 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
-      <div ref={scrollRef} className="min-h-0 w-full min-w-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="min-h-0 w-full min-w-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
+        <div>
+          <h2 className="text-[15px] font-semibold leading-tight text-foreground">{ASSISTANT_NAME}</h2>
+          <p className="mt-0.5 text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Assistant · {replacesCanvas ? 'edits the canvas' : 'drafts onto the canvas'}
+          </p>
+        </div>
         {messages.length === 0 && (
           <ChatEmptyState
             icon={<PetalMark size={22} />}

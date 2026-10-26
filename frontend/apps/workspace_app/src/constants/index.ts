@@ -33,6 +33,8 @@ export const ROUTES = {
   page: (slug: string) => `/${slug}`,
   agentWorkflow: '/tools/agent-workflow',
   dashboard: '/dashboard',
+  /** Settings inside the workspace (what used to be the separate dashboard), on one of its tabs. */
+  workspaceSettings: (tab = 'overview') => `/tools/agent-workflow?settings=${tab}`,
   agentWorkflowLibrary: '/tools/agent-workflow/library',
   agentWorkflowInspect: '/tools/agent-workflow/inspect',
   agentWorkflowLogs: '/tools/agent-workflow/logs',

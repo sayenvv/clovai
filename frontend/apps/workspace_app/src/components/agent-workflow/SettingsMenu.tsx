@@ -3,6 +3,7 @@ import { ExternalLink, LayoutDashboard, Moon, Play, Rocket, Settings2, Sparkles,
 import { WorkflowIcon as Workflow } from '@/components/shared/WorkflowIcon'
 import { Badge } from '@/components/ui/badge'
 import { ModelLogo } from '@/components/agent-workflow/model-providers'
+import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -28,7 +29,7 @@ import {
 } from '@/components/ui/tooltip'
 import { useTheme } from '@/hooks/use-theme'
 import { TokenBudgetBar } from '@/components/agent-workflow/TokenBudgetBar'
-import { DASHBOARD_TAB_LINK, ROUTES } from '@/constants'
+import { ROUTES } from '@/constants'
 import { getSession } from '@/services/project-auth-store'
 import { ensureTokenUsage, readTokenUsage, subscribeTokenUsage } from '@/services/token-usage-store'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
@@ -45,6 +46,8 @@ interface SettingsMenuProps {
   align?: 'start' | 'center' | 'end'
   /** The workflow canvas's view options (grid and snapping). */
   canvasView?: CanvasViewSettings
+  /** Overrides the trigger's size and colours (e.g. the compact top bar). */
+  triggerClassName?: string
 }
 
 export interface CanvasViewSettings {
@@ -66,6 +69,7 @@ export const SettingsMenu = memo(function SettingsMenu({
   side = 'right',
   align = 'end',
   canvasView,
+  triggerClassName,
 }: SettingsMenuProps) {
   const { theme, toggleTheme } = useTheme()
   const session = getSession()
@@ -89,7 +93,7 @@ export const SettingsMenu = memo(function SettingsMenu({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
+                  className={cn('h-9 w-9 rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground', triggerClassName)}
                   aria-label="Open settings"
                 >
                   <Settings2 className="h-[18px] w-[18px]" strokeWidth={1.75} />
@@ -119,7 +123,7 @@ export const SettingsMenu = memo(function SettingsMenu({
               ) : null}
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <a href={ROUTES.dashboard} {...DASHBOARD_TAB_LINK}>
+              <a href={ROUTES.workspaceSettings()}>
                 <LayoutDashboard />
                 Dashboard
                 <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground" />
@@ -217,7 +221,7 @@ export const SettingsMenu = memo(function SettingsMenu({
               </p>
             </div>
             <Button asChild variant="outline" size="sm" className="h-8 w-full rounded-lg">
-              <a href={ROUTES.dashboard} {...DASHBOARD_TAB_LINK} onClick={() => setUsageOpen(false)}>
+              <a href={ROUTES.workspaceSettings('usage')} onClick={() => setUsageOpen(false)}>
                 <LayoutDashboard className="h-3.5 w-3.5" />
                 Open dashboard
                 <ExternalLink className="h-3 w-3" />

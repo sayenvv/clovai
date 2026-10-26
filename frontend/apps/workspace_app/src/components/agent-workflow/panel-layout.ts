@@ -25,7 +25,8 @@ export const EDITOR_LEFT_PANEL: PersistedPanelConfig = {
 
 export const EDITOR_RIGHT_PANEL: PersistedPanelConfig = {
   sizeKey: 'eleven-nodes-agent-workflow-right-panel-width',
-  collapsedKey: 'eleven-nodes-agent-workflow-right-panel-collapsed',
+  // v2: the panel now shows Insights by default; the old key held "collapsed" for everyone
+  collapsedKey: 'eleven-nodes-agent-workflow-right-panel-collapsed-v2',
   defaultSize: 340,
   responsiveDefault: (viewportWidth) => Math.round(viewportWidth * 0.28),
   min: 320,

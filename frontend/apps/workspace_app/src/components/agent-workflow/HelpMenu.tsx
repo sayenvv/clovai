@@ -1,5 +1,6 @@
 import { memo, useState } from 'react'
 import { BookOpen, CircleHelp, ExternalLink, Info, Keyboard } from 'lucide-react'
+import { cn } from '@/utils/cn'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,7 +24,7 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(naviga
 const MOD = IS_MAC ? '⌘' : 'Ctrl'
 
 /** Shortcuts the workflow editor actually handles (AgentWorkflowPage and DesignerCanvas). */
-const SHORTCUT_GROUPS: Array<{ title: string; items: Array<{ keys: string; action: string }> }> = [
+export const SHORTCUT_GROUPS: Array<{ title: string; items: Array<{ keys: string; action: string }> }> = [
   {
     title: 'General',
     items: [
@@ -57,10 +58,12 @@ const SHORTCUT_GROUPS: Array<{ title: string; items: Array<{ keys: string; actio
 interface HelpMenuProps {
   side?: 'top' | 'right' | 'bottom' | 'left'
   align?: 'start' | 'center' | 'end'
+  /** Overrides the trigger's size and colours (e.g. the compact top bar). */
+  triggerClassName?: string
 }
 
 /** Help dropdown for the sidebar rail: keyboard shortcuts, docs and about. */
-export const HelpMenu = memo(function HelpMenu({ side = 'right', align = 'end' }: HelpMenuProps) {
+export const HelpMenu = memo(function HelpMenu({ side = 'right', align = 'end', triggerClassName }: HelpMenuProps) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   return (
@@ -74,7 +77,7 @@ export const HelpMenu = memo(function HelpMenu({ side = 'right', align = 'end' }
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
+                  className={cn('h-9 w-9 rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground', triggerClassName)}
                   aria-label="Help"
                 >
                   <CircleHelp className="h-[18px] w-[18px]" strokeWidth={1.75} />

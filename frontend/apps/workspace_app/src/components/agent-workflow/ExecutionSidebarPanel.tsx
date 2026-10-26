@@ -318,7 +318,7 @@ export function UserMessage({ content, children }: { content: string; children?:
       <ChatTurnHeader
         name="You"
         avatar={
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-background">
+          <span className="flex h-6 w-6 items-center justify-center rounded-[3px] bg-primary text-primary-foreground">
             <User className="h-3.5 w-3.5" />
           </span>
         }
@@ -327,7 +327,7 @@ export function UserMessage({ content, children }: { content: string; children?:
         {children}
         <p
           className={cn(
-            'whitespace-pre-wrap break-words rounded-lg border border-border/70 bg-muted/50 px-3 py-2 text-[13px] leading-6 text-foreground',
+            'whitespace-pre-wrap break-words rounded-[3px] bg-accent px-3 py-2 text-[12.5px] leading-6 text-foreground',
             json && 'font-mono text-[12px] leading-5',
           )}
         >

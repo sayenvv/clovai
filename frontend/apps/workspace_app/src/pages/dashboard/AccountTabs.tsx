@@ -167,7 +167,7 @@ export function WorkspaceTab() {
       </SettingsCard>
 
       <SettingsCard title="Details" description="Use the workspace ID when talking to support or calling the API.">
-        <dl className="divide-y divide-border/70 rounded-xl border border-border/70">
+        <dl className="divide-y divide-border/70 rounded-[3px] border border-border/70">
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <dt className="text-[12px] text-muted-foreground">Type</dt>
             <dd className="text-[12.5px] font-medium text-foreground">
@@ -218,7 +218,7 @@ export function AppearanceTab() {
                 aria-checked={active}
                 onClick={() => (active ? undefined : toggleTheme())}
                 className={cn(
-                  'group overflow-hidden rounded-xl border text-left transition-shadow',
+                  'group overflow-hidden rounded-[3px] border text-left transition-shadow',
                   active ? 'border-foreground/60 ring-2 ring-foreground/15' : 'border-border/70 hover:border-foreground/30',
                 )}
               >

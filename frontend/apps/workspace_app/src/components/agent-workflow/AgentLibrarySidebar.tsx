@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type DragEvent as ReactDragEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
@@ -20,6 +21,7 @@ import {
   Database,
   Hammer,
   Import,
+  ListTree,
   LayoutGrid,
   List,
   GitFork,
@@ -36,6 +38,8 @@ import {
   Sparkles,
   Terminal,
   Wrench,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -135,7 +139,19 @@ interface AgentLibrarySidebarProps {
   onAddCapability?: (capabilityId: string) => void
   /** "Create your own": add a blank agent, tool or skill and open it to define. */
   onCreateCustom?: (kind: CustomBlockKind) => void
+  /**
+   * Desktop shell: the rail is a narrow light column of icons (no labels, no add button or account,
+   * which live in the app rail and top bar), and `outline` shows beside it while no section is open.
+   */
+  compactRail?: boolean
+  outline?: ReactNode
+  outlineWidth?: number
+  /** Shows or hides the outline (the compact rail's first button). */
+  onToggleOutline?: () => void
 }
+
+/** The compact rail's width. */
+const COMPACT_RAIL_WIDTH = 40
 
 export type CustomBlockKind = 'agent' | 'tool' | 'skill'
 
@@ -351,13 +367,32 @@ function LibraryGroup({
   view: LibraryView
   children: ReactNode
 }) {
+  const [open, setOpen] = useState(true)
+  if (view === 'list') {
+    // As the outline's "All agents (6)" tree: a heading that folds, rows indented under it
+    return (
+      <section>
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          className="-mx-0.5 flex h-6 items-center gap-1 text-[11px] font-medium text-foreground"
+        >
+          {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          {title}
+          <span className="font-normal tabular-nums text-muted-foreground">({count})</span>
+        </button>
+        {open ? <ul className="-mx-1.5 mt-0.5">{children}</ul> : null}
+      </section>
+    )
+  }
   return (
     <section className="space-y-1.5">
-      <h3 className="flex items-center gap-1.5 px-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+      <h3 className="flex items-center gap-1.5 px-0.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {title}
         <span className="tabular-nums text-muted-foreground/60">{count}</span>
       </h3>
-      <div className={view === 'grid' ? 'grid grid-cols-2 gap-2' : 'space-y-1.5'}>{children}</div>
+      <div className="grid grid-cols-2 gap-2">{children}</div>
     </section>
   )
 }
@@ -384,6 +419,37 @@ function LibraryRow({
   onClick: () => void
 }) {
   const grid = view === 'grid'
+  const drag = dragPaletteId
+    ? (event: ReactDragEvent) => {
+        event.dataTransfer.setData(DND_MIME, dragPaletteId)
+        event.dataTransfer.effectAllowed = 'copy'
+      }
+    : undefined
+  if (!grid) {
+    // As the Pages rows: a small orange icon, the name, a quiet badge and a "+" on hover
+    return (
+      <li>
+        <button
+          type="button"
+          draggable={Boolean(dragPaletteId)}
+          onDragStart={drag}
+          onClick={onClick}
+          title={`Add ${title} · ${description}`}
+          className={cn(
+            'group flex h-7 w-full items-center gap-2 rounded-[2px] px-1.5 text-left text-[11px] text-foreground hover:bg-foreground/[0.05]',
+            dragPaletteId ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
+          )}
+        >
+          <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <span className="min-w-0 flex-1 truncate">{title}</span>
+          {badge ? (
+            <span className="shrink-0 text-[8px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{badge}</span>
+          ) : null}
+          <Plus className="h-3 w-3 shrink-0 text-primary opacity-0 group-hover:opacity-100" aria-hidden />
+        </button>
+      </li>
+    )
+  }
   return (
     <button
       type="button"
@@ -399,16 +465,16 @@ function LibraryRow({
       onClick={onClick}
       title={`Add ${title} · ${description}`}
       className={cn(
-        'group relative flex w-full rounded-lg border border-border bg-card shadow-sm',
-        'transition-all duration-150 hover:border-foreground/20 hover:shadow-md',
-        grid ? 'min-w-0 flex-col items-center gap-1.5 px-2 pb-2.5 pt-3 text-center' : 'items-center gap-2.5 p-2 text-left',
+        'group relative flex w-full rounded-[3px] border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
+        'transition-colors duration-150 hover:border-primary/50 hover:bg-accent/30',
+        grid ? 'min-w-0 flex-col items-center gap-1.5 px-2 pb-2.5 pt-3 text-center' : 'items-center gap-2.5 px-2 py-1.5 text-left',
         dragPaletteId ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
       )}
     >
       <span
         className={cn(
-          'flex shrink-0 items-center justify-center rounded-lg ring-1 ring-inset',
-          grid ? 'size-9' : 'size-8',
+          'flex shrink-0 items-center justify-center rounded-[3px] ring-1 ring-inset',
+          grid ? 'size-8' : 'size-7',
           tile,
         )}
       >
@@ -416,10 +482,10 @@ function LibraryRow({
       </span>
       {grid ? (
         <>
-          <span className="line-clamp-1 w-full text-[11.5px] font-semibold leading-tight text-foreground">{title}</span>
+          <span className="line-clamp-1 w-full text-[11px] font-semibold leading-tight text-foreground">{title}</span>
           <span className="line-clamp-2 w-full text-[9.5px] leading-snug text-muted-foreground">{description}</span>
           {badge ? (
-            <span className="absolute right-1.5 top-1.5 rounded border border-border/60 bg-muted/60 px-1 py-px text-[8px] font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="absolute right-1 top-1 px-0.5 text-[7.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {badge}
             </span>
           ) : null}
@@ -428,9 +494,9 @@ function LibraryRow({
         <>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
-          <span className="truncate text-[12.5px] font-semibold leading-tight text-foreground">{title}</span>
+          <span className="truncate text-[11.5px] font-semibold leading-tight text-foreground">{title}</span>
           {badge ? (
-            <span className="shrink-0 rounded border border-border/60 bg-muted/60 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="shrink-0 text-[8px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {badge}
             </span>
           ) : null}
@@ -438,7 +504,7 @@ function LibraryRow({
         <span className="mt-0.5 block truncate text-[10.5px] leading-snug text-muted-foreground">{description}</span>
       </span>
       <Plus
-        className="size-3.5 shrink-0 text-muted-foreground/0 transition-colors duration-150 group-hover:text-muted-foreground"
+        className="size-3.5 shrink-0 text-primary/0 transition-colors duration-150 group-hover:text-primary"
         aria-hidden
       />
         </>
@@ -451,13 +517,38 @@ function LibraryRow({
 function CreateCustomCards({
   kinds,
   onCreate,
+  view = 'grid',
 }: {
   kinds: CustomBlockKind[]
   onCreate?: (kind: CustomBlockKind) => void
+  view?: LibraryView
 }) {
+  if (view === 'list') {
+    // As "+ Add page" under the Pages list
+    return (
+      <div className="-mx-1.5 flex flex-wrap gap-x-1">
+        {CUSTOM_BLOCKS.filter((block) => kinds.includes(block.kind)).map(({ kind, label, paletteId }) => (
+          <button
+            key={kind}
+            type="button"
+            draggable
+            onDragStart={(event) => {
+              event.dataTransfer.setData(DND_MIME, paletteId)
+              event.dataTransfer.effectAllowed = 'copy'
+            }}
+            onClick={() => onCreate?.(kind)}
+            title={`Create a custom ${label.toLowerCase()}`}
+            className="flex h-6 items-center gap-1 rounded-[2px] px-1.5 text-[10.5px] text-foreground hover:bg-foreground/[0.06] [&_svg]:text-primary"
+          >
+            <Plus className="h-3 w-3" /> New {label.toLowerCase()}
+          </button>
+        ))}
+      </div>
+    )
+  }
   return (
     <section className="space-y-1.5">
-      <h3 className="px-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+      <h3 className="px-0.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         Create your own
       </h3>
       <div className={cn('grid gap-2', kinds.length === 1 ? 'grid-cols-1' : 'grid-cols-3')}>
@@ -473,18 +564,18 @@ function CreateCustomCards({
             onClick={() => onCreate?.(kind)}
             title={`Create a custom ${label.toLowerCase()}`}
             className={cn(
-              'group relative flex flex-col items-center gap-1.5 rounded-xl border border-dashed border-border bg-card px-1.5 pb-2.5 pt-3',
-              'transition-all duration-150 hover:border-solid hover:border-foreground/25 hover:shadow-md',
+              'group relative flex flex-col items-center gap-1.5 rounded-[3px] border border-dashed border-border bg-card px-1.5 pb-2.5 pt-3',
+              'transition-colors duration-150 hover:border-solid hover:border-primary/50 hover:bg-accent/30',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             )}
           >
-            <span className={cn('relative flex size-9 items-center justify-center rounded-lg ring-1 ring-inset', tile)}>
+            <span className={cn('relative flex size-8 items-center justify-center rounded-[3px] ring-1 ring-inset', tile)}>
               <Icon className="size-4" />
-              <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-foreground text-background ring-2 ring-card">
+              <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-card">
                 <Plus className="size-2.5" strokeWidth={3} />
               </span>
             </span>
-            <span className="text-[11.5px] font-semibold leading-none text-foreground">{label}</span>
+            <span className="text-[11px] font-semibold leading-none text-foreground">{label}</span>
             <span className="text-[9px] font-medium uppercase leading-none tracking-wide text-muted-foreground">Custom</span>
           </button>
         ))}
@@ -506,6 +597,32 @@ function ModelClientRow({
   view?: LibraryView
 }) {
   const ref = modelClientRef(client.id) as ModelProviderId
+  if (view === 'list') {
+    // As the Pages rows: logo, name, model, and a tick on the agent's current client
+    return (
+      <li>
+        <button
+          type="button"
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData(MODEL_PROVIDER_DND_MIME, ref)
+            event.dataTransfer.effectAllowed = 'link'
+          }}
+          onClick={() => onPick?.(ref)}
+          title={`Use ${client.name} · ${client.model}`}
+          className={cn(
+            'flex h-7 w-full cursor-grab items-center gap-2 rounded-[2px] px-1.5 text-left text-[11px] active:cursor-grabbing',
+            active ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-foreground/[0.05]',
+          )}
+        >
+          <ModelLogo hints={[client.providerType, client.model]} className="size-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{client.name}</span>
+          <span className="shrink-0 truncate font-mono text-[9.5px] text-muted-foreground">{client.model}</span>
+          {active ? <Check className="h-3 w-3 shrink-0 text-primary" aria-label="Current model client" /> : null}
+        </button>
+      </li>
+    )
+  }
   return (
     <button
       type="button"
@@ -517,12 +634,12 @@ function ModelClientRow({
       onClick={() => onPick?.(ref)}
       title={`Use ${client.name} · ${client.model}`}
       className={cn(
-        'group relative flex w-full rounded-lg border bg-card shadow-sm',
+        'group relative flex w-full rounded-[3px] border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
         view === 'grid'
           ? 'min-w-0 flex-col items-center gap-1.5 px-2 pb-2.5 pt-3 text-center'
           : 'items-center gap-2.5 p-2.5 text-left',
         'cursor-grab transition-all duration-150 active:cursor-grabbing',
-        active ? 'border-foreground/40 ring-1 ring-foreground/10' : 'border-border hover:border-foreground/20 hover:shadow-md',
+        active ? 'border-primary bg-accent/40' : 'border-border hover:border-primary/50 hover:bg-accent/30',
       )}
     >
       {view === 'grid' ? (
@@ -533,7 +650,7 @@ function ModelClientRow({
           </span>
           <ModelOwnerBadge connection={client} />
           {active ? (
-            <Check className="absolute right-1.5 top-1.5 size-3.5 text-foreground/70" aria-label="Current model client" />
+            <Check className="absolute right-1.5 top-1.5 size-3.5 text-primary" aria-label="Current model client" />
           ) : null}
         </>
       ) : (
@@ -591,13 +708,33 @@ function RailNavItem({
   icon: Icon,
   active,
   onClick,
+  compact = false,
 }: {
   label: string
   shortLabel: string
   icon: LucideIcon
   active: boolean
   onClick: () => void
+  compact?: boolean
 }) {
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        aria-pressed={active}
+        title={label}
+        className={cn(
+          'flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] transition-colors duration-150',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          active ? 'bg-accent text-primary' : 'text-foreground/75 hover:bg-foreground/[0.07] hover:text-foreground',
+        )}
+      >
+        <Icon className="size-[15px]" strokeWidth={active ? 2 : 1.75} />
+      </button>
+    )
+  }
   return (
     <button
       type="button"
@@ -659,6 +796,10 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   activeModelProviderId,
   onAddCapability,
   onCreateCustom,
+  compactRail = false,
+  outline,
+  outlineWidth = 220,
+  onToggleOutline,
 }: AgentLibrarySidebarProps) {
   const [category, setCategoryState] = useState<LibraryCategory>(blocksTabProp === 'models' ? 'models' : 'all')
   // The page opens the library on Model clients for an agent's model slot.
@@ -674,7 +815,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
     if (scoped) return scoped.includes(id)
     return category === 'all' || category === id
   }
-  const [libraryView, setLibraryView] = useState<LibraryView>('grid')
+  const [libraryView, setLibraryView] = useState<LibraryView>('list')
   const [section, setSection] = useState<LibrarySection | null>(
     embedded ? 'blocks' : null,
   )
@@ -693,9 +834,10 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   // Deployments opens in the main canvas — keep the rail highlighted, no flyout.
   const flyoutOpen = resolvedSection !== null && resolvedSection !== 'deployments'
   const flyoutWidth = Math.max(width, FLYOUT_MIN_WIDTH)
+  const railWidth = compactRail ? COMPACT_RAIL_WIDTH : SIDE_PANEL_COLLAPSED_WIDTH
   const totalWidth = embedded
     ? '100%'
-    : SIDE_PANEL_COLLAPSED_WIDTH + (flyoutOpen ? flyoutWidth : 0)
+    : railWidth + (flyoutOpen ? flyoutWidth : outline ? outlineWidth : 0)
 
   const closeFlyout = useCallback(() => {
     setSection(null)
@@ -847,21 +989,47 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
         {!embedded && (
         <div
           className={cn(
-            'relative z-30 flex h-full shrink-0 flex-col bg-background',
-            flyoutOpen ? 'border-r border-border' : '',
+            compactRail
+              ? 'relative z-30 flex h-full shrink-0 flex-col border-r border-border bg-[hsl(var(--chrome-strong))]'
+              : // The deep-blue rail (light mode): its tokens make every item inside white on blue
+                'rail-surface relative z-30 flex h-full shrink-0 flex-col bg-background',
+            !compactRail && flyoutOpen ? 'border-r border-border' : '',
           )}
-          style={{ width: SIDE_PANEL_COLLAPSED_WIDTH }}
+          style={{ width: railWidth }}
         >
 
           <TooltipProvider delayDuration={180}>
-            <div className="flex h-full min-h-0 flex-col items-center py-3">
-              <AddBlocksButton open={resolvedSection === 'blocks'} onClick={() => openSection('blocks')} />
+            <div className={cn('flex h-full min-h-0 flex-col items-center', compactRail ? 'py-2' : 'py-3')}>
+              {compactRail ? null : (
+                <AddBlocksButton open={resolvedSection === 'blocks'} onClick={() => openSection('blocks')} />
+              )}
 
               {/* Library sections, labelled; scrolls on short screens. */}
               <nav
                 aria-label="Library"
-                className="mt-3 flex min-h-0 w-full flex-1 flex-col items-center gap-0.5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className={cn(
+                  'flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+                  compactRail ? 'gap-1.5' : 'mt-3 gap-0.5',
+                )}
               >
+                {compactRail && onToggleOutline ? (
+                  <>
+                    <RailNavItem
+                      label="Outline"
+                      shortLabel="Outline"
+                      icon={ListTree}
+                      active={Boolean(outline) && !flyoutOpen}
+                      onClick={() => {
+                        if (flyoutOpen) {
+                          closeFlyout()
+                          if (!outline) onToggleOutline()
+                        } else onToggleOutline()
+                      }}
+                      compact
+                    />
+                    <RailDivider />
+                  </>
+                ) : null}
                 {(
                   [
                     ['workflows', 'Workflows', 'Workflows', WorkflowIcon],
@@ -878,6 +1046,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                     icon={icon}
                     active={resolvedSection === id}
                     onClick={() => openSection(id)}
+                    compact={compactRail}
                   />
                 ))}
                 <RailDivider />
@@ -888,6 +1057,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                     icon={Blocks}
                     active={resolvedSection === 'store'}
                     onClick={() => openSection('store')}
+                    compact={compactRail}
                   />
                 )}
                 <RailNavItem
@@ -896,18 +1066,23 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                   icon={Import}
                   active={resolvedSection === 'import'}
                   onClick={() => openSection('import')}
+                  compact={compactRail}
                 />
-                <RailNavItem
-                  label="Deployments"
-                  shortLabel="Deploy"
-                  icon={Server}
-                  active={resolvedSection === 'deployments'}
-                  onClick={() => openSection('deployments')}
-                />
+                {/* The desktop app rail has its own Deployments tab */}
+                {compactRail ? null : (
+                  <RailNavItem
+                    label="Deployments"
+                    shortLabel="Deploy"
+                    icon={Server}
+                    active={resolvedSection === 'deployments'}
+                    onClick={() => openSection('deployments')}
+                  />
+                )}
               </nav>
 
 
 
+              {compactRail ? null : (
               <div className="flex w-full shrink-0 flex-col items-center gap-1.5">
                 <RailDivider />
                 <HelpMenu side="right" align="end" />
@@ -935,6 +1110,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                   <AdminBadge show={isAdmin} />
                 </div>
               </div>
+              )}
             </div>
           </TooltipProvider>
         </div>
@@ -944,15 +1120,16 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
         {flyoutOpen && meta ? (
           <div
             className={cn(
-              'flex min-w-0 flex-1 flex-col bg-background',
+              'flex min-w-0 flex-1 flex-col',
+              compactRail ? 'bg-[hsl(var(--chrome))]' : 'bg-background',
               !embedded && 'animate-in fade-in-0 slide-in-from-left-1 duration-200',
             )}
             style={embedded ? undefined : { width: flyoutWidth }}
           >
             {!embedded && (
-            <div className="shrink-0 border-b border-border/60 px-3 py-2.5">
-              <h2 className="truncate text-sm font-semibold text-foreground">{meta.title}</h2>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">{meta.subtitle}</p>
+            <div className="shrink-0 px-3.5 pb-1 pt-3">
+              <h2 className="truncate text-[13px] font-semibold text-foreground">{meta.title}</h2>
+              <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{meta.subtitle}</p>
             </div>
             )}
 
@@ -993,7 +1170,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
 
             {(isCatalogSection(resolvedSection) ||
               resolvedSection === 'store') && (
-              <div className="shrink-0 border-b border-border/60 px-3 py-2">
+              <div className="shrink-0 border-b border-border/80 px-3.5 pb-3 pt-2">
                 <div className="flex items-center gap-1.5">
                   <div className="relative min-w-0 flex-1">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -1008,11 +1185,11 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                             ? `Search ${SECTION_META[resolvedSection].title.toLowerCase()}…`
                             : 'Search…'
                       }
-                      className="h-8 pl-8 text-xs"
+                      className="h-7 rounded-[2px] border-transparent bg-[hsl(var(--chrome-input))] pl-8 text-[11px] shadow-none focus-visible:border-primary"
                     />
                   </div>
                   {isCatalogSection(resolvedSection) && (
-                    <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5">
+                    <div className="flex shrink-0 items-center gap-0.5">
                       {(
                         [
                           ['list', 'List view', List],
@@ -1026,8 +1203,8 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                           aria-pressed={libraryView === id}
                           onClick={() => setLibraryView(id)}
                           className={cn(
-                            'flex size-6 items-center justify-center rounded transition-colors duration-150',
-                            libraryView === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                            'flex size-6 items-center justify-center rounded-[2px] transition-colors duration-150',
+                            libraryView === id ? 'bg-primary text-primary-foreground' : 'text-primary hover:bg-foreground/[0.07]',
                           )}
                         >
                           <Icon className="size-3.5" />
@@ -1050,11 +1227,11 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                         aria-selected={category === id}
                         onClick={() => setCategory(id)}
                         className={cn(
-                          'h-6 shrink-0 rounded-full border px-2.5 text-[11px] font-medium transition-colors',
+                          'h-6 shrink-0 rounded-[2px] px-2 text-[11px] font-medium transition-colors',
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                           category === id
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border bg-card text-muted-foreground hover:border-foreground/25 hover:text-foreground',
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-primary hover:bg-foreground/[0.07]',
                         )}
                       >
                         {label}
@@ -1065,14 +1242,14 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
               </div>
             )}
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+            <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-3">
               {isCatalogSection(resolvedSection) && (
-                <div className="space-y-5">
+                <div className="space-y-4">
                   {!needle &&
                   (resolvedSection !== 'blocks' || category === 'all') &&
                   resolvedSection &&
                   CUSTOM_KINDS_BY_SECTION[resolvedSection] ? (
-                    <CreateCustomCards kinds={CUSTOM_KINDS_BY_SECTION[resolvedSection]!} onCreate={onCreateCustom} />
+                    <CreateCustomCards kinds={CUSTOM_KINDS_BY_SECTION[resolvedSection]!} onCreate={onCreateCustom} view={libraryView} />
                   ) : null}
 
                   {showCategory('orchestration') && libraryOrchestrators.length > 0 ? (
@@ -1135,7 +1312,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                   {showCategory('models') && filteredClients.length > 0 ? (
                     <LibraryGroup view={libraryView} title="Model clients" count={filteredClients.length}>
                       {category === 'models' || resolvedSection === 'models' ? (
-                        <p className="px-0.5 pb-1 text-[11px] leading-snug text-muted-foreground">
+                        <p className="col-span-2 px-0.5 pb-1 text-[10.5px] leading-snug text-muted-foreground">
                           {modelTargetLabel ? (
                             <>
                               Choose the model client for{' '}
@@ -1215,6 +1392,12 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                 />
               )}
             </div>
+          </div>
+        ) : null}
+
+        {!flyoutOpen && outline && !embedded ? (
+          <div className="flex min-w-0 flex-1" style={{ width: outlineWidth }}>
+            {outline}
           </div>
         ) : null}
       </aside>

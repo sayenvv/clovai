@@ -3,7 +3,7 @@ import { Code2, Crown, LayoutTemplate } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/utils/cn'
 
-export type WorkflowEditorViewMode = 'canvas' | 'code'
+export type WorkflowEditorViewMode = 'canvas' | 'code' | 'map'
 
 interface WorkflowEditorViewToggleProps {
   mode: WorkflowEditorViewMode

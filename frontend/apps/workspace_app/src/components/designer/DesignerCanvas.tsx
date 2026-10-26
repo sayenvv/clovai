@@ -1662,7 +1662,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       className="relative h-full flex-1 touch-none overflow-hidden overscroll-none bg-[hsl(var(--canvas))] outline-none"
       style={{
         backgroundImage: showGrid
-          ? 'radial-gradient(circle, hsl(var(--canvas-grid)) 1px, transparent 1px)'
+          ? 'radial-gradient(circle, hsl(var(--canvas-grid)) 1.1px, transparent 1.2px)'
           : undefined,
         backgroundSize: `${gridSize}px ${gridSize}px`,
         backgroundPosition: `${viewport.x}px ${viewport.y}px`,

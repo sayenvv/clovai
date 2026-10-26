@@ -188,8 +188,8 @@ export function DashboardSidebar() {
       {/* Same icon rail as AgentLibrarySidebar */}
       <div
         className={cn(
-          'relative flex h-full shrink-0 flex-col',
-          'bg-gradient-to-b from-muted/40 via-background to-muted/30',
+          // The deep-blue rail (light mode), as in the editor
+          'rail-surface relative flex h-full shrink-0 flex-col bg-background',
           flyoutOpen ? 'border-r border-border/60' : '',
         )}
         style={{ width: SIDE_PANEL_COLLAPSED_WIDTH }}

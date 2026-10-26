@@ -8,7 +8,7 @@ import { cn } from '@/utils/cn'
  * Card surfaces match Section / StatCard / SettingsCard exactly.
  */
 
-const CARD = 'rounded-2xl border border-border/70 bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)]'
+const CARD = 'rounded-[3px] border border-border/70 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
 
 // Fixed heights so the chart doesn't jump between renders.
 const BARS = [34, 52, 41, 63, 48, 72, 58, 44, 66, 81, 55, 62, 47, 70, 59, 76, 50, 64, 85, 57, 68, 46, 73, 61, 54, 78, 49, 67, 88, 60]
@@ -29,7 +29,7 @@ function SectionShell({
     <div className={cn(CARD, 'p-5', className)}>
       <div className="mb-4 flex items-center justify-between gap-2">
         <Skeleton className={cn('h-3.5', title)} />
-        {action ? <Skeleton className={cn('h-7 rounded-lg', action)} /> : null}
+        {action ? <Skeleton className={cn('h-7 rounded-[3px]', action)} /> : null}
       </div>
       {children}
     </div>
@@ -125,7 +125,7 @@ export function OverviewBodySkeleton() {
       <SectionShell title="w-20" action="w-24">
         <div className="flex items-center gap-2">
           <Skeleton className="size-4 rounded" />
-          <Skeleton className="h-7 w-10 rounded-lg" />
+          <Skeleton className="h-7 w-10 rounded-[3px]" />
           <Skeleton className="h-3 w-28" />
         </div>
         <div className="mt-4 space-y-2.5">
@@ -172,7 +172,7 @@ export function AgentMonitorSkeleton() {
   return (
     <div className="space-y-2">
       {Array.from({ length: 3 }, (_, index) => (
-        <div key={index} className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/50 px-3 py-2.5">
+        <div key={index} className="flex items-center justify-between gap-3 rounded-[3px] border border-border/70 bg-background/50 px-3 py-2.5">
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             <Skeleton className="size-3.5 rounded" />
             <Skeleton className="h-3.5" style={{ width: `${32 - index * 5}%` }} />
@@ -199,9 +199,9 @@ export function WorkflowsBodySkeleton() {
     <SectionShell title="w-20">
       <div className="space-y-2">
         {Array.from({ length: 5 }, (_, index) => (
-          <div key={index} className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-background/50 px-3 py-2.5">
+          <div key={index} className="flex items-center justify-between gap-3 rounded-[3px] border border-border/70 bg-background/50 px-3 py-2.5">
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <Skeleton className="size-7 shrink-0 rounded-lg" />
+              <Skeleton className="size-7 shrink-0 rounded-[3px]" />
               <div className="min-w-0 flex-1 space-y-1.5">
                 <Skeleton className="h-3.5" style={{ width: `${36 - index * 4}%` }} />
                 <Skeleton className="h-2.5" style={{ width: `${52 - index * 4}%` }} />
@@ -229,10 +229,10 @@ function IntroSkeleton({ title = 'w-64', action }: { title?: string; action?: st
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="space-y-2.5">
         <Skeleton className="h-5 w-20 rounded-full" />
-        <Skeleton className={cn('h-6 rounded-lg', title)} />
+        <Skeleton className={cn('h-6 rounded-[3px]', title)} />
         <Skeleton className="h-3.5 w-80 max-w-full" />
       </div>
-      {action ? <Skeleton className={cn('h-8 rounded-lg', action)} /> : null}
+      {action ? <Skeleton className={cn('h-8 rounded-[3px]', action)} /> : null}
     </div>
   )
 }
@@ -244,9 +244,9 @@ function StatsSkeleton({ count }: { count: 3 | 4 }) {
         <div key={index} className={cn(CARD, 'p-4')}>
           <div className="flex items-center justify-between">
             <Skeleton className="h-3 w-24" />
-            <Skeleton className="size-8 rounded-lg" />
+            <Skeleton className="size-8 rounded-[3px]" />
           </div>
-          <Skeleton className="mt-3 h-[26px] w-24 rounded-lg" />
+          <Skeleton className="mt-3 h-[26px] w-24 rounded-[3px]" />
           <Skeleton className="mt-2.5 h-3 w-32" />
         </div>
       ))}

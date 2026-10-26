@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import { GripVertical, type LucideIcon } from 'lucide-react'
 import {
   formatCompact,
   formatNumber,
@@ -18,7 +18,8 @@ function formatDay(iso: string, style: 'short' | 'long' = 'short'): string {
 /** Segmented control for the report window. */
 export function RangeSelect({ value, onChange }: { value: RangeDays; onChange: (days: RangeDays) => void }) {
   return (
-    <div className="inline-flex rounded-lg border border-border/70 bg-card p-0.5 shadow-sm" role="group" aria-label="Time range">
+    <div className="inline-flex items-center gap-1" role="group" aria-label="Time range">
+      <span className="mr-1 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Range:</span>
       {RANGES.map((days) => (
         <button
           key={days}
@@ -26,8 +27,8 @@ export function RangeSelect({ value, onChange }: { value: RangeDays; onChange: (
           onClick={() => onChange(days)}
           aria-pressed={value === days}
           className={cn(
-            'rounded-md px-3 py-1 text-[11.5px] font-medium tabular-nums transition-colors',
-            value === days ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+            'h-6 rounded-[2px] px-2 text-[11px] font-medium tabular-nums transition-colors',
+            value === days ? 'bg-primary text-primary-foreground' : 'text-primary hover:bg-foreground/[0.07]',
           )}
         >
           {days}d
@@ -51,12 +52,15 @@ export function Section({
   return (
     <section
       className={cn(
-        'rounded-2xl border border-border/70 bg-card p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]',
+        'rounded-[3px] border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
         className,
       )}
     >
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <h2 className="text-[13px] font-semibold tracking-tight text-foreground">{title}</h2>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-1 text-[12px] font-semibold text-foreground">
+          <GripVertical className="-ml-1 h-3.5 w-3.5 text-muted-foreground/60" aria-hidden />
+          {title}
+        </h2>
         {action}
       </div>
       {children}
@@ -129,9 +133,9 @@ export function DailyUsageChart({ daily }: { daily: DailyUsage[] }) {
               >
                 <span
                   className={cn(
-                    'block w-full rounded-t-[4px] transition-colors',
-                    day.totalTokens > 0 ? 'bg-foreground/70' : 'bg-transparent',
-                    active === index && day.totalTokens > 0 && 'bg-foreground',
+                    'block w-full rounded-t-[1px] transition-colors',
+                    day.totalTokens > 0 ? 'bg-primary' : 'bg-transparent',
+                    active === index && day.totalTokens > 0 && 'bg-primary/80',
                     'group-focus-visible:ring-2 group-focus-visible:ring-ring',
                   )}
                   style={{ height: day.totalTokens > 0 ? `${Math.max(2, height)}%` : 0 }}
@@ -210,7 +214,7 @@ export function ShareRow({
         </span>
       </div>
       <div className="h-1 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-foreground/70" style={{ width: `${share > 0 ? Math.max(1, share) : 0}%` }} />
+        <div className="h-full rounded-full bg-primary" style={{ width: `${share > 0 ? Math.max(1, share) : 0}%` }} />
       </div>
     </div>
   )
@@ -239,14 +243,14 @@ export function ReportState({
   }
   if (error) {
     return (
-      <div className="rounded-lg border border-foreground/30 bg-foreground/5 px-4 py-6 text-[12px] text-foreground dark:text-foreground">
+      <div className="rounded-[3px] border border-foreground/30 bg-foreground/5 px-4 py-6 text-[12px] text-foreground dark:text-foreground">
         {error}
       </div>
     )
   }
   if (!empty) return null
   return (
-    <div className="flex flex-col items-center rounded-lg border border-dashed border-border/80 bg-card px-4 py-12 text-center">
+    <div className="flex flex-col items-center rounded-[3px] border border-dashed border-border/80 bg-card px-4 py-12 text-center">
       <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
         <Icon className="h-4 w-4" />
       </div>

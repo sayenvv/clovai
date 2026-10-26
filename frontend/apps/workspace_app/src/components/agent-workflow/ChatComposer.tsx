@@ -1,5 +1,5 @@
 import { forwardRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
-import { ArrowUp, Square, type LucideIcon } from 'lucide-react'
+import { ArrowUp, Square, type LucideIcon, GripVertical } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/utils/cn'
 
@@ -54,9 +54,9 @@ export function ChatComposer({
     <div className="space-y-1.5">
       <div
         className={cn(
-          'rounded-xl border border-border bg-card shadow-sm transition-[border-color,box-shadow]',
-          'focus-within:border-foreground/25 focus-within:shadow-md',
-          isDragging && 'border-dashed border-foreground/40 bg-muted/40',
+          // No border: a soft grey field, outlined only while files are dragged over it
+          'rounded-[3px] bg-[hsl(var(--chrome-input))] transition-colors',
+          isDragging && 'outline-dashed outline-1 outline-foreground/40',
         )}
         onDragOver={(event) => {
           if (!dropEnabled) return
@@ -132,16 +132,16 @@ export const ComposerIconButton = forwardRef<
       aria-label={label}
       title={props.title ?? label}
       className={cn(
-        'relative flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors',
-        'hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'relative flex h-7 w-7 items-center justify-center rounded-[2px] text-primary transition-colors',
+        'hover:bg-foreground/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         'disabled:pointer-events-none disabled:opacity-40 data-[state=open]:bg-muted data-[state=open]:text-foreground',
         className,
       )}
       {...props}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-3.5 w-3.5" />
       {badge ? (
-        <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-foreground px-0.5 text-[9px] font-semibold tabular-nums text-background">
+        <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-semibold tabular-nums text-primary-foreground">
           {badge}
         </span>
       ) : null}
@@ -174,8 +174,8 @@ export function ComposerSendButton({
       aria-label={label}
       title={label}
       className={cn(
-        'flex h-7 items-center justify-center gap-1.5 rounded-md bg-foreground text-[12px] font-medium text-background shadow-sm transition-colors',
-        'hover:bg-foreground/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+        'flex h-7 items-center justify-center gap-1.5 rounded-[2px] bg-primary text-[11.5px] font-medium text-primary-foreground transition-colors',
+        'hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
         'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none',
         text ? 'px-2.5' : 'w-7',
       )}
@@ -198,7 +198,7 @@ export function ComposerStopButton({ onClick, label = 'Stop' }: { onClick: () =>
       aria-label={label}
       title={label}
       className={cn(
-        'flex h-7 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[12px] font-medium text-foreground shadow-sm transition-colors',
+        'flex h-7 items-center justify-center gap-1.5 rounded-[2px] bg-foreground/[0.06] px-2.5 text-[11.5px] font-medium text-foreground transition-colors',
         'hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}
     >
@@ -241,29 +241,40 @@ export function ChatEmptyState({
   disabled?: boolean
 }) {
   return (
-    <div className="flex flex-col items-center px-2 pb-2 pt-8 text-center">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card shadow-sm">
-        {icon}
-      </span>
-      <p className="mt-3 text-[14px] font-semibold tracking-tight text-foreground">{title}</p>
-      <p className="mt-1 max-w-[30ch] text-[12px] leading-relaxed text-muted-foreground">{description}</p>
+    <div className="flex flex-col gap-3 pb-2">
+      {/* As the reference's insight cards: a thin-bordered card with a grip and bold title */}
+      <section className="rounded-[3px] border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <h3 className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
+          <GripVertical className="-ml-1 h-3.5 w-3.5 text-muted-foreground/60" aria-hidden />
+          <span className="flex h-4 w-4 items-center justify-center [&_svg]:h-3.5 [&_svg]:w-3.5">{icon}</span>
+          {title}
+        </h3>
+        <p className="text-[11.5px] leading-relaxed text-muted-foreground">{description}</p>
+      </section>
       {suggestions?.length ? (
-        <div className="mt-5 w-full space-y-1.5 text-left">
-          {suggestions.map((text) => (
-            <button
-              key={text}
-              type="button"
-              disabled={disabled}
-              onClick={() => onSuggestion?.(text)}
-              className={cn(
-                'w-full rounded-lg border border-border bg-card px-3 py-2 text-[12px] leading-snug text-muted-foreground transition-colors',
-                'hover:border-foreground/20 hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-50',
-              )}
-            >
-              {text}
-            </button>
-          ))}
-        </div>
+        <section className="rounded-[3px] border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <h3 className="mb-2 flex items-center gap-1 text-[12px] font-semibold text-foreground">
+            <GripVertical className="-ml-1 h-3.5 w-3.5 text-muted-foreground/60" aria-hidden />
+            Try asking
+          </h3>
+          <ul className="space-y-2.5">
+            {suggestions.map((text, index) => (
+              <li key={text}>
+                <span className="block text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Example {index + 1}
+                </span>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onSuggestion?.(text)}
+                  className="mt-0.5 text-left text-[11.5px] leading-snug text-primary hover:underline disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {text}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
     </div>
   )

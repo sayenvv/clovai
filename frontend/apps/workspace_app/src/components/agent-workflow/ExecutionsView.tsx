@@ -7,8 +7,7 @@ import {
   Clock,
   History,
   Trash2,
-  XCircle,
-} from 'lucide-react'
+  XCircle, GripVertical } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { ChatMarkdown, fenceJson } from '@/components/agent-workflow/ChatMarkdown'
 import {
@@ -110,7 +109,7 @@ function StepRow({ record, step, last }: { record: ExecutionRecord; step: Execut
           ) : null}
         </button>
         {open ? (
-          <div className="mt-1.5 rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm">
+          <div className="mt-1.5 rounded-[3px] border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             {output ? (
               <ChatMarkdown content={asMarkdown(output)} />
             ) : (
@@ -126,11 +125,11 @@ function StepRow({ record, step, last }: { record: ExecutionRecord; step: Execut
 function ExecutionDetail({ record }: { record: ExecutionRecord }) {
   const meta = STATUS_META[record.status]
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 px-6 py-6">
+    <div className="w-full max-w-3xl space-y-4 px-6 py-4">
       <header className="space-y-1.5">
         <div className="flex items-center gap-2">
           <StatusIcon status={record.status} className="h-5 w-5" />
-          <h2 className="truncate text-lg font-semibold text-foreground">{record.workflowName}</h2>
+          <h2 className="truncate text-[22px] font-semibold leading-8 tracking-[-0.01em] text-foreground">{record.workflowName}</h2>
           <span className={cn('text-xs font-medium', meta.tone)}>{meta.label}</span>
         </div>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -145,8 +144,8 @@ function ExecutionDetail({ record }: { record: ExecutionRecord }) {
       </header>
 
       <section className="space-y-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Input</h3>
-        <div className="rounded-lg border border-border bg-card px-3 py-2.5 text-[13px] text-foreground shadow-sm">
+        <h3 className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Input</h3>
+        <div className="rounded-[3px] border border-border bg-card px-3 py-2.5 text-[13px] text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {record.input.trim() || <span className="text-muted-foreground">No input</span>}
         </div>
       </section>
@@ -154,7 +153,7 @@ function ExecutionDetail({ record }: { record: ExecutionRecord }) {
       {record.runId && TRACE_ID.test(record.runId) ? <ServerTrace traceId={record.runId} /> : null}
 
       <section className="space-y-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Agent trace</h3>
+        <h3 className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Agent trace</h3>
         {record.trace.length === 0 ? (
           <p className="text-xs text-muted-foreground">No steps were recorded.</p>
         ) : (
@@ -168,8 +167,8 @@ function ExecutionDetail({ record }: { record: ExecutionRecord }) {
 
       {record.finalResponse ? (
         <section className="space-y-2">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Final output</h3>
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.04] px-4 py-3 shadow-sm">
+          <h3 className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Final output</h3>
+          <div className="rounded-[3px] border border-emerald-500/30 bg-emerald-500/[0.04] px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <ChatMarkdown content={asMarkdown(record.finalResponse)} />
           </div>
         </section>
@@ -177,13 +176,13 @@ function ExecutionDetail({ record }: { record: ExecutionRecord }) {
 
       {record.errors.length > 0 || record.warnings.length > 0 ? (
         <section className="space-y-2">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Issues</h3>
+          <h3 className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Issues</h3>
           <ul className="space-y-1.5">
             {[...record.errors, ...record.warnings].map((event) => (
               <li
                 key={event.id}
                 className={cn(
-                  'flex items-start gap-2 rounded-lg border px-3 py-2 text-[12.5px]',
+                  'flex items-start gap-2 rounded-[3px] border px-3 py-2 text-[12.5px]',
                   event.level === 'error'
                     ? 'border-red-500/30 bg-red-500/[0.05] text-red-700 dark:text-red-300'
                     : 'border-amber-500/30 bg-amber-500/[0.05] text-amber-800 dark:text-amber-300',
@@ -223,24 +222,28 @@ export const ExecutionsView = memo(function ExecutionsView({ pageId }: { pageId:
 
   return (
     <div className="flex min-h-0 flex-1 bg-background">
-      <aside className="flex w-72 shrink-0 flex-col border-r border-border/60">
-        <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
-          <h2 className="text-sm font-semibold text-foreground">Executions</h2>
+      {/* Run list in the same style as Settings and the outline panel */}
+      <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-[hsl(var(--chrome))]">
+        <div className="flex items-start justify-between gap-2 border-b border-border/80 px-3.5 pb-3 pt-3">
+          <div>
+            <h2 className="text-[13px] font-semibold text-foreground">Executions</h2>
+            <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">Past runs of this workflow. Select one to see its trace.</p>
+          </div>
           {shown.length > 0 ? (
             <button
               type="button"
               onClick={() => {
                 if (window.confirm("Clear this workflow's execution history?")) clearExecutions(pageId)
               }}
-              className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+              className="shrink-0 text-[10.5px] text-primary hover:underline"
             >
               Clear
             </button>
           ) : null}
         </div>
-        <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
+        <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
           {shown.length === 0 ? (
-            <p className="px-2 py-6 text-center text-xs text-muted-foreground">
+            <p className="px-1.5 py-2 text-[10.5px] text-muted-foreground">
               No runs yet. Run a workflow from its Start node.
             </p>
           ) : (
@@ -250,14 +253,14 @@ export const ExecutionsView = memo(function ExecutionsView({ pageId }: { pageId:
                 <div
                   key={record.id}
                   className={cn(
-                    'group flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors',
-                    active ? 'bg-foreground/[0.07]' : 'hover:bg-foreground/[0.04]',
+                    'group flex items-start gap-2 rounded-[2px] px-1.5 py-1.5 transition-colors',
+                    active ? 'bg-accent text-accent-foreground' : 'hover:bg-foreground/[0.05]',
                   )}
                 >
                   <button type="button" onClick={() => setSelectedId(record.id)} className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
                     <StatusIcon status={record.status} className="mt-0.5 h-4 w-4" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12.5px] font-medium text-foreground">{record.workflowName}</span>
+                      <span className="block truncate text-[11.5px] font-medium text-foreground">{record.workflowName}</span>
                       <span className="block truncate text-[11px] text-muted-foreground">
                         {record.input.trim() || 'No input'}
                       </span>
@@ -285,9 +288,19 @@ export const ExecutionsView = memo(function ExecutionsView({ pageId }: { pageId:
         {selected ? (
           <ExecutionDetail record={selected} />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-            <History className="h-8 w-8 opacity-50" />
-            <p className="text-sm">Run a workflow to see its execution trace here.</p>
+          <div className="px-6 pt-4">
+            <h1 className="text-[22px] font-semibold leading-8 tracking-[-0.01em] text-foreground">Executions</h1>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Each run's input, agent trace and output.</p>
+            <section className="mt-4 max-w-3xl rounded-[3px] border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              <h3 className="flex items-center gap-1 text-[12px] font-semibold text-foreground">
+                <GripVertical className="-ml-1 h-3.5 w-3.5 text-muted-foreground/60" aria-hidden />
+                <History className="h-3.5 w-3.5 text-primary" />
+                No runs yet
+              </h3>
+              <p className="mt-1.5 text-[11.5px] text-muted-foreground">
+                Run the workflow from the workspace (Run workflow, or the Start node) and its trace appears here.
+              </p>
+            </section>
           </div>
         )}
       </main>
@@ -331,7 +344,7 @@ function ServerTrace({ traceId }: { traceId: string }) {
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Server trace</h3>
+        <h3 className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Server trace</h3>
         <Link to={`${ROUTES.agentWorkflowDashboardTraces}/${traceId}`} className="text-[11px] font-medium text-foreground underline-offset-2 hover:underline">
           Open full trace
         </Link>
@@ -347,7 +360,7 @@ function ServerTrace({ traceId }: { traceId: string }) {
             {trace.total_tokens.toLocaleString()} tokens ({trace.input_tokens.toLocaleString()} in, {trace.output_tokens.toLocaleString()} out)
           </p>
           {trace.agents.length > 0 ? (
-            <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+            <div className="overflow-x-auto rounded-[3px] border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <table className="w-full text-left text-[12px]">
                 <thead className="text-[11px] text-muted-foreground">
                   <tr>
@@ -373,7 +386,7 @@ function ServerTrace({ traceId }: { traceId: string }) {
             </div>
           ) : null}
           {calls.length > 0 ? (
-            <ol className="space-y-0.5 rounded-lg border border-border bg-card p-2 shadow-sm">
+            <ol className="space-y-0.5 rounded-[3px] border border-border bg-card p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               {calls.map((span) => {
                 const offset = ((Date.parse(span.start_time) - start) / total) * 100
                 const width = Math.max(0.5, (span.duration_ms / total) * 100)

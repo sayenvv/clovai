@@ -5,6 +5,7 @@ import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
 import { memo, useEffect, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import {
   ChevronLeft,
+  ChevronsRight,
   Flag,
   GitBranch,
   Info,
@@ -29,6 +30,7 @@ import { findOrchestration, resolveExecutionType } from '@/components/agent-work
 import { ExecutorConfigPanel } from '@/components/agent-workflow/ExecutorConfigPanel'
 import { ToolConfigPanel } from '@/components/agent-workflow/ToolConfigPanel'
 import { SubWorkflowConfigPanel } from '@/components/agent-workflow/SubWorkflowConfigPanel'
+import { WorkflowInsightsPanel } from '@/components/agent-workflow/WorkflowInsightsPanel'
 import { WorkflowSettingsPanel } from '@/components/agent-workflow/WorkflowSettingsPanel'
 import { ExecutionSidebarPanel } from '@/components/agent-workflow/ExecutionSidebarPanel'
 import {
@@ -308,8 +310,11 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
           : `Under ${agentLabel(diagram, selectedNode.mappedAgentId)}`
         : null
 
+  const overview = !embedded && !chatVisible && !(executionPanelOpen && !generate) && !attaching && !selection
+
   const detailsContent = (
     <DetailsPanelContent
+      onCollapseOverview={overview ? onToggleCollapse : undefined}
       multiSelectCount={multiSelectCount}
       canConvertToSubWorkflow={canConvertToSubWorkflow}
       onConvertToSubWorkflow={onConvertToSubWorkflow}
@@ -367,6 +372,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
           : cn('relative h-full shrink-0', !chatVisible && 'border-l border-border/60'),
         embedded && 'w-full border-l-0',
         chatVisible && !chatExpanded && 'shadow-[-1px_0_0_hsl(var(--border)/0.35)]',
+        chatVisible && 'chat-neutral',
       )}
       style={chatExpanded ? undefined : { width: embedded ? '100%' : width }}
     >
@@ -379,25 +385,23 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
       )}
 
       <div className="flex min-h-0 flex-1 flex-col">
+        {/* The workflow overview carries its own "» INSIGHTS SETTINGS" header */}
+        {!overview && (
         <div
           className={cn(
             'flex shrink-0 items-center justify-between px-3 py-2',
-            (!chatVisible || chatExpanded) && 'border-b border-border/60',
+            'border-b border-border/60',
             chatExpanded && 'px-5 py-3',
           )}
         >
           <div className="min-w-0 flex-1">
             {chatVisible ? (
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
-                  <Sparkles className="h-3.5 w-3.5" />
+              // A caps tab with the accent underline, as the reference's right panel
+              <div className="flex min-w-0 items-center gap-1">
+                <span className="-mb-[9px] flex items-center gap-1.5 border-b-2 border-primary px-1 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+                  <Sparkles className="h-3 w-3" />
+                  Workflow AI
                 </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold leading-tight text-foreground">Workflow AI</p>
-                  <p className="truncate text-[11px] leading-tight text-muted-foreground">
-                    Describe a workflow and it's drafted onto the canvas
-                  </p>
-                </div>
               </div>
             ) : executionPanelOpen && !generate ? (
               <TooltipProvider delayDuration={200}>
@@ -495,6 +499,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
             </Button>
           )}
         </div>
+        )}
 
         <div className="min-h-0 w-full min-w-0 flex-1 overflow-hidden">
           {generate && (
@@ -576,7 +581,6 @@ export function DetailsPanelContent({
   diagram,
   onChange,
   onOpenSubWorkflow,
-  workflowMeta,
   modelConfig,
   serverModelConfig,
   onWorkflowMetaChange,
@@ -584,7 +588,10 @@ export function DetailsPanelContent({
   llmConfigured,
   fromLabel,
   toLabel,
+  onCollapseOverview,
 }: {
+  /** Shown as "»" before the overview's tabs when the panel's own header is hidden. */
+  onCollapseOverview?: () => void
   multiSelectCount: number
   canConvertToSubWorkflow: boolean
   onConvertToSubWorkflow?: () => void
@@ -655,27 +662,76 @@ export function DetailsPanelContent({
     )
   }
 
-  return (
-    <WorkflowSettingsPanel
-      executionType={resolveExecutionType(workflowMeta?.executionType, diagram)}
-      runsAsGraph={isGraphWorkflow(diagram)}
-      patternSetBy={(() => {
-        const orchestration = findOrchestration(diagram)
-        return orchestration ? diagram.nodes.find((node) => node.id === orchestration.orchestratorId)?.label : undefined
-      })()}
-      onExecutionTypeChange={(type: WorkflowExecutionType) =>
-        onWorkflowMetaChange?.({ executionType: type })
-      }
+  // Nothing selected: the workflow's Insights (as in the reference's right panel) and its settings
+  const settings = (
+    <WorkflowSettingsSection
+      doc={doc}
+      diagram={diagram}
       modelConfig={modelConfig}
       serverModelConfig={serverModelConfig}
+      onWorkflowMetaChange={onWorkflowMetaChange}
       onModelConfigChange={onModelConfigChange}
-      modelConfigReadOnly={!onModelConfigChange}
       llmConfigured={llmConfigured}
-      workflowId={pageWorkflowId(doc, doc.activePageId)}
-      pageCount={doc.pages.length}
-      nodeCount={diagram.nodes.length}
-      edgeCount={diagram.edges.length}
     />
+  )
+  return (
+    <WorkflowOverviewTabs
+      onCollapse={onCollapseOverview}
+      insights={
+        <WorkflowInsightsPanel
+          workflowId={pageWorkflowId(doc, doc.activePageId)}
+          name={doc.pages.find((page) => page.id === doc.activePageId)?.name || 'Workflow'}
+          diagram={diagram}
+        />
+      }
+      settings={settings}
+    />
+  )
+}
+
+/** "INSIGHTS | SETTINGS" tabs in the reference's style: spaced caps, a blue underline on the open one. */
+function WorkflowOverviewTabs({
+  insights,
+  settings,
+  onCollapse,
+}: {
+  insights: ReactNode
+  settings: ReactNode
+  onCollapse?: () => void
+}) {
+  const [tab, setTab] = useState<'insights' | 'settings'>('insights')
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 items-center border-b border-border px-2" role="tablist">
+        {onCollapse ? (
+          <button
+            type="button"
+            onClick={onCollapse}
+            className="mr-1 flex h-6 w-6 items-center justify-center rounded-[2px] text-foreground/60 hover:bg-foreground/[0.07] hover:text-foreground"
+            aria-label="Collapse right panel"
+            title="Collapse panel"
+          >
+            <ChevronsRight className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+        {(['insights', 'settings'] as const).map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={cn(
+              '-mb-px border-b-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors',
+              tab === id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {id}
+          </button>
+        ))}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">{tab === 'insights' ? insights : settings}</div>
+    </div>
   )
 }
 
@@ -739,5 +795,48 @@ function MultiSelectState({
         </p>
       )}
     </div>
+  )
+}
+
+/** The workflow's settings (pattern, model, ids and counts); in the right panel and the Settings page. */
+export function WorkflowSettingsSection({
+  doc,
+  diagram,
+  modelConfig,
+  serverModelConfig,
+  onWorkflowMetaChange,
+  onModelConfigChange,
+  llmConfigured,
+}: {
+  doc: DiagramDocument
+  diagram: Diagram
+  modelConfig: WorkflowModelConfig
+  serverModelConfig: WorkflowModelConfig
+  onWorkflowMetaChange?: (patch: Partial<AgentWorkflowMeta>) => void
+  onModelConfigChange?: (patch: Partial<WorkflowModelConfig>) => void
+  llmConfigured: boolean
+}) {
+  const workflowMeta = doc.workflow
+  return (
+    <WorkflowSettingsPanel
+      executionType={resolveExecutionType(workflowMeta?.executionType, diagram)}
+      runsAsGraph={isGraphWorkflow(diagram)}
+      patternSetBy={(() => {
+        const orchestration = findOrchestration(diagram)
+        return orchestration ? diagram.nodes.find((node) => node.id === orchestration.orchestratorId)?.label : undefined
+      })()}
+      onExecutionTypeChange={(type: WorkflowExecutionType) =>
+        onWorkflowMetaChange?.({ executionType: type })
+      }
+      modelConfig={modelConfig}
+      serverModelConfig={serverModelConfig}
+      onModelConfigChange={onModelConfigChange}
+      modelConfigReadOnly={!onModelConfigChange}
+      llmConfigured={llmConfigured}
+      workflowId={pageWorkflowId(doc, doc.activePageId)}
+      pageCount={doc.pages.length}
+      nodeCount={diagram.nodes.length}
+      edgeCount={diagram.edges.length}
+    />
   )
 }

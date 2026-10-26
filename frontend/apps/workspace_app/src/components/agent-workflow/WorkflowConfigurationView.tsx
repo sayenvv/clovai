@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react'
-import { Activity, Gauge, RotateCcw, ScrollText, Telescope } from 'lucide-react'
+import { Activity, Gauge, GripVertical, RotateCcw, ScrollText, Telescope } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -70,10 +70,10 @@ function SettingRow({
   disabled?: boolean
 }) {
   return (
-    <div className={cn('flex items-start justify-between gap-6 py-4', disabled && 'opacity-50')}>
+    <div className={cn('flex items-start justify-between gap-6 py-3', disabled && 'opacity-50')}>
       <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
+        <p className="text-[12px] font-medium text-foreground">{title}</p>
+        {description ? <p className="mt-0.5 text-[11px] text-muted-foreground">{description}</p> : null}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -92,10 +92,10 @@ function SettingStack({
   disabled?: boolean
 }) {
   return (
-    <div className={cn('space-y-2 py-4', disabled && 'pointer-events-none opacity-50')}>
+    <div className={cn('space-y-2 py-3', disabled && 'pointer-events-none opacity-50')}>
       <div>
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
+        <p className="text-[12px] font-medium text-foreground">{title}</p>
+        {description ? <p className="mt-0.5 text-[11px] text-muted-foreground">{description}</p> : null}
       </div>
       {children}
     </div>
@@ -112,12 +112,16 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-border/60 bg-card px-5">
-      <header className="border-b border-border/60 py-4">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
+    // As the reference's cards: thin border, a grip and a bold title, compact rows
+    <section className="rounded-[3px] border border-border bg-card px-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <header className="border-b border-border/70 py-2.5">
+        <h3 className="flex items-center gap-1 text-[12px] font-semibold text-foreground">
+          <GripVertical className="-ml-1 h-3.5 w-3.5 text-muted-foreground/60" aria-hidden />
+          {title}
+        </h3>
+        {description ? <p className="mt-0.5 pl-3.5 text-[11px] text-muted-foreground">{description}</p> : null}
       </header>
-      <div className="divide-y divide-border/60">{children}</div>
+      <div className="divide-y divide-border/70">{children}</div>
     </section>
   )
 }
@@ -349,46 +353,61 @@ export const WorkflowConfigurationView = memo(function WorkflowConfigurationView
 
   return (
     <div className="flex min-h-0 flex-1 bg-background">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-border/60 p-3">
-        <h2 className="px-2 pb-2 pt-1 text-sm font-semibold text-foreground">Configuration</h2>
-        <nav className="flex flex-col gap-0.5">
-          {sections.map(({ id, title }) => {
-            const Icon = SECTION_ICONS[id]
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => {
-                  setSection(id)
-                  document
-                    .getElementById(`workflow-config-${id}`)
-                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }}
-                className={cn(
-                  'flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
-                  section === id
-                    ? 'bg-foreground/[0.07] text-foreground'
-                    : 'text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground',
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {title}
-              </button>
-            )
-          })}
-        </nav>
-        <button
-          type="button"
-          onClick={() => resetWorkflowConfiguration(workflowId)}
-          className="mt-auto flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          Reset to defaults
-        </button>
-      </aside>
+      {/* Section list in the same style as Settings and the outline panel */}
+      <nav
+        aria-label="Configuration sections"
+        className="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-border bg-[hsl(var(--chrome))]"
+      >
+        <section className="border-b border-border/80 px-3.5 pb-3 pt-3">
+          <h2 className="text-[13px] font-semibold text-foreground">Configuration</h2>
+          <p className="mb-2 mt-0.5 text-[10px] leading-snug text-muted-foreground">How this workflow runs: limits, logging and tracing.</p>
+          <ul className="-mx-1.5">
+            {sections.map(({ id, title }) => {
+              const Icon = SECTION_ICONS[id]
+              const active = section === id
+              return (
+                <li key={id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSection(id)
+                      document
+                        .getElementById(`workflow-config-${id}`)
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }}
+                    aria-current={active ? 'true' : undefined}
+                    className={cn(
+                      'flex h-7 w-full items-center gap-2 rounded-[2px] px-1.5 text-left text-[11px]',
+                      active ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-foreground/[0.05]',
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    <span className="truncate">{title}</span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+        <div className="px-3.5 py-3">
+          <button
+            type="button"
+            onClick={() => resetWorkflowConfiguration(workflowId)}
+            className="-mx-1.5 flex h-7 items-center gap-2 rounded-[2px] px-1.5 text-[11px] text-foreground hover:bg-foreground/[0.05]"
+          >
+            <RotateCcw className="h-3.5 w-3.5 text-primary" />
+            Reset to defaults
+          </button>
+        </div>
+      </nav>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">
+        <div className="px-6 pb-2 pt-4">
+          <h1 className="text-[22px] font-semibold leading-8 tracking-[-0.01em] text-foreground">Configuration</h1>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">Run limits, logging, telemetry and checkpointing for this workflow.</p>
+        </div>
+        {/* Compact fields, as elsewhere in the workspace */}
+        <div className="max-w-3xl space-y-3 px-6 pb-8 pt-2 [&_input]:h-8 [&_input]:rounded-[2px] [&_input]:text-[12px] [&_select]:h-8 [&_select]:rounded-[2px] [&_select]:text-[12px] [&_textarea]:rounded-[2px] [&_textarea]:text-[12px] [&_button[role=combobox]]:h-8 [&_button[role=combobox]]:rounded-[2px] [&_button[role=combobox]]:text-[12px]">
           {sections.map((item) => (
             <div key={item.id} id={`workflow-config-${item.id}`} className="scroll-mt-6">
               {renderSection[item.id](item)}

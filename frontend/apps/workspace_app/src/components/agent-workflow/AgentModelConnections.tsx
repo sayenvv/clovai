@@ -135,7 +135,7 @@ export const AgentModelConnections = memo(function AgentModelConnections({
       )}
 
       <a
-        href={`${ROUTES.dashboard}?tab=models`}
+        href={ROUTES.workspaceSettings('models')}
         {...DASHBOARD_TAB_LINK}
         className="inline-flex items-center gap-1 self-start text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
       >

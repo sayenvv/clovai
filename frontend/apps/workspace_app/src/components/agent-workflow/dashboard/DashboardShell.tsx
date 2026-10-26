@@ -73,7 +73,7 @@ export default function DashboardShell() {
           </Badge>
 
           <Button asChild variant="outline" size="sm" className="h-9 rounded-lg">
-            <Link to={ROUTES.dashboard}>
+            <Link to={ROUTES.workspaceSettings()}>
               <BarChart3 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Dashboard</span>
             </Link>

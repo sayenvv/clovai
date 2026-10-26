@@ -26,9 +26,11 @@ import {
 import type { PaletteItem } from '@/types/config'
 import type {
   AgentWorkflowMeta,
+  DeploymentStatus,
   WorkflowDeployment,
   WorkflowValidationIssue,
 } from '@/types/agent-workflow'
+import { findOrchestration, PATTERN_META } from '@/components/agent-workflow/orchestration-patterns'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 import {
@@ -37,10 +39,25 @@ import {
   isLocalModel,
   OLLAMA_DEFAULT_URL,
 } from '@/components/agent-workflow/workflow-model-config'
-import { AgentWorkflowHeader, type EditorView } from '@/components/agent-workflow/AgentWorkflowHeader'
-import { WorkspaceStatusBar } from '@/components/agent-workflow/WorkspaceStatusBar'
+import { WorkspaceTopBar } from '@/components/agent-workflow/WorkspaceTopBar'
+import { WorkspaceAppRail, type AppRailView } from '@/components/agent-workflow/WorkspaceAppRail'
+import { WorkflowContentHeader, type WorkspaceView } from '@/components/agent-workflow/WorkflowContentHeader'
+import { WorkflowMapView } from '@/components/agent-workflow/WorkflowMapView'
+import { WorkflowTimeline } from '@/components/agent-workflow/WorkflowTimeline'
+import {
+  DEFAULT_MAP_FILTERS,
+  WorkflowOutlinePanel,
+  type MapFilters,
+} from '@/components/agent-workflow/WorkflowOutlinePanel'
+import { ACTIVITY_DAYS, useWorkflowActivity } from '@/components/agent-workflow/hooks/use-workflow-activity'
 import { AgentLibrarySidebar } from '@/components/agent-workflow/AgentLibrarySidebar'
-import { AgentPropertiesShell } from '@/components/agent-workflow/AgentPropertiesShell'
+import { AgentPropertiesShell, WorkflowSettingsSection } from '@/components/agent-workflow/AgentPropertiesShell'
+import { WorkflowInsightsPanel } from '@/components/agent-workflow/WorkflowInsightsPanel'
+import {
+  isSettingsTab,
+  WorkspaceSettingsView,
+  type SettingsTab,
+} from '@/components/agent-workflow/WorkspaceSettingsView'
 import {
   BottomInspectorPanel,
   type InspectorTab,
@@ -201,6 +218,14 @@ import {
 } from '@/services/published-instances-store'
 
 const TOOL_ID = AGENT_WORKFLOW_TOOL_ID
+// Whether the outline panel beside the library's icon column is open (desktop)
+const OUTLINE_OPEN_KEY = 'eleven-nodes-agent-workflow-outline-open'
+const STATUS_LABEL: Record<DeploymentStatus, string> = {
+  draft: 'Draft',
+  validated: 'Validated',
+  deployed: 'Deployed',
+  failed: 'Failed',
+}
 
 function isValidWorkflowInput(raw: string): boolean {
   return raw.trim().length > 0
@@ -279,14 +304,33 @@ export default function AgentWorkflowPage() {
   // Templates button), shown by default on mobile. null = not chosen yet.
   const showDeploymentsBoard = librarySection === 'deployments'
   const [executionPanelOpen, setExecutionPanelOpen] = useState(false)
-  const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('canvas')
+  // Desktop opens on the map; mobile has no map and shows the canvas for it.
+  const [editorView, setEditorView] = useState<WorkflowEditorViewMode>('map')
+  const [mapZoom, setMapZoom] = useState(1)
+  // Bumped by "fit" to put the map back in the middle
+  const [mapKey, setMapKey] = useState(0)
+  const [mapFilters, setMapFilters] = useState<MapFilters>(DEFAULT_MAP_FILTERS)
+  const [outlineOpen, setOutlineOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem(OUTLINE_OPEN_KEY) !== '0'
+    } catch {
+      return true
+    }
+  })
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(OUTLINE_OPEN_KEY, outlineOpen ? '1' : '0')
+    } catch {
+      // Storage blocked: the panel just opens by default next time.
+    }
+  }, [outlineOpen])
   // The Executions view (top nav): run history with each agent's trace and output.
   const [showExecutions, setShowExecutions] = useState(false)
   const [showConfiguration, setShowConfiguration] = useState(false)
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('trace')
   const { state: runState, start: startExecution, submitApproval, submitFeedback, cancel: cancelExecution, reset: resetExecution } =
     useWorkflowRunner()
-  const { modelConfig: serverModelConfig, configured: llmConfigured, isLoading: llmConfigLoading } =
+  const { modelConfig: serverModelConfig, configured: llmConfigured } =
     useServerLlmConfig()
 
   const { left, right, bottom } = useWorkflowEditorPanels()
@@ -485,6 +529,20 @@ export default function AgentWorkflowPage() {
 
   const workflowMeta = doc.workflow ?? defaultWorkflowMeta()
   const activeWorkflowId = pageWorkflowId(doc, doc.activePageId)
+  const activity = useWorkflowActivity(activeWorkflowId)
+  // Settings (desktop) is a page in the workspace, kept in `?settings=<tab>` so it can be linked to
+  const settingsParam = new URLSearchParams(location.search).get('settings')
+  const settingsTab: SettingsTab | null = !isMobile && isSettingsTab(settingsParam) ? settingsParam : null
+  const openSettings = useCallback(
+    (tab: SettingsTab | null) => {
+      const params = new URLSearchParams(location.search)
+      if (tab) params.set('settings', tab)
+      else params.delete('settings')
+      const search = params.toString()
+      navigate({ pathname: location.pathname, search: search ? `?${search}` : '' }, { replace: true })
+    },
+    [location.pathname, location.search, navigate],
+  )
   const toolbarModelConfig = useMemo(
     () => workflowActiveModelConfig(workflowMeta, serverModelConfig),
     [workflowMeta, serverModelConfig],
@@ -529,12 +587,13 @@ export default function AgentWorkflowPage() {
     })
   }, [])
 
-  // Desktop: the right panel only hosts Workflow AI; details open as cards on the canvas.
-  // Mobile: expand details when a node/edge is selected; collapse when the canvas is cleared.
+  // Desktop: the right panel hosts Workflow AI, and the workflow's Insights when the chat is closed
+  // (node details open as cards on the canvas); opening the chat opens the panel, closing it leaves
+  // the panel as the user had it. Mobile: expand details when a node/edge is selected; collapse
+  // when the canvas is cleared.
   useEffect(() => {
     if (!isMobile) {
       if (generatePanelOpen) right.expand()
-      else right.collapse()
       return
     }
     const hasSelection = selection !== null
@@ -1370,19 +1429,48 @@ export default function AgentWorkflowPage() {
     setLibrarySection(null)
   }, [])
 
-  const headerView: EditorView = showConfiguration
+  const workspaceView: WorkspaceView = showConfiguration
     ? 'configuration'
     : showExecutions
       ? 'executions'
-      : editorView === 'code'
-        ? 'code'
-        : 'editor'
-  const handleHeaderViewChange = useCallback((view: EditorView) => {
+      : editorView
+  const handleWorkspaceViewChange = useCallback((view: WorkspaceView) => {
+    if (settingsTab) openSettings(null)
     setLibrarySection((section) => (section === 'deployments' ? null : section))
     setShowExecutions(view === 'executions')
     setShowConfiguration(view === 'configuration')
-    if (view === 'editor' || view === 'code') setEditorView(view === 'code' ? 'code' : 'canvas')
-  }, [])
+    if (view === 'map' || view === 'canvas' || view === 'code') setEditorView(view)
+  }, [openSettings, settingsTab])
+
+  // The app rail's areas: the editor (map, canvas or code), runs, configuration and deployments
+  const appRailView: AppRailView = settingsTab
+    ? 'settings'
+    : showDeploymentsBoard
+    ? 'deployments'
+    : showConfiguration
+      ? 'configuration'
+      : showExecutions
+        ? 'executions'
+        : 'editor'
+  const handleAppRailChange = useCallback((view: AppRailView) => {
+    if (view === 'settings') {
+      openSettings(settingsTab ?? 'insights')
+      return
+    }
+    if (settingsTab) openSettings(null)
+    if (view === 'deployments') {
+      setLibrarySection('deployments')
+      return
+    }
+    setLibrarySection((section) => (section === 'deployments' ? null : section))
+    setShowExecutions(view === 'executions')
+    setShowConfiguration(view === 'configuration')
+  }, [openSettings, settingsTab])
+
+  // Blocks are dropped on the canvas, so opening the library leaves the map for it.
+  useEffect(() => {
+    if (librarySection && librarySection !== 'deployments' && editorView === 'map') setEditorView('canvas')
+  }, [librarySection, editorView])
 
   const canvasView = useMemo(
     () => ({
@@ -1626,6 +1714,47 @@ export default function AgentWorkflowPage() {
     },
     [handleNodeOpen, handleEdgeOpen],
   )
+  /** A node picked on the map, in the outline or in search: open it as a card on the canvas. */
+  const openNodeOnCanvas = useCallback(
+    (nodeId: string) => {
+      setShowExecutions(false)
+      setShowConfiguration(false)
+      setLibrarySection((section) => (section === 'deployments' ? null : section))
+      setEditorView('canvas')
+      setSelection({ kind: 'node', id: nodeId })
+      handleNodeOpen(nodeId)
+    },
+    [handleNodeOpen],
+  )
+  const selectIssueOnCanvas = useCallback(
+    (issue: WorkflowValidationIssue) => {
+      setShowExecutions(false)
+      setShowConfiguration(false)
+      setEditorView('canvas')
+      handleSelectIssue(issue)
+    },
+    [handleSelectIssue],
+  )
+  const headerZoom = useCallback(
+    (factor: number) => {
+      if (editorView === 'map') setMapZoom((zoom) => Math.min(3, Math.max(0.4, zoom * factor)))
+      else zoomBy(factor)
+    },
+    [editorView, zoomBy],
+  )
+  const headerFit = useCallback(() => {
+    if (editorView === 'map') {
+      setMapZoom(1)
+      setMapKey((key) => key + 1)
+    } else canvasRef.current?.fitView()
+  }, [editorView])
+  const workflowSubtitle = useMemo(() => {
+    const orchestration = findOrchestration(diagram)
+    const pattern = orchestration ? PATTERN_META[orchestration.pattern].label : 'Sequential'
+    const count = agentNodes.length
+    return `${pattern} workflow · ${count} agent${count === 1 ? '' : 's'} · v${workflowMeta.version ?? 0}`
+  }, [diagram, agentNodes.length, workflowMeta.version])
+
   const isExecutionMode = runState.status !== 'idle'
   const isExecuting = runState.status === 'running' || runState.status === 'waiting-approval'
 
@@ -1892,6 +2021,26 @@ export default function AgentWorkflowPage() {
   // Several nodes selected: the right panel used to offer "Convert to sub-workflow" here.
   const selectionBar = null
 
+  const outlinePanel = (
+    <WorkflowOutlinePanel
+      diagram={diagram}
+      pages={doc.pages}
+      activePageId={doc.activePageId}
+      onSelectPage={handleSelectPage}
+      onAddPage={handleAddMainPage}
+      onRenamePage={renamePage}
+      onDeletePage={handleDeletePage}
+      onOpenNode={openNodeOnCanvas}
+      filters={mapFilters}
+      onFiltersChange={setMapFilters}
+      workflowName={workflowName}
+      modelLabel={toolbarModelConfig?.model}
+      version={workflowMeta.version}
+      statusLabel={STATUS_LABEL[workflowMeta.status] ?? workflowMeta.status}
+      onCollapse={() => setOutlineOpen(false)}
+    />
+  )
+
   if (!tool) return <Navigate to="/404" replace />
 
   return (
@@ -1925,31 +2074,32 @@ export default function AgentWorkflowPage() {
           serverModelConfig={toolbarModelConfig}
           llmConfigured={toolbarModelConfigured}
         />
-      ) : (
-        <AgentWorkflowHeader
-          workflowName={workflowName}
-          onWorkflowNameChange={handleWorkflowNameChange}
-          status={workflowMeta.status}
-          isDirty={isDirty}
-          onSave={handleSave}
-          onDeploy={handleDeploy}
-          onGenerate={openGeneratePanel}
-          isValidated={isValidated}
+      ) : null}
+
+      {/* Desktop: the blue app rail down the left, then the top bar over everything else */}
+      <div className={isMobile ? 'contents' : 'flex min-h-0 flex-1'}>
+      {!isMobile && (
+        <WorkspaceAppRail
+          view={appRailView}
+          onViewChange={handleAppRailChange}
+          onAddBlocks={() => (librarySection === 'blocks' ? setLibrarySection(null) : openLibrary())}
+          addBlocksOpen={librarySection === 'blocks'}
+          onAskAi={openGeneratePanel}
           onNavigateHome={handleNavigateHome}
-          onViewInstance={handleViewInstance}
-          onShare={() => setShareOpen(true)}
-          purpose={
-            isAdmin
-              ? {
-                  value: assistantWorkflowId === activePurposeWorkflowId ? 'ai_assistant' : 'user_build',
-                  onChange: (next) => void handlePurposeChange(next),
-                  busy: purposeBusy,
-                }
-              : undefined
-          }
-          view={headerView}
-          onViewChange={handleHeaderViewChange}
-          viewTabs={tool?.designer?.views}
+          onOpenSettings={openWorkflowSettings}
+          canvasView={canvasView}
+        />
+      )}
+      <div className={isMobile ? 'contents' : 'flex min-w-0 flex-1 flex-col'}>
+      {!isMobile && (
+        <WorkspaceTopBar
+          diagram={diagram}
+          pages={doc.pages}
+          activePageId={doc.activePageId}
+          onOpenNode={openNodeOnCanvas}
+          onSelectPage={handleSelectPage}
+          issues={liveIssues}
+          onSelectIssue={selectIssueOnCanvas}
         />
       )}
 
@@ -2080,35 +2230,14 @@ export default function AgentWorkflowPage() {
         >
           {showDeploymentsBoard ? (
             <div className="flex min-h-0 flex-1">
-              {!isMobile && (
-                <AgentLibrarySidebar
-                  onAddAgent={addBlock}
-                  onOpenSettings={openWorkflowSettings}
-                  serverModelConfig={toolbarModelConfig}
-                  llmConfigured={toolbarModelConfigured}
-                  width={left.size}
-                  collapsed={left.collapsed}
-                  onResizePointerDown={left.onResizePointerDown}
-                  onToggleCollapse={left.toggle}
-                  activeSection={librarySection}
-                  onSectionChange={setLibrarySection}
-                  canvasView={canvasView}
-                  blocksTab={libraryBlocksTab}
-                  onBlocksTabChange={setLibraryBlocksTab}
-                  onPickModelProvider={handlePickModelProvider}
-                  onAddCapability={addCapabilityFromLibrary}
-                  onCreateCustom={createCustomBlock}
-                  modelTargetLabel={modelTargetLabel}
-                  activeModelProviderId={modelTargetProviderId}
-                />
-              )}
               <DeploymentsCanvasView onBackToCanvas={handleBackFromDeployments} />
             </div>
           ) : (
           <>
 
           <div className="flex min-h-0 flex-1">
-            {!isMobile && (
+            {/* The workspace toolbar (library and outline) belongs to the editor only */}
+            {!isMobile && !settingsTab && !showExecutions && !showConfiguration && (
               <AgentLibrarySidebar
                 onAddAgent={addBlock}
                 onOpenSettings={openWorkflowSettings}
@@ -2128,10 +2257,68 @@ export default function AgentWorkflowPage() {
                 onCreateCustom={createCustomBlock}
                 modelTargetLabel={modelTargetLabel}
                 activeModelProviderId={modelTargetProviderId}
+                compactRail
+                outline={outlineOpen && !settingsTab ? outlinePanel : undefined}
+                onToggleOutline={() => setOutlineOpen((open) => !open)}
               />
             )}
 
-            <div className={cn('flex min-h-0 min-w-0 flex-1 flex-col', aiExpanded && 'hidden')}>
+            <div className={cn('relative flex min-h-0 min-w-0 flex-1 flex-col', aiExpanded && 'hidden')}>
+              {settingsTab ? (
+                <WorkspaceSettingsView
+                  tab={settingsTab}
+                  onTabChange={openSettings}
+                  insights={
+                    <WorkflowInsightsPanel workflowId={activeWorkflowId} name={workflowName} diagram={diagram} />
+                  }
+                  workflowSettings={
+                    <WorkflowSettingsSection
+                      doc={doc}
+                      diagram={diagram}
+                      modelConfig={workflowMeta.modelConfig ?? serverModelConfig}
+                      serverModelConfig={serverModelConfig}
+                      onWorkflowMetaChange={handleWorkflowMetaChange}
+                      onModelConfigChange={handleModelConfigChange}
+                      llmConfigured={llmConfigured}
+                    />
+                  }
+                />
+              ) : (
+              <>
+              {/* The workflow header (name, Run, Save…) belongs to the editor: map, canvas and code */}
+              {!isMobile && !showExecutions && !showConfiguration && (
+                <WorkflowContentHeader
+                  name={workflowName}
+                  onNameChange={handleWorkflowNameChange}
+                  subtitle={workflowSubtitle}
+                  status={workflowMeta.status}
+                  isDirty={isDirty}
+                  view={workspaceView}
+                  onViewChange={handleWorkspaceViewChange}
+                  onRun={openExecutionPanel}
+                  canRun={agentNodes.length > 0 && !isExecuting}
+                  isExecuting={isExecuting}
+                  onSave={handleSave}
+                  onAskAi={openGeneratePanel}
+                  onShare={() => setShareOpen(true)}
+                  onDeploy={handleDeploy}
+                  canDeploy={isValidated}
+                  purpose={
+                    isAdmin
+                      ? {
+                          value: assistantWorkflowId === activePurposeWorkflowId ? 'ai_assistant' : 'user_build',
+                          onChange: (next) => void handlePurposeChange(next),
+                          busy: purposeBusy,
+                        }
+                      : undefined
+                  }
+                  onZoomIn={() => headerZoom(1.2)}
+                  onZoomOut={() => headerZoom(1 / 1.2)}
+                  onFit={headerFit}
+                  onAutoLayout={workspaceView === 'canvas' ? runAutoLayout : undefined}
+                  onUndo={workspaceView === 'canvas' ? handleUndo : undefined}
+                />
+              )}
               {/* Desktop runs stay on the canvas (nodes light up); mobile keeps the run view. */}
               {isExecutionMode && isMobile ? (
                 <div className="flex min-h-0 flex-1 flex-col">
@@ -2154,7 +2341,19 @@ export default function AgentWorkflowPage() {
                     />
                   ) : showExecutions ? (
                     <ExecutionsView pageId={doc.activePageId} />
-                  ) : editorView === 'canvas' ? (
+                  ) : editorView === 'map' && !isMobile ? (
+                    <WorkflowMapView
+                      key={mapKey}
+                      diagram={diagram}
+                      workflowName={workflowName}
+                      activity={activity.workflow}
+                      filters={mapFilters}
+                      zoom={mapZoom}
+                      onZoomChange={setMapZoom}
+                      onOpenNode={openNodeOnCanvas}
+                      onOpenCanvas={() => setEditorView('canvas')}
+                    />
+                  ) : editorView === 'canvas' || editorView === 'map' ? (
                     <AgentWorkflowCanvas
                       ref={canvasRef}
                       diagram={diagram}
@@ -2190,6 +2389,7 @@ export default function AgentWorkflowPage() {
                       onBrowseTemplates={() => setImportOpen(true)}
                       onAskAi={openGeneratePanel}
                       onClearCanvas={handleClearCanvas}
+                      hideControls={!isMobile}
                     />
                   ) : (
                     <WorkflowBuildCodeView
@@ -2207,15 +2407,21 @@ export default function AgentWorkflowPage() {
                 </>
               )}
 
-              <PagesBar
-                pages={doc.pages}
-                activePageId={doc.activePageId}
-                onSelect={handleSelectPage}
-                onAdd={handleAddMainPage}
-                onRename={renamePage}
-                onDelete={handleDeletePage}
-                density={isMobile ? 'comfortable' : 'compact'}
-              />
+              {isMobile ? (
+                <PagesBar
+                  pages={doc.pages}
+                  activePageId={doc.activePageId}
+                  onSelect={handleSelectPage}
+                  onAdd={handleAddMainPage}
+                  onRename={renamePage}
+                  onDelete={handleDeletePage}
+                  density="comfortable"
+                />
+              ) : workspaceView === 'map' || workspaceView === 'canvas' ? (
+                <WorkflowTimeline days={ACTIVITY_DAYS} daily={activity.daily} onRefresh={activity.reload} />
+              ) : null}
+              </>
+              )}
 
             </div>
           </div>
@@ -2224,8 +2430,10 @@ export default function AgentWorkflowPage() {
         </div>
         )}
 
-        {/* Desktop: the right panel only hosts Workflow AI; details open as cards on the canvas. */}
-        {!isMobile && !showDeploymentsBoard && generateOptions && (
+        {/* Desktop: the right panel hosts Workflow AI, or the workflow's Insights when the chat is closed;
+            node details open as cards on the canvas. */}
+        {/* Desktop: the right panel only holds Workflow AI; insights and settings are in Settings */}
+        {!isMobile && !showDeploymentsBoard && generatePanelOpen && (
           <AgentPropertiesShell
             diagram={diagram}
             doc={doc}
@@ -2241,7 +2449,7 @@ export default function AgentWorkflowPage() {
             serverModelConfig={serverModelConfig}
             llmConfigured={llmConfigured}
             executionPanelOpen={false}
-            generate={generateOptions}
+            generate={generateOptions ?? undefined}
             chatExpanded={aiExpanded}
             onChatExpandedChange={setAiExpanded}
             attachCapability={null}
@@ -2270,20 +2478,8 @@ export default function AgentWorkflowPage() {
         )}
       </div>
 
-      {!isMobile && (
-        <WorkspaceStatusBar
-          version={workflowMeta.version}
-          status={workflowMeta.status}
-          isDirty={isDirty}
-          issues={liveIssues}
-          onSelectIssue={handleSelectIssue}
-          toolId={TOOL_ID}
-          onManageAccess={() => setShareOpen(true)}
-          serverModelConfig={toolbarModelConfig}
-          llmConfigured={toolbarModelConfigured}
-          llmConfigLoading={llmConfigLoading}
-        />
-      )}
+      </div>
+      </div>
 
       {isMobile ? <MobileWorkspaceNav /> : null}
 
