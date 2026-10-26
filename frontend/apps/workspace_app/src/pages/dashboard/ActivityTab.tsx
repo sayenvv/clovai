@@ -35,7 +35,7 @@ export default function ActivityTab() {
                   aria-pressed={source === value}
                   className={cn(
                     'rounded px-2.5 py-1 text-[11px] font-medium transition-colors',
-                    source === value ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+                    source === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
                   {value === 'all' ? 'All' : SOURCE_LABEL[value] ?? value}

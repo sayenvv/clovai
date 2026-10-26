@@ -880,7 +880,7 @@ export const AgentNodeCard = memo(function AgentNodeCard({
                   'transition-[background-color,border-color,color,opacity] duration-150',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   connected
-                    ? 'bg-foreground text-background shadow-sm'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
                     : missing
                       ? 'border border-dashed border-amber-500/80 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
                       : cn(

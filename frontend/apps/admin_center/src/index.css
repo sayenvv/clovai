@@ -4,91 +4,92 @@
 @tailwind utilities;
 
 @layer base {
+  /* Emerald on black. Dark: a black page and canvas, neutral graphite panels and cards (#1F1F21),
+     emerald (#10B981, dark text) for primary actions, selection, focus and active connectors, sky
+     blue for info. Light: emerald-700 (#047857, white text 5.5:1) on clean neutral greys. */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
+    --background: 0 0% 98%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 4%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 4%;
-    --primary: 240 6% 10%;
-    --primary-foreground: 0 0% 98%;
-    --primary-deep: 240 10% 4%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 94%;
-    --accent-foreground: 240 6% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 6% 90%;
-    --input: 240 6% 86%;
-    --ring: 240 6% 10%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 163 93.5% 24.3%;
+    --primary-foreground: 0 0% 100%;
+    --primary-deep: 163 88.1% 19.8%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 10% 3.9%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 152 81% 95.9%;
+    --accent-foreground: 164 85.7% 16.5%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5.9% 90%;
+    --input: 240 4.9% 83.9%;
+    --ring: 161 93.5% 30.4%;
     --radius: 0.625rem;
-    --canvas: 0 0% 100%;
-    --canvas-grid: 240 5% 85%;
+    --canvas: 0 0% 98%;
+    --canvas-grid: 240 6.1% 87.1%;
   }
 
   .dark {
-    --background: 0 0% 4%;
-    --foreground: 0 0% 96%;
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 96%;
-    --popover: 0 0% 8%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 0 0% 96%;
-    --primary-foreground: 0 0% 6%;
-    --primary-deep: 0 0% 85%;
-    --secondary: 0 0% 13%;
-    --secondary-foreground: 0 0% 96%;
-    --muted: 0 0% 13%;
-    --muted-foreground: 0 0% 62%;
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 96%;
-    --destructive: 0 62.8% 50.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 15%;
-    --input: 0 0% 18%;
-    --ring: 0 0% 80%;
+    --background: 0 0% 2%;
+    --foreground: 240 4% 95.1%;
+    --card: 240 3.1% 12.5%;
+    --card-foreground: 240 4% 95.1%;
+    --popover: 240 2.6% 14.9%;
+    --popover-foreground: 240 4% 95.1%;
+    --primary: 160 84.1% 39.4%;
+    --primary-foreground: 166 91.3% 9%;
+    --primary-deep: 158 64.4% 51.6%;
+    --secondary: 240 2.3% 16.9%;
+    --secondary-foreground: 240 4% 95.1%;
+    --muted: 240 2.3% 16.9%;
+    --muted-foreground: 240 2.7% 64.1%;
+    --accent: 162 47.4% 11.2%;
+    --accent-foreground: 149 80.4% 90%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 2.3% 16.9%;
+    --input: 240 1.8% 21.6%;
+    --ring: 158 64.4% 51.6%;
   }
 
   .dark {
-    --canvas: 0 0% 3%;
-    --canvas-grid: 0 0% 18%;
+    --canvas: 0 0% 0%;
+    --canvas-grid: 240 1.7% 16%;
   }
 
-  /* Tool workspace — light mode: soft grey chrome, crisp white canvas.
-     Monochrome neutral palette (graphite greys with no colour tint, plus
-     a hairline border + soft elevation on cards). Marketing
-     site and other pages are unchanged. */
+  /* Tool workspace — light mode: chrome (sidebars, panels: --background) a soft grey, the canvas
+     a touch deeper, cards and nodes (--card) white so they lift off both. */
   .workspace-surface {
-    --background: 240 5% 97%;
-    --canvas: 0 0% 100%;
+    --background: 240 4.8% 95.9%;
+    --canvas: 240 6.7% 94.1%;
     --card: 0 0% 100%;
     --popover: 0 0% 100%;
-    --muted: 240 5% 95%;
-    --accent: 240 5% 93%;
-    --secondary: 240 5% 95%;
-    --muted-foreground: 240 4% 42%;
-    --border: 240 6% 90%;
-    --input: 240 6% 85%;
-    --canvas-grid: 240 5% 85%;
+    --muted: 240 8.1% 92.7%;
+    --accent: 154 60% 93.1%;
+    --secondary: 240 8.1% 92.7%;
+    --muted-foreground: 240 3.9% 40.4%;
+    --border: 240 6.9% 88.6%;
+    --input: 240 6.7% 82.4%;
+    --canvas-grid: 240 6.8% 82.7%;
   }
 
-  /* Tool workspace — dark mode: graphite chrome, darker recessed canvas. */
+  /* Tool workspace — dark mode: black chrome and canvas, graphite cards and nodes on top. */
   .dark .workspace-surface {
-    --background: 0 0% 6%;
-    --canvas: 0 0% 3%;
-    --card: 0 0% 9%;
-    --popover: 0 0% 9%;
-    --muted: 0 0% 13%;
-    --accent: 0 0% 16%;
-    --secondary: 0 0% 13%;
-    --border: 0 0% 16%;
-    --input: 0 0% 19%;
-    --muted-foreground: 0 0% 64%;
-    --canvas-grid: 0 0% 17%;
+    --background: 240 3% 5.5%;
+    --canvas: 0 0% 0%;
+    --card: 240 3.1% 12.5%;
+    --popover: 240 2.6% 14.9%;
+    --muted: 240 2.3% 16.9%;
+    --accent: 162 47.4% 11.2%;
+    --secondary: 240 2.3% 16.9%;
+    --border: 240 2.3% 16.9%;
+    --input: 240 1.8% 21.6%;
+    --muted-foreground: 240 2.7% 64.1%;
+    --canvas-grid: 240 1.7% 16%;
   }
 }
 
@@ -97,12 +98,12 @@
      behind the content so white cards stand out. Dark mode keeps the workspace values. */
   .admin-shell {
     --background: 0 0% 100%;
-    --page: 240 6% 95%;
+    --page: 240 4.8% 95.9%;
   }
 
   .dark .admin-shell {
-    --background: 0 0% 6%;
-    --page: 0 0% 3%;
+    --background: 240 3% 5.5%;
+    --page: 0 0% 2%;
   }
 }
 

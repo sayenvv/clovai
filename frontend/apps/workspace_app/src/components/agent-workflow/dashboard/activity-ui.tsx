@@ -27,7 +27,7 @@ export function RangeSelect({ value, onChange }: { value: RangeDays; onChange: (
           aria-pressed={value === days}
           className={cn(
             'rounded-md px-3 py-1 text-[11.5px] font-medium tabular-nums transition-colors',
-            value === days ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+            value === days ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
           )}
         >
           {days}d

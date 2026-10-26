@@ -567,7 +567,7 @@ function AddBlocksButton({ open, onClick }: { open: boolean; onClick: () => void
           aria-label="All blocks"
           aria-pressed={open}
           className={cn(
-            'flex size-10 shrink-0 items-center justify-center rounded-xl bg-foreground text-background',
+            'flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:bg-primary/90',
             'shadow-[0_1px_2px_rgba(16,24,40,0.2),0_4px_10px_-4px_rgba(16,24,40,0.45),inset_0_1px_0_rgba(255,255,255,0.15)]',
             'dark:shadow-[0_1px_2px_rgba(0,0,0,0.5),0_4px_10px_-4px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(0,0,0,0.08)]',
             'transition-[transform,box-shadow] duration-150 ease-out hover:-translate-y-px active:translate-y-0 active:scale-95',
@@ -615,7 +615,7 @@ function RailNavItem({
       <span
         aria-hidden
         className={cn(
-          'absolute -left-1 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-foreground transition-opacity duration-150',
+          'absolute -left-1 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-opacity duration-150',
           active ? 'opacity-100' : 'opacity-0',
         )}
       />
@@ -1053,7 +1053,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                           'h-6 shrink-0 rounded-full border px-2.5 text-[11px] font-medium transition-colors',
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                           category === id
-                            ? 'border-foreground bg-foreground text-background'
+                            ? 'border-primary bg-primary text-primary-foreground'
                             : 'border-border bg-card text-muted-foreground hover:border-foreground/25 hover:text-foreground',
                         )}
                       >
