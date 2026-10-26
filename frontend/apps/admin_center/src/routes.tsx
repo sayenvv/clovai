@@ -4,6 +4,9 @@ import { ConfigDocumentsView } from '@/components/admin-center/views/ConfigDocum
 import { ConfigSectionView } from '@/components/admin-center/views/ConfigSectionView'
 import { EnvironmentView } from '@/components/admin-center/views/EnvironmentView'
 import { ModelClientsView } from '@/components/admin-center/views/ModelClientsView'
+import { PromptRulesView } from '@/components/admin-center/views/PromptRulesView'
+import { ContextProvidersView } from '@/components/admin-center/views/ContextProvidersView'
+import { PlaygroundView } from '@/components/admin-center/views/PlaygroundView'
 import { AccessView } from '@/components/admin-center/views/AccessView'
 import { ActivityView } from '@/components/admin-center/views/ActivityView'
 import { DashboardView } from '@/components/admin-center/views/DashboardView'
@@ -22,6 +25,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardView /> },
       { path: 'activity', element: <ActivityView /> },
+      { path: 'playground', element: <PlaygroundView /> },
       { path: 'users', element: <UsersView /> },
       { path: 'users/:userId', element: <UserDetailView /> },
       {
@@ -37,6 +41,8 @@ export const router = createBrowserRouter([
       { path: 'configuration/system', element: <ConfigSectionView /> },
       { path: 'configuration/environment', element: <EnvironmentView /> },
       { path: 'configuration/model-clients', element: <ModelClientsView /> },
+      { path: 'configuration/prompt-rules', element: <PromptRulesView /> },
+      { path: 'configuration/context-providers', element: <ContextProvidersView /> },
       // Old addresses, kept so bookmarks land on the new pages.
       { path: 'configurations', element: <Navigate to="/configuration/system" replace /> },
       { path: 'application-config', element: <Navigate to="/configuration/system" replace /> },

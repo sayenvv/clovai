@@ -1,5 +1,7 @@
 /** Admin API for applications and their config and template documents. */
 
+import { apiFetch } from '@/api/auth'
+
 export type DocumentCollection = 'configs' | 'templates'
 
 export interface DocumentSummary {
@@ -23,7 +25,7 @@ export interface Application {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await apiFetch(path, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })

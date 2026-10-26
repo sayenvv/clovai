@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { Check, ChevronRight, FileText, Paperclip, X, type LucideIcon } from 'lucide-react'
+import { Check, ChevronRight, FileText, Paperclip, Target, X, type LucideIcon } from 'lucide-react'
 import { WorkflowIcon as Workflow } from '@/components/shared/WorkflowIcon'
 import { toast } from 'sonner'
 import {
@@ -40,6 +40,8 @@ import { listAgentNodes } from '@/components/agent-workflow/tool-agent-mapping'
 import type { DiagramPage } from '@/components/designer/diagram-types'
 import { cn } from '@/utils/cn'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
+import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
+import { fetchSavedWorkflows, type SavedWorkflowSummary } from '@/services/activity-api'
 
 const ASSISTANT_NAME = 'ElevenNodes AI'
 const MAX_ATTACHMENTS = 5
@@ -63,7 +65,7 @@ export interface GenerateChatMessage {
   role: 'user' | 'assistant'
   content: string
   /** Files and workflow tabs sent as context with a user message. */
-  context?: Array<{ kind: 'file' | 'tab'; name: string }>
+  context?: Array<{ kind: 'file' | 'tab' | 'workflow'; name: string }>
   tone?: 'error' | 'muted'
   /** Assistant replies: each agent's turns from the run, shown above the reply. */
   steps?: WorkflowChatMessage[]
@@ -94,6 +96,10 @@ interface GenerateWorkflowChatProps {
   getCurrentWorkflow?: () => CanvasPlan | null
   /** `base` is the canvas the plan was updated from, or null for a new draft. */
   onGenerated: (plan: WorkflowGenerationPlan, base: CanvasPlan | null) => void
+  /** A complete workflow the assistant returned, placed on the canvas like File → Import. */
+  onImportWorkflow?: (imported: ImportedWorkflow) => void
+  /** The chat session id, sent as the run's conversation id (for agents with conversation history). */
+  conversationId?: string
 }
 
 function ContextChip({
@@ -360,8 +366,14 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   replacesCanvas = false,
   getCurrentWorkflow,
   onGenerated,
+  onImportWorkflow,
+  conversationId,
 }: GenerateWorkflowChatProps) {
   const [draft, setDraft] = useState('')
+  /** The user's saved workflows, offered as the request's context workflow. */
+  const [savedWorkflows, setSavedWorkflows] = useState<SavedWorkflowSummary[]>([])
+  /** The saved workflow picked as context (`workflow_context_id`); it stays picked across messages. */
+  const [contextWorkflowId, setContextWorkflowId] = useState('')
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [contextTabIds, setContextTabIds] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
@@ -416,6 +428,21 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     if (added.length > 0) setAttachments((previous) => [...previous, ...added])
   }
 
+  useEffect(() => {
+    let live = true
+    fetchSavedWorkflows()
+      .then((rows) => live && setSavedWorkflows(rows))
+      .catch(() => live && setSavedWorkflows([]))
+    return () => {
+      live = false
+    }
+  }, [])
+  const contextWorkflow = savedWorkflows.find((row) => row.workflow_id === contextWorkflowId)
+  // The saved workflow open on the canvas: the chat's context when nothing else is picked
+  const canvasWorkflow = savedWorkflows.find(
+    (row) => row.workflow_id === pages.find((page) => page.id === activePageId)?.workflowId,
+  )
+
   // Tabs can be deleted while selected; only keep ones that still exist.
   const contextTabs = contextTabIds
     .map((id) => pages.find((page) => page.id === id))
@@ -441,6 +468,18 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
 
     // The open tab is the workflow being edited; other tabs travel as reference context.
     const base = getCurrentWorkflow?.() ?? null
+    // The workflow the run works on (workflow_context_id): the one picked with the target icon, else
+    // the first saved tab added as context, else the saved workflow open on the canvas. The server
+    // reads the saved copy, so the list is re-read now to know about a canvas saved since the chat opened.
+    const saved = await fetchSavedWorkflows().catch(() => savedWorkflows)
+    setSavedWorkflows(saved)
+    const savedRow = (workflowId: string | undefined) => saved.find((row) => row.workflow_id === workflowId)
+    const pickedWorkflow = savedRow(contextWorkflowId || undefined)
+    const tabWorkflow = contextTabs.map((page) => savedRow(page.workflowId)).find((row) => row !== undefined)
+    const canvasWorkflow = savedRow(pages.find((page) => page.id === activePageId)?.workflowId)
+    const workflowContext = pickedWorkflow ?? tabWorkflow ?? canvasWorkflow
+    const workflowContextId = workflowContext?.workflow_id ?? ''
+    const contextWorkflowName = workflowContext?.name || 'Untitled workflow'
     const history = chatHistory(messages)
     const sentFiles = attachments
     // Describe tabs at send time so the model sees their latest state.
@@ -450,6 +489,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       label: page.name,
     }))
     const context = [
+      ...(workflowContextId ? [{ kind: 'workflow' as const, name: contextWorkflowName }] : []),
       ...sentTabs.map((tab) => ({ kind: 'tab' as const, name: tab.label })),
       ...sentFiles.map((file) => ({ kind: 'file' as const, name: file.name })),
     ]
@@ -489,6 +529,8 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
           ...sentTabs.map(({ name, content }) => ({ name, content })),
           ...sentFiles.map(({ name, content }) => ({ name, content })),
         ],
+        ...(workflowContextId ? { workflowContextId } : {}),
+        ...(conversationId ? { conversationId } : {}),
         onAgentEvent,
         onPlanReview: setPendingReview,
         signal: controller.signal,
@@ -496,6 +538,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       const plan = result.plan
       // Merge into the open canvas (keeping agent settings) only when the backend says it updated it.
       if (plan) onGenerated(plan, result.mode === 'update' ? base : null)
+      if (result.imported) onImportWorkflow?.(result.imported)
       onMessagesChange((previous) => [
         ...previous,
         {
@@ -507,7 +550,9 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                 summary: result.summary,
                 tokens: result.tokens,
               })
-            : result.reply ?? '',
+            : result.imported
+              ? result.summary || 'Added the workflow to the canvas.'
+              : result.reply ?? '',
           steps: finishSteps(liveStepsRef.current),
           seconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
         },
@@ -563,7 +608,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                   {message.context.map((item) => (
                     <ContextChip
                       key={`${item.kind}-${item.name}`}
-                      icon={item.kind === 'tab' ? Workflow : FileText}
+                      icon={item.kind === 'workflow' ? Target : item.kind === 'tab' ? Workflow : FileText}
                       name={item.name}
                     />
                   ))}
@@ -639,8 +684,16 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
           autoFocus
           onFilesDropped={(files) => void addFiles(files)}
           header={
-            contextTabs.length > 0 || attachments.length > 0 ? (
+            contextWorkflow || contextTabs.length > 0 || attachments.length > 0 ? (
               <div className="flex flex-wrap items-center gap-1.5 px-1 pb-1.5 pt-0.5">
+                {contextWorkflow ? (
+                  <ContextChip
+                    icon={Target}
+                    name={contextWorkflow.name || 'Untitled workflow'}
+                    meta="context"
+                    onRemove={() => setContextWorkflowId('')}
+                  />
+                ) : null}
                 {contextTabs.map((page) => {
                   const count = listAgentNodes(page.diagram).length
                   return (
@@ -684,7 +737,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                 <DropdownMenuTrigger asChild disabled={isGenerating}>
                   <ComposerIconButton
                     icon={Workflow}
-                    label="Add workflow tabs as context"
+                    label="Add workflow tabs as context (a saved tab also becomes the workflow to work on)"
                     badge={contextTabs.length > 0 ? contextTabs.length : undefined}
                   />
                 </DropdownMenuTrigger>
@@ -734,6 +787,44 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild disabled={isGenerating}>
+                  <ComposerIconButton
+                    icon={Target}
+                    label="Pick a saved workflow as context"
+                    badge={contextWorkflow ? 1 : undefined}
+                  />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" side="top" className="w-64">
+                  <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">
+                    Context workflow
+                  </DropdownMenuLabel>
+                  <div className="max-h-56 overflow-y-auto">
+                    {savedWorkflows.length === 0 ? (
+                      <p className="px-2 py-1.5 text-[12px] text-muted-foreground">No saved workflows yet.</p>
+                    ) : (
+                      savedWorkflows.map((row) => {
+                        const selected = row.workflow_id === contextWorkflowId
+                        return (
+                          <DropdownMenuItem
+                            key={row.workflow_id}
+                            onSelect={() => setContextWorkflowId(selected ? '' : row.workflow_id)}
+                            className="py-1.5"
+                          >
+                            <Workflow />
+                            <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
+                              {row.name || 'Untitled workflow'}
+                            </span>
+                            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                              {selected ? <Check className="h-3.5 w-3.5 !text-foreground" /> : null}
+                            </span>
+                          </DropdownMenuItem>
+                        )
+                      })
+                    )}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <GenerateModelPicker
                 value={model}
                 onChange={onModelChange}
@@ -751,7 +842,15 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
               <ComposerSendButton onClick={() => void handleGenerate()} disabled={!canGenerate} label="Send message" />
             )
           }
-          hint={replacesCanvas ? 'Changes apply to the current canvas' : 'Drafts a new workflow on the canvas'}
+          hint={
+            contextWorkflow
+              ? `Working on "${contextWorkflow.name || 'Untitled workflow'}"`
+              : canvasWorkflow
+                ? `Working on "${canvasWorkflow.name || 'Untitled workflow'}" (open on the canvas)`
+                : replacesCanvas
+                ? 'Changes apply to the current canvas'
+                : 'Drafts a new workflow on the canvas'
+          }
         />
       </div>
     </div>

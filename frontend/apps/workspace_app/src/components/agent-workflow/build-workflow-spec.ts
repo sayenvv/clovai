@@ -1,6 +1,7 @@
 import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
 import { findOrchestrations, resolveExecutionType } from '@/components/agent-workflow/orchestration-patterns'
 import { BUILDER_SPECS, builderConfig } from '@/components/agent-workflow/workflow-builder-config'
+import { knownContextProviders } from '@/components/agent-workflow/hooks/use-context-providers'
 import type { Diagram, DiagramDocument, DiagramEdge, DiagramNode } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'
 import { normalizeExecutorSource } from '@/components/agent-workflow/executor-source'
@@ -17,6 +18,7 @@ import type {
   WorkflowSchemaType,
   WorkflowSettings,
   WorkflowSubWorkflowExport,
+  WorkflowBuildContextProvider,
 } from '@/types/workflow-build-spec'
 import { WORKFLOW_BUILD_SPEC_VERSION } from '@/types/workflow-build-spec'
 import {
@@ -277,6 +279,7 @@ function buildAgentSpec(diagram: Diagram, node: DiagramNode): WorkflowBuildAgent
     isManager: node.paletteId.includes('manager') ? true : null,
     isOrchestrator: node.paletteId.includes('orchestrat') ? true : null,
     toolIds,
+    ...(config.contextProviderIds?.length ? { contextProviderIds: config.contextProviderIds } : {}),
     responseSchema: toSchemaBlock(config.outputSchema),
     metadata: agentMetadata(node),
   }
@@ -313,6 +316,7 @@ function buildToolSpecs(diagram: Diagram): WorkflowBuildTool[] {
           paletteId: tool.paletteId,
           approvalMode: normalizeApprovalMode(config.approvalMode),
           ...(isMcpToolNode(tool) && config.mcpUrl ? { url: config.mcpUrl } : {}),
+          ...(!isMcpToolNode(tool) && config.handler ? { handler: config.handler } : {}),
         },
         inputSchema: toSchemaBlock(config.inputSchema),
         metadata: {
@@ -422,6 +426,20 @@ function buildSubWorkflowExports(
   return exports
 }
 
+/** `{ contextProviders }` for the providers the agents name, in first-use order; nothing when none. */
+function contextProvidersOf(agents: WorkflowBuildAgent[]): { contextProviders?: WorkflowBuildContextProvider[] } {
+  const ids = [...new Set(agents.flatMap((agent) => agent.contextProviderIds ?? []))]
+  if (ids.length === 0) return {}
+  const known = knownContextProviders()
+  return {
+    contextProviders: ids.map((id) => {
+      const provider = known.find((item) => item.id === id)
+      // Not (or no longer) offered: kept by id, so the run reports it clearly instead of losing it
+      return provider ? { ...provider } : { id, name: '', description: '', slot: 'memory' as const }
+    }),
+  }
+}
+
 interface WorkflowBody {
   agents: WorkflowBuildAgent[]
   tools: WorkflowBuildTool[]
@@ -520,6 +538,7 @@ export function buildWorkflowSpec({
     modelConfig,
     agents: body.agents,
     tools: body.tools,
+    ...contextProvidersOf(body.agents),
     edges: body.edges,
     ...(graphWorkflow ? { workflowBuilder: buildWorkflowBuilderGraph(diagram) } : {}),
     settings: buildSettings(

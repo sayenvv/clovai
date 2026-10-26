@@ -11,7 +11,7 @@ import { ROUTES } from '@/constants'
 import { useSession } from '@/hooks/use-session'
 import { useTheme } from '@/hooks/use-theme'
 import { AccountUnavailableError, deleteAccount, renameWorkspace, updateProfile } from '@/services/account-api'
-import { PROJECT_ROLES, logout, resetAccountPassword, type ProjectRole } from '@/services/project-auth-store'
+import { PROJECT_ROLES, changeAccountPassword, logout, type ProjectRole } from '@/services/project-auth-store'
 import { cn } from '@/utils/cn'
 
 function failure(reason: unknown, fallback: string) {
@@ -252,6 +252,7 @@ export function AppearanceTab() {
 export function SecurityTab() {
   const session = useSession()
   const navigate = useNavigate()
+  const [currentPassword, setCurrentPassword] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
@@ -262,12 +263,13 @@ export function SecurityTab() {
 
   const changePassword = async () => {
     setSaving(true)
-    const result = await resetAccountPassword(session.email, password, confirm)
+    const result = await changeAccountPassword(currentPassword, password, confirm)
     setSaving(false)
     if ('error' in result) {
       toast.error(result.error)
       return
     }
+    setCurrentPassword('')
     setPassword('')
     setConfirm('')
     toast.success('Password changed')
@@ -295,7 +297,7 @@ export function SecurityTab() {
 
       <SettingsCard
         title="Password"
-        description="Use at least 8 characters. You stay signed in on this device."
+        description="Use at least 8 characters. You stay signed in on this device. Signed up with Google and never set one? Leave the current password empty."
         footer={
           <>
             <p className="text-[11.5px] text-muted-foreground">
@@ -314,6 +316,15 @@ export function SecurityTab() {
         }
       >
         <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Current password">
+            <Input
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+            />
+          </Field>
+          <span className="hidden sm:block" />
           <Field label="New password">
             <Input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
           </Field>

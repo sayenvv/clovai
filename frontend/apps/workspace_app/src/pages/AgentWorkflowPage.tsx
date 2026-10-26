@@ -15,6 +15,7 @@ import { PagesBar } from '@/components/designer/PagesBar'
 import { resolveDesignerPalette } from '@/utils/resolve-designer-palette'
 import {
   createNodeId,
+  createPage,
   flowPortSides,
   resolveFlowDirection,
   type Diagram,
@@ -106,7 +107,20 @@ import { WorkflowConfigurationView } from '@/components/agent-workflow/WorkflowC
 import { useModelConnections } from '@/components/agent-workflow/hooks/use-model-connections'
 import { connectionProviderId } from '@/components/agent-workflow/AgentConfigPanel'
 import { MODEL_CLIENT_REF_PREFIX, modelClientRef } from '@/services/model-connections-api'
-import { importIntoDocument, isBlankDiagram } from '@/components/agent-workflow/workflow-import'
+import {
+  importIntoDocument,
+  isBlankDiagram,
+  parseWorkflowFile,
+  type ImportedWorkflow,
+} from '@/components/agent-workflow/workflow-import'
+import {
+  fetchAccessRole,
+  fetchAssistant,
+  fetchWorkflowDefinition,
+  setWorkflowPurpose,
+  type WorkflowPurpose,
+} from '@/services/assistant-api'
+import { forgetAssistantWorkflow } from '@/services/workflow-run-api'
 import { updateWorkflowConfiguration, type WorkflowConfiguration } from '@/services/workflow-configuration-store'
 import { addExecution, useExecutions } from '@/services/execution-history-store'
 import { catalogModelsFor, useModelCatalog } from '@/components/agent-workflow/hooks/use-model-catalog'
@@ -439,6 +453,35 @@ export default function AgentWorkflowPage() {
     },
     [diagram, doc, getCanvasInsertAnchor, setDoc, invalidateValidation],
   )
+
+  // ?open=<workflowId> (e.g. "Open in canvas" in the Admin Center): show that workflow in its own
+  // tab under the same workflow id, so saving it updates the stored workflow (and, for a published
+  // assistant, what everyone's chat runs). A tab that already has it is just selected.
+  const openRequested = useRef<string | null>(null)
+  useEffect(() => {
+    const workflowId = new URLSearchParams(location.search).get('open')
+    if (!workflowId || openRequested.current === workflowId) return
+    openRequested.current = workflowId
+    navigate(location.pathname, { replace: true })
+    const existing = doc.pages.find((page) => page.workflowId === workflowId)
+    if (existing) {
+      setDoc((previous) => ({ ...previous, activePageId: existing.id }))
+      return
+    }
+    void fetchWorkflowDefinition(workflowId)
+      .then(({ name, definition }) => {
+        const imported = parseWorkflowFile(JSON.stringify(definition))
+        const page = { ...createPage(name), workflowId }
+        const withPage = { ...doc, pages: [...doc.pages, page] }
+        const result = importIntoDocument(withPage, imported.document, page.id, { x: 0, y: 0 })
+        if (!result) throw new Error('The workflow has no canvas to open.')
+        setDoc({ ...result.document, activePageId: page.id, activeMainPageId: page.id })
+        if (imported.configuration) updateWorkflowConfiguration(workflowId, imported.configuration)
+        requestAnimationFrame(() => canvasRef.current?.fitView())
+        toast.success(`Opened "${name}". Saving it updates the stored workflow.`)
+      })
+      .catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Could not open the workflow.'))
+  }, [location.search, location.pathname, navigate, doc, setDoc])
 
   const workflowMeta = doc.workflow ?? defaultWorkflowMeta()
   const activeWorkflowId = pageWorkflowId(doc, doc.activePageId)
@@ -966,6 +1009,9 @@ export default function AgentWorkflowPage() {
             replacesCanvas: canvasHasAgents,
             getCurrentWorkflow,
             onGenerated: handleWorkflowGenerated,
+            // The assistant's complete workflow lands exactly as File → Import would place it.
+            onImportWorkflow: (imported: ImportedWorkflow) =>
+              importWorkflowDocument(imported.document, imported.configuration),
             onClose: closeGeneratePanel,
           }
         : null,
@@ -977,6 +1023,7 @@ export default function AgentWorkflowPage() {
       canvasHasAgents,
       getCurrentWorkflow,
       handleWorkflowGenerated,
+      importWorkflowDocument,
       closeGeneratePanel,
     ],
   )
@@ -1023,6 +1070,49 @@ export default function AgentWorkflowPage() {
     }
     markSaved(nextDoc)
   }, [doc, setDoc, activePage.id, diagram, paletteById, serverModelConfig, markSaved])
+
+  // Admins choose what a workflow is for; "ai_assistant" publishes it as everyone's chat assistant.
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [assistantWorkflowId, setAssistantWorkflowId] = useState<string | null>(null)
+  const [purposeBusy, setPurposeBusy] = useState(false)
+  useEffect(() => {
+    let live = true
+    void fetchAccessRole().then((role) => {
+      if (!live || role !== 'admin') return
+      setIsAdmin(true)
+      fetchAssistant()
+        .then((assistant) => live && setAssistantWorkflowId(assistant?.workflowId ?? null))
+        .catch(() => undefined)
+    })
+    return () => {
+      live = false
+    }
+  }, [])
+  const activePurposeWorkflowId = pageWorkflowId(doc, activePage.id)
+  const handlePurposeChange = useCallback(
+    async (purpose: WorkflowPurpose) => {
+      setPurposeBusy(true)
+      try {
+        // Publish what is on the canvas now: the server publishes the saved copy.
+        await handleSave()
+        await setWorkflowPurpose(activePurposeWorkflowId, purpose)
+        forgetAssistantWorkflow()
+        setAssistantWorkflowId((current) =>
+          purpose === 'ai_assistant' ? activePurposeWorkflowId : current === activePurposeWorkflowId ? null : current,
+        )
+        toast.success(
+          purpose === 'ai_assistant'
+            ? 'Published as the AI assistant. Everyone\'s chat now runs this workflow; your saves update it.'
+            : 'This is your own workflow again; the chat no longer runs it.',
+        )
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not change the purpose.')
+      } finally {
+        setPurposeBusy(false)
+      }
+    },
+    [handleSave, activePurposeWorkflowId],
+  )
 
   const handleSaveAs = useCallback(() => {
     toast.info('Save as…', {
@@ -1848,6 +1938,15 @@ export default function AgentWorkflowPage() {
           onNavigateHome={handleNavigateHome}
           onViewInstance={handleViewInstance}
           onShare={() => setShareOpen(true)}
+          purpose={
+            isAdmin
+              ? {
+                  value: assistantWorkflowId === activePurposeWorkflowId ? 'ai_assistant' : 'user_build',
+                  onChange: (next) => void handlePurposeChange(next),
+                  busy: purposeBusy,
+                }
+              : undefined
+          }
           view={headerView}
           onViewChange={handleHeaderViewChange}
           viewTabs={tool?.designer?.views}

@@ -65,8 +65,21 @@ export interface WorkflowBuildAgent {
   isManager: boolean | null
   isOrchestrator: boolean | null
   toolIds: string[]
+  /** Admin-listed context providers (memory, knowledge) the agent uses. */
+  contextProviderIds?: string[]
   responseSchema: SchemaBlock
   metadata: Record<string, unknown>
+}
+
+/**
+ * A context provider the workflow's agents use (agents name it in `contextProviderIds`). The admin
+ * catalog keeps its handler and settings; the server runs the catalog's, never a copy from here.
+ */
+export interface WorkflowBuildContextProvider {
+  id: string
+  name: string
+  description: string
+  slot: 'memory' | 'knowledge'
 }
 
 export interface WorkflowBuildTool {
@@ -162,6 +175,8 @@ export interface WorkflowBuildSpec {
   modelConfig: WorkflowModelConfig
   agents: WorkflowBuildAgent[]
   tools: WorkflowBuildTool[]
+  /** Every context provider the agents use, once each. */
+  contextProviders?: WorkflowBuildContextProvider[]
   edges: WorkflowBuildEdge[]
   settings: WorkflowSettings
   /** Graph workflows (`meta.workflowType: "workflow"`): the Agent Framework WorkflowBuilder graph. */

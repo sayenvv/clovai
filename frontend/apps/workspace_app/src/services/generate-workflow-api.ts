@@ -1,6 +1,6 @@
-import type { ExecutionLogEvent } from '@/services/orchestration-api'
-import { filesToPlan, readRunAnswer } from '@/services/workflow-files'
-import { runWorkflow, workflowAssistantId, type CatalogModel, type PlanReview } from '@/services/workflow-run-api'
+import { parseWorkflowFile, type ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
+import { executeOrchestration, orchestrationIdentity, type ExecutionLogEvent } from '@/services/orchestration-api'
+import { workflowAssistantId, type PlanReview } from '@/services/workflow-run-api'
 import type { GenerateWorkflowResponse, WorkflowGenerationPlan } from '@/types/workflow-generation'
 
 /** The run's `inputs.prompt` limit on the API (OrchestrationInputs.prompt max_length). */
@@ -36,6 +36,10 @@ export interface GenerateWorkflowRequest {
   history?: GenerateWorkflowHistoryMessage[]
   model?: GenerateWorkflowModel
   attachments?: GenerateWorkflowAttachment[]
+  /** A saved workflow the user picked as context: the assistant reads it, and updates it when asked. */
+  workflowContextId?: string
+  /** The chat session: agents with conversation history remember its earlier turns. */
+  conversationId?: string
   /** Each agent row as it streams: plans, progress checks, thinking, and answers. */
   onAgentEvent?: (event: ExecutionLogEvent) => void
   /** The manager's plan needs approval; the run waits until `submitPlanReview` answers it. */
@@ -45,113 +49,93 @@ export interface GenerateWorkflowRequest {
   signal?: AbortSignal
 }
 
-interface PlanBody {
-  workflow_name: string
-  description: string
-  execution_type: string
-  agents: Array<{
-    key: string
-    name: string
-    description: string
-    palette_id: string
-    instructions: string
-    tools: string[]
-    x?: number
-    y?: number
-  }>
-  edges: Array<{
-    from_key: string
-    to_key: string
-    label: string
-    human_approval: boolean
-  }>
-}
-
-/** The canvas as compact JSON, for the agents to read when they update it. */
-function planBody(plan: WorkflowGenerationPlan): PlanBody {
-  return {
-    workflow_name: plan.workflowName,
-    description: plan.description,
-    execution_type: plan.executionType,
-    agents: plan.agents.map((agent) => ({
-      key: agent.key,
-      name: agent.name,
-      description: agent.description,
-      palette_id: agent.paletteId,
-      instructions: agent.instructions,
-      tools: agent.tools,
-      ...(typeof agent.x === 'number' && typeof agent.y === 'number' ? { x: agent.x, y: agent.y } : {}),
-    })),
-    edges: plan.edges.map((edge) => ({
-      from_key: edge.fromKey,
-      to_key: edge.toKey,
-      label: edge.label,
-      human_approval: edge.humanApproval,
-    })),
-  }
-}
-
-/** The run's model: a local Ollama model from the catalog, or none to use the catalog's default. */
-function catalogModel(model: GenerateWorkflowModel | undefined): CatalogModel | undefined {
-  if (model?.provider === 'catalog') return { provider: model.providerId, modelId: model.modelId }
-  if (model?.provider === 'ollama') return { provider: 'ollama', modelId: model.model }
-  if (model?.provider === 'client') return { connectionId: model.connectionId }
-  return undefined
-}
-
 function modelLabel(model: GenerateWorkflowModel | undefined): string {
   if (model?.provider === 'catalog' || model?.provider === 'client') return model.label
   if (model?.provider === 'ollama') return model.model
   return 'the default model'
 }
 
+/** Earlier turns, newest last, so the run (which reads one message) knows the conversation. */
+function historyText(history: GenerateWorkflowHistoryMessage[] | undefined): string {
+  if (!history?.length) return ''
+  const lines = history.map((turn) => `${turn.role === 'user' ? 'User' : 'Assistant'}: ${turn.content}`)
+  return `Earlier in this conversation:\n${lines.join('\n\n')}`
+}
+
 /**
- * The message the agents read. The run reads only `inputs.message`, so the canvas being
- * edited and any attached files travel inside it, after the request.
+ * The message the run reads: the request, then the conversation so far and any attached files.
+ * The open canvas is not sent: a workflow the request is about is picked as the context workflow
+ * (`workflowContextId`), which the agents read in full with get_context_workflow.
  */
 function runMessage(request: GenerateWorkflowRequest): string {
   const parts = [request.prompt]
-  if (request.workflow) {
-    // Context only: the request above decides whether to change it, build something new, or just answer.
-    parts.push(
-      `For context, the workflow currently open on the canvas:\n\`\`\`json\n${JSON.stringify(planBody(request.workflow))}\n\`\`\``,
-    )
-  }
+  const history = historyText(request.history)
+  if (history) parts.push(history)
   for (const attachment of request.attachments ?? []) {
     parts.push(`Attachment "${attachment.name}":\n${attachment.content}`)
   }
   return parts.join('\n\n').slice(0, MAX_MESSAGE_LENGTH)
 }
 
+const FENCED_JSON = /```(?:json)?\s*([\s\S]*?)```/g
+
 /**
- * Ask the workflow assistant (the admin workflow with purpose `ai_assistant`) to draft a
- * workflow from a prompt, or to update `workflow`.
+ * The assistant's final answer: a short description, then the workflow JSON in a fenced block
+ * (see the Workflow Generator's final answer prompt). Without a workflow, the text is the reply.
+ */
+function readAssistantAnswer(text: string): { summary: string; imported?: ImportedWorkflow } {
+  for (const match of text.matchAll(FENCED_JSON)) {
+    let workflow: unknown
+    try {
+      workflow = JSON.parse(match[1])
+    } catch {
+      continue
+    }
+    if (!workflow || typeof workflow !== 'object' || !('meta' in workflow) || !('canvas' in workflow)) continue
+    try {
+      return { summary: text.replace(match[0], '').trim(), imported: parseWorkflowFile(match[1]) }
+    } catch {
+      continue
+    }
+  }
+  return { summary: text.trim() }
+}
+
+/**
+ * Ask the workflow assistant (the admin workflow with purpose `ai_assistant`) to draft a workflow,
+ * change the picked context workflow, or answer a question about it.
  *
- * The run streams: `onAgentEvent` gets each pipeline step and each agent's rows as they
- * happen. When the final answer carries the workflow files they are drawn on the canvas;
- * otherwise the answer is the reply.
+ * Runs on `POST /api/v1/execute`, streaming each agent's rows to `onAgentEvent`. A workflow in the
+ * answer comes back as `imported`, ready to place on the canvas; otherwise the answer is the reply.
  */
 export async function generateWorkflowFromPrompt(
   request: GenerateWorkflowRequest,
 ): Promise<GenerateWorkflowResponse> {
-  const result = await runWorkflow({
-    workflowId: await workflowAssistantId(),
-    inputs: {
-      prompt: runMessage(request),
-      ...(request.workflowName?.trim() ? { workflowName: request.workflowName.trim() } : {}),
-      ...(request.history?.length ? { history: request.history } : {}),
+  const outcome = await executeOrchestration({
+    identity: orchestrationIdentity('workflow-assistant', await workflowAssistantId()),
+    inputs: { message: runMessage(request) },
+    workflowContextId: request.workflowContextId,
+    conversationId: request.conversationId,
+    // Agent rows only; the run's own start/finish progress rows are not chat steps. The manager's
+    // plan and hand-offs ("reasoning" rows) are left out too: the chat shows "Thinking" meanwhile.
+    onEvent: (event) => {
+      if (event.event === 'agent' && event.kind !== 'reasoning') request.onAgentEvent?.(event)
     },
-    model: catalogModel(request.model),
-    onAgentEvent: request.onAgentEvent,
-    onPlanReview: request.onPlanReview,
     signal: request.signal,
   })
-  const modelName = modelLabel(request.model)
-  const answer = readRunAnswer(typeof result.text === 'string' ? result.text : '')
-  const meta = { model: modelName, origin: 'workflow-assistant', mode: answer.mode, summary: answer.summary }
-  if (!answer.files) {
-    if (!answer.summary) throw new Error('The workflow assistant finished without an answer.')
-    return { plan: null, reply: answer.summary, ...meta }
+  if (outcome.error) throw new Error(outcome.error)
+  const answer = readAssistantAnswer(outcome.output)
+  // The workflow a run built comes as its own artifact (the agents no longer paste the JSON)
+  const built = outcome.artifacts?.workflow
+  if (built && typeof built === 'object' && !answer.imported) {
+    try {
+      answer.imported = parseWorkflowFile(JSON.stringify(built))
+    } catch {
+      // Not a canvas we can draw: the reply still says what was built
+    }
   }
-  return { plan: filesToPlan(answer.files), ...meta }
+  const meta = { model: modelLabel(request.model), origin: 'workflow-assistant', summary: answer.summary }
+  if (answer.imported) return { plan: null, imported: answer.imported, mode: request.workflowContextId ? 'update' : 'create', ...meta }
+  if (!answer.summary) throw new Error('The workflow assistant finished without an answer.')
+  return { plan: null, reply: answer.summary, mode: 'answer', ...meta }
 }

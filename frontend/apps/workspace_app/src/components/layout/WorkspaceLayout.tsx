@@ -8,7 +8,8 @@ import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { WorkflowWorkspaceLoadingScreen } from '@/components/agent-workflow/ExecuteLaunchOverlay'
 import { ProjectAuthGate } from '@/components/agent-workflow/ProjectAuthGate'
-import { getSession, type ProjectSession } from '@/services/project-auth-store'
+import { STORAGE_KEYS } from '@/constants'
+import { getSession, restoreSessionFromServer, type ProjectSession } from '@/services/project-auth-store'
 
 /** Chrome-free layout for tool workspaces (canvas designers). Loads the
  *  active configuration like AppLayout but renders no navbar or footer —
@@ -29,8 +30,25 @@ export function WorkspaceLayout() {
     }
     const sync = () => setSession(getSession())
     sync()
+    // The signed-in account from the server replaces a missing or stale tab session
+    void restoreSessionFromServer()
+    // The session is kept per tab but the tokens are shared by all tabs: when another tab signs
+    // in or out (the tokens change), or this tab comes back into view, follow the tokens' account,
+    // so this tab never shows one account while its requests go out as another
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === null || event.key === STORAGE_KEYS.accessToken || event.key === STORAGE_KEYS.refreshToken) {
+        void restoreSessionFromServer()
+      }
+    }
+    const onFocus = () => void restoreSessionFromServer()
     window.addEventListener('eleven-nodes-project-session', sync)
-    return () => window.removeEventListener('eleven-nodes-project-session', sync)
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.removeEventListener('eleven-nodes-project-session', sync)
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [isAgentWorkflowWorkspace, location.key])
 
   if (isPending) return workspaceFallback

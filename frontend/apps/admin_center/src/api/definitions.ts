@@ -1,5 +1,7 @@
 /** Admin API for stored workflow, agent, tool and middleware definitions. */
 
+import { apiFetch } from '@/api/auth'
+
 export type DefinitionKind = 'workflows' | 'agents' | 'tools' | 'middlewares'
 export type WorkflowType = 'system_generated' | 'user_generated'
 
@@ -23,7 +25,7 @@ export interface DefinitionDetail extends DefinitionSummary {
 const BASE = '/api/v1/admin/definitions'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await apiFetch(path, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
@@ -51,7 +53,26 @@ export function getDefinition(kind: DefinitionKind, id: string): Promise<Definit
 }
 
 export function createDefinition(kind: DefinitionKind, definition: Record<string, unknown>): Promise<DefinitionDetail> {
-  return request(`${BASE}/${kind}`, { method: 'POST', body: JSON.stringify({ definition }) })
+  return request(`${BASE}/${kind}`, { method: 'POST', body: JSON.stringify({ definition: withWorkflowId(definition) }) })
+}
+
+/** Make an admin workflow the chat assistant (`ai_assistant`, unpublishing the previous one) or not (`user_build`). */
+export function setWorkflowPurpose(id: string, purpose: 'ai_assistant' | 'user_build'): Promise<DefinitionDetail> {
+  return request(`${BASE}/workflows/${encodeURIComponent(id)}/purpose`, { method: 'PUT', body: JSON.stringify({ purpose }) })
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * A schemaVersion 3.0 workflow is stored under its meta.workflowId (a new UUID when it has none), so
+ * the row, "Open in canvas" and the canvas's saves all name the same workflow.
+ */
+function withWorkflowId(definition: Record<string, unknown>): Record<string, unknown> {
+  const meta = definition.meta
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return definition
+  const given = (meta as Record<string, unknown>).workflowId
+  const workflowId = typeof given === 'string' && UUID.test(given) ? given : crypto.randomUUID()
+  return { ...definition, id: workflowId, meta: { ...(meta as Record<string, unknown>), workflowId } }
 }
 
 export function saveDefinition(

@@ -145,13 +145,26 @@ export async function saveOrchestration(input: {
   return body
 }
 
+/** How a streamed run ended: its last agent answer, and the failure message when it failed. */
+export interface OrchestrationOutcome {
+  output: string
+  error?: string
+  /** Results tools handed over directly, by kind (e.g. `workflow`: the workflow JSON a run built). */
+  artifacts?: Record<string, unknown>
+}
+
 export async function executeOrchestration(input: {
   identity: OrchestrationIdentity
   inputs?: Record<string, unknown>
+  /** A saved workflow the user selected as the run's context (the backend's `workflow_context_id`). */
+  workflowContextId?: string
+  /** The chat conversation the run belongs to; context providers such as history keep state per conversation. */
+  conversationId?: string
   onEvent: (event: ExecutionLogEvent) => void
   /** The run's OpenTelemetry trace id, sent first on the stream (open it with fetchTrace). */
   onTrace?: (traceId: string) => void
-}): Promise<void> {
+  signal?: AbortSignal
+}): Promise<OrchestrationOutcome> {
   const inputs = input.inputs ?? {}
   const message = typeof inputs.message === 'string' ? inputs.message : JSON.stringify(inputs)
   const response = await authorizedFetch('/api/v1/execute', {
@@ -164,21 +177,39 @@ export async function executeOrchestration(input: {
     body: JSON.stringify({
       workflow_id: input.identity.workflowId,
       message,
+      ...(input.workflowContextId ? { workflow_context_id: input.workflowContextId } : {}),
+      ...(input.conversationId ? { conversation_id: input.conversationId } : {}),
       // Stream the agent framework's workflow events as they happen.
       events: true,
     }),
+    signal: input.signal,
   })
   if (!response.ok) throw new Error(await errorMessage(response))
   let failed = false
+  let failure = ''
   let finalOutput = ''
+  // The workflow's own result (an "output" event, e.g. the Magentic final answer), when it sends one
+  let workflowOutput = ''
+  const artifacts: Record<string, unknown> = {}
   await readEventStream(response, (eventName, payload) => {
     if (eventName === 'trace') {
       if (typeof payload.trace_id === 'string') input.onTrace?.(payload.trace_id)
       return
     }
+    if (eventName === 'artifact') {
+      if (typeof payload.kind === 'string') artifacts[payload.kind] = payload.data
+      return
+    }
+    if (eventName === 'output') {
+      const text = workflowText((payload as WorkflowStreamEvent).data)
+      if (text) workflowOutput = text
+    }
     const translated = fromWorkflowEvent(eventName, payload as WorkflowStreamEvent)
     if (!translated) return
-    if (translated.status === 'failed') failed = true
+    if (translated.status === 'failed') {
+      failed = true
+      failure ||= translated.message ?? ''
+    }
     if (translated.event === 'agent' && translated.status === 'completed' && translated.message) {
       finalOutput = translated.message
     }
@@ -192,6 +223,9 @@ export async function executeOrchestration(input: {
       result: { execution: { outputs: finalOutput } },
     })
   }
+  const output = workflowOutput || finalOutput
+  const extra = Object.keys(artifacts).length > 0 ? { artifacts } : {}
+  return failed ? { output, error: failure || 'Workflow execution failed.', ...extra } : { output, ...extra }
 }
 
 /** One frame of the `/execute` stream: an agent framework `WorkflowEvent` (see services/executions.py). */

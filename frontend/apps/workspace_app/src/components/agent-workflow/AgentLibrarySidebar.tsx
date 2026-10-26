@@ -1,3 +1,4 @@
+import { AdminBadge } from '@/components/shared/AdminBadge'
 import {
   memo,
   useCallback,
@@ -68,7 +69,7 @@ import { SettingsMenu, type CanvasViewSettings } from '@/components/agent-workfl
 import { MODEL_PROVIDER_DND_MIME, ModelLogo, type ModelProviderId } from '@/components/agent-workflow/model-providers'
 import { HelpMenu } from '@/components/agent-workflow/HelpMenu'
 import { ProfileMenu } from '@/components/shared/ProfileMenu'
-import { getSession } from '@/services/project-auth-store'
+import { useSession } from '@/hooks/use-session'
 import type { AgentType } from '@/types/agent-workflow'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 import type { LucideIcon } from 'lucide-react'
@@ -683,11 +684,11 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   const [focusSearch, setFocusSearch] = useState(false)
   const rootRef = useRef<HTMLElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const session = getSession()
-  const userInitials = (session?.fullName || session?.email || 'U').slice(0, 1).toUpperCase()
-  const userLabel = session
-    ? [session.fullName || session.email, session.displayName].filter(Boolean).join(' · ')
-    : undefined
+  // Re-renders when the session changes (sign-in, switching account, restored from the server)
+  const session = useSession()
+  const userInitials = (session?.email || 'U').slice(0, 1).toUpperCase()
+  const isAdmin = session?.accessRole === 'admin'
+  const userLabel = session?.email ? `${session.email}${isAdmin ? ' · Admin' : ''}` : undefined
 
   // Deployments opens in the main canvas — keep the rail highlighted, no flyout.
   const flyoutOpen = resolvedSection !== null && resolvedSection !== 'deployments'
@@ -919,8 +920,8 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                   canvasView={canvasView}
                 />
                 <div
-                  className="rounded-full p-0.5 ring-1 ring-border transition-shadow duration-150 hover:ring-foreground/25"
-                  title="Profile"
+                  className={`relative rounded-full p-0.5 ring-1 ${isAdmin ? 'ring-amber-500/70' : 'ring-border'} transition-shadow duration-150 hover:ring-foreground/25`}
+                  title={isAdmin ? 'Profile · Admin' : 'Profile'}
                 >
                   <ProfileMenu
                     showSignOut={Boolean(session)}
@@ -931,6 +932,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                     avatarSize="sm"
                     triggerClassName="h-9 w-9 rounded-full hover:bg-transparent"
                   />
+                  <AdminBadge show={isAdmin} />
                 </div>
               </div>
             </div>

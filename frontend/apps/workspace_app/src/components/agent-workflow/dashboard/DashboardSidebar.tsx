@@ -1,3 +1,4 @@
+import { AdminBadge } from '@/components/shared/AdminBadge'
 import {
   useCallback,
   useEffect,
@@ -150,12 +151,10 @@ export function DashboardSidebar() {
   const totalWidth =
     SIDE_PANEL_COLLAPSED_WIDTH + (flyoutOpen ? flyoutWidth : 0)
 
-  const userInitials = (session?.displayName || session?.email || 'U')
-    .slice(0, 1)
-    .toUpperCase()
-  const userLabel = session
-    ? [session.displayName, session.email].filter(Boolean).join(' · ')
-    : undefined
+  // The signed-in account's email (same as the editor's sidebar)
+  const userInitials = (session?.email || 'U').slice(0, 1).toUpperCase()
+  const isAdmin = session?.accessRole === 'admin'
+  const userLabel = session?.email ? `${session.email}${isAdmin ? ' · Admin' : ''}` : undefined
 
   const recentRuns = useMemo(
     () =>
@@ -232,8 +231,8 @@ export function DashboardSidebar() {
                 onClick={() => navigate(ROUTES.agentWorkflow)}
               />
               <div
-                className="rounded-full p-0.5 shadow-[0_0_0_1px_hsl(var(--border)/0.7)] transition-shadow duration-200 hover:shadow-[0_0_0_1px_hsl(var(--foreground)/0.22)]"
-                title="Profile"
+                className={`relative rounded-full p-0.5 shadow-[0_0_0_1px_hsl(var(--border)/0.7)] transition-shadow duration-200 hover:shadow-[0_0_0_1px_hsl(var(--foreground)/0.22)]`}
+                title={isAdmin ? 'Profile · Admin' : 'Profile'}
               >
                 <ProfileMenu
                   showSignOut={Boolean(session)}
@@ -244,6 +243,7 @@ export function DashboardSidebar() {
                   avatarSize="sm"
                   triggerClassName="h-9 w-9 rounded-full hover:bg-transparent"
                 />
+                  <AdminBadge show={isAdmin} />
               </div>
             </div>
           </div>

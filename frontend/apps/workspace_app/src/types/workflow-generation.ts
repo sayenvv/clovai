@@ -1,3 +1,4 @@
+import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
 export type WorkflowGenerationExecutionType =
   | 'sequential'
   | 'parallel'
@@ -36,6 +37,8 @@ export interface WorkflowGenerationPlan {
 export interface GenerateWorkflowResponse {
   /** Null when the request was a question answered directly; `reply` holds the answer. */
   plan: WorkflowGenerationPlan | null
+  /** A complete workflow (schemaVersion 3.0 with its canvas), imported onto the canvas as is. */
+  imported?: ImportedWorkflow
   reply?: string
   /** The assistant's short account of what it built or changed. */
   summary?: string

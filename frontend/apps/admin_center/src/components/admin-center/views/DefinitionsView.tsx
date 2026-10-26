@@ -1,27 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronRight, LayoutGrid, List, Plus, RefreshCw } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ChevronRight, Plus, RefreshCw, ExternalLink, Upload } from 'lucide-react'
 import { listDefinitions, type DefinitionDetail, type DefinitionKind } from '@/api/definitions'
 import { DEFINITION_KINDS } from '@/components/admin-center/definition-kinds'
+import { LayoutToggle, useLayout } from '@/components/admin-center/LayoutToggle'
 import { EmptyHint, PageBody, PageHeader } from '@/components/admin-center/PageShell'
 import { PremiumCard } from '@/components/admin-center/PremiumCard'
 import { SearchInput } from '@/components/admin-center/SearchInput'
 import { StatusBadge } from '@/components/admin-center/StatusBadge'
 import { Button } from '@/components/ui/button'
-import { ROUTES } from '@/constants'
-import { cn } from '@/utils/cn'
+import { ROUTES, canvasUrl } from '@/constants'
 import { formatWhen } from '@/utils/format'
 
-type Layout = 'list' | 'grid'
 const LAYOUT_KEY = 'admin-center.definitions-layout'
-
-function readLayout(): Layout {
-  try {
-    return window.localStorage.getItem(LAYOUT_KEY) === 'grid' ? 'grid' : 'list'
-  } catch {
-    return 'list'
-  }
-}
 
 /** The list page for one kind of definition: workflows, agents, tools or middlewares. */
 export function DefinitionsView({ kind }: { kind: DefinitionKind }) {
@@ -29,16 +20,26 @@ export function DefinitionsView({ kind }: { kind: DefinitionKind }) {
   const [rows, setRows] = useState<DefinitionDetail[] | null>(null)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
-  const [layout, setLayout] = useState<Layout>(readLayout)
+  const navigate = useNavigate()
+  const fileRef = useRef<HTMLInputElement>(null)
 
-  const chooseLayout = (next: Layout) => {
-    setLayout(next)
+  // Upload JSON: open the new-definition editor with the file's JSON, to review and then create
+  const upload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
     try {
-      window.localStorage.setItem(LAYOUT_KEY, next)
-    } catch {
-      /* the choice just won't be remembered */
+      const definition = JSON.parse(await file.text()) as unknown
+      if (!definition || typeof definition !== 'object' || Array.isArray(definition)) {
+        throw new Error('The file must hold one JSON object.')
+      }
+      navigate(ROUTES.definition(kind, 'new'), { state: { definition, fileName: file.name } })
+    } catch (reason) {
+      setError(`Could not read ${file.name}: ${reason instanceof Error ? reason.message : String(reason)}`)
     }
   }
+  const [layout, chooseLayout] = useLayout(LAYOUT_KEY)
+
 
   const load = useCallback(() => {
     setRows(null)
@@ -72,6 +73,11 @@ export function DefinitionsView({ kind }: { kind: DefinitionKind }) {
             <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[11.5px]" onClick={load}>
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
+            </Button>
+            <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={(event) => void upload(event)} />
+            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[11.5px]" onClick={() => fileRef.current?.click()}>
+              <Upload className="h-3.5 w-3.5" />
+              Upload JSON
             </Button>
             <Button asChild size="sm" className="h-8 gap-1.5 text-[11.5px] font-semibold">
               <Link to={ROUTES.definition(kind, 'new')}>
@@ -179,6 +185,14 @@ function DefinitionRow({ row, kind }: { row: DefinitionDetail; kind: DefinitionK
       </td>
       <td className="px-4 py-2.5 text-muted-foreground">{row.updatedAt ? formatWhen(row.updatedAt) : '—'}</td>
       <td className="px-4 py-2.5 text-right">
+        {kind === 'workflows' && (
+          <Button asChild variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[11px]">
+            <a href={canvasUrl(row.id)} target="_blank" rel="noreferrer">
+              Open in canvas
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </Button>
+        )}
         <Button asChild variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[11px]">
           <Link to={href}>
             Open
@@ -191,6 +205,9 @@ function DefinitionRow({ row, kind }: { row: DefinitionDetail; kind: DefinitionK
 }
 
 function OwnerBadge({ row }: { row: DefinitionDetail }) {
+  if (row.purpose === 'ai_assistant' && row.workflowType === 'system_generated') {
+    return <StatusBadge label="AI assistant" tone="success" />
+  }
   return row.workflowType === 'system_generated' ? (
     <StatusBadge label="Admin" tone="info" />
   ) : (
@@ -247,31 +264,3 @@ function DefinitionCard({ row, kind }: { row: DefinitionDetail; kind: Definition
   )
 }
 
-function LayoutToggle({ value, onChange }: { value: Layout; onChange: (next: Layout) => void }) {
-  const options: { layout: Layout; label: string; icon: typeof List }[] = [
-    { layout: 'list', label: 'List view', icon: List },
-    { layout: 'grid', label: 'Grid view', icon: LayoutGrid },
-  ]
-  return (
-    <div className="flex rounded-md border border-border/70 bg-muted/40 p-0.5" role="group" aria-label="Layout">
-      {options.map(({ layout, label, icon: Icon }) => (
-        <button
-          key={layout}
-          type="button"
-          onClick={() => onChange(layout)}
-          aria-pressed={value === layout}
-          aria-label={label}
-          title={label}
-          className={cn(
-            'flex h-7 w-7 items-center justify-center rounded transition-colors',
-            value === layout
-              ? 'bg-card text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <Icon className="h-3.5 w-3.5" />
-        </button>
-      ))}
-    </div>
-  )
-}

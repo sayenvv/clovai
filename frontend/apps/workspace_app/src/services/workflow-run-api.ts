@@ -6,6 +6,7 @@
  * for `submitPlanReview`), then one `result` ({text, outputs, template}) or one `error` ({status, detail}).
  */
 import { authorizedFetch } from '@/services/api-auth'
+import { fetchAssistant } from '@/services/assistant-api'
 import { errorMessage, orchestrationHeaders, readEventStream, type ExecutionLogEvent } from '@/services/orchestration-api'
 
 /**
@@ -67,34 +68,28 @@ const STEP_TITLES: Record<string, string> = {
   execute_engine: 'Running the agents',
 }
 
-/** The admin workflow with this purpose powers the workflow chat. */
-const ASSISTANT_PURPOSE = 'ai_assistant'
-
 let assistantWorkflowId: Promise<string> | null = null
 
 /**
- * The stored workflow the chat runs: `VITE_WORKFLOW_ASSISTANT_ID` when set, otherwise the
- * admin-made workflow whose purpose is `ai_assistant`.
+ * The workflow the chat assistant runs: the one an admin published with purpose `ai_assistant`
+ * (`VITE_WORKFLOW_ASSISTANT_ID` overrides it). Looked up once; `forgetAssistantWorkflow` re-reads it.
  */
 export function workflowAssistantId(): Promise<string> {
   const configured = (import.meta.env.VITE_WORKFLOW_ASSISTANT_ID as string | undefined)?.trim()
   if (configured) return Promise.resolve(configured)
-  assistantWorkflowId ??= findAssistantWorkflow().catch((error: unknown) => {
+  assistantWorkflowId ??= fetchAssistant().then((assistant) => {
+    if (!assistant) throw new Error('No workflow is published as the AI assistant yet. An admin can publish one from the canvas.')
+    return assistant.workflowId
+  })
+  assistantWorkflowId.catch(() => {
     assistantWorkflowId = null
-    throw error
   })
   return assistantWorkflowId
 }
 
-async function findAssistantWorkflow(): Promise<string> {
-  const response = await authorizedFetch('/api/v1/admin/definitions/workflows?workflowType=system_generated')
-  if (!response.ok) throw new Error(await errorMessage(response))
-  const workflows = (await response.json()) as Array<{ id: string; purpose?: string | null }>
-  const found = workflows.find((item) => item.purpose === ASSISTANT_PURPOSE)
-  if (!found) {
-    throw new Error(`No admin workflow has purpose "${ASSISTANT_PURPOSE}". Create one in the Admin center.`)
-  }
-  return found.id
+/** Read the published assistant again on the next chat request (after an admin publishes another). */
+export function forgetAssistantWorkflow(): void {
+  assistantWorkflowId = null
 }
 
 export async function runWorkflow(request: WorkflowRunRequest): Promise<WorkflowRunResult> {

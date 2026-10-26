@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getSession } from '@/services/project-auth-store'
+import { useSession } from '@/hooks/use-session'
 import {
   getPublishedDashboardStats,
   listPublishedInstances,
@@ -7,7 +7,8 @@ import {
 } from '@/services/published-instances-store'
 
 export function usePublishedInstances() {
-  const session = getSession()
+  // Re-renders when the session changes (sign-in, switching account, restored from the server)
+  const session = useSession()
   const [instances, setInstances] = useState<PublishedWorkflowInstance[]>(() =>
     listPublishedInstances(session?.accountId),
   )

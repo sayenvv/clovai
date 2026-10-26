@@ -1,3 +1,4 @@
+import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
 import type { ExecutionRecord } from '@/services/execution-history-store'
 import { isGraphWorkflow, isSwitchNode } from '@/components/agent-workflow/workflow-edge-groups'
 import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
@@ -103,6 +104,8 @@ interface GenerateChatOptions {
   replacesCanvas: boolean
   getCurrentWorkflow: () => CanvasPlan | null
   onGenerated: (plan: WorkflowGenerationPlan, base: CanvasPlan | null) => void
+  /** A complete workflow the assistant returned, placed on the canvas like File → Import. */
+  onImportWorkflow?: (imported: ImportedWorkflow) => void
   onClose: () => void
   /** Saved sessions, listed beside the chat when it is expanded. */
   chats?: {
@@ -512,6 +515,8 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 replacesCanvas={generate.replacesCanvas}
                 getCurrentWorkflow={generate.getCurrentWorkflow}
                 onGenerated={generate.onGenerated}
+                onImportWorkflow={generate.onImportWorkflow}
+                conversationId={generate.chats?.activeId}
               />
               </div>
             </div>

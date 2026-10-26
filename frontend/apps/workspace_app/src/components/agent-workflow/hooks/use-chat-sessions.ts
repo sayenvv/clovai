@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { GenerateChatMessage } from '@/components/agent-workflow/GenerateWorkflowChat'
+import { useSession } from '@/hooks/use-session'
 
 /** One Workflow AI conversation. */
 export interface ChatSession {
@@ -9,16 +10,23 @@ export interface ChatSession {
   updatedAt: number
 }
 
-const STORAGE_KEY = 'eleven-nodes.workflow-ai.chats'
+// Chats are kept per account: one browser can be used by several people
+const STORAGE_PREFIX = 'eleven-nodes.workflow-ai.chats'
+// The list from before chats were per account; nobody can tell whose it was, so it is removed
+const UNSCOPED_KEY = STORAGE_PREFIX
 const MAX_SESSIONS = 50
+
+const storageKey = (accountId: string | undefined) => (accountId ? `${STORAGE_PREFIX}:${accountId}` : null)
 
 function newSession(): ChatSession {
   return { id: `chat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, title: '', messages: [], updatedAt: Date.now() }
 }
 
-function load(): ChatSession[] {
+function load(key: string | null): ChatSession[] {
+  if (!key) return []
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
+    window.localStorage.removeItem(UNSCOPED_KEY)
+    const raw = window.localStorage.getItem(key)
     const parsed = raw ? (JSON.parse(raw) as ChatSession[]) : []
     return Array.isArray(parsed) ? parsed : []
   } catch {
@@ -32,23 +40,36 @@ function titleFor(messages: GenerateChatMessage[]): string {
   return first.length > 48 ? `${first.slice(0, 47)}…` : first
 }
 
-/** Workflow AI conversations, kept in this browser. The active one is always present. */
+/** The signed-in account's Workflow AI conversations, kept in this browser. The active one is always present. */
 export function useChatSessions() {
+  const key = storageKey(useSession()?.accountId)
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
-    const stored = load()
+    const stored = load(key)
     return stored.length > 0 ? stored : [newSession()]
   })
   const [activeId, setActiveId] = useState(() => sessions[0].id)
+  // Whose chats are on screen; a different account loads its own instead
+  const [loadedKey, setLoadedKey] = useState(key)
+
+  if (loadedKey !== key) {
+    const stored = load(key)
+    const next = stored.length > 0 ? stored : [newSession()]
+    setLoadedKey(key)
+    setSessions(next)
+    setActiveId(next[0].id)
+  }
 
   useEffect(() => {
+    // Only into the account the chats belong to (never while another account's are being loaded)
+    if (!key || loadedKey !== key) return
     try {
       // Empty chats aren't worth keeping.
       const kept = sessions.filter((session) => session.messages.length > 0).slice(0, MAX_SESSIONS)
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(kept))
+      window.localStorage.setItem(key, JSON.stringify(kept))
     } catch {
       // Storage full or blocked: the chats still live for this session.
     }
-  }, [sessions])
+  }, [sessions, key, loadedKey])
 
   const active = useMemo(
     () => sessions.find((session) => session.id === activeId) ?? sessions[0],

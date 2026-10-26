@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { contextProviderCounts, useContextProviders } from '@/components/agent-workflow/hooks/use-context-providers'
 import {
   childKindForPalette,
   isExternalAgentPalette,
@@ -699,6 +700,8 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   orchestration,
 }: AgentNodeCardProps) {
   const agent = node.agent
+  // Before any early return (hooks rule); one shared, cached request for the whole canvas
+  const { providers: offeredProviders } = useContextProviders()
   const toolNode = isToolNode(node)
   const executorNode = isExecutorNode(node)
   const externalAgent = resolveExternalAgent(node.paletteId)
@@ -755,8 +758,10 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   )
   const typeLabel = externalAgent?.provider ?? TYPE_LABELS[agent?.agentType ?? 'llm'] ?? 'Agent'
   const tools = mappedChildren.tool + mappedChildren.mcp
-  const memory = mappedChildren.memory
-  const knowledge = mappedChildren.skill + mappedChildren.integration
+  // Context providers picked in the agent's Memory tab fill their slot too, beside child nodes
+  const providerCounts = contextProviderCounts(agent?.contextProviderIds, offeredProviders)
+  const memory = mappedChildren.memory + providerCounts.memory
+  const knowledge = mappedChildren.skill + mappedChildren.integration + providerCounts.knowledge
 
   const slotConnected = (id: AgentDockSlot['id']) => {
     if (id === 'model') return configured

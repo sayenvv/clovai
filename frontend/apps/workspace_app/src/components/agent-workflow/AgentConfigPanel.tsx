@@ -23,6 +23,7 @@ import { cn } from '@/utils/cn'
 import { InstructionsEditorField } from '@/components/agent-workflow/InstructionsEditorField'
 import { HumanInTheLoopPanel } from '@/components/agent-workflow/HumanInTheLoopPanel'
 import { WorkflowBuilderSettings } from '@/components/agent-workflow/WorkflowBuilderSettings'
+import { ContextProviderPicker } from '@/components/agent-workflow/ContextProviderPicker'
 import { AgentModelConnections } from '@/components/agent-workflow/AgentModelConnections'
 import { useModelConnections } from '@/components/agent-workflow/hooks/use-model-connections'
 import type { ModelConnectionProvider } from '@/services/model-connections-api'
@@ -126,6 +127,12 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
           <TabsTrigger value="model" className="flex-1 text-xs">
             Model
           </TabsTrigger>
+          {/* A Magentic manager plans; context providers are for the agents doing the work */}
+          {pattern ? null : (
+            <TabsTrigger value="memory" className="flex-1 text-xs">
+              Memory
+            </TabsTrigger>
+          )}
           <TabsTrigger value="io" className="flex-1 text-xs">
             I/O
           </TabsTrigger>
@@ -211,6 +218,15 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
             />
           ) : null}
         </TabsContent>
+
+        {pattern ? null : (
+          <TabsContent value="memory" className="mt-3 flex-1 overflow-y-auto pb-4">
+            <ContextProviderPicker
+              value={agent.contextProviderIds ?? []}
+              onChange={(contextProviderIds) => updateAgent(onChange, node.id, { contextProviderIds })}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="model" className="mt-3 flex-1 overflow-y-auto space-y-4 pb-4">
           <AgentModelConnections

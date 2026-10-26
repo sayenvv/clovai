@@ -7,7 +7,7 @@
  *   PATCH  /api/v1/instances/{workspaceId} body { displayName }           → { instance }
  *   DELETE /api/v1/auth/me                 → 204 (the account, its workspace and saved data)
  *
- * Password changes use the existing POST /api/v1/auth/reset-password.
+ * Password changes use POST /api/v1/auth/change-password (the signed-in account's own password).
  */
 
 import { authorizedFetch } from '@/services/api-auth'

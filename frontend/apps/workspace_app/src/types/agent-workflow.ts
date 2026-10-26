@@ -54,6 +54,10 @@ export interface AgentNodeConfig {
   approvalMode?: ToolApprovalMode
   /** MCP tool nodes: server endpoint URL. */
   mcpUrl?: string
+  /** Function tool nodes: the backend function that runs it, as `package.module:function`. */
+  handler?: string
+  /** The admin-listed context providers (memory, knowledge) this agent uses. */
+  contextProviderIds?: string[]
   /** Eleven Nodes executor: stable id used in workflow build exports (defaults from node id). */
   executorId?: string
   /** Class-based executor subclass or @executor function. */

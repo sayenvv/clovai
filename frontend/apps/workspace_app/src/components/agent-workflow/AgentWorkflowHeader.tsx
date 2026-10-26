@@ -1,8 +1,16 @@
 import { memo, useMemo } from 'react'
-import { Link2, Rocket, Save, Sparkles } from 'lucide-react'
+import { Bot, Link2, Rocket, Save, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import type { WorkflowPurpose } from '@/services/assistant-api'
 import { Logo, LOGO_SIZE_WORKSPACE } from '@/components/shared/Logo'
 import type { DeploymentStatus } from '@/types/agent-workflow'
 import { APP_NAME } from '@/constants'
@@ -30,6 +38,8 @@ interface AgentWorkflowHeaderProps {
   onViewChange?: (view: EditorView) => void
   /** Header tabs from `designer.views` in mega-menu.json; falls back to all four. */
   viewTabs?: Array<{ id: EditorView; label: string; isVisible: boolean; order: number }>
+  /** Admins only: what this workflow is for. `ai_assistant` makes it everyone's chat assistant. */
+  purpose?: { value: WorkflowPurpose; onChange: (purpose: WorkflowPurpose) => void; busy?: boolean }
 }
 
 export type EditorView = 'editor' | 'code' | 'executions' | 'configuration'
@@ -62,6 +72,7 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
   view,
   onViewChange,
   viewTabs,
+  purpose,
 }: AgentWorkflowHeaderProps) {
   const isDeployed = status === 'deployed'
 
@@ -119,6 +130,39 @@ export const AgentWorkflowHeader = memo(function AgentWorkflowHeader({
               {ASK_AI_SHORTCUT_LABEL}
             </kbd>
           </button>
+        ) : null}
+        {purpose ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild disabled={purpose.busy}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn('h-8 px-2 xl:px-3', purpose.value === 'ai_assistant' && 'text-emerald-700 dark:text-emerald-300')}
+                aria-label="Workflow purpose"
+              >
+                <Bot className="h-3.5 w-3.5" />
+                <span className="hidden xl:inline">{purpose.value === 'ai_assistant' ? 'AI assistant' : 'Purpose'}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">Purpose</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={purpose.value === 'user_build'}
+                onCheckedChange={() => purpose.onChange('user_build')}
+              >
+                My workflow
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={purpose.value === 'ai_assistant'}
+                onCheckedChange={() => purpose.onChange('ai_assistant')}
+              >
+                <span className="flex flex-col">
+                  <span>AI assistant</span>
+                  <span className="text-[11px] text-muted-foreground">Everyone's chat runs it; your saves update it</span>
+                </span>
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
         {onShare ? (
           <Button variant="ghost" size="sm" onClick={onShare} className="h-8 px-2 xl:px-3" aria-label="Share">

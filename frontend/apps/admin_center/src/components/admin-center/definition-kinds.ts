@@ -29,24 +29,50 @@ export const DEFINITION_KINDS: Record<DefinitionKind, DefinitionKindConfig> = {
     description: 'Admin-made workflow definitions.',
     onlyType: 'system_generated',
     stats: (definition) => {
+      // schemaVersion 3.0 (the workspace Code tab): meta.orchestrationPattern and a section named after it
+      const meta = (definition.meta ?? {}) as Record<string, unknown>
       const orchestration = (definition.orchestration ?? {}) as Record<string, unknown>
-      const pattern = text(orchestration.pattern)
-      const config = (orchestration[pattern] ?? {}) as Record<string, unknown>
+      const pattern = text(meta.orchestrationPattern ?? orchestration.pattern)
+      const section = (definition[pattern] ?? orchestration[pattern] ?? {}) as Record<string, unknown>
+      const config = (section.config ?? section) as Record<string, unknown>
       return [
         { label: 'Pattern', value: pattern },
-        { label: 'Participants', value: count(config.participants) },
-        { label: 'Max rounds', value: text(config.maxRoundCount) },
+        { label: 'Agents', value: count(definition.agents ?? config.participants) },
+        { label: 'Tools', value: count(definition.tools) },
       ]
     },
+    // A schemaVersion 3.0 workflow, as the workspace Code tab writes it; "Open in canvas" opens it there.
     template: {
-      schemaVersion: '1.0',
-      name: 'New workflow',
-      description: '',
-      orchestration: {
-        pattern: 'magentic',
-        magentic: { managerAgentId: '', participants: [], intermediateOutputFrom: [] },
-        checkpointing: { enabled: false, storage: 'in_memory', path: null },
-        streaming: true,
+      meta: {
+        schemaVersion: '3.0',
+        workflowId: '',
+        workflowName: 'New workflow',
+        orchestrationPattern: 'magentic',
+        status: 'draft',
+        description: '',
+      },
+      modelConfig: { provider: 'openai', model: '' },
+      agents: [],
+      tools: [],
+      magentic: {
+        builder: 'MagenticBuilder',
+        managerAgentId: '',
+        config: { participants: [], manager_agent: '' },
+        connections: [],
+      },
+      settings: {},
+      canvas: {
+        activePageId: 'page-1',
+        pages: [
+          {
+            id: 'page-1',
+            name: 'New workflow',
+            diagram: {
+              nodes: [{ id: 'start', paletteId: 'aw-start', label: 'Start', x: 0, y: 0, width: 64, height: 64, shape: 'terminator' }],
+              edges: [],
+            },
+          },
+        ],
       },
     },
   },

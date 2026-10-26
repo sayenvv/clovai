@@ -32,6 +32,8 @@ export interface ProjectAccount {
   email: string
   passwordHash: string
   createdAt: string
+  /** What the account may do: "admin" publishes shared workflows (from the API's accessRole). */
+  accessRole?: string
   /** Present once the user has created a workspace instance. */
   instance: ProjectInstance | null
   /** @deprecated legacy flat fields — migrated on read */
@@ -49,6 +51,8 @@ export interface ProjectSession {
   workspaceId: string
   displayName: string
   accountType: ProjectAccountType
+  /** "admin" for accounts that manage shared workflows; absent or "user" otherwise. */
+  accessRole?: 'admin' | 'user'
 }
 
 export interface CreateAccountInput {
@@ -240,8 +244,54 @@ export function getSession(): ProjectSession | null {
   } catch {
     // Fall through to the local test session.
   }
-  if (import.meta.env.DEV) return DEV_TEST_SESSION
+  // Opt-in only: a built-in test user would otherwise stand in for "no session", so signing out
+  // (or opening a new tab) silently showed you as signed in as someone else
+  if (import.meta.env.DEV && import.meta.env.VITE_DEV_TEST_SESSION === 'true') return DEV_TEST_SESSION
   return null
+}
+
+let restoring: Promise<void> | null = null
+
+/**
+ * Make the session the account the sign-in tokens belong to (`/auth/me`). The session is kept per
+ * browser tab while the tokens are shared, so a new tab (or one opened from the Admin Center) would
+ * otherwise show no account, or the local test one. Without valid tokens nothing changes.
+ */
+export function restoreSessionFromServer(): Promise<void> {
+  restoring ??= (async () => {
+    try {
+      const response = await authorizedFetch('/api/v1/auth/me')
+      if (response.status === 401) {
+        // The tokens are gone or no longer valid (e.g. signed out in another tab): so is this session
+        if (getSession()) logout()
+        return
+      }
+      if (!response.ok) return
+      const body = (await response.json()) as { account?: ProjectAccount }
+      const session = body.account ? toSession(body.account) : null
+      const current = getSession()
+      // The tokens belong to another account that has no workspace yet: this tab must not keep
+      // showing the previous account, so it signs out (onboarding then picks up the new one)
+      if (!session && body.account && current && current.accountId !== body.account.id) {
+        clearSession() // only this tab's stale session: the tokens are the other account's, keep them
+        return
+      }
+      if (
+        session &&
+        (current?.accountId !== session.accountId ||
+          current?.fullName !== session.fullName ||
+          current?.workspaceId !== session.workspaceId ||
+          current?.accessRole !== session.accessRole)
+      ) {
+        setSession(session)
+      }
+    } catch {
+      // Offline or no API: keep whatever session there is
+    } finally {
+      restoring = null
+    }
+  })()
+  return restoring
 }
 
 export function setSession(session: ProjectSession): void {
@@ -251,6 +301,11 @@ export function setSession(session: ProjectSession): void {
 
 export function logout(): void {
   clearAuthTokens()
+  clearSession()
+}
+
+/** Forget this tab's session without signing out (the shared tokens stay). */
+export function clearSession(): void {
   try {
     sessionStorage.removeItem(STORAGE_KEYS.projectSession)
   } catch {
@@ -269,6 +324,7 @@ function toSession(account: ProjectAccount): ProjectSession | null {
     workspaceId: account.instance.workspaceId,
     displayName: account.instance.displayName,
     accountType: account.instance.accountType,
+    accessRole: account.accessRole === 'admin' ? 'admin' : 'user',
   }
 }
 
@@ -317,20 +373,16 @@ export async function loginWithGoogle(
 }
 
 /** Updates the password on the Eleven Nodes API. */
-export async function resetAccountPassword(
-  emailRaw: string,
+/** Change the signed-in account's own password. `currentPassword` may be empty only for a Google account that never had one. */
+export async function changeAccountPassword(
+  currentPassword: string,
   newPassword: string,
   confirmPassword: string,
 ): Promise<{ ok: true } | { error: string }> {
-  const email = normalizeEmail(emailRaw)
-  if (!email || !email.includes('@')) return { error: 'Enter a valid email address.' }
   if (newPassword.length < 8) return { error: 'Password must be at least 8 characters.' }
   if (newPassword !== confirmPassword) return { error: 'Passwords do not match.' }
 
-  const result = await authRequest('/api/v1/auth/reset-password', {
-    email,
-    password: newPassword,
-  })
+  const result = await authRequest('/api/v1/auth/change-password', { currentPassword, newPassword })
   if ('error' in result) return result
   return { ok: true }
 }

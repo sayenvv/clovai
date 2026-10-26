@@ -1,6 +1,7 @@
 /**
  * Tools in the exported JSON, in the Agent Framework function-tool shape:
- * `{ type, name, description, input_schema, approval_mode }`. Agents point at their tools by name.
+ * `{ type, name, description, input_schema, approval_mode }`, plus the `handler` that runs a function
+ * tool. Agents point at their tools by name.
  */
 
 import { normalizeApprovalMode } from '@/types/agent-workflow'
@@ -39,13 +40,18 @@ export function withMafTools<Spec extends Pick<WorkflowBuildSpec, 'tools' | 'age
     for (let index = 2; used.has(name); index += 1) name = `${toolFunctionName(tool.displayName || tool.name, tool.id)}_${index}`
     used.add(name)
     nameById.set(tool.id, name)
-    const configuration = tool.configuration as { approvalMode?: string; url?: string }
+    const configuration = tool.configuration as { approvalMode?: string; url?: string; handler?: string }
     const isMcp = tool.toolType === 'mcp'
     return {
       type: isMcp ? 'mcp' : 'function',
       name,
       description: tool.description,
-      ...(isMcp ? { url: configuration.url ?? null } : { input_schema: parseSchema(tool.inputSchema) }),
+      ...(isMcp
+        ? { url: configuration.url ?? null }
+        : {
+            input_schema: parseSchema(tool.inputSchema),
+            ...(configuration.handler ? { handler: configuration.handler } : {}),
+          }),
       approval_mode: normalizeApprovalMode(configuration.approvalMode),
     }
   })

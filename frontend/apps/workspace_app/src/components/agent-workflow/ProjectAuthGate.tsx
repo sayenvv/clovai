@@ -26,7 +26,6 @@ import {
   enterInstance,
   loginAccount,
   loginWithGoogle,
-  resetAccountPassword,
   PROJECT_ROLES,
   type ProjectAccount,
   type ProjectAccountType,
@@ -479,27 +478,7 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
     }
   }
 
-  async function finishResetPassword() {
-    setPending(true)
-    resetErrors()
-    try {
-      const result = await resetAccountPassword(email, password, confirmPassword)
-      if ('error' in result) {
-        setError(result.error)
-        return
-      }
-      setPassword('')
-      setConfirmPassword('')
-      setStep(0)
-      setError(null)
-      setNotice('Password updated. Sign in with your new password.')
-      setFlow('login')
-    } catch {
-      setError('Could not update password. Try again.')
-    } finally {
-      setPending(false)
-    }
-  }
+
 
   function openInstance() {
     if (!account) return
@@ -666,64 +645,26 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
       <WizardShell
         panelKey="reset-password"
         title="Reset password"
-        subtitle="Set a new password for your account on this device, then sign in."
+        subtitle="Forgot your password?"
       >
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="reset-email" className="text-[12px] font-medium text-white/70">
-              Email
-            </Label>
-            <DarkInput
-              id="reset-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@company.com"
-              autoComplete="email"
-              autoFocus
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="reset-password" className="text-[12px] font-medium text-white/70">
-              New password
-            </Label>
-            <DarkInput
-              id="reset-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              autoComplete="new-password"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="reset-confirm" className="text-[12px] font-medium text-white/70">
-              Confirm password
-            </Label>
-            <DarkInput
-              id="reset-confirm"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Re-enter new password"
-              autoComplete="new-password"
-            />
-          </div>
-          <FieldError message={error} />
+          <p className="text-[13px] leading-relaxed text-white/70">
+            Password reset by email isn&apos;t available yet. Ask an admin to reset your password, or sign in with
+            Google if your account uses it. Once you&apos;re signed in you can change your password from Account →
+            Security.
+          </p>
           <FooterActions
             onBack={() => {
               setFlow('login')
-              setPassword('')
-              setConfirmPassword('')
               resetErrors()
             }}
-            primaryLabel="Update password"
-            pending={pending}
-            onPrimary={() => void finishResetPassword()}
+            primaryLabel="Back to sign in"
+            pending={false}
+            onPrimary={() => {
+              setFlow('login')
+              resetErrors()
+            }}
           />
-          <p className="mt-4 text-center text-[12px] leading-relaxed text-white/40">
-            This updates the password stored in this browser only. No email is sent.
-          </p>
         </div>
       </WizardShell>
     )
