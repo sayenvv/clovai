@@ -35,6 +35,7 @@ import { DesignerCanvas } from '@/components/designer/DesignerCanvas'
 import { computeCenteredViewport, zoomViewportAt } from '@/components/designer/viewport-utils'
 import { listAgentNodes } from '@/components/agent-workflow/tool-agent-mapping'
 import { isFlowBoundaryNode, isStartFlowNode } from '@/components/agent-workflow/workflow-flow-nodes'
+import { CanvasMinimap } from '@/components/agent-workflow/CanvasMinimap'
 import { START_GAP, startNodeSize } from '@/components/agent-workflow/workflow-start-node'
 import { MODEL_PROVIDER_DND_MIME, type ModelProviderId } from '@/components/agent-workflow/model-providers'
 import {
@@ -59,6 +60,11 @@ import { cn } from '@/utils/cn'
 
 /** Workflows open at 90%; large ones zoom out further to fit. */
 const DEFAULT_ZOOM = 0.9
+/** The canvas element matching `selector`, skipping the map's small copy of the workflow. */
+function findOnCanvas(area: HTMLElement, selector: string): Element | null {
+  return Array.from(area.querySelectorAll(selector)).find((element) => !element.closest('[data-canvas-minimap]')) ?? null
+}
+
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, scale: DEFAULT_ZOOM }
 
 export interface AgentWorkflowCanvasHandle {
@@ -315,7 +321,7 @@ export const AgentWorkflowCanvas = memo(
         focusTarget.kind === 'node'
           ? `[data-node-id="${CSS.escape(focusTarget.id)}"]`
           : `[data-edge-id="${CSS.escape(focusTarget.id)}"]`
-      const element = area.querySelector(selector)
+      const element = findOnCanvas(area, selector)
       if (!element) return null
       const areaRect = area.getBoundingClientRect()
       const rect = element.getBoundingClientRect()
@@ -465,7 +471,7 @@ export const AgentWorkflowCanvas = memo(
       const area = canvasAreaRef.current
       const element =
         isEmptyWorkflow && startNodeId && area
-          ? area.querySelector(`[data-node-id="${CSS.escape(startNodeId)}"]`)
+          ? findOnCanvas(area, `[data-node-id="${CSS.escape(startNodeId)}"]`)
           : null
       if (!area || !element) {
         setStartAnchor(null)
@@ -578,6 +584,20 @@ export const AgentWorkflowCanvas = memo(
               onBrowseTemplates={onBrowseTemplates}
               onAskAi={onAskAi}
             />
+          )}
+
+          {/* Map: a top view of the whole workflow in the bottom-right corner, left of the zoom
+              buttons when they show; click or drag to move the view. */}
+          {!isEmptyWorkflow && areaSize.width >= 640 && (
+            <div className={cn('absolute bottom-4 z-20', hideControls ? 'right-4' : 'right-[4.25rem]')}>
+              <CanvasMinimap
+                diagram={diagram}
+                paletteById={paletteById}
+                viewport={viewport}
+                areaSize={areaSize}
+                onViewportChange={handleViewportChange}
+              />
+            </div>
           )}
 
           {/* Bottom row: view controls on the left, the run button centred (pushed right when the
