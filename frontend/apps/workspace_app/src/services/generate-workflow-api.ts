@@ -134,7 +134,12 @@ export async function generateWorkflowFromPrompt(
       // Not a canvas we can draw: the reply still says what was built
     }
   }
-  const meta = { model: modelLabel(request.model), origin: 'workflow-assistant', summary: answer.summary }
+  const meta = {
+    model: modelLabel(request.model),
+    origin: 'workflow-assistant',
+    summary: answer.summary,
+    tokens: outcome.usage?.totalTokens || undefined,
+  }
   if (answer.imported) return { plan: null, imported: answer.imported, mode: request.workflowContextId ? 'update' : 'create', ...meta }
   if (!answer.summary) throw new Error('The workflow assistant finished without an answer.')
   return { plan: null, reply: answer.summary, mode: 'answer', ...meta }

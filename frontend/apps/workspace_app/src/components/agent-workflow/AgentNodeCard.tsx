@@ -223,11 +223,13 @@ function OrchestrationBadge({ orchestration }: { orchestration: NodeOrchestratio
 }
 
 /** The agent's icon: a provider avatar for external agents, otherwise a neutral tile; with a status dot. */
-function AgentIcon({ paletteId, status }: { paletteId: string; status: NodeStatus }) {
+function AgentIcon({ paletteId, logo, status }: { paletteId: string; logo?: string; status: NodeStatus }) {
   return (
     <span className="relative flex shrink-0" aria-hidden>
       {isExternalAgentPalette(paletteId) ? (
         <AgentNodeAvatar paletteId={paletteId} size="md" />
+      ) : logo ? (
+        <img src={logo} alt="" draggable={false} className="size-9 shrink-0 rounded-[2px] object-contain" />
       ) : (
         <span className={cn(NODE_ICON_TILE, 'size-9')}>
           <Bot className="size-[18px] stroke-[1.75]" />
@@ -238,78 +240,18 @@ function AgentIcon({ paletteId, status }: { paletteId: string; status: NodeStatu
   )
 }
 
-/**
- * The agent's model slot, on the left of the card: the model client's logo once one is chosen
- * (with a small agent badge), otherwise a dashed "+" to add one. Clicking it opens the model
- * clients for this agent.
- */
-function ModelSlot({
-  nodeId,
-  provider,
-  onAttachAction,
-}: {
-  nodeId: string
-  provider: ModelProvider | undefined
-  onAttachAction?: (agentId: string, action: AgentAttachAction) => void
-}) {
-  const label = provider ? `Model client: ${provider.label} (change)` : 'Add a model client'
-  const tile = provider ? (
-    <span className="relative flex size-9 items-center justify-center">
-      <ModelProviderLogo provider={provider} className="size-9" />
-      <span
-        className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-card text-foreground/70 ring-1 ring-border"
-        aria-hidden
-      >
-        <Bot className="size-2.5" />
-      </span>
-    </span>
-  ) : (
-    <span
-      className={cn(
-        'flex size-9 items-center justify-center rounded-[10px] border-[1.5px] border-dashed transition-colors',
-        'border-amber-500/60 text-amber-600 dark:text-amber-400',
-        onAttachAction && 'group-hover/model:border-amber-500 group-hover/model:bg-amber-500/10',
-      )}
-    >
-      <Plus className="size-4" />
-    </span>
-  )
-  if (!onAttachAction) {
-    return (
-      <span className="flex shrink-0" title={label} aria-label={label}>
-        {tile}
-      </span>
-    )
-  }
-  return (
-    <button
-      type="button"
-      className="group/model flex shrink-0 rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      title={label}
-      aria-label={label}
-      onPointerDown={stopCanvas}
-      onClick={(event) => {
-        stopCanvas(event)
-        onAttachAction(nodeId, 'model')
-      }}
-    >
-      {tile}
-    </button>
-  )
-}
-
 /** "Specialist · gpt-4.1", or the type and a "Needs model" warning. */
 /** The agent's model as a chip (green dot when set, amber prompt when not), then its type. */
 function AgentSubtitle({ type, model }: { type: string; model?: string }) {
   return (
     <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
       {model ? (
-        <span className="inline-flex min-w-0 items-center gap-1 rounded-md bg-muted px-1.5 py-[3px] font-mono text-[10px] leading-none text-foreground/75 ring-1 ring-inset ring-border/60">
+        <span className="inline-flex min-w-0 items-center gap-1 rounded-[2px] bg-muted px-1.5 py-[3px] font-mono text-[10px] leading-none text-foreground/75 ring-1 ring-inset ring-border/60">
           <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
           <span className="truncate">{model}</span>
         </span>
       ) : (
-        <span className="inline-flex shrink-0 items-center rounded-md bg-amber-500/10 px-1.5 py-[3px] text-[10px] font-medium leading-none text-amber-700 ring-1 ring-inset ring-amber-500/25 dark:text-amber-300">
+        <span className="inline-flex shrink-0 items-center rounded-[2px] bg-amber-500/10 px-1.5 py-[3px] text-[10px] font-medium leading-none text-amber-700 ring-1 ring-inset ring-amber-500/25 dark:text-amber-300">
           Choose a model
         </span>
       )}
@@ -353,7 +295,7 @@ function VerticalFlowCard({
 }) {
   return (
     <div className={cn('agent-wf-node group relative h-full w-full', className)}>
-      <div className={cardClasses(isSelected, 'flex h-full w-full flex-col rounded-[14px]')}>
+      <div className={cardClasses(isSelected, 'flex h-full w-full flex-col rounded-[3px]')}>
         <span
           aria-hidden
           className={cn(
@@ -389,7 +331,7 @@ function VerticalFlowCard({
                   type="button"
                   disabled={!onAttachAction}
                   className={cn(
-                    'flex min-w-0 items-center justify-center gap-1 rounded-md px-1',
+                    'flex min-w-0 items-center justify-center gap-1 rounded-[2px] px-1',
                     'text-[10px] font-medium leading-none transition-colors duration-150',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     connected
@@ -426,43 +368,43 @@ function VerticalFlowCard({
   )
 }
 
-/** Accent per orchestration pattern: frame gradient, icon tile and label tint. */
+/** Accent per orchestration pattern: header tint, icon tile and label tint. */
 const PATTERN_ACCENTS: Record<
   OrchestrationPattern,
   { header: string; frame: string; tile: string; text: string; icon: LucideIcon }
 > = {
   sequential: {
-    header: 'bg-gradient-to-r from-emerald-500/[0.12] to-teal-500/[0.04]',
+    header: 'bg-emerald-500/[0.08]',
     frame: 'from-emerald-500 via-teal-500 to-cyan-500',
-    tile: 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white',
+    tile: 'bg-emerald-500 text-white',
     text: 'text-emerald-700 dark:text-emerald-300',
     icon: ListOrdered,
   },
   concurrent: {
-    header: 'bg-gradient-to-r from-indigo-500/[0.12] to-blue-500/[0.04]',
+    header: 'bg-indigo-500/[0.08]',
     frame: 'from-indigo-500 via-blue-500 to-sky-500',
-    tile: 'bg-gradient-to-br from-indigo-500 to-blue-500 text-white',
+    tile: 'bg-indigo-500 text-white',
     text: 'text-indigo-600 dark:text-indigo-300',
     icon: GitFork,
   },
   magentic: {
-    header: 'bg-gradient-to-r from-violet-500/[0.12] to-indigo-500/[0.04]',
+    header: 'bg-violet-500/[0.08]',
     frame: 'from-violet-500 via-fuchsia-500 to-indigo-500',
-    tile: 'bg-gradient-to-br from-violet-500 to-indigo-500 text-white',
+    tile: 'bg-violet-500 text-white',
     text: 'text-violet-600 dark:text-violet-300',
     icon: Network,
   },
   'group-chat': {
-    header: 'bg-gradient-to-r from-sky-500/[0.12] to-teal-500/[0.04]',
+    header: 'bg-sky-500/[0.08]',
     frame: 'from-sky-500 via-cyan-500 to-teal-500',
-    tile: 'bg-gradient-to-br from-sky-500 to-teal-500 text-white',
+    tile: 'bg-sky-500 text-white',
     text: 'text-sky-600 dark:text-sky-300',
     icon: MessagesSquare,
   },
   handoff: {
-    header: 'bg-gradient-to-r from-amber-500/[0.14] to-rose-500/[0.04]',
+    header: 'bg-amber-500/[0.08]',
     frame: 'from-amber-500 via-orange-500 to-rose-500',
-    tile: 'bg-gradient-to-br from-amber-500 to-rose-500 text-white',
+    tile: 'bg-amber-500 text-white',
     text: 'text-amber-700 dark:text-amber-300',
     icon: Split,
   },
@@ -503,22 +445,22 @@ function OrchestratorCard({
       {/* The deck: two cards fanned out behind, marking this as a group. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-4 -bottom-2 top-2 rounded-2xl border border-[hsl(var(--node-border))] bg-[hsl(var(--node))] opacity-60"
+        className="pointer-events-none absolute inset-x-4 -bottom-2 top-2 rounded-[3px] border border-[hsl(var(--node-border))] bg-[hsl(var(--node))] opacity-60"
       />
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-x-2 -bottom-1 top-1 rounded-2xl border border-[hsl(var(--node-border))] bg-[hsl(var(--node))] opacity-80"
+        className="pointer-events-none absolute inset-x-2 -bottom-1 top-1 rounded-[3px] border border-[hsl(var(--node-border))] bg-[hsl(var(--node))] opacity-80"
       />
       <div
         className={cn(
-          'relative flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-[hsl(var(--node))] transition-shadow duration-200',
+          'relative flex h-full w-full flex-col overflow-hidden rounded-[3px] border bg-[hsl(var(--node))] transition-shadow duration-200',
           isSelected
-            ? 'border-[hsl(var(--node-selected-border))] shadow-[0_0_0_4px_hsl(var(--foreground)/0.06),0_12px_28px_-14px_rgba(0,0,0,0.4)]'
-            : 'border-[hsl(var(--node-border))] shadow-[0_8px_22px_-14px_rgba(0,0,0,0.35)] group-hover:shadow-[0_12px_28px_-14px_rgba(0,0,0,0.45)]',
+            ? 'border-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.15)]'
+            : 'border-[hsl(var(--node-border))] shadow-[0_1px_2px_rgba(0,0,0,0.04)] group-hover:border-foreground/20',
         )}
       >
         <div className={cn('flex h-8 shrink-0 items-center gap-2 px-3', accent.header)}>
-          <span className={cn('flex size-5 items-center justify-center rounded-md shadow-sm', accent.tile)}>
+          <span className={cn('flex size-5 items-center justify-center rounded-[2px] shadow-sm', accent.tile)}>
             <PatternIcon className="size-3" />
           </span>
           <span className={cn('text-[10px] font-bold uppercase tracking-[0.1em]', accent.text)}>
@@ -567,7 +509,7 @@ function ReviewCard({ title, isSelected, className }: { title: string; isSelecte
     <div className={cn('agent-wf-node group relative h-full w-full', className)}>
       <div
         className={cn(
-          'flex h-full w-full items-center gap-2.5 rounded-[14px] border-[1.5px] border-dashed px-3 transition-colors duration-150',
+          'flex h-full w-full items-center gap-2.5 rounded-[3px] border-[1.5px] border-dashed px-3 transition-colors duration-150',
           'border-amber-500/60 bg-amber-50/80 dark:bg-amber-500/[0.07]',
           isSelected ? 'border-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.15)]' : 'hover:border-amber-500/80',
         )}
@@ -592,10 +534,10 @@ function ExecutorCard({ title, isSelected, className }: { title: string; isSelec
     <div className={cn('agent-wf-node group relative h-full w-full', className)}>
       <div
         className={cn(
-          'flex h-full w-full flex-col overflow-hidden rounded-[12px] border bg-zinc-950 text-zinc-100 transition-shadow duration-150',
+          'flex h-full w-full flex-col overflow-hidden rounded-[3px] border bg-zinc-950 text-zinc-100 transition-shadow duration-150',
           isSelected
             ? 'border-zinc-500 shadow-[0_0_0_4px_rgba(113,113,122,0.25)]'
-            : 'border-zinc-800 shadow-[0_6px_16px_-10px_rgba(0,0,0,0.6)]',
+            : 'border-zinc-800 shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
         )}
       >
         <div className="flex h-4 shrink-0 items-center gap-1 bg-zinc-900 px-2" aria-hidden>
@@ -636,11 +578,11 @@ function ChildCard({
     <div
       className={cn(
         'flex h-full w-full items-center border bg-[hsl(var(--node))] transition-[border-color,box-shadow] duration-150',
-        'gap-2 rounded-full pl-1 pr-3',
+        'gap-2 rounded-[3px] pl-1 pr-3',
         kindStyle.pill,
         isSelected
-          ? 'shadow-[0_0_0_3px_hsl(var(--foreground)/0.08)]'
-          : 'shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:shadow-[0_4px_10px_-4px_rgba(16,24,40,0.15)]',
+          ? 'border-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.15)]'
+          : 'shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:border-foreground/20',
         className,
       )}
       title={`${kindStyle.label} · ${tooltip}`}
@@ -735,7 +677,7 @@ export const AgentNodeCard = memo(function AgentNodeCard({
           isSelected={isSelected}
           className={className}
           icon={
-            <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[10px] ring-1 ring-inset', kindStyle.tile)}>
+            <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[2px] ring-1 ring-inset', kindStyle.tile)}>
               <KindIcon className="size-[18px] stroke-[1.75]" />
             </span>
           }
@@ -750,12 +692,9 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   const configured = Boolean(model)
   const status: NodeStatus = configured ? 'ready' : 'attention'
   const provider = resolveModelProvider(agent)
-  // Built-in agents show their model client on the left; external agents keep their avatar.
-  const leadingIcon = externalAgent ? (
-    <AgentIcon paletteId={node.paletteId} status={status} />
-  ) : (
-    <ModelSlot nodeId={node.id} provider={provider} onAttachAction={onAttachAction} />
-  )
+  // The agent's own logo on the left (the vendor's for external agents); the model client's
+  // logo sits in the Model dock under the card.
+  const leadingIcon = <AgentIcon paletteId={node.paletteId} logo={agent?.logo} status={status} />
   const typeLabel = externalAgent?.provider ?? TYPE_LABELS[agent?.agentType ?? 'llm'] ?? 'Agent'
   const tools = mappedChildren.tool + mappedChildren.mcp
   // Context providers picked in the agent's Memory tab fill their slot too, beside child nodes
@@ -821,7 +760,7 @@ export const AgentNodeCard = memo(function AgentNodeCard({
 
   return (
     <div className={cn('agent-wf-node group relative h-full w-full overflow-visible', className)}>
-      <div className={cardClasses(isSelected, 'flex h-full w-full items-center gap-3 rounded-[14px] pl-4 pr-3')}>
+      <div className={cardClasses(isSelected, 'flex h-full w-full items-center gap-3 rounded-[3px] pl-4 pr-3')}>
         {/* The agent rail: marks the card as an agent, apart from workflow decks and tool pills. */}
         <span
           aria-hidden
@@ -851,6 +790,8 @@ export const AgentNodeCard = memo(function AgentNodeCard({
           const missing = !connected && slot.required
           const Icon = CAPABILITY_ICONS[slot.id]
           const offerMore = Boolean(onAttachAction) && connected && takesMore(slot)
+          // The model dock shows the chosen client's logo instead of the generic icon
+          const dockLogo = slot.id === 'model' && connected && provider ? provider : undefined
           return (
             <div
               key={slot.id}
@@ -879,7 +820,9 @@ export const AgentNodeCard = memo(function AgentNodeCard({
                   'pointer-events-auto relative flex size-5 items-center justify-center rounded-full',
                   'transition-[background-color,border-color,color,opacity] duration-150',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  connected
+                  dockLogo
+                    ? 'overflow-hidden bg-card ring-1 ring-border'
+                    : connected
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : missing
                       ? 'border border-dashed border-amber-500/80 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
@@ -890,7 +833,9 @@ export const AgentNodeCard = memo(function AgentNodeCard({
                   !onAttachAction && 'cursor-default',
                 )}
               >
-                {connected ? (
+                {dockLogo ? (
+                  <ModelProviderLogo provider={dockLogo} className="size-full rounded-full" />
+                ) : connected ? (
                   <Icon className="size-2.5" />
                 ) : (
                   <Plus className="size-2.5" strokeWidth={2.5} />

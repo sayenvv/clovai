@@ -22,8 +22,8 @@ export const SubWorkflowConfigPanel = memo(function SubWorkflowConfigPanel({
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-4">
-      <div className="mb-4 flex items-start gap-3 rounded-xl border border-foreground/25 bg-foreground/5 p-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground/15 text-foreground dark:text-foreground">
+      <div className="mb-4 flex items-start gap-3 rounded-[3px] border border-foreground/25 bg-foreground/5 p-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px] bg-foreground/15 text-foreground dark:text-foreground">
           <GitBranch className="h-4 w-4" />
         </div>
         <div className="min-w-0">

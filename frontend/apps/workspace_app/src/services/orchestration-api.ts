@@ -1,5 +1,6 @@
 import { authorizedFetch } from '@/services/api-auth'
 import { getSession } from '@/services/project-auth-store'
+import { addTokenUsage, writeTokenUsage, type TokenUsageSnapshot } from '@/services/token-usage-store'
 
 export interface OrchestrationIdentity {
   /** The tab's own workflow id (a UUID): the saved row's key. */
@@ -151,6 +152,14 @@ export interface OrchestrationOutcome {
   error?: string
   /** Results tools handed over directly, by kind (e.g. `workflow`: the workflow JSON a run built). */
   artifacts?: Record<string, unknown>
+  /** The tokens this run used, summed from its `usage` events (the server charges them once, at the end). */
+  usage?: RunTokenUsage
+}
+
+export interface RunTokenUsage {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
 }
 
 export async function executeOrchestration(input: {
@@ -191,7 +200,23 @@ export async function executeOrchestration(input: {
   // The workflow's own result (an "output" event, e.g. the Magentic final answer), when it sends one
   let workflowOutput = ''
   const artifacts: Record<string, unknown> = {}
+  const usage: RunTokenUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
   await readEventStream(response, (eventName, payload) => {
+    // One model call's tokens: added to this answer and to the allowance shown, ahead of the total
+    if (eventName === 'usage') {
+      const call = payload as Partial<RunTokenUsage>
+      usage.inputTokens += Number(call.inputTokens) || 0
+      usage.outputTokens += Number(call.outputTokens) || 0
+      usage.totalTokens += Number(call.totalTokens) || 0
+      addTokenUsage(Number(call.totalTokens) || 0)
+      return
+    }
+    // The run is over and charged: the server's allowance replaces the running estimate
+    if (eventName === 'usage_total') {
+      const subscription = payload.subscription as TokenUsageSnapshot | null | undefined
+      if (subscription) writeTokenUsage(subscription)
+      return
+    }
     if (eventName === 'trace') {
       if (typeof payload.trace_id === 'string') input.onTrace?.(payload.trace_id)
       return
@@ -224,7 +249,7 @@ export async function executeOrchestration(input: {
     })
   }
   const output = workflowOutput || finalOutput
-  const extra = Object.keys(artifacts).length > 0 ? { artifacts } : {}
+  const extra = { ...(Object.keys(artifacts).length > 0 ? { artifacts } : {}), usage }
   return failed ? { output, error: failure || 'Workflow execution failed.', ...extra } : { output, ...extra }
 }
 

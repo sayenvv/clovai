@@ -96,7 +96,7 @@ export const FlowBoundaryCard = memo(function FlowBoundaryCard({
       {showHint && (
         // Outside the card so the pulse is not clipped by its rounded overflow.
         <span
-          className="pointer-events-none absolute inset-0 rounded-xl border-2 border-emerald-500/70 motion-safe:animate-ping"
+          className="pointer-events-none absolute inset-0 rounded-[3px] border-2 border-emerald-500/70 motion-safe:animate-ping"
           aria-hidden
         />
       )}
@@ -118,7 +118,7 @@ export const FlowBoundaryCard = memo(function FlowBoundaryCard({
               : undefined
           }
           className={cn(
-            'group/start relative flex h-full w-full items-center justify-center rounded-xl',
+            'group/start relative flex h-full w-full items-center justify-center rounded-[3px]',
             // The same card as the other nodes, outlined in green, with a large green play icon.
             NODE_SURFACE,
             'border-2 border-emerald-500 text-emerald-600 dark:border-emerald-500 dark:text-emerald-400',
@@ -138,14 +138,14 @@ export const FlowBoundaryCard = memo(function FlowBoundaryCard({
       ) : (
         <div
           className={cn(
-            'relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl',
+            'relative flex h-full w-full items-center justify-center overflow-hidden rounded-[3px]',
             NODE_SURFACE,
             NODE_SURFACE_HOVER,
             isSelected && NODE_SURFACE_SELECTED,
           )}
         >
           <span
-            className="flex size-9 items-center justify-center rounded-[10px] bg-gradient-to-b from-muted/40 to-muted text-foreground/75 ring-1 ring-inset ring-border"
+            className="flex size-9 items-center justify-center rounded-[2px] bg-primary/10 text-primary"
             aria-hidden
           >
             <Icon className="size-[18px] stroke-[1.75]" />
@@ -165,7 +165,7 @@ export const FlowBoundaryCard = memo(function FlowBoundaryCard({
       </span>
       {showHint && (
         <span
-          className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-3 -translate-x-1/2 whitespace-nowrap rounded-md bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white shadow-md motion-safe:animate-bounce"
+          className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-3 -translate-x-1/2 whitespace-nowrap rounded-[2px] bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white shadow-md motion-safe:animate-bounce"
           role="note"
         >
           Click to execute

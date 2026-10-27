@@ -105,7 +105,7 @@ export function WorkspaceSettingsView({ tab, onTabChange, insights, workflowSett
     <div className="flex min-h-0 flex-1">
       <nav
         aria-label="Settings sections"
-        className="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-border bg-[hsl(var(--chrome))] [scrollbar-width:thin]"
+        className="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-border bg-[hsl(var(--chrome))] scrollbar-subtle"
       >
         {GROUPS.map((group) => (
           <section key={group.label} className="border-b border-border/80 px-3.5 pb-3 pt-3">
@@ -138,7 +138,7 @@ export function WorkspaceSettingsView({ tab, onTabChange, insights, workflowSett
         ))}
       </nav>
 
-      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[hsl(var(--canvas))]" role="tabpanel">
+      <main className="scrollbar-subtle min-h-0 min-w-0 flex-1 overflow-y-auto bg-[hsl(var(--canvas))]" role="tabpanel">
         {/* The dashboard tabs carry their own headings */}
         {workflowTab ? (
           <div className="px-6 pb-2 pt-4">

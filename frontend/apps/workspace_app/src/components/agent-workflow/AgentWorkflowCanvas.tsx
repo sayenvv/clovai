@@ -11,8 +11,6 @@ import {
   type ReactNode,
 } from 'react'
 import {
-  ArrowDown,
-  ArrowRight,
   Sparkles,
   Trash2,
   LayoutGrid,
@@ -63,11 +61,6 @@ import { cn } from '@/utils/cn'
 const DEFAULT_ZOOM = 0.9
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, scale: DEFAULT_ZOOM }
 
-const FLOW_DIRECTION_OPTIONS = [
-  { value: 'horizontal', label: 'Horizontal', title: 'Flow left to right', icon: ArrowRight },
-  { value: 'vertical', label: 'Vertical', title: 'Flow top to bottom', icon: ArrowDown },
-] as const satisfies ReadonlyArray<{ value: FlowDirection; label: string; title: string; icon: unknown }>
-
 export interface AgentWorkflowCanvasHandle {
   getInsertAnchor: () => { x: number; y: number }
   zoomBy: (factor: number) => void
@@ -84,7 +77,6 @@ interface AgentWorkflowCanvasProps {
   showGrid: boolean
   activePageId: string
   onAutoLayout: () => void
-  onFlowDirectionChange?: (direction: FlowDirection) => void
   transformDroppedNode: (node: DiagramNode, item: PaletteItem) => DiagramNode
   finalizeDroppedNode: (
     node: DiagramNode,
@@ -142,7 +134,6 @@ export const AgentWorkflowCanvas = memo(
       showGrid,
       activePageId,
       onAutoLayout,
-      onFlowDirectionChange,
       transformDroppedNode,
       onNodeAttachAction,
       onInsertHitlOnEdge,
@@ -530,7 +521,6 @@ export const AgentWorkflowCanvas = memo(
     const hasAgents = listAgentNodes(diagram).length > 0
     // Workflows run from the Start node (every main workflow has one).
     const runFromStart = hasAgents && !executionPanelOpen ? onOpenExecution : undefined
-    const flowDirection = resolveFlowDirection(diagram.direction)
 
     return (
       <DevProfiler id="AgentWorkflowCanvas">
@@ -594,43 +584,6 @@ export const AgentWorkflowCanvas = memo(
               canvas is too narrow for both, never overlapping). */}
           <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 flex items-end gap-3">
             <div className="flex min-w-0 flex-1 basis-0 justify-start">
-              {(diagram.nodes.length > 0 || hideEmptyState) && (
-                <div className="pointer-events-auto flex items-end gap-2">
-                  {/* The flow direction is chosen while setting up a new workflow; once it has
-                      nodes the layout is set, so the switch goes away. */}
-                  {onFlowDirectionChange && isEmptyWorkflow && (
-                    <div
-                      role="radiogroup"
-                      aria-label="Flow direction"
-                      className="ml-1 flex h-9 items-center gap-0.5 rounded-md border border-border bg-[hsl(var(--canvas))] p-0.5 dark:border-white/[0.18]"
-                    >
-                      {FLOW_DIRECTION_OPTIONS.map((option) => {
-                        const active = flowDirection === option.value
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            role="radio"
-                            aria-checked={active}
-                            aria-label={option.title}
-                            title={option.title}
-                            onClick={() => onFlowDirectionChange(option.value)}
-                            className={cn(
-                              'flex h-full w-8 items-center justify-center rounded-[5px] transition-colors',
-                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                              active
-                                ? 'bg-accent text-foreground'
-                                : 'text-muted-foreground hover:text-foreground',
-                            )}
-                          >
-                            <option.icon className="h-4 w-4" />
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
             {/* Runs start from the Start node; this only offers the way back after a run (mobile). */}
             {hasAgents && executionPanelOpen && onBackToDesign && (

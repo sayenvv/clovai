@@ -47,6 +47,8 @@ export interface AgentNodeConfig {
   /** A saved model connection of the user's (their own endpoint, key and model); see model-connections-api. */
   modelConnectionId?: string
   temperature: number
+  /** Custom agents: an image URL shown as the agent's logo on its node. */
+  logo?: string
   tools: string[]
   inputSchema: string
   outputSchema: string

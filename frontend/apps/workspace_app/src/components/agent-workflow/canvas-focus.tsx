@@ -53,8 +53,8 @@ export function FocusCardShell({
       role="dialog"
       aria-label={focus.title}
       className={cn(
-        // The selected node, grown: same surface and outline as a selected node card.
-        'flex flex-col overflow-hidden rounded-xl bg-[hsl(var(--node))] text-card-foreground',
+        // The selected node, grown: same surface as a node card, lifted by a soft shadow.
+        'flex flex-col overflow-hidden rounded-[3px] bg-[hsl(var(--node))] text-card-foreground',
         'shadow-[0_1px_2px_rgba(0,0,0,0.06),0_4px_14px_-4px_rgba(0,0,0,0.14)]',
         className,
       )}
@@ -68,14 +68,14 @@ export function FocusCardShell({
         if (event.key === 'Escape') focus.onClose()
       }}
     >
-      <div className="flex shrink-0 items-center gap-2.5 border-b border-border px-4 py-3">
+      <div className="flex shrink-0 items-center gap-2.5 border-b border-border bg-[hsl(var(--chrome))] px-3 py-2">
         {focus.icon ? (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-b from-muted/40 to-muted text-foreground/75 ring-1 ring-inset ring-border [&_svg]:h-[18px] [&_svg]:w-[18px]">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] bg-primary/10 text-primary [&_svg]:h-4 [&_svg]:w-4">
             {focus.icon}
           </span>
         ) : null}
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-semibold text-foreground">{focus.title}</h2>
+          <h2 className="truncate text-[12.5px] font-semibold text-foreground">{focus.title}</h2>
           {focus.subtitle ? (
             <p className="truncate text-[11px] text-muted-foreground">{focus.subtitle}</p>
           ) : null}
@@ -87,21 +87,21 @@ export function FocusCardShell({
               const rect = event.currentTarget.getBoundingClientRect()
               focus.onMore?.(rect.left, rect.bottom + 4)
             }}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] text-foreground/70 transition-colors hover:bg-foreground/[0.07] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="More actions"
             title="More actions"
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <MoreHorizontal className="h-3.5 w-3.5" />
           </button>
         ) : null}
         <button
           type="button"
           onClick={focus.onClose}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] text-foreground/70 transition-colors hover:bg-foreground/[0.07] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Close"
           title="Close (Esc)"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5" />
         </button>
       </div>
       <div

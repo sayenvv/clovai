@@ -37,14 +37,12 @@ export const InstructionsEditorField = memo(function InstructionsEditorField({
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-xl border border-foreground/15 bg-gradient-to-b from-foreground/[0.04] to-background shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
-        'transition-[border-color,box-shadow] focus-within:border-foreground/30 focus-within:shadow-[0_0_0_3px_rgba(139,92,246,0.08)]',
+        'group relative overflow-hidden rounded-[3px] border border-border bg-background',
+        'transition-[border-color,box-shadow] focus-within:border-primary focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.12)]',
       )}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-foreground/40 to-transparent" />
-
       <div className="flex items-center justify-between gap-2 border-b border-foreground/10 px-2.5 py-1.5">
-        <div className="inline-flex rounded-md border border-border/80 bg-background/80 p-0.5">
+        <div className="inline-flex rounded-[2px] border border-border/80 bg-background/80 p-0.5">
           <ViewModeButton
             active={viewMode === 'edit'}
             onClick={() => setViewMode('edit')}
@@ -67,9 +65,9 @@ export const InstructionsEditorField = memo(function InstructionsEditorField({
             title="Generate markdown instructions from agent name and description"
             aria-label="Generate instructions with AI"
             className={cn(
-              'inline-flex h-7 w-7 items-center justify-center rounded-lg',
-              'bg-gradient-to-br from-primary to-primary text-primary-foreground shadow-md shadow-foreground/25',
-              'transition-all hover:scale-[1.03] hover:shadow-lg hover:shadow-foreground/30',
+              'inline-flex h-7 w-7 items-center justify-center rounded-[3px]',
+              'bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
+              'transition-all hover:scale-[1.03]',
               'disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none',
             )}
           >

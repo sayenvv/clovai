@@ -21,13 +21,13 @@ export const SwitchNodeCard = memo(function SwitchNodeCard({
   return (
     <div
       className={cn(
-        'flex h-full w-full items-center gap-3 rounded-xl px-3',
+        'flex h-full w-full items-center gap-3 rounded-[3px] px-3',
         NODE_SURFACE,
         isSelected ? NODE_SURFACE_SELECTED : NODE_SURFACE_HOVER,
         className,
       )}
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground/10 text-foreground">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-[2px] bg-foreground/10 text-foreground">
         <GitFork className="size-4" />
       </span>
       <div className="min-w-0">

@@ -155,7 +155,7 @@ export const SwitchConfigPanel = memo(function SwitchConfigPanel({
   return (
     <div className="flex h-full flex-col overflow-y-auto px-4 pb-6 pt-3">
       <div className="mb-4 flex items-center gap-2.5">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-foreground/10 text-foreground">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-[3px] bg-foreground/10 text-foreground">
           <GitFork className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
@@ -197,7 +197,7 @@ export const SwitchConfigPanel = memo(function SwitchConfigPanel({
               </p>
             ) : null}
             {cases.map((item, index) => (
-              <div key={item.edge.id} className="rounded-lg border border-border/70 bg-background/50 p-2">
+              <div key={item.edge.id} className="rounded-[3px] border border-border/70 bg-background/50 p-2">
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
                     Case {index + 1} · if {field}

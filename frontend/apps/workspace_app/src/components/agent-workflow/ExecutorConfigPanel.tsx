@@ -195,7 +195,7 @@ export const ExecutorConfigPanel = memo(function ExecutorConfigPanel({
               <option value="draft">Draft</option>
             </Select>
           </Field>
-          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+          <div className="flex items-center justify-between rounded-[3px] border border-border px-3 py-2">
             <div>
               <p className="text-sm font-medium">Resettable executor</p>
               <p className="text-[11px] text-muted-foreground">
@@ -302,7 +302,7 @@ export const ExecutorConfigPanel = memo(function ExecutorConfigPanel({
           </p>
 
           <div className="space-y-3">
-            <div className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+            <div className="flex items-start justify-between gap-3 rounded-[3px] border border-border px-3 py-2.5">
               <div>
                 <p className="text-sm font-medium">Terminal workflow output</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -315,7 +315,7 @@ export const ExecutorConfigPanel = memo(function ExecutorConfigPanel({
               />
             </div>
 
-            <div className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+            <div className="flex items-start justify-between gap-3 rounded-[3px] border border-border px-3 py-2.5">
               <div>
                 <p className="text-sm font-medium">Intermediate output</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -393,10 +393,10 @@ function HandlerStyleCard({
         type="button"
         onClick={onSelect}
         className={cn(
-          'group relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-lg border p-2.5 text-left',
+          'group relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-[3px] border p-2.5 text-left',
           'transition-[box-shadow,border-color,background-color] duration-200 ease-out',
           'hover:absolute hover:inset-x-0 hover:top-0 hover:z-30 hover:h-auto hover:overflow-visible',
-          'hover:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.18)] hover:ring-1',
+          'hover:border-foreground/25 hover:ring-1',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
           'focus-visible:absolute focus-visible:inset-x-0 focus-visible:top-0 focus-visible:z-30 focus-visible:h-auto focus-visible:overflow-visible',
           selected
@@ -407,7 +407,7 @@ function HandlerStyleCard({
         <div className="flex items-start justify-between gap-1">
           <div
             className={cn(
-              'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors',
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] border transition-colors',
               selected
                 ? 'border-orange-500/25 bg-orange-500/10 text-orange-600 dark:text-orange-300'
                 : 'border-border/70 bg-background/80 text-muted-foreground group-hover:border-orange-500/20 group-hover:text-foreground',

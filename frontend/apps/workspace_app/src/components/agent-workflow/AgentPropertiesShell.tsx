@@ -126,9 +126,9 @@ function ChatList({ chats }: { chats: NonNullable<GenerateChatOptions['chats']> 
       <button
         type="button"
         onClick={chats.onNew}
-        className="group mb-3 flex h-9 items-center gap-2.5 rounded-lg px-2 text-[12.5px] font-medium text-foreground transition-colors hover:bg-foreground/[0.05]"
+        className="group mb-3 flex h-9 items-center gap-2.5 rounded-[3px] px-2 text-[12.5px] font-medium text-foreground transition-colors hover:bg-foreground/[0.05]"
       >
-        <span className="flex h-6 w-6 items-center justify-center rounded-md border border-border bg-card shadow-sm transition-colors group-hover:border-foreground/30">
+        <span className="flex h-6 w-6 items-center justify-center rounded-[2px] border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors group-hover:border-foreground/30">
           <Plus className="h-3.5 w-3.5" />
         </span>
         New session
@@ -141,7 +141,7 @@ function ChatList({ chats }: { chats: NonNullable<GenerateChatOptions['chats']> 
             <div
               key={session.id}
               className={cn(
-                'group flex items-center rounded-lg transition-colors',
+                'group flex items-center rounded-[3px] transition-colors',
                 active ? 'bg-foreground/[0.07]' : 'hover:bg-foreground/[0.04]',
               )}
             >
@@ -164,7 +164,7 @@ function ChatList({ chats }: { chats: NonNullable<GenerateChatOptions['chats']> 
                   onClick={() => chats.onDelete(session.id)}
                   aria-label={`Delete ${session.title || 'session'}`}
                   title="Delete session"
-                  className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                  className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -336,6 +336,33 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
     />
   )
 
+  // Workflow AI hidden from its edge: a thin strip with the same three dots, like the code editor's.
+  if (collapsed && !embedded && chatVisible) {
+    return (
+      <aside
+        role="button"
+        tabIndex={0}
+        aria-label="Show Workflow AI"
+        title="Show Workflow AI"
+        onClick={onToggleCollapse}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onToggleCollapse()
+          }
+        }}
+        className={cn(
+          'group/grip flex h-full w-2 shrink-0 cursor-pointer flex-col items-center justify-center gap-[3px] border-l border-border bg-[hsl(var(--chrome))] transition-colors hover:bg-primary/[0.08]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+        )}
+      >
+        {[0, 1, 2].map((dot) => (
+          <span key={dot} className="size-[3px] rounded-full bg-foreground/35 transition-colors group-hover/grip:bg-primary" aria-hidden />
+        ))}
+      </aside>
+    )
+  }
+
   if (collapsed && !embedded) {
     return (
       <aside
@@ -381,6 +408,8 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
           side="left"
           onPointerDown={onResizePointerDown}
           ariaLabel="Resize right panel"
+          grip={chatVisible}
+          onDoubleClick={chatVisible ? onToggleCollapse : undefined}
         />
       )}
 
@@ -406,7 +435,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
             ) : executionPanelOpen && !generate ? (
               <TooltipProvider delayDuration={200}>
                 <div className="flex min-w-0 items-center gap-2">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-foreground">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] bg-primary/10 text-primary">
                     <Play className="h-3 w-3 fill-current" />
                   </span>
                   <div className="min-w-0">
@@ -459,7 +488,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
+              className="h-8 w-8 shrink-0 rounded-[2px] text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
               onClick={() => setChatExpanded((value) => !value)}
               aria-label={chatExpanded ? 'Exit full screen' : 'Expand Workflow AI to the workspace'}
               title={chatExpanded ? 'Exit full screen (Esc)' : 'Expand to workspace'}
@@ -475,7 +504,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
+              className="h-8 w-8 shrink-0 rounded-[2px] text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
               onClick={() => {
                 setChatExpanded(false)
                 generate.onClose()
@@ -745,7 +774,7 @@ function FlowBoundaryState({ node, diagram }: { node: DiagramNode; diagram: Diag
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-[3px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
         <Icon className={cn('h-5 w-5', start && 'ml-0.5 fill-current')} />
       </div>
       <p className="text-sm font-medium text-foreground">
@@ -776,7 +805,7 @@ function MultiSelectState({
 }) {
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-foreground/10 text-foreground dark:text-foreground">
+      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-[3px] bg-primary/10 text-primary">
         <GitBranch className="h-5 w-5" />
       </div>
       <p className="text-sm font-medium text-foreground">{count} items selected</p>

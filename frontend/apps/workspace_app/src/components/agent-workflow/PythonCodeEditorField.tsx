@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useRef, useState, type KeyboardEvent, type UIEvent } from 'react'
-import { Loader2, Maximize2, Sparkles } from 'lucide-react'
+import { Loader2, Maximize2, Minimize2, Sparkles } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
@@ -21,6 +21,18 @@ interface PythonCodeEditorFieldProps {
   disabled?: boolean
   minRows?: number
   className?: string
+  /**
+   * Maximize in place instead of the expand dialog: the expand button calls this, and the
+   * host grows the editor to fill its view. `maximized` switches the button to restore.
+   */
+  onToggleMaximize?: () => void
+  maximized?: boolean
+  /** `false` drops the expand button (hosts that already give the code the whole view). */
+  expandable?: boolean
+  /** Grow to the container's height instead of `minRows` (the container must have one). */
+  fill?: boolean
+  /** An IDE-style status bar under the code: cursor position, line count and language. */
+  statusBar?: boolean
 }
 
 const EDITOR_FONT =
@@ -49,24 +61,31 @@ export const PythonCodeEditorField = memo(function PythonCodeEditorField({
   disabled = false,
   minRows = 12,
   className,
+  onToggleMaximize,
+  maximized = false,
+  expandable = true,
+  fill = false,
+  statusBar = false,
 }: PythonCodeEditorFieldProps) {
   const [expanded, setExpanded] = useState(false)
+  const [cursor, setCursor] = useState({ line: 1, column: 1 })
+  const stretch = fill || maximized
   const canGenerate = Boolean(onGenerate) && !disabled && !isGenerating
 
   return (
     <>
       <div
         className={cn(
-          'group relative overflow-hidden rounded-xl border border-orange-500/15 bg-gradient-to-b from-orange-500/[0.04] to-background shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+          'group relative overflow-hidden rounded-[3px] border border-border bg-background',
+          stretch && 'flex h-full flex-col',
           'transition-[border-color,box-shadow] focus-within:border-orange-500/30 focus-within:shadow-[0_0_0_3px_rgba(249,115,22,0.08)]',
           className,
         )}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-400/40 to-transparent" />
-
         <PythonCodeEditorChrome
           fileName={fileName}
-          onExpand={() => setExpanded(true)}
+          onExpand={expandable ? onToggleMaximize ?? (() => setExpanded(true)) : undefined}
+          expanded={maximized}
           onGenerate={onGenerate}
           canGenerate={canGenerate}
           isGenerating={isGenerating}
@@ -77,11 +96,14 @@ export const PythonCodeEditorField = memo(function PythonCodeEditorField({
           onChange={onChange}
           disabled={disabled}
           minRows={minRows}
+          className={stretch ? 'min-h-0 flex-1' : undefined}
+          onCursorChange={statusBar ? setCursor : undefined}
         />
+        {statusBar ? <PythonStatusBar value={value} cursor={cursor} readOnly={disabled} /> : null}
       </div>
 
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="flex max-h-[88vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:rounded-xl">
+        <DialogContent className="flex max-h-[88vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:rounded-[3px]">
           <DialogHeader className="border-b border-border px-4 py-3 text-left">
             <DialogTitle className="text-base">Handler source</DialogTitle>
             <DialogDescription className="text-xs">
@@ -114,6 +136,7 @@ export const PythonCodeEditorField = memo(function PythonCodeEditorField({
 function PythonCodeEditorChrome({
   fileName,
   onExpand,
+  expanded = false,
   onGenerate,
   canGenerate,
   isGenerating,
@@ -121,6 +144,7 @@ function PythonCodeEditorChrome({
 }: {
   fileName: string
   onExpand?: () => void
+  expanded?: boolean
   onGenerate?: () => void
   canGenerate: boolean
   isGenerating: boolean
@@ -153,10 +177,10 @@ function PythonCodeEditorChrome({
       <div className="flex shrink-0 items-center gap-1">
         {onExpand ? (
           <ChromeButton
-            label="Expand editor"
+            label={expanded ? 'Restore editor' : 'Expand editor'}
             onClick={onExpand}
             isDark={isDark}
-            icon={Maximize2}
+            icon={expanded ? Minimize2 : Maximize2}
           />
         ) : null}
         {onGenerate ? (
@@ -167,9 +191,9 @@ function PythonCodeEditorChrome({
             title="Generate handler code with AI"
             aria-label="Generate handler code with AI"
             className={cn(
-              'inline-flex h-7 w-7 items-center justify-center rounded-lg',
-              'bg-gradient-to-br from-orange-500 to-amber-600 text-white shadow-md shadow-orange-500/25',
-              'transition-all hover:scale-[1.03] hover:shadow-lg hover:shadow-orange-500/30',
+              'inline-flex h-7 w-7 items-center justify-center rounded-[3px]',
+              'bg-primary text-primary-foreground',
+              'transition-all hover:shadow-orange-500/30',
               'disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none',
             )}
           >
@@ -203,7 +227,7 @@ function ChromeButton({
       title={label}
       aria-label={label}
       className={cn(
-        'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+        'inline-flex h-7 w-7 items-center justify-center rounded-[2px] transition-colors',
         isDark
           ? 'text-[#cccccc] hover:bg-[#3c3c3c] hover:text-white'
           : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -214,11 +238,46 @@ function ChromeButton({
   )
 }
 
+/** The bar under the code: where the caret is on the left, the file's facts on the right. */
+function PythonStatusBar({
+  value,
+  cursor,
+  readOnly,
+}: {
+  value: string
+  cursor: { line: number; column: number }
+  readOnly: boolean
+}) {
+  const { isDark } = useTheme()
+  const lines = lineCountFor(value)
+  return (
+    <div
+      className={cn(
+        'flex h-6 shrink-0 items-center gap-3 border-t px-2.5 font-mono text-[10px] tabular-nums',
+        isDark ? 'border-[#3c3c3c] bg-[#252526] text-[#9d9d9d]' : 'border-border bg-muted/60 text-muted-foreground',
+      )}
+    >
+      <span>
+        Ln {cursor.line}, Col {cursor.column}
+      </span>
+      {readOnly ? <span className="text-amber-600 dark:text-amber-400">Read-only</span> : null}
+      <span className="ml-auto">{lines} {lines === 1 ? 'line' : 'lines'}</span>
+      <span>Spaces: 2</span>
+      <span>UTF-8</span>
+      <span className="flex items-center gap-1">
+        <span className="size-1.5 rounded-full bg-primary" aria-hidden />
+        Python
+      </span>
+    </div>
+  )
+}
+
 const PythonCodeSurface = memo(function PythonCodeSurface({
   value,
   onChange,
   disabled,
   minRows,
+  onCursorChange,
   className,
 }: {
   value: string
@@ -226,6 +285,7 @@ const PythonCodeSurface = memo(function PythonCodeSurface({
   disabled?: boolean
   minRows: number
   className?: string
+  onCursorChange?: (cursor: { line: number; column: number }) => void
 }) {
   const { isDark } = useTheme()
   const syntaxStyle = isDark ? vscDarkPlus : vs
@@ -239,6 +299,13 @@ const PythonCodeSurface = memo(function PythonCodeSurface({
     setScrollOffset({ top: target.scrollTop, left: target.scrollLeft })
     if (gutterRef.current) gutterRef.current.scrollTop = target.scrollTop
   }, [])
+
+  const reportCursor = (textarea: HTMLTextAreaElement) => {
+    if (!onCursorChange) return
+    const before = textarea.value.slice(0, textarea.selectionStart)
+    const lastBreak = before.lastIndexOf('\n')
+    onCursorChange({ line: before.split('\n').length, column: before.length - lastBreak })
+  }
 
   const handleScroll = (event: UIEvent<HTMLTextAreaElement>) => {
     syncScroll(event.currentTarget)
@@ -339,10 +406,11 @@ const PythonCodeSurface = memo(function PythonCodeSurface({
           onChange={(event) => onChange(event.target.value)}
           onScroll={handleScroll}
           onKeyDown={handleKeyDown}
+          onSelect={(event) => reportCursor(event.currentTarget)}
           spellCheck={false}
           rows={minRows}
           className={cn(
-            'python-code-input relative z-10 block min-h-0 w-full resize-none overflow-auto border-0 bg-transparent shadow-none outline-none',
+            'python-code-input relative z-10 block h-full min-h-0 w-full resize-none overflow-auto border-0 bg-transparent shadow-none outline-none',
             'font-mono focus-visible:ring-0 focus-visible:ring-offset-0',
             isDark ? 'caret-[#aeafad]' : 'caret-foreground',
             'text-transparent selection:bg-orange-500/30',

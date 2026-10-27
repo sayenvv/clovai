@@ -36,7 +36,6 @@ interface ExecuteLocationState {
   autoStart?: boolean
 }
 
-const DEFAULT_INPUT = 'Summarize the quarterly report'
 
 const CENTER_PANEL_STORAGE_KEY = 'eleven-nodes-agent-workflow-exec-center-width'
 const CENTER_PANEL_COLLAPSED_KEY = 'eleven-nodes-agent-workflow-exec-center-collapsed'
@@ -101,7 +100,7 @@ export default function WorkflowExecutePage() {
   const [bootstrap] = useState(() => bootstrapExecuteState(handoff))
   const [doc, setDoc] = useState(() => bootstrap.doc)
   const [selectedPageId, setSelectedPageId] = useState(() => bootstrap.pageId)
-  const [input, setInput] = useState(() => bootstrap.input ?? DEFAULT_INPUT)
+  const [input, setInput] = useState(() => bootstrap.input ?? '')
 
   const {
     width: centerPanelWidth,

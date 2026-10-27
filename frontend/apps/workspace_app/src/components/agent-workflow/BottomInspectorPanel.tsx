@@ -206,7 +206,7 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
             ) : (
               <ol className="space-y-2">
                 {trace.map((step, index) => (
-                  <li key={step.id} className="flex gap-3 rounded-lg border border-border px-3 py-2">
+                  <li key={step.id} className="flex gap-3 rounded-[3px] border border-border px-3 py-2">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/15 text-[10px] font-semibold text-foreground dark:text-foreground">
                       {index + 1}
                     </span>
@@ -222,7 +222,7 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground">{step.message}</p>
                       {(step.output ?? (step.nodeId ? stepOutputs[step.nodeId] : undefined)) && (
-                        <pre className="mt-2 max-h-40 overflow-auto rounded-md border border-border bg-muted/40 p-2 font-mono text-[10px] leading-relaxed">
+                        <pre className="mt-2 max-h-40 overflow-auto rounded-[2px] border border-border bg-muted/40 p-2 font-mono text-[10px] leading-relaxed">
                           {step.output ?? (step.nodeId ? stepOutputs[step.nodeId] : '')}
                         </pre>
                       )}
@@ -322,7 +322,7 @@ export const BottomInspectorPanel = memo(function BottomInspectorPanel({
                   <li
                     key={issue.id}
                     className={cn(
-                      'flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs',
+                      'flex items-start gap-2 rounded-[2px] border px-2.5 py-2 text-xs',
                       issue.severity === 'error'
                         ? 'border-foreground/30 bg-foreground/5 text-foreground dark:text-foreground'
                         : 'border-amber-500/30 bg-amber-500/5 text-amber-800 dark:text-amber-200',

@@ -36,7 +36,7 @@ export function HumanInTheLoopPanel({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-card p-3.5 shadow-sm">
+      <div className="rounded-[3px] border border-border bg-card p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex items-start gap-3">
           <div className={cn(NODE_ICON_TILE, 'mt-0.5 size-8')}>
             <ShieldCheck className="size-4" />
@@ -88,7 +88,7 @@ export function HumanInTheLoopPanel({
               }
             />
           </Field>
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+          <div className="flex items-start justify-between gap-3 rounded-[3px] border border-border px-3 py-2.5">
             <div>
               <p className="text-sm font-medium">Request changes & re-run</p>
               <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -118,7 +118,7 @@ export function HumanInTheLoopPanel({
               />
             </Field>
           ) : null}
-          <p className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+          <p className="rounded-[3px] border border-border/70 bg-muted/40 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
             {handoffCount > 0
               ? `Applies to ${handoffCount} outgoing connector${handoffCount === 1 ? '' : 's'}. Execution waits here before the next agent runs.`
               : 'Connect this agent to the next step so review can pause the handoff.'}

@@ -17,6 +17,8 @@ export const STORAGE_KEYS = {
   refreshToken: 'eleven-nodes-refresh-token',
   publishedInstances: 'eleven-nodes-published-instances',
   tokenUsage: 'eleven-nodes-token-usage',
+  /** Custom code blocks, kept in the browser until the custom-code API exists. */
+  customCode: 'eleven-nodes-custom-code',
 } as const
 
 export const QUERY_KEYS = {

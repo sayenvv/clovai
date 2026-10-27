@@ -47,9 +47,9 @@ export const ConnectorConfigPanel = memo(function ConnectorConfigPanel({
   return (
     <div className="flex h-full flex-col">
       {connector.humanApproval ? (
-        <div className="mx-4 mt-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-3">
+        <div className="mx-4 mt-3 rounded-[3px] border border-amber-500/30 bg-amber-500/[0.06] p-3">
           <div className="flex items-start gap-2.5">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-[3px] bg-amber-500/15 text-amber-700 dark:text-amber-300">
               <ShieldCheck className="size-3.5" />
             </span>
             <div className="min-w-0 flex-1">

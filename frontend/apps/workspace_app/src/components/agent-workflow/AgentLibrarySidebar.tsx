@@ -45,7 +45,6 @@ import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/utils/cn'
 import { DND_MIME } from '@/components/designer/diagram-types'
-import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
 import {
   EXTERNAL_AGENT_BLOCKS,
   EXECUTOR_PALETTE_ID,
@@ -156,8 +155,6 @@ const COMPACT_RAIL_WIDTH = 40
 export type CustomBlockKind = 'agent' | 'tool' | 'skill'
 
 export type BlocksTab = 'blocks' | 'models'
-
-const FLYOUT_MIN_WIDTH = 260
 
 const SECTION_META: Record<LibrarySection, { title: string; subtitle: string }> = {
   blocks: {
@@ -718,21 +715,28 @@ function RailNavItem({
   compact?: boolean
 }) {
   if (compact) {
+    // Icon only: the name shows in a tooltip on hover, as on the app rail.
     return (
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={label}
-        aria-pressed={active}
-        title={label}
-        className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] transition-colors duration-150',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          active ? 'bg-accent text-primary' : 'text-foreground/75 hover:bg-foreground/[0.07] hover:text-foreground',
-        )}
-      >
-        <Icon className="size-[15px]" strokeWidth={active ? 2 : 1.75} />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onClick}
+            aria-label={label}
+            aria-pressed={active}
+            className={cn(
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] transition-colors duration-150',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              active ? 'bg-accent text-primary' : 'text-foreground/75 hover:bg-foreground/[0.07] hover:text-foreground',
+            )}
+          >
+            <Icon className="size-[15px]" strokeWidth={active ? 2 : 1.75} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8} className="px-2 py-1 text-xs font-medium">
+          {label}
+        </TooltipContent>
+      </Tooltip>
     )
   }
   return (
@@ -781,9 +785,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   onOpenSettings,
   serverModelConfig,
   llmConfigured = false,
-  width,
   collapsed,
-  onResizePointerDown,
   onToggleCollapse,
   embedded = false,
   activeSection,
@@ -833,7 +835,8 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
 
   // Deployments opens in the main canvas — keep the rail highlighted, no flyout.
   const flyoutOpen = resolvedSection !== null && resolvedSection !== 'deployments'
-  const flyoutWidth = Math.max(width, FLYOUT_MIN_WIDTH)
+  // Same width as the Pages outline, so switching between them doesn't shift the canvas
+  const flyoutWidth = outlineWidth
   const railWidth = compactRail ? COMPACT_RAIL_WIDTH : SIDE_PANEL_COLLAPSED_WIDTH
   const totalWidth = embedded
     ? '100%'
@@ -977,14 +980,6 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
         )}
         style={{ width: totalWidth }}
       >
-        {flyoutOpen && !embedded && (
-          <DesignerResizeHandle
-            side="right"
-            onPointerDown={onResizePointerDown}
-            ariaLabel="Resize library panel"
-          />
-        )}
-
         {/* Icon rail: add / search, library sections, deployments, then settings and profile */}
         {!embedded && (
         <div

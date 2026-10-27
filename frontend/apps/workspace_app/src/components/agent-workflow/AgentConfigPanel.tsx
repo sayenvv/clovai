@@ -134,7 +134,7 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
             </TabsTrigger>
           )}
           <TabsTrigger value="io" className="flex-1 text-xs">
-            I/O
+            Output
           </TabsTrigger>
           <TabsTrigger value="runtime" className="flex-1 text-xs">
             Runtime
@@ -158,6 +158,13 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
             <Input
               value={node.label}
               onChange={(event) => updateAgent(onChange, node.id, {}, event.target.value)}
+            />
+          </Field>
+          <Field label="Logo URL" hint="Image shown on the node; leave empty for the default agent icon">
+            <Input
+              value={agent.logo ?? ''}
+              placeholder="https://…/logo.png"
+              onChange={(event) => updateAgent(onChange, node.id, { logo: event.target.value.trim() || undefined })}
             />
           </Field>
           <Field label="Description">
@@ -277,7 +284,7 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
                       })
                     }
                     className={cn(
-                      'flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-xs transition-colors',
+                      'flex min-w-0 items-center gap-2 rounded-[3px] border px-2 py-1.5 text-left text-xs transition-colors',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       active
                         ? 'border-foreground/50 bg-accent text-foreground'
@@ -329,7 +336,7 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
             />
           </Field>
           <PanelSection title="Memory">
-            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+            <div className="flex items-center justify-between rounded-[3px] border border-border px-3 py-2">
               <span className="text-sm">Enable memory</span>
               <Switch
                 checked={agent.memoryEnabled}
@@ -358,15 +365,8 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
         </TabsContent>
 
         <TabsContent value="io" className="mt-3 flex-1 overflow-y-auto space-y-4 pb-4">
-          <Field label="Input schema (JSON)">
-            <Textarea
-              rows={8}
-              className="font-mono text-xs"
-              value={agent.inputSchema}
-              onChange={(event) => updateAgent(onChange, node.id, { inputSchema: event.target.value })}
-            />
-          </Field>
-          <Field label="Output schema (JSON)">
+          {/* An agent takes the conversation as input; only its reply can be structured */}
+          <Field label="Output schema (JSON)" hint="Structured response: JSON Schema the agent's reply must follow">
             <Textarea
               rows={8}
               className="font-mono text-xs"
@@ -454,7 +454,7 @@ function ModelList({
 
   return (
     <div className="space-y-1.5">
-      <div className="max-h-56 space-y-0.5 overflow-y-auto rounded-lg border border-border bg-card p-1" role="listbox" aria-label="Models">
+      <div className="max-h-56 space-y-0.5 overflow-y-auto rounded-[3px] border border-border bg-card p-1" role="listbox" aria-label="Models">
         {models.length === 0 && !current ? (
           <p className="px-2 py-1.5 text-xs text-muted-foreground">No models listed for {provider.label}.</p>
         ) : null}
@@ -470,7 +470,7 @@ function ModelList({
                 onChange(model.id)
               }}
               className={cn(
-                'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors',
+                'flex w-full items-center gap-2 rounded-[2px] px-2 py-1.5 text-left transition-colors',
                 selected ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
             >
@@ -484,7 +484,7 @@ function ModelList({
           )
         })}
         {current && !listed ? (
-          <div className="flex items-center gap-2 rounded-md bg-accent px-2 py-1.5 text-foreground">
+          <div className="flex items-center gap-2 rounded-[2px] bg-accent px-2 py-1.5 text-foreground">
             <ModelProviderLogo provider={provider} className="size-4 rounded-[4px]" />
             <span className="min-w-0 flex-1 truncate font-mono text-xs">{current}</span>
             <Check className="h-3.5 w-3.5 shrink-0" />

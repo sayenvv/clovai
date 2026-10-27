@@ -1,5 +1,7 @@
 import { memo, useEffect, useState } from 'react'
 import {
+  ArrowDown,
+  ArrowRight,
   Bot,
   ChevronDown,
   ChevronsDownUp,
@@ -28,6 +30,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import type { FlowDirection } from '@/components/designer/diagram-types'
 import type { WorkflowPurpose } from '@/services/assistant-api'
 import type { DeploymentStatus } from '@/types/agent-workflow'
 import { cn } from '@/utils/cn'
@@ -50,6 +53,11 @@ const TOOL_BUTTON =
 
 const ICON_TOOL =
   'flex h-6 w-6 items-center justify-center rounded-[2px] text-primary transition-colors hover:bg-foreground/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:h-3.5 [&_svg]:w-3.5'
+
+const FLOW_DIRECTIONS = [
+  { value: 'horizontal', title: 'Flow left to right', icon: ArrowRight },
+  { value: 'vertical', title: 'Flow top to bottom', icon: ArrowDown },
+] as const satisfies ReadonlyArray<{ value: FlowDirection; title: string; icon: LucideIcon }>
 
 interface WorkflowContentHeaderProps {
   name: string
@@ -75,6 +83,9 @@ interface WorkflowContentHeaderProps {
   onFit: () => void
   onAutoLayout?: () => void
   onUndo?: () => void
+  /** Switching re-lays out the existing nodes. */
+  flowDirection?: FlowDirection
+  onFlowDirectionChange?: (direction: FlowDirection) => void
 }
 
 /**
@@ -103,6 +114,8 @@ export const WorkflowContentHeader = memo(function WorkflowContentHeader({
   onFit,
   onAutoLayout,
   onUndo,
+  flowDirection,
+  onFlowDirectionChange,
 }: WorkflowContentHeaderProps) {
   const zoomable = view === 'map' || view === 'canvas'
   const [collapsed, setCollapsed] = useState(() => {
@@ -190,6 +203,27 @@ export const WorkflowContentHeader = memo(function WorkflowContentHeader({
               <button type="button" className={ICON_TOOL} onClick={onUndo} aria-label="Undo" title="Undo">
                 <Undo2 />
               </button>
+            ) : null}
+            {onFlowDirectionChange ? (
+              <div role="radiogroup" aria-label="Flow direction" className="ml-1 flex items-center gap-0.5 border-l border-border pl-1">
+                {FLOW_DIRECTIONS.map(({ value, title, icon: Icon }) => {
+                  const active = flowDirection === value
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      aria-label={title}
+                      title={title}
+                      onClick={() => onFlowDirectionChange(value)}
+                      className={cn(ICON_TOOL, active && 'bg-primary text-primary-foreground hover:bg-primary')}
+                    >
+                      <Icon />
+                    </button>
+                  )
+                })}
+              </div>
             ) : null}
           </div>
           <button

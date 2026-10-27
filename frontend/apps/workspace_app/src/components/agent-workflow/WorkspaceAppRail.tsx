@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { History, House, Plus, Server, Settings, ShieldCheck, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Code2, History, House, Plus, Server, ShieldCheck, SlidersHorizontal, Sparkles } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ADMIN_CENTER_URL, APP_NAME, DASHBOARD_TAB_LINK } from '@/constants'
@@ -9,7 +9,7 @@ import { ProfileMenu } from '@/components/shared/ProfileMenu'
 import { AdminBadge } from '@/components/shared/AdminBadge'
 import { cn } from '@/utils/cn'
 
-export type AppRailView = 'editor' | 'executions' | 'configuration' | 'deployments' | 'settings'
+export type AppRailView = 'editor' | 'executions' | 'configuration' | 'deployments' | 'code' | 'settings'
 
 interface WorkspaceAppRailProps {
   view: AppRailView
@@ -135,14 +135,14 @@ export const WorkspaceAppRail = memo(function WorkspaceAppRail({
         <RailItem label="Executions" icon={History} active={view === 'executions'} onClick={() => onViewChange('executions')} />
         <RailItem label="Configuration" icon={SlidersHorizontal} active={view === 'configuration'} onClick={() => onViewChange('configuration')} />
         <RailItem label="Deployments" icon={Server} active={view === 'deployments'} onClick={() => onViewChange('deployments')} />
+        <RailItem label="Custom code" icon={Code2} active={view === 'code'} onClick={() => onViewChange('code')} />
 
         <div className="my-2 h-px w-5 bg-white/20" aria-hidden />
 
         {isAdmin ? <RailItem label="Admin Center" icon={ShieldCheck} href={ADMIN_CENTER_URL} newTab /> : null}
 
-        {/* Settings (with Help) and the signed-in account */}
+        {/* The signed-in account; settings open from its menu */}
         <div className="mt-auto flex flex-col items-center gap-2">
-          <RailItem label="Settings" icon={Settings} active={view === 'settings'} onClick={() => onViewChange('settings')} />
           <div className="relative" title={email ? (isAdmin ? `${email} · Admin` : email) : 'Profile'}>
             <ProfileMenu
               showSignOut={Boolean(session)}
@@ -150,8 +150,8 @@ export const WorkspaceAppRail = memo(function WorkspaceAppRail({
               userLabel={email ? `${email}${isAdmin ? ' · Admin' : ''}` : undefined}
               side="right"
               align="end"
-              avatarSize="sm"
-              triggerClassName="h-8 w-8 hover:bg-white/10"
+              avatarSize="xs"
+              triggerClassName="h-6 w-6 hover:bg-white/10"
               settings={{ onOpenWorkflowSettings: onOpenSettings, canvasView }}
             />
             <AdminBadge show={isAdmin} />

@@ -71,6 +71,8 @@ export interface GenerateChatMessage {
   steps?: WorkflowChatMessage[]
   /** How long the run took, shown as "Thought for Ns" above the reply. */
   seconds?: number
+  /** Tokens the run used, summed from its usage events; shown beside the time. */
+  tokens?: number
 }
 
 interface PendingAttachment extends GenerateWorkflowAttachment {
@@ -238,7 +240,11 @@ function RunSteps({
 }
 
 /** A finished run, folded to "Thought for Ns"; opening it shows the steps as the timeline. */
-function ThoughtSteps({ steps, seconds }: { steps: WorkflowChatMessage[]; seconds?: number }) {
+function formatTokens(tokens: number): string {
+  return tokens >= 1_000 ? `${(tokens / 1_000).toFixed(1)}k` : String(tokens)
+}
+
+function ThoughtSteps({ steps, seconds, tokens }: { steps: WorkflowChatMessage[]; seconds?: number; tokens?: number }) {
   const [open, setOpen] = useState(false)
   const expandable = steps.length > 0
   return (
@@ -253,7 +259,10 @@ function ThoughtSteps({ steps, seconds }: { steps: WorkflowChatMessage[]; second
           expandable && 'hover:text-foreground',
         )}
       >
-        <span>{seconds ? `Thought for ${seconds}s` : 'Thought'}</span>
+        <span>
+          {seconds ? `Thought for ${seconds}s` : 'Thought'}
+          {tokens ? <span className="font-normal tabular-nums"> · {formatTokens(tokens)} tokens</span> : null}
+        </span>
         {expandable ? (
           <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
         ) : null}
@@ -555,6 +564,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
               : result.reply ?? '',
           steps: finishSteps(liveStepsRef.current),
           seconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
+          tokens: result.tokens,
         },
       ])
     } catch (error) {
@@ -625,7 +635,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
             <div key={message.id} className="min-w-0">
               {message.seconds || message.steps?.length ? (
                 <div className="mb-2">
-                  <ThoughtSteps steps={message.steps ?? []} seconds={message.seconds} />
+                  <ThoughtSteps steps={message.steps ?? []} seconds={message.seconds} tokens={message.tokens} />
                 </div>
               ) : null}
               <ChatTurnBody>

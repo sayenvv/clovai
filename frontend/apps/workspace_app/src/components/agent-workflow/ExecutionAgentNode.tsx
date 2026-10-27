@@ -75,7 +75,7 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
   return (
     <div
       className={cn(
-        'relative flex w-full flex-col overflow-hidden rounded-xl text-card-foreground',
+        'relative flex w-full flex-col overflow-hidden rounded-[3px] text-card-foreground',
         NODE_SURFACE,
         vertical && 'h-full',
         isRunning && 'border-foreground/60 ring-[3px] ring-foreground/15 dark:border-white/50 dark:ring-white/15',
@@ -174,7 +174,7 @@ export const ExecutionAgentNode = memo(function ExecutionAgentNode({
             {agent?.description || 'Agent step in the workflow execution graph.'}
           </p>
           <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-0.5">
-            <span className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-[2px] border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               <Wrench className="h-3 w-3" />
               {toolCount} tool{toolCount === 1 ? '' : 's'}
             </span>

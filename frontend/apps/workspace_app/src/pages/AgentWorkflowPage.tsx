@@ -121,6 +121,7 @@ import { BlockPicker } from '@/components/agent-workflow/BlockPicker'
 import { useChatSessions } from '@/components/agent-workflow/hooks/use-chat-sessions'
 import { ExecutionsView } from '@/components/agent-workflow/ExecutionsView'
 import { WorkflowConfigurationView } from '@/components/agent-workflow/WorkflowConfigurationView'
+import { CustomCodeView } from '@/components/agent-workflow/CustomCodeView'
 import { useModelConnections } from '@/components/agent-workflow/hooks/use-model-connections'
 import { connectionProviderId } from '@/components/agent-workflow/AgentConfigPanel'
 import { MODEL_CLIENT_REF_PREFIX, modelClientRef } from '@/services/model-connections-api'
@@ -263,7 +264,7 @@ export default function AgentWorkflowPage() {
   const [validationIssues, setValidationIssues] = useState<WorkflowValidationIssue[]>([])
   const [isValidated, setIsValidated] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
-  const [testInput, setTestInput] = useState('Summarize the quarterly report')
+  const [testInput, setTestInput] = useState('')
   // Something from the library that goes under an agent, waiting for the user to pick which one.
   const [pendingAttach, setPendingAttach] = useState<
     | { kind: 'palette'; paletteId: string; openAfter?: boolean }
@@ -327,6 +328,8 @@ export default function AgentWorkflowPage() {
   // The Executions view (top nav): run history with each agent's trace and output.
   const [showExecutions, setShowExecutions] = useState(false)
   const [showConfiguration, setShowConfiguration] = useState(false)
+  // The app rail's Custom code area: the user's own tools, middlewares, skills and context providers
+  const [showCustomCode, setShowCustomCode] = useState(false)
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('trace')
   const { state: runState, start: startExecution, submitApproval, submitFeedback, cancel: cancelExecution, reset: resetExecution } =
     useWorkflowRunner()
@@ -561,6 +564,7 @@ export default function AgentWorkflowPage() {
     if (isMobile) navigate(ROUTES.agentWorkflowLogs)
     else {
       setShowConfiguration(false)
+      setShowCustomCode(false)
       setShowExecutions(true)
     }
   }, [isMobile, navigate])
@@ -1439,6 +1443,7 @@ export default function AgentWorkflowPage() {
     setLibrarySection((section) => (section === 'deployments' ? null : section))
     setShowExecutions(view === 'executions')
     setShowConfiguration(view === 'configuration')
+    setShowCustomCode(false)
     if (view === 'map' || view === 'canvas' || view === 'code') setEditorView(view)
   }, [openSettings, settingsTab])
 
@@ -1447,6 +1452,8 @@ export default function AgentWorkflowPage() {
     ? 'settings'
     : showDeploymentsBoard
     ? 'deployments'
+    : showCustomCode
+      ? 'code'
     : showConfiguration
       ? 'configuration'
       : showExecutions
@@ -1458,6 +1465,7 @@ export default function AgentWorkflowPage() {
       return
     }
     if (settingsTab) openSettings(null)
+    setShowCustomCode(view === 'code')
     if (view === 'deployments') {
       setLibrarySection('deployments')
       return
@@ -1719,6 +1727,7 @@ export default function AgentWorkflowPage() {
     (nodeId: string) => {
       setShowExecutions(false)
       setShowConfiguration(false)
+      setShowCustomCode(false)
       setLibrarySection((section) => (section === 'deployments' ? null : section))
       setEditorView('canvas')
       setSelection({ kind: 'node', id: nodeId })
@@ -1730,6 +1739,7 @@ export default function AgentWorkflowPage() {
     (issue: WorkflowValidationIssue) => {
       setShowExecutions(false)
       setShowConfiguration(false)
+      setShowCustomCode(false)
       setEditorView('canvas')
       handleSelectIssue(issue)
     },
@@ -2237,7 +2247,7 @@ export default function AgentWorkflowPage() {
 
           <div className="flex min-h-0 flex-1">
             {/* The workspace toolbar (library and outline) belongs to the editor only */}
-            {!isMobile && !settingsTab && !showExecutions && !showConfiguration && (
+            {!isMobile && !settingsTab && !showExecutions && !showConfiguration && !showCustomCode && (
               <AgentLibrarySidebar
                 onAddAgent={addBlock}
                 onOpenSettings={openWorkflowSettings}
@@ -2283,6 +2293,8 @@ export default function AgentWorkflowPage() {
                     />
                   }
                 />
+              ) : showCustomCode ? (
+                <CustomCodeView />
               ) : (
               <>
               {/* The workflow header (name, Run, Save…) belongs to the editor: map, canvas and code */}
@@ -2317,6 +2329,8 @@ export default function AgentWorkflowPage() {
                   onFit={headerFit}
                   onAutoLayout={workspaceView === 'canvas' ? runAutoLayout : undefined}
                   onUndo={workspaceView === 'canvas' ? handleUndo : undefined}
+                  flowDirection={resolveFlowDirection(diagram.direction)}
+                  onFlowDirectionChange={workspaceView === 'canvas' ? handleFlowDirectionChange : undefined}
                 />
               )}
               {/* Desktop runs stay on the canvas (nodes light up); mobile keeps the run view. */}
@@ -2365,7 +2379,6 @@ export default function AgentWorkflowPage() {
                       showGrid={showGrid}
                       activePageId={activePage.id}
                       onAutoLayout={runAutoLayout}
-                      onFlowDirectionChange={handleFlowDirectionChange}
                       transformDroppedNode={transformDroppedNode}
                       finalizeDroppedNode={finalizeDroppedNode}
                       onOpenExecution={openExecutionPanel}
