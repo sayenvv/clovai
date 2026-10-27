@@ -1448,6 +1448,16 @@ export default function AgentWorkflowPage() {
     if (view === 'map' || view === 'canvas' || view === 'code') setEditorView(view)
   }, [openSettings, settingsTab])
 
+  // The test chat's "View execution trace": open Executions on that run (null: this tab's latest).
+  const [traceRequest, setTraceRequest] = useState<{ runId: string | null; at: number } | null>(null)
+  const openExecutionTrace = useCallback(
+    (runId: string | null) => {
+      handleWorkspaceViewChange('executions')
+      setTraceRequest({ runId, at: Date.now() })
+    },
+    [handleWorkspaceViewChange],
+  )
+
   // The app rail's areas: the editor (map, canvas or code), runs, configuration and deployments
   const appRailView: AppRailView = settingsTab
     ? 'settings'
@@ -2204,6 +2214,7 @@ export default function AgentWorkflowPage() {
                 finalResponse: runState.finalResponse,
                 errors: runState.errors,
                 onShowDetails: showExecutionLogs,
+                onOpenTrace: openExecutionTrace,
                 needsReview: Boolean(runState.approvalPrompt),
               }}
             />
@@ -2357,7 +2368,7 @@ export default function AgentWorkflowPage() {
                       settings={tool?.designer?.configuration}
                     />
                   ) : showExecutions ? (
-                    <ExecutionsView pageId={doc.activePageId} />
+                    <ExecutionsView pageId={doc.activePageId} pages={doc.pages} focusRequest={traceRequest} />
                   ) : editorView === 'map' && !isMobile ? (
                     <WorkflowMapView
                       key={mapKey}
@@ -2489,6 +2500,7 @@ export default function AgentWorkflowPage() {
               finalResponse: runState.finalResponse,
               errors: runState.errors,
               onShowDetails: showExecutionLogs,
+              onOpenTrace: openExecutionTrace,
               needsReview: Boolean(runState.approvalPrompt),
             }}
           />

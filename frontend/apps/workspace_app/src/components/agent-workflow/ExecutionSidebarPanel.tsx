@@ -57,6 +57,8 @@ interface ExecutionSidebarPanelProps {
   finalResponse?: string | null
   errors?: WorkflowExecutionEvent[]
   onShowDetails?: () => void
+  /** Open a finished run (this run's id, or a past run's) in Executions; null: this tab's latest run. */
+  onOpenTrace?: (runId: string | null) => void
   /** Empty-state help; says where trace and logs appear on this page. */
   emptyHint?: string
 }
@@ -78,7 +80,9 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
   finalResponse = null,
   errors = [],
   onShowDetails,
-  emptyHint = 'Send a message to run it. Replies appear here; trace, logs and errors are in the output panel under the canvas.',
+  onOpenTrace,
+  runId,
+  emptyHint ='Send a message to run it. Replies appear here; trace, logs and errors are in the output panel under the canvas.',
 }: ExecutionSidebarPanelProps) {
   const [approvalInput, setApprovalInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -115,7 +119,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
         <TokenBudgetBar />
 
         {history.map((record) => (
-          <PastRun key={record.id} record={record} />
+          <PastRun key={record.id} record={record} onOpenTrace={onOpenTrace} />
         ))}
         {history.length > 0 && runStatus !== 'idle' ? <RunDivider label="Current run" /> : null}
 
@@ -155,6 +159,13 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
             live={false}
           />
         )}
+
+        {canRerun && onOpenTrace ? (
+          <TraceLink
+            status={runStatus === 'failed' ? 'failed' : runStatus === 'cancelled' ? 'cancelled' : 'completed'}
+            onClick={() => onOpenTrace(runId ?? null)}
+          />
+        ) : null}
 
         {runStatus === 'running' && messages.length === 0 && (
           <ChatTurnBody className="flex items-center gap-2 text-[12px] text-muted-foreground">
@@ -459,8 +470,26 @@ const PAST_RUN_STATUS: Record<ExecutionRecord['status'], string> = {
   cancelled: 'Cancelled',
 }
 
+/** Opens a finished run in Executions: its insights, agents, graph and step-by-step timeline. */
+function TraceLink({ onClick, status }: { onClick: () => void; status?: ExecutionRecord['status'] }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'group inline-flex items-center gap-1.5 rounded-[3px] border border-border bg-card px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors',
+        'hover:border-foreground/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      )}
+    >
+      <Activity className={cn('h-3 w-3', status === 'failed' ? 'text-red-600 dark:text-red-400' : 'text-primary')} />
+      {status === 'failed' ? 'See what failed in the execution trace' : 'View execution trace'}
+      <ChevronRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+    </button>
+  )
+}
+
 /** A finished run of this tab: its input and each agent's replies, as they were. */
-function PastRun({ record }: { record: ExecutionRecord }) {
+function PastRun({ record, onOpenTrace }: { record: ExecutionRecord; onOpenTrace?: (runId: string | null) => void }) {
   const when = new Date(record.startedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
   return (
     <div className="space-y-4">
@@ -481,6 +510,7 @@ function PastRun({ record }: { record: ExecutionRecord }) {
           live={false}
         />
       ) : null}
+      {onOpenTrace ? <TraceLink status={record.status} onClick={() => onOpenTrace(record.id)} /> : null}
     </div>
   )
 }

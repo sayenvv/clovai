@@ -43,7 +43,6 @@ import {
 import {
   ModelProviderLogo,
   resolveModelProvider,
-  type ModelProvider,
 } from '@/components/agent-workflow/model-providers'
 import {
   type DiagramNode,
@@ -543,8 +542,6 @@ export const AgentNodeCard = memo(function AgentNodeCard({
 
   if (toolNode || executorNode) {
     const kind = resolveChildKind(node, executorNode)
-    const kindStyle = CHILD_KIND_STYLES[kind]
-    const KindIcon = kindStyle.icon
     const tooltip = mappedUnderLabel ? `${title} · under ${mappedUnderLabel}` : title
 
     if (executorNode) return <ExecutorCard title={title} isSelected={isSelected} className={className} />

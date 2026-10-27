@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { getSession } from '@/services/project-auth-store'
 import type {
   ExecutionTraceStep,
   WorkflowChatMessage,
@@ -25,15 +26,24 @@ export interface ExecutionRecord {
   warnings: WorkflowExecutionEvent[]
 }
 
-const STORAGE_KEY = 'eleven-nodes.executions'
+// Runs are kept per account: one browser can be used by several people, and each sees only
+// their own runs.
+const STORAGE_PREFIX = 'eleven-nodes.executions'
+// The list from before runs were per account; nobody can tell whose it was, so it is removed
+const UNSCOPED_KEY = STORAGE_PREFIX
 const MAX_RECORDS = 100
 
-let records: ExecutionRecord[] = load()
+const storageKey = (accountId: string | undefined) => (accountId ? `${STORAGE_PREFIX}:${accountId}` : null)
+
+let key = storageKey(getSession()?.accountId)
+let records: ExecutionRecord[] = load(key)
 const listeners = new Set<() => void>()
 
-function load(): ExecutionRecord[] {
+function load(from: string | null): ExecutionRecord[] {
+  if (!from) return []
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
+    window.localStorage.removeItem(UNSCOPED_KEY)
+    const raw = window.localStorage.getItem(from)
     const parsed = raw ? (JSON.parse(raw) as ExecutionRecord[]) : []
     return Array.isArray(parsed) ? parsed : []
   } catch {
@@ -43,11 +53,22 @@ function load(): ExecutionRecord[] {
 
 function persist() {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+    if (key) window.localStorage.setItem(key, JSON.stringify(records))
   } catch {
     // Storage full or blocked: keep the history for this session only.
   }
   listeners.forEach((listener) => listener())
+}
+
+// Signing in as someone else shows their runs, never the previous person's.
+if (typeof window !== 'undefined') {
+  window.addEventListener('eleven-nodes-project-session', () => {
+    const next = storageKey(getSession()?.accountId)
+    if (next === key) return
+    key = next
+    records = load(key)
+    listeners.forEach((listener) => listener())
+  })
 }
 
 /** Record a finished run (newest first). */
@@ -72,7 +93,7 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener)
 }
 
-/** All recorded runs, newest first. */
+/** The signed-in account's recorded runs, newest first. */
 export function useExecutions(): ExecutionRecord[] {
   return useSyncExternalStore(subscribe, () => records, () => records)
 }

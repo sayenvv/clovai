@@ -279,6 +279,18 @@ function workflowText(value: unknown): string {
   return ''
 }
 
+/** True when a streamed update's text replaces the reply so far rather than extending it. */
+function hasReplacingText(value: unknown): boolean {
+  const contents = (value as { contents?: unknown } | undefined)?.contents
+  return (
+    Array.isArray(contents) &&
+    contents.some((content) => {
+      const item = content as { type?: unknown; merge_mode?: unknown } | null
+      return item?.type === 'text' && item.merge_mode === 'replace'
+    })
+  )
+}
+
 /** Map an agent framework workflow event onto the run log's `agent` / `progress` events. */
 function fromWorkflowEvent(eventName: string, payload: WorkflowStreamEvent): ExecutionLogEvent | null {
   const agentId = payload.executor_id
@@ -310,7 +322,10 @@ function fromWorkflowEvent(eventName: string, payload: WorkflowStreamEvent): Exe
       if (!text) return null
       // Streaming updates extend the agent's open turn; a whole response completes it.
       const isUpdate = typeof data?.type === 'string' && data.type.includes('update')
-      return isUpdate
+      // OpenAI ends a streamed reply with one update holding the whole text, marked "replace":
+      // it stands in for the pieces already shown, so it completes the turn instead of adding to it.
+      const replaces = isUpdate && hasReplacingText(data)
+      return isUpdate && !replaces
         ? { event: 'agent', agentId, agent: agentId, status: 'running', delta: true, message: text }
         : { event: 'agent', agentId, agent: agentId, status: 'completed', message: text }
     }

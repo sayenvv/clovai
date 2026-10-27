@@ -176,7 +176,7 @@ interface Footprint {
   offsetY: number
 }
 
-function nodeFootprint(diagram: Diagram, node: DiagramNode, direction: FlowDirection): Footprint {
+function nodeFootprint(diagram: Diagram, node: DiagramNode): Footprint {
   const card = agentNodeSize(node)
   if (isFlowBoundaryNode(node) || isExecutorNode(node)) {
     return { ...card, offsetX: 0, offsetY: 0 }
@@ -273,7 +273,7 @@ export function layoutWorkflowDiagram(source: Diagram, direction: FlowDirection)
     byLayer.set(depth, [...(byLayer.get(depth) ?? []), node])
   })
 
-  const footprints = new Map(laidOut.map((node) => [node.id, nodeFootprint(diagram, node, direction)]))
+  const footprints = new Map(laidOut.map((node) => [node.id, nodeFootprint(diagram, node)]))
   const mainSize = (fp: Footprint) => (vertical ? fp.height : fp.width)
   const crossSize = (fp: Footprint) => (vertical ? fp.width : fp.height)
   const crossOffset = (fp: Footprint) => (vertical ? fp.offsetX : fp.offsetY)

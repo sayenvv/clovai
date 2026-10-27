@@ -48,7 +48,6 @@ import {
   resolveFlowDirection,
   type Diagram,
   type DiagramNode,
-  type FlowDirection,
   type Viewport,
 } from '@/components/designer/diagram-types'
 import type { PaletteItem } from '@/types/config'

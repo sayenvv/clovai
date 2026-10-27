@@ -86,6 +86,8 @@ interface ExecutionSidebarOptions {
   finalResponse?: string | null
   errors?: WorkflowExecutionEvent[]
   onShowDetails?: () => void
+  /** Open a finished run in Executions (null: this tab's latest run). */
+  onOpenTrace?: (runId: string | null) => void
   needsReview?: boolean
 }
 
@@ -578,6 +580,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 finalResponse={execution.finalResponse}
                 errors={execution.errors}
                 onShowDetails={execution.onShowDetails}
+                onOpenTrace={execution.onOpenTrace}
               />
             ) : (
               <div className="p-4 text-xs text-muted-foreground">Execution controls unavailable.</div>

@@ -1,13 +1,22 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import {
+  Activity,
   AlertTriangle,
+  Bot,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   CircleSlash,
   Clock,
+  GitBranch,
+  GripVertical,
   History,
+  ListOrdered,
+  ScrollText,
   Trash2,
-  XCircle, GripVertical } from 'lucide-react'
+  Workflow,
+  XCircle,
+} from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { ChatMarkdown, fenceJson } from '@/components/agent-workflow/ChatMarkdown'
 import {
@@ -19,20 +28,17 @@ import {
 import type { ExecutionTraceStep } from '@/types/agent-workflow'
 import { Link } from 'react-router-dom'
 import { ROUTES } from '@/constants'
-import { fetchTrace, type TraceDetail } from '@/services/traces-api'
+import type { DiagramPage } from '@/components/designer/diagram-types'
+import { ExecutionInsights } from '@/components/agent-workflow/ExecutionInsights'
+import { formatDuration, hasServerTrace, useRunTelemetry } from '@/components/agent-workflow/execution-telemetry'
+import { ExecutionAgents } from '@/components/agent-workflow/ExecutionAgents'
+import { ExecutionGraph } from '@/components/agent-workflow/ExecutionGraph'
+import { ExecutionTimeline } from '@/components/agent-workflow/ExecutionTimeline'
 
 const STATUS_META: Record<ExecutionRecord['status'], { label: string; icon: typeof CheckCircle2; tone: string }> = {
   completed: { label: 'Completed', icon: CheckCircle2, tone: 'text-emerald-600 dark:text-emerald-400' },
   failed: { label: 'Failed', icon: XCircle, tone: 'text-red-600 dark:text-red-400' },
   cancelled: { label: 'Cancelled', icon: CircleSlash, tone: 'text-muted-foreground' },
-}
-
-function formatDuration(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return '—'
-  if (ms < 1000) return `${ms} ms`
-  const seconds = ms / 1000
-  if (seconds < 60) return `${seconds.toFixed(1)} s`
-  return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`
 }
 
 function runDuration(record: ExecutionRecord): number {
@@ -122,10 +128,23 @@ function StepRow({ record, step, last }: { record: ExecutionRecord; step: Execut
   )
 }
 
-function ExecutionDetail({ record }: { record: ExecutionRecord }) {
+type DetailTab = 'insights' | 'agents' | 'graph' | 'timeline' | 'steps'
+
+const DETAIL_TABS: Array<{ id: DetailTab; label: string; icon: typeof Activity }> = [
+  { id: 'insights', label: 'Insights', icon: Activity },
+  { id: 'agents', label: 'Agents', icon: Bot },
+  { id: 'graph', label: 'Graph', icon: GitBranch },
+  { id: 'timeline', label: 'Timeline', icon: ListOrdered },
+  { id: 'steps', label: 'Steps & output', icon: ScrollText },
+]
+
+function ExecutionDetail({ record, page, history }: { record: ExecutionRecord; page?: DiagramPage; history: ExecutionRecord[] }) {
   const meta = STATUS_META[record.status]
+  const [tab, setTab] = useState<DetailTab>('insights')
+  // Fetched once for every tab
+  const telemetry = useRunTelemetry(record)
   return (
-    <div className="w-full max-w-3xl space-y-4 px-6 py-4">
+    <div className="w-full max-w-6xl space-y-4 px-6 py-4">
       <header className="space-y-1.5">
         <div className="flex items-center gap-2">
           <StatusIcon status={record.status} className="h-5 w-5" />
@@ -140,17 +159,64 @@ function ExecutionDetail({ record }: { record: ExecutionRecord }) {
           </span>
           <span>{record.trace.length} step{record.trace.length === 1 ? '' : 's'}</span>
           {record.runId ? <span className="font-mono">{record.runId}</span> : null}
+          {record.runId && hasServerTrace(record) ? (
+            <Link
+              to={`${ROUTES.agentWorkflowDashboardTraces}/${record.runId}`}
+              className="font-medium text-foreground underline-offset-2 hover:underline"
+            >
+              Open full trace
+            </Link>
+          ) : null}
         </p>
       </header>
 
+      <div role="tablist" aria-label="Run views" className="flex gap-4 border-b border-border">
+        {DETAIL_TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            onClick={() => setTab(item.id)}
+            className={cn(
+              '-mb-px inline-flex items-center gap-1.5 border-b-2 px-0.5 pb-2 text-[12.5px] font-medium transition-colors',
+              tab === item.id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <item.icon className="h-3.5 w-3.5" />
+            {item.label}
+            {item.id === 'agents' && telemetry.agents.length ? (
+              <span className="rounded-full bg-foreground/[0.07] px-1.5 text-[10px] tabular-nums">{telemetry.agents.length}</span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'insights' ? (
+        <ExecutionInsights record={record} telemetry={telemetry} history={history} />
+      ) : tab === 'agents' ? (
+        <ExecutionAgents telemetry={telemetry} />
+      ) : tab === 'graph' ? (
+        <ExecutionGraph telemetry={telemetry} diagram={page?.diagram} />
+      ) : tab === 'timeline' ? (
+        <ExecutionTimeline record={record} telemetry={telemetry} />
+      ) : (
+        <ExecutionSteps record={record} />
+      )}
+    </div>
+  )
+}
+
+/** The run as it happened: input, each agent's step, the final output and any issues. */
+function ExecutionSteps({ record }: { record: ExecutionRecord }) {
+  return (
+    <div className="max-w-3xl space-y-4">
       <section className="space-y-2">
         <h3 className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Input</h3>
         <div className="rounded-[3px] border border-border bg-card px-3 py-2.5 text-[13px] text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           {record.input.trim() || <span className="text-muted-foreground">No input</span>}
         </div>
       </section>
-
-      {record.runId && TRACE_ID.test(record.runId) ? <ServerTrace traceId={record.runId} /> : null}
 
       <section className="space-y-2">
         <h3 className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Agent trace</h3>
@@ -206,79 +272,157 @@ function ExecutionDetail({ record }: { record: ExecutionRecord }) {
   )
 }
 
+interface WorkflowRuns {
+  pageId: string
+  name: string
+  runs: ExecutionRecord[]
+  failed: number
+}
+
 /**
- * Executions: this workflow tab's runs, newest first. Pick one to see its
- * input, each agent's step and output, the final output, and any errors.
+ * Executions: every workflow that has runs, in a sidebar; open one to list its runs and pick a
+ * run to see it as insights, agents, a graph, a timeline, or its steps and output.
  */
-export const ExecutionsView = memo(function ExecutionsView({ pageId }: { pageId: string }) {
+export const ExecutionsView = memo(function ExecutionsView({
+  pageId,
+  pages = [],
+  focusRequest,
+}: {
+  pageId: string
+  pages?: DiagramPage[]
+  /** Select this run when it changes (from the test chat); a null id picks this tab's latest run. */
+  focusRequest?: { runId: string | null; at: number } | null
+}) {
   const executions = useExecutions()
-  // Only this workflow tab's runs; open another tab to see its runs.
-  const shown = useMemo(() => executions.filter((record) => record.pageId === pageId), [executions, pageId])
+  const groups = useMemo<WorkflowRuns[]>(() => {
+    const byPage = new Map<string, WorkflowRuns>()
+    for (const record of executions) {
+      let group = byPage.get(record.pageId)
+      if (!group) {
+        group = {
+          pageId: record.pageId,
+          name: pages.find((page) => page.id === record.pageId)?.name || record.workflowName,
+          runs: [],
+          failed: 0,
+        }
+        byPage.set(record.pageId, group)
+      }
+      group.runs.push(record)
+      if (record.status === 'failed') group.failed += 1
+    }
+    // The open workflow tab first, then the most recently run
+    return [...byPage.values()].sort((a, b) =>
+      a.pageId === pageId ? -1 : b.pageId === pageId ? 1 : Date.parse(b.runs[0].startedAt) - Date.parse(a.runs[0].startedAt),
+    )
+  }, [executions, pages, pageId])
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ [pageId]: true })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   useEffect(() => {
-    if (!shown.some((record) => record.id === selectedId)) setSelectedId(shown[0]?.id ?? null)
-  }, [shown, selectedId])
-  const selected = shown.find((record) => record.id === selectedId)
+    if (!executions.some((record) => record.id === selectedId)) {
+      const first = groups[0]?.runs[0]
+      setSelectedId(first?.id ?? null)
+      if (first) setOpenGroups((value) => ({ ...value, [first.pageId]: true }))
+    }
+  }, [executions, groups, selectedId])
+  // A run opened from the test chat: select it and open its workflow in the sidebar
+  useEffect(() => {
+    if (!focusRequest) return
+    const target =
+      executions.find((record) => record.id === focusRequest.runId || (focusRequest.runId && record.runId === focusRequest.runId)) ??
+      executions.find((record) => record.pageId === pageId)
+    if (!target) return
+    setSelectedId(target.id)
+    setOpenGroups((value) => ({ ...value, [target.pageId]: true }))
+    // Only a new request moves the selection, not later history changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest?.at])
+  const selected = executions.find((record) => record.id === selectedId)
 
   return (
     <div className="flex min-h-0 flex-1 bg-background">
-      {/* Run list in the same style as Settings and the outline panel */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-[hsl(var(--chrome))]">
-        <div className="flex items-start justify-between gap-2 border-b border-border/80 px-3.5 pb-3 pt-3">
-          <div>
-            <h2 className="text-[13px] font-semibold text-foreground">Executions</h2>
-            <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">Past runs of this workflow. Select one to see its trace.</p>
-          </div>
-          {shown.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm("Clear this workflow's execution history?")) clearExecutions(pageId)
-              }}
-              className="shrink-0 text-[10.5px] text-primary hover:underline"
-            >
-              Clear
-            </button>
-          ) : null}
+      {/* Workflows and their runs, in the same style as Settings and the outline panel */}
+      <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-[hsl(var(--chrome))]">
+        <div className="border-b border-border/80 px-3.5 pb-3 pt-3">
+          <h2 className="text-[13px] font-semibold text-foreground">Executions</h2>
+          <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+            Runs of each workflow. Pick one to see its insights, agents, graph and timeline.
+          </p>
         </div>
-        <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
-          {shown.length === 0 ? (
-            <p className="px-1.5 py-2 text-[10.5px] text-muted-foreground">
-              No runs yet. Run a workflow from its Start node.
-            </p>
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+          {groups.length === 0 ? (
+            <p className="px-1.5 py-2 text-[10.5px] text-muted-foreground">No runs yet. Run a workflow from its Start node.</p>
           ) : (
-            shown.map((record) => {
-              const active = record.id === selectedId
+            groups.map((group) => {
+              const open = openGroups[group.pageId] ?? false
               return (
-                <div
-                  key={record.id}
-                  className={cn(
-                    'group flex items-start gap-2 rounded-[2px] px-1.5 py-1.5 transition-colors',
-                    active ? 'bg-accent text-accent-foreground' : 'hover:bg-foreground/[0.05]',
-                  )}
-                >
-                  <button type="button" onClick={() => setSelectedId(record.id)} className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
-                    <StatusIcon status={record.status} className="mt-0.5 h-4 w-4" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[11.5px] font-medium text-foreground">{record.workflowName}</span>
-                      <span className="block truncate text-[11px] text-muted-foreground">
-                        {record.input.trim() || 'No input'}
-                      </span>
-                      <span className="mt-0.5 block text-[10.5px] tabular-nums text-muted-foreground/80">
-                        {timeAgo(record.startedAt)} · {formatDuration(runDuration(record))}
-                      </span>
+                <section key={group.pageId} className="mb-1">
+                  <div className="group/wf flex items-center gap-1 rounded-[2px] px-1 hover:bg-foreground/[0.04]">
+                    <button
+                      type="button"
+                      onClick={() => setOpenGroups((value) => ({ ...value, [group.pageId]: !open }))}
+                      aria-expanded={open}
+                      className="flex h-8 min-w-0 flex-1 items-center gap-1.5 text-left"
+                    >
+                      {open ? <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                      <Workflow className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span className="truncate text-[12px] font-medium text-foreground">{group.name}</span>
+                      {group.pageId === pageId ? (
+                        <span className="shrink-0 rounded-full bg-primary/10 px-1.5 text-[9px] font-medium text-primary">Open</span>
+                      ) : null}
+                    </button>
+                    <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                      {group.runs.length}
+                      {group.failed ? <span className="ml-1 text-red-600 dark:text-red-400">· {group.failed} failed</span> : null}
                     </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteExecution(record.id)}
-                    aria-label="Delete run"
-                    title="Delete run"
-                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Clear the execution history of ${group.name}?`)) clearExecutions(group.pageId)
+                      }}
+                      aria-label={`Clear ${group.name} history`}
+                      title="Clear history"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover/wf:opacity-100"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {open ? (
+                    <ul className="ml-3 space-y-0.5 border-l border-border/70 py-0.5 pl-2">
+                      {group.runs.map((record) => {
+                        const active = record.id === selectedId
+                        return (
+                          <li
+                            key={record.id}
+                            className={cn(
+                              'group flex items-start gap-2 rounded-[2px] px-1.5 py-1.5 transition-colors',
+                              active ? 'bg-accent text-accent-foreground' : 'hover:bg-foreground/[0.05]',
+                            )}
+                          >
+                            <button type="button" onClick={() => setSelectedId(record.id)} className="flex min-w-0 flex-1 items-start gap-2 text-left">
+                              <StatusIcon status={record.status} className="mt-0.5 h-3.5 w-3.5" />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[11.5px] text-foreground">{record.input.trim() || 'No input'}</span>
+                                <span className="mt-0.5 block text-[10.5px] tabular-nums text-muted-foreground/80">
+                                  {timeAgo(record.startedAt)} · {formatDuration(runDuration(record))}
+                                </span>
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteExecution(record.id)}
+                              aria-label="Delete run"
+                              title="Delete run"
+                              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : null}
+                </section>
               )
             })
           )}
@@ -286,11 +430,16 @@ export const ExecutionsView = memo(function ExecutionsView({ pageId }: { pageId:
       </aside>
       <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         {selected ? (
-          <ExecutionDetail record={selected} />
+          <ExecutionDetail
+            key={selected.id}
+            record={selected}
+            page={pages.find((page) => page.id === selected.pageId)}
+            history={executions.filter((record) => record.pageId === selected.pageId)}
+          />
         ) : (
           <div className="px-6 pt-4">
             <h1 className="text-[22px] font-semibold leading-8 tracking-[-0.01em] text-foreground">Executions</h1>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Each run's input, agent trace and output.</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Each run's time, tokens, agents, input and output.</p>
             <section className="mt-4 max-w-3xl rounded-[3px] border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <h3 className="flex items-center gap-1 text-[12px] font-semibold text-foreground">
                 <GripVertical className="-ml-1 h-3.5 w-3.5 text-muted-foreground/60" aria-hidden />
@@ -307,115 +456,3 @@ export const ExecutionsView = memo(function ExecutionsView({ pageId }: { pageId:
     </div>
   )
 })
-
-/** Runs started on the /execute API carry their OpenTelemetry trace id as the run id. */
-const TRACE_ID = /^[0-9a-f]{32}$/
-
-/** The run's spans stored by the server: each agent's calls, model calls and tool calls. */
-function ServerTrace({ traceId }: { traceId: string }) {
-  const [trace, setTrace] = useState<TraceDetail | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    setTrace(null)
-    setError(null)
-    // Spans are stored as they end, so a run that just finished may need a moment
-    const load = (attempt: number) =>
-      fetchTrace(traceId)
-        .then((detail) => !cancelled && setTrace(detail))
-        .catch((reason: unknown) => {
-          if (cancelled) return
-          if (attempt < 3) window.setTimeout(() => load(attempt + 1), 1500)
-          else setError(reason instanceof Error ? reason.message : 'Could not load the trace.')
-        })
-    load(0)
-    return () => {
-      cancelled = true
-    }
-  }, [traceId])
-
-  const spans = trace?.spans ?? []
-  const start = spans.length ? Math.min(...spans.map((span) => Date.parse(span.start_time))) : 0
-  const end = spans.length ? Math.max(...spans.map((span) => Date.parse(span.end_time))) : 0
-  const total = Math.max(1, end - start)
-  const calls = spans.filter((span) => span.operation === 'invoke_agent' || span.operation === 'chat' || span.operation === 'execute_tool')
-
-  return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Server trace</h3>
-        <Link to={`${ROUTES.agentWorkflowDashboardTraces}/${traceId}`} className="text-[11px] font-medium text-foreground underline-offset-2 hover:underline">
-          Open full trace
-        </Link>
-      </div>
-      {error ? (
-        <p className="text-xs text-muted-foreground">{error}</p>
-      ) : !trace ? (
-        <p className="text-xs text-muted-foreground">Loading trace…</p>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            {formatDuration(total)} · {trace.agents.length} agent{trace.agents.length === 1 ? '' : 's'} ·{' '}
-            {trace.total_tokens.toLocaleString()} tokens ({trace.input_tokens.toLocaleString()} in, {trace.output_tokens.toLocaleString()} out)
-          </p>
-          {trace.agents.length > 0 ? (
-            <div className="overflow-x-auto rounded-[3px] border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-              <table className="w-full text-left text-[12px]">
-                <thead className="text-[11px] text-muted-foreground">
-                  <tr>
-                    {['Agent', 'Runs', 'Time', 'Model calls', 'Tool calls', 'Tokens', 'Errors'].map((label) => (
-                      <th key={label} className="whitespace-nowrap px-3 py-2 font-medium">{label}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="tabular-nums">
-                  {trace.agents.map((agent) => (
-                    <tr key={agent.name} className="border-t border-border/60">
-                      <td className="px-3 py-2 font-medium text-foreground">{agent.name}</td>
-                      <td className="px-3 py-2">{agent.invocations}</td>
-                      <td className="px-3 py-2">{formatDuration(agent.duration_ms)}</td>
-                      <td className="px-3 py-2">{agent.model_calls}</td>
-                      <td className="px-3 py-2">{agent.tool_calls}</td>
-                      <td className="px-3 py-2">{(agent.input_tokens + agent.output_tokens).toLocaleString()}</td>
-                      <td className={cn('px-3 py-2', agent.errors > 0 && 'font-semibold text-red-600 dark:text-red-400')}>{agent.errors}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-          {calls.length > 0 ? (
-            <ol className="space-y-0.5 rounded-[3px] border border-border bg-card p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-              {calls.map((span) => {
-                const offset = ((Date.parse(span.start_time) - start) / total) * 100
-                const width = Math.max(0.5, (span.duration_ms / total) * 100)
-                return (
-                  <li key={span.span_id} className="grid grid-cols-[minmax(8rem,40%)_1fr] items-center gap-2 px-1 py-0.5">
-                    <span className="truncate text-[11.5px] text-foreground" title={span.name}>{span.name}</span>
-                    <span className="relative h-3">
-                      <span
-                        className={cn(
-                          'absolute top-0 h-3 rounded-sm',
-                          span.status === 'ERROR'
-                            ? 'bg-red-500/80'
-                            : span.operation === 'invoke_agent'
-                              ? 'bg-violet-500/80'
-                              : span.operation === 'chat'
-                                ? 'bg-sky-500/80'
-                                : 'bg-amber-500/80',
-                        )}
-                        style={{ left: `${offset}%`, width: `${width}%` }}
-                        title={`${formatDuration(span.duration_ms)}${span.status_message ? ` · ${span.status_message}` : ''}`}
-                      />
-                    </span>
-                  </li>
-                )
-              })}
-            </ol>
-          ) : null}
-        </div>
-      )}
-    </section>
-  )
-}

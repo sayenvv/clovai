@@ -18,9 +18,23 @@ export interface TraceRun {
   status: SpanStatus
   error: string
   input: string
+  /** The run's final output; empty unless the server records payloads (TELEMETRY_SENSITIVE_DATA). */
+  output?: string
+  payloads_recorded?: boolean
   start_time: string
   end_time: string
   duration_ms: number
+}
+
+/** One agent step recorded on the run's span: what the agent received, returned, or why it failed. */
+export interface TraceStep {
+  kind: 'input' | 'output' | 'failed'
+  /** The canvas node id of the agent. */
+  agent_id: string
+  time: string
+  /** Absent when the server does not record payloads. */
+  payload?: string
+  truncated: boolean
 }
 
 export interface TraceRunSummary extends TraceRun {
@@ -69,6 +83,8 @@ export interface TraceDetail {
   output_tokens: number
   total_tokens: number
   agents: TraceAgent[]
+  /** Each agent's input and output, in order (servers before this field send none). */
+  steps?: TraceStep[]
   spans: TraceSpan[]
 }
 
