@@ -1,6 +1,5 @@
 import type { AgentNodeConfig, AgentType, ConnectorConfig } from '@/types/agent-workflow'
 import {
-  resolveFlowDirection,
   type Diagram,
   type DiagramNode,
   type FlowDirection,
@@ -112,14 +111,6 @@ export const TOOL_NODE_HEIGHT = 40
 /** Workflows (an orchestrator and its team): larger than an agent card. */
 export const ORCHESTRATOR_NODE_WIDTH = 288
 export const ORCHESTRATOR_NODE_HEIGHT = 108
-/** Vertical flow: taller agent card with the capability bar built in (no hanging docks). */
-export const VERTICAL_AGENT_NODE_WIDTH = 304
-export const VERTICAL_AGENT_NODE_HEIGHT = 100
-export const VERTICAL_EXECUTOR_NODE_HEIGHT = 64
-/** Height of the capability bar along the bottom of the vertical agent card. */
-export const VERTICAL_CAPABILITY_BAR_HEIGHT = 36
-export const VERTICAL_TOOL_NODE_WIDTH = 208
-export const VERTICAL_TOOL_NODE_HEIGHT = 40
 export const TOOL_PALETTE_ID = 'aw-tool'
 export const MCP_TOOL_PALETTE_ID = 'aw-mcp-tool'
 export const SKILL_PALETTE_ID = 'aw-skill'
@@ -358,23 +349,14 @@ function isChildFlowNode(node: DiagramNode): boolean {
   return isAlwaysChildPalette(node.paletteId) || Boolean(node.mappedAgentId)
 }
 
-/** Card size for an agent / tool / executor node in the given orientation. */
+/** Card size for an agent / tool / executor node; the same in either flow direction. */
 export function flowNodeSize(
   node: DiagramNode,
-  direction?: FlowDirection,
+  _direction?: FlowDirection,
 ): { width: number; height: number } {
-  const vertical = resolveFlowDirection(direction) === 'vertical'
-  if (isChildFlowNode(node)) {
-    if (vertical) return { width: VERTICAL_TOOL_NODE_WIDTH, height: VERTICAL_TOOL_NODE_HEIGHT }
-    return { width: TOOL_NODE_WIDTH, height: TOOL_NODE_HEIGHT }
-  }
+  if (isChildFlowNode(node)) return { width: TOOL_NODE_WIDTH, height: TOOL_NODE_HEIGHT }
   if (isOrchestratorNode(node)) return { width: ORCHESTRATOR_NODE_WIDTH, height: ORCHESTRATOR_NODE_HEIGHT }
-  if (!vertical) return { width: AGENT_NODE_WIDTH, height: AGENT_NODE_HEIGHT }
-  const executor = node.paletteId === EXECUTOR_PALETTE_ID || node.agent?.agentType === 'executor'
-  return {
-    width: VERTICAL_AGENT_NODE_WIDTH,
-    height: executor ? VERTICAL_EXECUTOR_NODE_HEIGHT : VERTICAL_AGENT_NODE_HEIGHT,
-  }
+  return { width: AGENT_NODE_WIDTH, height: AGENT_NODE_HEIGHT }
 }
 
 /** Snap an enriched agent-workflow node to its card size; returns the same node when unchanged. */

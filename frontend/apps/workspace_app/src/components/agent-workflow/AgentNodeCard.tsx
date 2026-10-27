@@ -25,7 +25,6 @@ import {
   childKindForPalette,
   isExternalAgentPalette,
   resolveExternalAgent,
-  VERTICAL_CAPABILITY_BAR_HEIGHT,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { AgentNodeAvatar } from '@/components/agent-workflow/external-agent-ui'
 import {
@@ -47,7 +46,6 @@ import {
   type ModelProvider,
 } from '@/components/agent-workflow/model-providers'
 import {
-  resolveFlowDirection,
   type DiagramNode,
   type FlowDirection,
 } from '@/components/designer/diagram-types'
@@ -256,114 +254,6 @@ function AgentSubtitle({ type, model }: { type: string; model?: string }) {
         </span>
       )}
       <span className="shrink-0 truncate text-[10.5px] leading-none text-muted-foreground">{type}</span>
-    </div>
-  )
-}
-
-interface VerticalCapability {
-  slot: AgentDockSlot
-  connected: boolean
-  count: number
-}
-
-/**
- * Vertical-flow card: the flow enters through the top and leaves from the bottom,
- * and capabilities sit in a bar inside the card instead of hanging docks.
- */
-function VerticalFlowCard({
-  nodeId,
-  title,
-  subtitle,
-  icon,
-  isSelected,
-  hitl,
-  badge,
-  capabilities,
-  onAttachAction,
-  className,
-}: {
-  nodeId: string
-  title: string
-  subtitle: ReactNode
-  icon: ReactNode
-  isSelected: boolean
-  hitl?: boolean
-  badge?: ReactNode
-  capabilities?: VerticalCapability[]
-  onAttachAction?: (agentId: string, action: AgentAttachAction) => void
-  className?: string
-}) {
-  return (
-    <div className={cn('agent-wf-node group relative h-full w-full', className)}>
-      <div className={cardClasses(isSelected, 'flex h-full w-full flex-col rounded-[3px]')}>
-        <span
-          aria-hidden
-          className={cn(
-            'absolute left-0 top-3 h-[calc(100%-1.5rem-36px)] w-[3px] rounded-r-full transition-colors duration-150',
-            isSelected ? 'bg-foreground' : 'bg-foreground/25 group-hover:bg-foreground/45',
-          )}
-        />
-        <div className="flex min-h-0 flex-1 items-center gap-3 pl-4 pr-3.5">
-          {icon}
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <div className="truncate text-[13px] font-semibold leading-tight tracking-[-0.01em] text-card-foreground">
-                {title}
-              </div>
-              {badge}
-              {hitl ? <HitlBadge /> : null}
-            </div>
-            {subtitle}
-          </div>
-        </div>
-
-        {capabilities ? (
-          <div
-            className="grid shrink-0 grid-cols-4 gap-1 border-t border-border/70 bg-muted/30 p-1"
-            style={{ height: VERTICAL_CAPABILITY_BAR_HEIGHT }}
-          >
-            {capabilities.map(({ slot, connected, count }) => {
-              const Icon = CAPABILITY_ICONS[slot.id]
-              const label = CAPABILITY_SHORT_LABELS[slot.id]
-              return (
-                <button
-                  key={slot.id}
-                  type="button"
-                  disabled={!onAttachAction}
-                  className={cn(
-                    'flex min-w-0 items-center justify-center gap-1 rounded-[2px] px-1',
-                    'text-[10px] font-medium leading-none transition-colors duration-150',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    connected
-                      ? 'bg-card text-foreground shadow-sm ring-1 ring-inset ring-border'
-                      : slot.required
-                        ? 'text-amber-700 hover:bg-card dark:text-amber-400'
-                        : 'text-muted-foreground hover:bg-card hover:text-foreground',
-                    !onAttachAction && 'cursor-default',
-                  )}
-                  title={
-                    connected
-                      ? count > 1
-                        ? `${slot.label} · ${count}`
-                        : slot.label
-                      : `Add ${slot.label.toLowerCase()}`
-                  }
-                  aria-label={`${slot.label}${count > 0 ? ` (${count})` : ''}`}
-                  onPointerDown={stopCanvas}
-                  onClick={(event) => {
-                    stopCanvas(event)
-                    onAttachAction?.(nodeId, slot.action)
-                  }}
-                >
-                  <Icon className="size-3 shrink-0" />
-                  <span className="truncate">{label}</span>
-                  {count > 1 ? <span className="shrink-0 tabular-nums text-muted-foreground">{count}</span> : null}
-                </button>
-              )
-            })}
-          </div>
-        ) : null}
-      </div>
     </div>
   )
 }
@@ -624,7 +514,7 @@ interface AgentNodeCardProps {
   mappedUnderLabel?: string
   mappedChildren?: MappedChildCounts
   onAttachAction?: (agentId: string, action: AgentAttachAction) => void
-  /** Vertical flow renders the taller card with a built-in capability bar. */
+  /** Flow direction; the card looks the same in both. */
   direction?: FlowDirection
   /** The node's place in the workflow's orchestration, if any. */
   orchestration?: NodeOrchestration
@@ -638,7 +528,6 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   mappedUnderLabel,
   mappedChildren = { tool: 0, skill: 0, memory: 0, integration: 0, mcp: 0 },
   onAttachAction,
-  direction,
   orchestration,
 }: AgentNodeCardProps) {
   const agent = node.agent
@@ -651,7 +540,6 @@ export const AgentNodeCard = memo(function AgentNodeCard({
     node.label?.trim() ||
     (externalAgent ? externalAgent.label : TYPE_LABELS[agent?.agentType ?? 'llm'] ?? item.label)
 
-  const vertical = resolveFlowDirection(direction) === 'vertical'
 
   if (toolNode || executorNode) {
     const kind = resolveChildKind(node, executorNode)
@@ -660,31 +548,6 @@ export const AgentNodeCard = memo(function AgentNodeCard({
     const tooltip = mappedUnderLabel ? `${title} · under ${mappedUnderLabel}` : title
 
     if (executorNode) return <ExecutorCard title={title} isSelected={isSelected} className={className} />
-    if (vertical && toolNode) {
-      return <ChildCard title={title} kind={kind} isSelected={isSelected} tooltip={tooltip} compact className={className} />
-    }
-
-    if (vertical) {
-      return (
-        <VerticalFlowCard
-          nodeId={node.id}
-          title={title}
-          subtitle={
-            <p className="mt-1 truncate text-[11px] leading-tight text-muted-foreground">
-              {agent?.description?.trim() || kindStyle.label}
-            </p>
-          }
-          isSelected={isSelected}
-          className={className}
-          icon={
-            <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[2px] ring-1 ring-inset', kindStyle.tile)}>
-              <KindIcon className="size-[18px] stroke-[1.75]" />
-            </span>
-          }
-        />
-      )
-    }
-
     return <ChildCard title={title} kind={kind} isSelected={isSelected} tooltip={tooltip} className={className} />
   }
 
@@ -732,27 +595,6 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   }
   if (agent?.agentType === 'human') {
     return <ReviewCard title={title} isSelected={isSelected} className={className} />
-  }
-
-  if (vertical) {
-    return (
-      <VerticalFlowCard
-        nodeId={node.id}
-        title={title}
-        subtitle={<AgentSubtitle type={typeLabel} model={model} />}
-        isSelected={isSelected}
-        hitl={agent?.humanInTheLoop}
-        badge={orchestration ? <OrchestrationBadge orchestration={orchestration} /> : null}
-        capabilities={AGENT_DOCK_SLOTS.map((slot) => ({
-          slot,
-          connected: slotConnected(slot.id),
-          count: slotCount(slot.id),
-        }))}
-        onAttachAction={onAttachAction}
-        className={className}
-        icon={leadingIcon}
-      />
-    )
   }
 
   /** Tools and knowledge take any number, so their pills keep offering "+" once filled. */

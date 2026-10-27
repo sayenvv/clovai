@@ -1,5 +1,4 @@
 import {
-  resolveFlowDirection,
   type Diagram,
   type DiagramNode,
   type FlowDirection,
@@ -36,20 +35,6 @@ export {
 export const TOOL_UNDER_AGENT_GAP = 48
 /** Horizontal gap between child nodes in a row under an agent. */
 export const TOOL_ROW_GAP = 12
-/** Vertical flow: gap between an agent card and its tool column. */
-export const TOOL_BESIDE_AGENT_GAP = 56
-/** Vertical gap between child nodes in a column beside an agent. */
-export const TOOL_COLUMN_GAP = 8
-
-/** Soft horizontal curve from a side dock to a child node (vertical flow). */
-export function curvedSideAttachmentPath(
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-): string {
-  const midX = from.x + (to.x - from.x) * 0.55
-  return `M ${from.x} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x} ${to.y}`
-}
-
 /** Soft vertical curve from agent attachment rail to a child node. */
 export function curvedAttachmentPath(
   from: { x: number; y: number },
@@ -132,17 +117,11 @@ export function computeToolPosition(
   tool: DiagramNode,
   indexAmongTools: number,
   totalTools: number,
-  direction?: FlowDirection,
+  // The row under the agent is the same in either flow direction.
+  _direction?: FlowDirection,
 ): Pick<DiagramNode, 'x' | 'y'> {
   const agentSize = agentNodeSize(agent)
   const toolSize = toolNodeSize(tool)
-  if (resolveFlowDirection(direction) === 'vertical') {
-    // Column to the right so the top → bottom flow stays clear.
-    return {
-      x: agent.x + agentSize.width + TOOL_BESIDE_AGENT_GAP,
-      y: agent.y + indexAmongTools * (toolSize.height + TOOL_COLUMN_GAP),
-    }
-  }
   const rowWidth =
     totalTools * toolSize.width + Math.max(0, totalTools - 1) * TOOL_ROW_GAP
   const startX = agent.x + (agentSize.width - rowWidth) / 2

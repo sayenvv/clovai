@@ -17,7 +17,6 @@ import { AgentNodeCard, AGENT_DOCK_SLOTS } from '@/components/agent-workflow/Age
 import type { AgentAttachAction, MappedChildCounts, NodeOrchestration } from '@/components/agent-workflow/AgentNodeCard'
 import { findOrchestrations, PATTERN_META } from '@/components/agent-workflow/orchestration-patterns'
 import {
-  VERTICAL_CAPABILITY_BAR_HEIGHT,
   childKindForPalette,
   flowNodeSize,
   isMappedToolPalette,
@@ -26,7 +25,6 @@ import { edgeNeedsApprovalStyle } from '@/components/agent-workflow/validate-wor
 import {
   agentNodeSize,
   curvedAttachmentPath,
-  curvedSideAttachmentPath,
   isToolNode,
   toolNodeSize,
 } from '@/components/agent-workflow/tool-agent-mapping'
@@ -1441,18 +1439,6 @@ export const DesignerCanvas = memo(function DesignerCanvas({
             ? 'knowledge'
             : 'tool'
       const slot = AGENT_DOCK_SLOTS.find((item) => item.id === dockId) ?? AGENT_DOCK_SLOTS[2]
-      if (flowDirection === 'vertical') {
-        // Leave the card at its capability bar, on the side facing the tool column.
-        const from = {
-          x: agent.x + agentSize.width,
-          y:
-            expandedNode?.id === agent.id
-              ? agent.y + agentSize.height / 2
-              : agent.y + agentSize.height - VERTICAL_CAPABILITY_BAR_HEIGHT / 2,
-        }
-        const to = { x: node.x, y: node.y + toolSize.height / 2 }
-        return [{ id: `map-${node.id}`, d: curvedSideAttachmentPath(from, to) }]
-      }
       const from = {
         x: agent.x + agentSize.width * slot.x,
         y: agent.y + agentSize.height,
@@ -1463,7 +1449,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
       }
       return [{ id: `map-${node.id}`, d: curvedAttachmentPath(from, to) }]
     })
-  }, [agentMode, diagram.nodes, nodesById, flowDirection, expandedNode, roomOffsets])
+  }, [agentMode, diagram.nodes, nodesById, expandedNode, roomOffsets])
 
   const renderedEdges = useMemo(() => {
     const items = diagram.edges.flatMap((edge) => {

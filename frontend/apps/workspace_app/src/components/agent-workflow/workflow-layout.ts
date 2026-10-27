@@ -18,8 +18,6 @@ import {
   listToolsForAgent,
   syncMappedToolLayout,
   toolNodeSize,
-  TOOL_BESIDE_AGENT_GAP,
-  TOOL_COLUMN_GAP,
   TOOL_ROW_GAP,
   TOOL_UNDER_AGENT_GAP,
 } from '@/components/agent-workflow/tool-agent-mapping'
@@ -184,15 +182,6 @@ function nodeFootprint(diagram: Diagram, node: DiagramNode, direction: FlowDirec
     return { ...card, offsetX: 0, offsetY: 0 }
   }
   const tools = listToolsForAgent(diagram, node.id).map(toolNodeSize)
-  if (direction === 'vertical') {
-    const column =
-      tools.reduce((sum, tool) => sum + tool.height, 0) +
-      Math.max(0, tools.length - 1) * TOOL_COLUMN_GAP
-    // Capabilities live inside the vertical card, so only a tool column extends it.
-    const side =
-      tools.length > 0 ? TOOL_BESIDE_AGENT_GAP + Math.max(...tools.map((tool) => tool.width)) : 0
-    return { width: card.width + side, height: Math.max(card.height, column), offsetX: 0, offsetY: 0 }
-  }
   const row =
     tools.reduce((sum, tool) => sum + tool.width, 0) +
     Math.max(0, tools.length - 1) * TOOL_ROW_GAP
