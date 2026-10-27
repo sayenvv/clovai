@@ -16,6 +16,7 @@ import { UserWorkflowDetailView } from '@/components/admin-center/views/UserWork
 import { UsersView } from '@/components/admin-center/views/UsersView'
 import { DefinitionDetailView } from '@/components/admin-center/views/DefinitionDetailView'
 import { DefinitionsView } from '@/components/admin-center/views/DefinitionsView'
+import { SystemLogsView } from '@/components/admin-center/views/SystemLogsView'
 
 export const router = createBrowserRouter([
   {
@@ -61,6 +62,7 @@ export const router = createBrowserRouter([
         ),
       },
       { path: 'access', element: <AccessView /> },
+      { path: 'system-logs', element: <SystemLogsView /> },
       { path: 'settings', element: <SettingsView /> },
       { path: '*', element: <Navigate to="/dashboard" replace /> },
     ],

@@ -45,5 +45,6 @@ export const ROUTES = {
   contextProviders: '/configuration/context-providers',
   template: '/template',
   access: '/access',
+  systemLogs: '/system-logs',
   settings: '/settings',
 } as const
