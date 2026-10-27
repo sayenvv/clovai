@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, useMatch, useResolvedPath } from 'react-router-dom'
-import { PanelLeft } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight } from 'lucide-react'
 import {
   ADMIN_NAV_GROUPS,
   SETTINGS_NAV_ITEM,
@@ -56,8 +56,11 @@ export function AdminSidebar() {
     <TooltipProvider delayDuration={200} skipDelayDuration={0}>
       <aside
         className={cn(
-          'hidden h-full shrink-0 flex-col overflow-hidden border-r border-border/70 bg-background md:flex',
-          collapsed ? 'w-14' : 'w-[232px]',
+          // A chrome side panel, like the workspace's library and outline
+          'hidden h-full shrink-0 flex-col overflow-hidden border-r border-border bg-[hsl(var(--chrome))] md:flex',
+          // Dark mode: the rail and this panel are nearly the same black, so a line separates them
+          'dark:border-l',
+          collapsed ? 'w-12' : 'w-[220px]',
         )}
       >
         <ApplicationSwitcher collapsed={collapsed} />
@@ -66,16 +69,15 @@ export function AdminSidebar() {
             <SearchInput
               value={query}
               onChange={setQuery}
-              placeholder="Search…"
-              inputClassName="h-8 text-[12px]"
+              placeholder="Search pages"
             />
           </div>
         )}
 
         <nav
           className={cn(
-            'min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-4',
-            collapsed ? 'flex flex-col items-center gap-1 px-2 pt-3' : 'space-y-4 px-3',
+            'scrollbar-subtle min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-4',
+            collapsed ? 'flex flex-col items-center gap-1 px-2 pt-3' : 'space-y-4 px-2.5',
           )}
         >
           {collapsed
@@ -84,7 +86,7 @@ export function AdminSidebar() {
               )
             : groups.map((group) => (
                 <div key={group.title} className="min-w-0">
-                  <p className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <p className="mb-1 px-2 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     {group.title}
                   </p>
                   <div className="flex flex-col gap-0.5">
@@ -101,7 +103,7 @@ export function AdminSidebar() {
 
         <div
           className={cn(
-            'flex shrink-0 border-t border-border/70 py-2',
+            'flex shrink-0 border-t border-border py-2',
             collapsed ? 'flex-col items-center gap-1 px-2' : 'items-center gap-1 px-3',
           )}
         >
@@ -113,12 +115,12 @@ export function AdminSidebar() {
             variant="ghost"
             size="icon"
             onClick={() => setCollapsed((value) => !value)}
-            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+            className="h-6 w-6 shrink-0 rounded-[2px] text-foreground/60 hover:bg-foreground/[0.07] hover:text-foreground [&_svg]:size-3.5"
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-expanded={!collapsed}
           >
-            <PanelLeft className="h-4 w-4" />
+            {collapsed ? <ChevronsRight /> : <ChevronsLeft />}
           </Button>
         </div>
       </aside>
@@ -137,17 +139,18 @@ function SidebarNavLink({ item, collapsed }: { item: AdminNavItem; collapsed: bo
     <NavLink
       to={item.to}
       className={cn(
-        'relative flex items-center rounded-md text-left transition-colors',
-        collapsed ? 'h-9 w-9 shrink-0 justify-center' : 'w-full min-w-0 gap-2.5 px-2.5 py-1.5',
+        'relative flex items-center rounded-[3px] text-left transition-colors',
+        collapsed ? 'h-8 w-8 shrink-0 justify-center' : 'w-full min-w-0 gap-2.5 px-2 py-1.5',
+        // Selected as in the workspace's library rail: the accent tint with an orange icon
         isActive
-          ? 'bg-foreground/[0.06] font-semibold text-foreground dark:bg-foreground/10'
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+          ? 'bg-accent font-medium text-foreground'
+          : 'text-foreground/75 hover:bg-foreground/[0.06] hover:text-foreground',
       )}
     >
-      <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-foreground dark:text-foreground')} />
+      <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-primary')} strokeWidth={isActive ? 2 : 1.75} />
       {!collapsed && <span className="min-w-0 flex-1 truncate text-[12.5px]">{item.label}</span>}
       {!collapsed && item.badge ? (
-        <span className="shrink-0 rounded-full bg-muted px-1.5 py-px text-[10px] font-semibold tabular-nums text-muted-foreground">
+        <span className="shrink-0 rounded-[2px] bg-foreground/[0.06] px-1.5 py-px text-[10px] font-semibold tabular-nums text-muted-foreground">
           {item.badge}
         </span>
       ) : null}

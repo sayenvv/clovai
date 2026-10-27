@@ -17,12 +17,16 @@ export function SearchInput({
 }) {
   return (
     <div className={cn('relative', className)}>
-      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-foreground/60" />
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className={cn('h-9 border-border/70 bg-background/70 pl-8 text-xs', inputClassName)}
+        // The workspace's search field: a flat chrome-input well, no border or shadow
+        className={cn(
+          'h-7 rounded-[2px] border-0 bg-[hsl(var(--chrome-input))] pl-7 text-[11.5px] shadow-none focus-visible:ring-1 focus-visible:ring-primary/50',
+          inputClassName,
+        )}
       />
     </div>
   )

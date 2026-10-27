@@ -5,7 +5,7 @@ import { cn } from '@/utils/cn'
 type Tone = 'primary' | 'success' | 'warning' | 'violet'
 
 const TONES: Record<Tone, string> = {
-  primary: 'bg-foreground/10 text-foreground dark:text-foreground',
+  primary: 'bg-primary/10 text-primary',
   success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
   warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
   violet: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
@@ -28,7 +28,7 @@ export function StatCard({ label, value, delta, hint, icon: Icon, tone = 'primar
     <PremiumCard className="p-3.5">
       <div className="flex items-start justify-between gap-2">
         <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-        <div className={cn('flex h-8 w-8 items-center justify-center rounded-md', TONES[tone])}>
+        <div className={cn('flex h-7 w-7 items-center justify-center rounded-[2px]', TONES[tone])}>
           <Icon className="h-3.5 w-3.5" />
         </div>
       </div>

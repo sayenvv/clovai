@@ -66,7 +66,7 @@ export function UserDetailView() {
               name={user.name}
               size="lg"
               variant="brand"
-              className="h-14 w-14 rounded-lg text-lg ring-1 ring-border/60"
+              className="h-14 w-14 rounded-[3px] text-lg ring-1 ring-border/60"
             />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -165,7 +165,7 @@ export function UserDetailView() {
               hint="This member has not created or been assigned any workflows."
             />
           ) : (
-            <div className="overflow-hidden rounded-lg border border-border/70">
+            <div className="overflow-hidden rounded-[3px] border border-border/70">
               <table className="w-full min-w-[760px] text-xs">
                 <thead className="bg-muted/40 text-[10.5px] uppercase tracking-wider text-muted-foreground">
                   <tr>

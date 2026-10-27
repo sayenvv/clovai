@@ -13,7 +13,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { APP_NAME, MAIN_APP_URL, ROUTES } from '@/constants'
 
-export function AdminProfileMenu() {
+/** The admin's account menu; `compact` shows only the avatar, as at the bottom of the rail. */
+export function AdminProfileMenu({ compact = false, side }: { compact?: boolean; side?: 'right' | 'bottom' }) {
   const { account, signOut } = useAdminAuth()
   const name = account.fullName || account.email
   return (
@@ -22,10 +23,15 @@ export function AdminProfileMenu() {
         <Button
           type="button"
           variant="ghost"
-          className="h-9 gap-2 rounded-full border border-border/70 bg-card/60 px-2.5 hover:bg-accent/50"
+          title={compact ? `${name} · Admin` : undefined}
+          className={
+            compact
+              ? 'h-7 w-7 rounded-full p-0 hover:bg-white/10'
+              : 'h-9 gap-2 rounded-full border border-border/70 bg-card/60 px-2.5 hover:bg-accent/50'
+          }
         >
-          <UserAvatar name={name} size="sm" variant="brand" online />
-          <span className="hidden min-w-0 text-left sm:block">
+          <UserAvatar name={name} size="sm" variant="brand" online={!compact} />
+          <span className={compact ? 'hidden' : 'hidden min-w-0 text-left sm:block'}>
             <span className="block truncate text-[11.5px] font-semibold leading-none">
               {name}
             </span>
@@ -35,7 +41,7 @@ export function AdminProfileMenu() {
           </span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" side={side} sideOffset={side === 'right' ? 8 : 4} className="w-56">
         <DropdownMenuLabel className="font-normal">
           <p className="text-sm font-medium">{APP_NAME} Admin</p>
           <p className="text-xs text-muted-foreground">{account.email}</p>

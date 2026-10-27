@@ -79,7 +79,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
           window.setTimeout(() => setDone(false), 1200)
         })
       }}
-      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+      className="inline-flex items-center gap-1 rounded-[2px] px-1.5 py-0.5 text-[10.5px] text-muted-foreground hover:bg-accent/60 hover:text-foreground"
       aria-label={`Copy ${label}`}
     >
       {done ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -191,7 +191,7 @@ function TopFailures({
                 type="button"
                 onClick={() => onPick(picked ? null : group.fingerprint)}
                 className={cn(
-                  'grid w-full grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 py-2 text-left transition-colors',
+                  'grid w-full grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 rounded-[2px] px-2 py-2 text-left transition-colors',
                   picked ? 'bg-accent' : 'hover:bg-accent/50',
                 )}
               >
@@ -263,7 +263,7 @@ function LogDetail({ id, onClose, onShowSimilar }: { id: number; onClose: () => 
     <PremiumCard className="flex max-h-[calc(100vh-7rem)] flex-col">
       <div className="flex items-center justify-between gap-2 border-b border-border/70 px-4 py-2.5">
         <h2 className="text-[12.5px] font-semibold">Log record #{id}</h2>
-        <button type="button" onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Close">
+        <button type="button" onClick={onClose} className="rounded-[2px] p-1 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Close">
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -280,7 +280,7 @@ function LogDetail({ id, onClose, onShowSimilar }: { id: number; onClose: () => 
                   <button
                     type="button"
                     onClick={() => onShowSimilar(detail.fingerprint)}
-                    className="inline-flex items-center gap-1 rounded-md border border-border/70 px-1.5 py-0.5 text-[10.5px] text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                    className="inline-flex items-center gap-1 rounded-[2px] border border-border/70 px-1.5 py-0.5 text-[10.5px] text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                   >
                     <Fingerprint className="h-3 w-3" />
                     Happened {detail.occurrences}× — show all
@@ -306,7 +306,7 @@ function LogDetail({ id, onClose, onShowSimilar }: { id: number; onClose: () => 
                   <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Traceback</h3>
                   <CopyButton text={detail.traceback} label="traceback" />
                 </div>
-                <pre className="max-h-[28rem] overflow-auto rounded-md border border-border/70 bg-muted/40 p-3 font-mono text-[10.5px] leading-relaxed text-foreground/90">
+                <pre className="max-h-[28rem] overflow-auto rounded-[2px] border border-border/70 bg-muted/40 p-3 font-mono text-[10.5px] leading-relaxed text-foreground/90">
                   {detail.traceback}
                 </pre>
               </div>
@@ -399,7 +399,7 @@ export function SystemLogsView() {
       />
       <PageBody className="space-y-4">
         {error ? (
-          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">{error}</p>
+          <p className="rounded-[2px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">{error}</p>
         ) : null}
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -430,7 +430,7 @@ export function SystemLogsView() {
                 <button
                   type="button"
                   onClick={() => setFingerprint(null)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-border/70 px-2 py-1 text-[10.5px] text-muted-foreground hover:bg-accent/50"
+                  className="inline-flex items-center gap-1 rounded-[3px] border border-border/70 px-2 py-1 text-[10.5px] text-muted-foreground hover:bg-accent/50"
                 >
                   <Fingerprint className="h-3 w-3" />
                   One failure only

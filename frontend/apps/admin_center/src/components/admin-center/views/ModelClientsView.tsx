@@ -32,7 +32,7 @@ const PROVIDERS: Array<{ value: ModelProvider; label: string; endpoint: string }
 ]
 
 const SELECT_CLASS =
-  'h-8 w-full rounded-md border border-input bg-transparent px-2 text-[12px] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-8 w-full rounded-[2px] border border-input bg-transparent px-2 text-[12px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 type Source = 'value' | 'variable'
 
@@ -206,7 +206,7 @@ export function ModelClientsView() {
       <PageBody>
         <ApplicationGate>
           {error && (
-            <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
+            <p className="mb-3 rounded-[2px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
               {error}
             </p>
           )}
@@ -410,7 +410,7 @@ function SourceField({
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-        <div className="inline-flex rounded-md border border-border/70 bg-muted/40 p-0.5" role="group" aria-label={`${label} source`}>
+        <div className="inline-flex rounded-[2px] border border-border/70 bg-muted/40 p-0.5" role="group" aria-label={`${label} source`}>
           {(
             [
               ['variable', 'From variable'],
@@ -424,7 +424,7 @@ function SourceField({
               aria-pressed={source === value}
               className={cn(
                 'rounded px-2 py-0.5 text-[11px] font-medium transition-colors',
-                source === value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                source === value ? 'bg-background text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)]' : 'text-muted-foreground hover:text-foreground',
               )}
             >
               {text}

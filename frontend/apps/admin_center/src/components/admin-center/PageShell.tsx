@@ -56,7 +56,7 @@ export function EmptyHint({
   return (
     <div
       className={cn(
-        'rounded-lg border border-dashed border-border/80 bg-card/60 px-4 py-10 text-center',
+        'rounded-[3px] border border-dashed border-border/80 bg-card/60 px-4 py-10 text-center',
         className,
       )}
     >

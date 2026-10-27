@@ -1,15 +1,13 @@
 import { useEffect } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ExternalLink } from 'lucide-react'
+import { LayoutGrid } from 'lucide-react'
 import { AdminNotificationsMenu } from '@/components/admin-center/AdminNotificationsMenu'
 import { AdminProfileMenu } from '@/components/admin-center/AdminProfileMenu'
 import { AdminSidebar } from '@/components/admin-center/AdminSidebar'
 import { ADMIN_MOBILE_NAV, navItemForPath } from '@/components/admin-center/nav-config'
-import { Logo, LOGO_SIZE_WORKSPACE } from '@/components/shared/Logo'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { APP_NAME, APP_TITLE, MAIN_APP_URL } from '@/constants'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { APP_NAME, APP_TITLE, MAIN_APP_URL, ROUTES } from '@/constants'
 import { cn } from '@/utils/cn'
 
 /** Standalone Admin Center shell, laid out like the workspace app's console. */
@@ -22,32 +20,54 @@ export default function AdminCenterPage() {
   }, [current.label])
 
   return (
-    <div className="workspace-surface admin-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      <header className="shrink-0 border-b border-border/80 bg-card/95 pt-[max(0px,env(safe-area-inset-top))] backdrop-blur-md">
-        <div className="flex h-12 items-center gap-2.5 px-3">
-          <Logo size={LOGO_SIZE_WORKSPACE} rounded="md" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold tracking-tight">{APP_TITLE}</p>
-            <p className="truncate text-[11px] text-muted-foreground">{current.description}</p>
-          </div>
-
-          <Badge
-            variant="outline"
-            className="hidden shrink-0 border-foreground/30 bg-foreground/5 text-[10px] font-medium text-foreground dark:text-foreground sm:inline-flex"
-          >
-            {current.label}
-          </Badge>
-
-          <Button asChild variant="outline" size="sm" className="hidden h-9 rounded-lg md:inline-flex">
-            <a href={MAIN_APP_URL}>
-              <ExternalLink className="h-3.5 w-3.5" />
-              Workspace
+    <div className="workspace-surface admin-shell flex h-screen overflow-hidden bg-background text-foreground">
+      {/* The orange app rail, as in the workspace: logo, back to the workspace, then theme and account */}
+      <TooltipProvider delayDuration={200}>
+        <nav
+          aria-label="Admin Center"
+          className="rail-surface relative z-50 hidden h-full w-10 shrink-0 flex-col items-center gap-1.5 py-2 md:flex"
+        >
+          <RailTip label={`${APP_TITLE} home`}>
+            <NavLink
+              to={ROUTES.dashboard}
+              aria-label={`${APP_TITLE} home`}
+              className="mb-3 mt-1 flex h-8 w-8 items-center justify-center rounded-[3px] hover:bg-white/10"
+            >
+              <img src="/brand/mark-white.svg" alt="" className="h-5 w-5" />
+            </NavLink>
+          </RailTip>
+          <RailTip label="Open the workspace">
+            <a
+              href={MAIN_APP_URL}
+              aria-label="Open the workspace"
+              className="flex h-8 w-8 items-center justify-center rounded-[3px] text-foreground/85 transition-colors hover:bg-white/10 hover:text-foreground"
+            >
+              <LayoutGrid className="h-4 w-4" strokeWidth={1.75} />
             </a>
-          </Button>
-          <span className="mx-0.5 hidden h-6 w-px bg-border/70 md:block" aria-hidden />
+          </RailTip>
+          <div className="mt-auto flex flex-col items-center gap-2">
+            <ThemeToggle className="h-8 w-8 rounded-[3px] text-foreground/85 hover:bg-white/10 hover:text-foreground [&_svg]:size-4" />
+            <AdminProfileMenu compact side="right" />
+          </div>
+        </nav>
+      </TooltipProvider>
+
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* The thin top bar: where you are, then notifications */}
+      <header className="relative z-40 flex h-8 shrink-0 items-center gap-2 border-b border-border bg-[hsl(var(--chrome))] pl-3 pr-2 pt-[max(0px,env(safe-area-inset-top))]">
+        <span className="hidden shrink-0 text-[11.5px] font-medium text-foreground/85 md:inline">{APP_TITLE}</span>
+        <span className="hidden text-foreground/30 md:inline" aria-hidden>/</span>
+        <span className="min-w-0 truncate text-[11.5px] font-semibold text-foreground">{current.label}</span>
+        <span className="hidden min-w-0 truncate text-[11px] text-muted-foreground lg:inline">· {current.description}</span>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <AdminNotificationsMenu />
-          <ThemeToggle />
-          <AdminProfileMenu />
+          {/* On phones the rail is hidden, so the theme and account sit here */}
+          <span className="md:hidden">
+            <ThemeToggle className="h-6 w-6 rounded-[3px] [&_svg]:size-3.5" />
+          </span>
+          <span className="md:hidden">
+            <AdminProfileMenu compact />
+          </span>
         </div>
       </header>
 
@@ -58,7 +78,7 @@ export default function AdminCenterPage() {
         </main>
       </div>
 
-      <nav className="flex shrink-0 items-center justify-around border-t border-border/70 bg-card/95 px-1 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
+      <nav className="flex shrink-0 items-center justify-around border-t border-border bg-[hsl(var(--chrome))] px-1 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:hidden">
         {ADMIN_MOBILE_NAV.map((link) => {
           const Icon = link.icon
           return (
@@ -67,8 +87,8 @@ export default function AdminCenterPage() {
               to={link.to}
               className={({ isActive }) =>
                 cn(
-                  'flex flex-col items-center gap-0.5 rounded-md px-2 py-1 text-[9.5px] font-medium',
-                  isActive ? 'text-foreground dark:text-foreground' : 'text-muted-foreground',
+                  'flex flex-col items-center gap-0.5 rounded-[3px] px-2 py-1 text-[9.5px] font-medium',
+                  isActive ? 'text-primary' : 'text-muted-foreground',
                 )
               }
             >
@@ -78,6 +98,18 @@ export default function AdminCenterPage() {
           )
         })}
       </nav>
+      </div>
     </div>
+  )
+}
+
+function RailTip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8} className="px-2 py-1 text-xs font-medium">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   )
 }

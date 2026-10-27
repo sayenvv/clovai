@@ -976,7 +976,9 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
         className={cn(
           'relative flex h-full shrink-0 border-r border-border',
           'bg-background',
-          embedded && 'w-full border-r-0',
+          // Dark mode: the app rail and this panel are nearly the same black, so a line separates them
+          'dark:border-l',
+          embedded && 'w-full border-r-0 dark:border-l-0',
         )}
         style={{ width: totalWidth }}
       >

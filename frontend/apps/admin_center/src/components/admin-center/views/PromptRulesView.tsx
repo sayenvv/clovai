@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 
 const TEXTAREA_CLASS =
-  'w-full rounded-md border border-input bg-transparent px-2.5 py-2 font-mono text-[11.5px] leading-relaxed shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'w-full rounded-[2px] border border-input bg-transparent px-2.5 py-2 font-mono text-[11.5px] leading-relaxed shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 /** One "field: Heading" line per required field, in order. */
 const fieldsText = (rule: PromptRule) =>
@@ -87,7 +87,7 @@ function RuleCard({ rule, onSaved }: { rule: PromptRule; onSaved: (rule: PromptR
         </div>
       </div>
       {error && (
-        <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
+        <p className="mb-3 rounded-[2px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
           {error}
         </p>
       )}
@@ -150,7 +150,7 @@ export function PromptRulesView() {
       />
       <PageBody>
         {error && (
-          <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
+          <p className="mb-3 rounded-[2px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
             {error}
           </p>
         )}

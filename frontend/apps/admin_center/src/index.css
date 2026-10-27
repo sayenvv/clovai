@@ -153,3 +153,31 @@
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 }
+
+@layer utilities {
+  /* A hairline scrollbar for side panels: no track, a faint thumb that firms up on hover. */
+  .scrollbar-subtle {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  .scrollbar-subtle:hover {
+    scrollbar-color: hsl(var(--foreground) / 0.18) transparent;
+  }
+  .scrollbar-subtle::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-subtle::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-subtle::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: transparent;
+  }
+  .scrollbar-subtle:hover::-webkit-scrollbar-thumb {
+    background: hsl(var(--foreground) / 0.18);
+  }
+  .scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--foreground) / 0.3);
+  }
+}

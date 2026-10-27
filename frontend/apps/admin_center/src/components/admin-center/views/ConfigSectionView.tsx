@@ -98,7 +98,7 @@ export function ConfigSectionView() {
       <PageBody>
         <ApplicationGate>
           {error && (
-            <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
+            <p className="mb-3 rounded-[2px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
               {error}
             </p>
           )}

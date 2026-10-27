@@ -21,7 +21,7 @@ import { cn } from '@/utils/cn'
 type Variable = { name: string; type: VariableType; value: string; hasValue: boolean }
 
 const SELECT_CLASS =
-  'h-8 rounded-md border border-input bg-transparent px-2 text-[12px] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-8 rounded-[2px] border border-input bg-transparent px-2 text-[12px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 function rowsOf(variables: ApplicationVariable[]): Variable[] {
   return variables.map((item) => ({ name: item.name, type: item.type, value: item.value, hasValue: item.has_value }))
@@ -194,12 +194,12 @@ export function EnvironmentView() {
       <PageBody>
         <ApplicationGate>
           {error && (
-            <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
+            <p className="mb-3 rounded-[2px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
               {error}
             </p>
           )}
           {notice && (
-            <p className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11.5px] text-amber-700 dark:text-amber-300">
+            <p className="mb-3 rounded-[2px] border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11.5px] text-amber-700 dark:text-amber-300">
               {notice}
             </p>
           )}

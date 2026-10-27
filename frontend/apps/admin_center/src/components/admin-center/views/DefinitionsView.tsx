@@ -170,7 +170,7 @@ function DefinitionRow({ row, kind }: { row: DefinitionDetail; kind: DefinitionK
   return (
     <tr className="border-t border-border/60 transition-colors hover:bg-accent/30">
       <td className="max-w-[420px] px-4 py-2.5">
-        <Link to={href} className="block min-w-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link to={href} className="block min-w-0 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <p className="truncate font-medium text-foreground hover:underline">{row.name || 'Untitled'}</p>
           <p className="truncate text-[10.5px] text-muted-foreground">{row.description || row.id}</p>
         </Link>
@@ -222,10 +222,10 @@ function DefinitionCard({ row, kind }: { row: DefinitionDetail; kind: Definition
   return (
     <Link
       to={ROUTES.definition(kind, row.id)}
-      className="group flex flex-col rounded-lg border border-border/70 bg-card p-3.5 shadow-sm outline-none transition-colors hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex flex-col rounded-[3px] border border-border/70 bg-card p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-colors hover:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="flex items-start gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] bg-foreground/10 text-foreground dark:text-foreground">
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">

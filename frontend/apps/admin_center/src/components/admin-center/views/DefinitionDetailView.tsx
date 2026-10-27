@@ -196,7 +196,7 @@ export function DefinitionDetailView({ kind }: { kind: DefinitionKind }) {
                       role="tab"
                       aria-selected={view === option}
                       onClick={() => setView(option)}
-                      className={`rounded-md px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
+                      className={`rounded-[2px] px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
                         view === option ? 'bg-foreground/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >

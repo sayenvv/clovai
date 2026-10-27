@@ -10,7 +10,7 @@ export function PremiumCard({
   className?: string
 }) {
   return (
-    <div className={cn('overflow-hidden rounded-lg border border-border/70 bg-card shadow-sm', className)}>
+    <div className={cn('overflow-hidden rounded-[3px] border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]', className)}>
       {children}
     </div>
   )

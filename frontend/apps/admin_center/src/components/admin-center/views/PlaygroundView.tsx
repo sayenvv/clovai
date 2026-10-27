@@ -11,7 +11,7 @@ import { useApplication } from '@/hooks/use-application'
 import { WorkflowCanvasView } from '@/components/admin-center/WorkflowCanvasView'
 
 const SELECT =
-  'h-8 w-full rounded-md border border-input bg-transparent px-2 text-[12px] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-8 w-full rounded-[2px] border border-input bg-transparent px-2 text-[12px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 interface Turn {
   id: string
@@ -185,7 +185,7 @@ export function PlaygroundView() {
                 turns.map((turn) => (
                   <div key={turn.id} className="space-y-2.5">
                     <div className="flex justify-end">
-                      <div className="flex max-w-[80%] items-start gap-2 rounded-lg bg-foreground/5 px-3 py-2 text-[12.5px]">
+                      <div className="flex max-w-[80%] items-start gap-2 rounded-[3px] bg-foreground/5 px-3 py-2 text-[12.5px]">
                         <User className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span className="whitespace-pre-wrap">{turn.message}</span>
                       </div>
@@ -215,7 +215,7 @@ export function PlaygroundView() {
                             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Running…
                           </p>
                         ) : turn.error ? (
-                          <p className="flex items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
+                          <p className="flex items-start gap-1.5 rounded-[2px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
                             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                             {turn.error}
                           </p>
@@ -243,7 +243,7 @@ export function PlaygroundView() {
                   }
                 }}
                 placeholder={selected ? `Message ${selected.name || 'the workflow'}… (Enter to send, Shift+Enter for a new line)` : 'Pick a workflow first'}
-                className="min-h-[44px] flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-[12.5px] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="min-h-[44px] flex-1 resize-none rounded-[2px] border border-input bg-transparent px-3 py-2 text-[12.5px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 disabled={!workflowId}
               />
               {running ? (
@@ -295,7 +295,7 @@ function BuiltWorkflow({ workflow }: { workflow: Record<string, unknown> }) {
   }
 
   return (
-    <div className="rounded-md border border-border/70 bg-foreground/[0.03] p-3">
+    <div className="rounded-[2px] border border-border/70 bg-foreground/[0.03] p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Workflow className="h-4 w-4 text-muted-foreground" />
         <span className="text-[12.5px] font-semibold">{name}</span>

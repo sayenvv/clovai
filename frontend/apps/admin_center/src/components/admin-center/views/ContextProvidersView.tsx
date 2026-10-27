@@ -21,9 +21,9 @@ import { Switch } from '@/components/ui/switch'
 
 const FIELD = 'grid gap-1 text-[11px] font-medium text-muted-foreground'
 const SELECT =
-  'h-8 rounded-md border border-input bg-transparent px-2 text-[12px] shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'h-8 rounded-[2px] border border-input bg-transparent px-2 text-[12px] shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 const TEXTAREA =
-  'w-full rounded-md border border-input bg-transparent px-2.5 py-2 font-mono text-[11.5px] leading-relaxed shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+  'w-full rounded-[2px] border border-input bg-transparent px-2.5 py-2 font-mono text-[11.5px] leading-relaxed shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 const CUSTOM = ''
 
@@ -116,7 +116,7 @@ function ProviderCard({
           </Button>
         </div>
       </div>
-      {error && <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">{error}</p>}
+      {error && <p className="mb-3 rounded-[2px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">{error}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
         <label className={FIELD}>
           Name
@@ -183,12 +183,12 @@ function ProviderTile({
       type="button"
       onClick={onOpen}
       aria-pressed={selected}
-      className={`flex flex-col rounded-lg border bg-card p-3.5 text-left shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`flex flex-col rounded-[3px] border bg-card p-3.5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring ${
         selected ? 'border-foreground/60' : 'border-border/70 hover:border-foreground/40'
       } ${provider.isActive ? '' : 'opacity-60'}`}
     >
       <div className="flex items-start gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-foreground/10">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] bg-foreground/10">
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
@@ -260,7 +260,7 @@ export function ContextProvidersView() {
         }
       />
       <PageBody className="grid gap-3">
-        {error && <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">{error}</p>}
+        {error && <p className="rounded-[2px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">{error}</p>}
         {adding && (
           <ProviderCard
             provider={null}

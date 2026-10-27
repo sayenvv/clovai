@@ -30,7 +30,7 @@ export function LayoutToggle({ value, onChange }: { value: Layout; onChange: (ne
     { layout: 'grid', label: 'Grid view', icon: LayoutGrid },
   ]
   return (
-    <div className="flex rounded-md border border-border/70 bg-muted/40 p-0.5" role="group" aria-label="Layout">
+    <div className="flex rounded-[2px] border border-border/70 bg-muted/40 p-0.5" role="group" aria-label="Layout">
       {options.map(({ layout, label, icon: Icon }) => (
         <button
           key={layout}
@@ -41,7 +41,7 @@ export function LayoutToggle({ value, onChange }: { value: Layout; onChange: (ne
           title={label}
           className={cn(
             'flex h-7 w-7 items-center justify-center rounded transition-colors',
-            value === layout ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            value === layout ? 'bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)]' : 'text-muted-foreground hover:text-foreground',
           )}
         >
           <Icon className="h-3.5 w-3.5" />

@@ -99,7 +99,7 @@ export function UsersView() {
                       <td className="px-4 py-3">
                         <Link
                           to={ROUTES.user(user.id)}
-                          className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex items-center gap-2.5 rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <UserAvatar name={user.name} />
                           <div className="min-w-0">
@@ -145,7 +145,7 @@ export function UsersView() {
             <EmptyHint
               title="No members match"
               hint="Try another search or status filter."
-              className="m-4 rounded-lg border-0 bg-transparent py-10"
+              className="m-4 rounded-[3px] border-0 bg-transparent py-10"
             />
           )}
         </PremiumCard>

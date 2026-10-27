@@ -26,7 +26,7 @@ export function UserAvatar({
         'relative inline-flex shrink-0 items-center justify-center rounded-full font-semibold',
         SIZES[size],
         variant === 'brand'
-          ? 'bg-gradient-to-br from-primary to-primary/70 text-primary-foreground'
+          ? 'bg-primary text-primary-foreground'
           : 'bg-primary/10 text-primary',
         className,
       )}

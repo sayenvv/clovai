@@ -186,7 +186,7 @@ export function UserWorkflowDetailView() {
                   Aggregate load across all tracked executions for this workflow
                 </p>
               </div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground dark:text-foreground">
+              <div className="flex h-9 w-9 items-center justify-center rounded-[2px] bg-foreground/10 text-foreground dark:text-foreground">
                 <Gauge className="h-4 w-4" />
               </div>
             </div>
@@ -410,8 +410,8 @@ function ExecutionRow({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-lg border border-border/70 bg-background/50 transition-colors',
-        expanded && 'border-primary/30 bg-card/80 shadow-sm',
+        'overflow-hidden rounded-[3px] border border-border/70 bg-background/50 transition-colors',
+        expanded && 'border-primary/30 bg-card/80 shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
       )}
     >
       <button
@@ -476,7 +476,7 @@ function ExecutionRow({
       {expanded && (
         <div className="space-y-4 border-t border-border/60 bg-muted/20 px-3.5 py-3.5">
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <div className="rounded-lg border border-border/60 bg-card/80 p-3.5">
+            <div className="rounded-[3px] border border-border/60 bg-card/80 p-3.5">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Credits this run
@@ -487,7 +487,7 @@ function ExecutionRow({
               </div>
               <RunCreditBars credits={execution.credits} />
             </div>
-            <div className="rounded-lg border border-border/60 bg-card/80 p-3.5">
+            <div className="rounded-[3px] border border-border/60 bg-card/80 p-3.5">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Resources this run
@@ -528,7 +528,7 @@ function ExecutionRow({
                     <button
                       type="button"
                       className={cn(
-                        'w-full rounded-lg border px-3 py-2.5 text-left transition-colors',
+                        'w-full rounded-[3px] border px-3 py-2.5 text-left transition-colors',
                         active
                           ? 'border-primary/40 bg-primary/[0.06] ring-1 ring-primary/15'
                           : 'border-border/60 bg-card/70 hover:bg-accent/30',
@@ -549,7 +549,7 @@ function ExecutionRow({
                         </span>
                         <StatusBadge label={step.level} tone={LOG_LEVEL_TONE[step.level]} />
                         {step.nodeLabel && (
-                          <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                          <span className="rounded-[2px] bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
                             {step.nodeLabel}
                           </span>
                         )}
@@ -597,7 +597,7 @@ function UtilizationMeter({
 }) {
   const clamped = Math.max(0, Math.min(100, pct))
   return (
-    <div className="rounded-lg border border-border/60 bg-background/40 p-3.5">
+    <div className="rounded-[3px] border border-border/60 bg-background/40 p-3.5">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[11px] text-muted-foreground">{label}</p>
@@ -628,7 +628,7 @@ function MiniMetric({
   icon: typeof Cpu
 }) {
   return (
-    <div className="rounded-lg border border-border/50 bg-muted/30 px-2.5 py-2">
+    <div className="rounded-[3px] border border-border/50 bg-muted/30 px-2.5 py-2">
       <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
         <Icon className="h-3 w-3" />
         {label}
@@ -682,7 +682,7 @@ function RunChip({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10.5px]',
+        'inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-0.5 text-[10.5px]',
         emphasis
           ? 'border-primary/25 bg-primary/[0.07] font-semibold text-foreground'
           : 'border-border/60 bg-muted/40 text-muted-foreground',

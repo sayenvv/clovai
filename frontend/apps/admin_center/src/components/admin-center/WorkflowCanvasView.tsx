@@ -115,7 +115,7 @@ export function WorkflowCanvasView({ workflow, className }: { workflow: unknown;
 
   if (!diagram || !bounds) {
     return (
-      <div className={cn('flex min-h-[200px] items-center justify-center rounded-lg border border-dashed border-border/70 text-[12px] text-muted-foreground', className)}>
+      <div className={cn('flex min-h-[200px] items-center justify-center rounded-[3px] border border-dashed border-border/70 text-[12px] text-muted-foreground', className)}>
         This workflow has no canvas to show. Open it in the canvas once and save it, or rebuild it.
       </div>
     )
@@ -137,13 +137,13 @@ export function WorkflowCanvasView({ workflow, className }: { workflow: unknown;
     ) : null}
     <div
       className={cn(
-        'relative rounded-lg border border-border/70',
+        'relative rounded-[3px] border border-border/70',
         fullScreen ? 'fixed inset-4 z-50 flex flex-col bg-background shadow-2xl' : className,
       )}
       role={fullScreen ? 'dialog' : undefined}
       aria-label={fullScreen ? 'Workflow canvas, full screen' : undefined}
     >
-      <div className="absolute right-2 top-2 z-10 flex gap-1 rounded-md border border-border/70 bg-card/90 p-0.5 shadow-sm backdrop-blur">
+      <div className="absolute right-2 top-2 z-10 flex gap-1 rounded-[2px] border border-border/70 bg-card/90 p-0.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur">
         {[
           { label: 'Zoom out', icon: Minus, action: () => setZoom(Math.max(0.2, scale / 1.25)) },
           { label: 'Fit to view', icon: Scan, action: () => setZoom(null) },
@@ -159,7 +159,7 @@ export function WorkflowCanvasView({ workflow, className }: { workflow: unknown;
       </div>
       <div
         ref={frameRef}
-        className={cn('overflow-auto rounded-lg', fullScreen && 'min-h-0 flex-1')}
+        className={cn('overflow-auto rounded-[3px]', fullScreen && 'min-h-0 flex-1')}
         style={{
           maxHeight: fullScreen ? undefined : 560,
           backgroundImage: 'radial-gradient(circle, hsl(var(--muted-foreground) / 0.14) 1px, transparent 1px)',
@@ -233,12 +233,12 @@ export function WorkflowCanvasView({ workflow, className }: { workflow: unknown;
                   title={node.label}
                   style={{ left: node.x - bounds.minX, top: node.y - bounds.minY, width, height }}
                   className={cn(
-                    'absolute flex items-center gap-2 border bg-card shadow-sm',
-                    kind === 'start' ? 'justify-center rounded-xl border-emerald-500/40' : 'rounded-[10px] px-2.5',
+                    'absolute flex items-center gap-2 border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
+                    kind === 'start' ? 'justify-center rounded-[3px] border-emerald-500/40' : 'rounded-[3px] px-2.5',
                     kind === 'tool' ? 'border-sky-500/30 bg-sky-500/5' : kind === 'switch' ? 'border-amber-500/40' : kind === 'manager' ? 'border-violet-500/40' : 'border-border/80',
                   )}
                 >
-                  <span className={cn('flex shrink-0 items-center justify-center rounded-md bg-muted/60', kind === 'tool' ? 'h-5 w-5' : 'h-7 w-7', meta.tone)}>
+                  <span className={cn('flex shrink-0 items-center justify-center rounded-[2px] bg-muted/60', kind === 'tool' ? 'h-5 w-5' : 'h-7 w-7', meta.tone)}>
                     <Icon className={kind === 'tool' ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
                   </span>
                   {kind === 'start' ? null : (

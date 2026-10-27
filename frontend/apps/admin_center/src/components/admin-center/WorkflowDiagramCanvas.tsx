@@ -76,7 +76,7 @@ export function WorkflowDiagramCanvas({
   return (
     <div
       className={cn(
-        'relative overflow-auto rounded-lg border border-border/70 bg-[hsl(var(--background))]',
+        'relative overflow-auto rounded-[3px] border border-border/70 bg-[hsl(var(--background))]',
         className,
       )}
       style={{
@@ -143,8 +143,8 @@ export function WorkflowDiagramCanvas({
               type="button"
               style={{ left: node.x, top: node.y, width: nodeW, height: nodeH }}
               className={cn(
-                'absolute flex items-center gap-2.5 rounded-[10px] border bg-card px-3 text-left shadow-sm transition-all',
-                'hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'absolute flex items-center gap-2.5 rounded-[3px] border bg-card px-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all',
+                'hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 active
                   ? cn('border-primary/50 ring-2', meta.ring)
                   : 'border-border/80',
@@ -155,7 +155,7 @@ export function WorkflowDiagramCanvas({
             >
               <span
                 className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/60',
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] bg-muted/60',
                   meta.accent,
                 )}
               >

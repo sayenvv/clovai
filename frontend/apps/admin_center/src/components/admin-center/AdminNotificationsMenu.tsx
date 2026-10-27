@@ -39,14 +39,15 @@ export function AdminNotificationsMenu() {
           type="button"
           variant="ghost"
           size="icon"
-          className="relative"
+          className="relative h-6 w-6 rounded-[3px] text-foreground/70 hover:bg-foreground/[0.07] hover:text-foreground [&_svg]:size-3.5"
+          title="Notifications"
           aria-label={
             unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'
           }
         >
-          <Bell className="h-4 w-4" />
+          <Bell className="h-3.5 w-3.5" strokeWidth={1.75} />
           {unreadCount > 0 && (
-            <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-semibold leading-none text-primary-foreground">
+            <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[8px] font-semibold leading-none text-primary-foreground">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
@@ -80,7 +81,7 @@ export function AdminNotificationsMenu() {
               >
                 <span
                   className={cn(
-                    'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-border/60',
+                    'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] ring-1 ring-border/60',
                     item.unread
                       ? 'bg-primary/10 text-primary'
                       : 'bg-muted/50 text-muted-foreground',

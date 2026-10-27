@@ -25,7 +25,7 @@ export function FilterChips<T extends string>({
             type="button"
             onClick={() => onChange(option)}
             className={cn(
-              'rounded-lg font-medium capitalize transition-colors',
+              'rounded-[3px] font-medium capitalize transition-colors',
               size === 'sm' ? 'px-2 py-1 text-[10.5px]' : 'px-2.5 py-1.5 text-[11px]',
               active
                 ? 'bg-primary font-semibold text-primary-foreground'

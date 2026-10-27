@@ -50,15 +50,15 @@ export function ApplicationSwitcher({ collapsed }: { collapsed: boolean }) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           {collapsed ? (
-            <Button variant="ghost" size="icon" className="h-9 w-9" title={label} aria-label={`Application: ${label}`}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-[3px] text-primary" title={label} aria-label={`Application: ${label}`}>
               <AppWindow className="h-4 w-4" />
             </Button>
           ) : (
             <button
               type="button"
-              className="flex w-full items-center gap-2 rounded-md border border-border/70 bg-card px-2.5 py-1.5 text-left transition-colors hover:bg-muted"
+              className="flex w-full items-center gap-2 rounded-[3px] border border-border bg-card px-2.5 py-1.5 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-foreground/25"
             >
-              <AppWindow className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <AppWindow className="h-4 w-4 shrink-0 text-primary" />
               <span className="min-w-0 flex-1">
                 <span className="block text-[9.5px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Application
@@ -106,7 +106,7 @@ export function ApplicationSwitcher({ collapsed }: { collapsed: boolean }) {
       </DropdownMenu>
 
       {creating && !collapsed && (
-        <form onSubmit={submit} className="mt-2 space-y-1.5 rounded-md border border-border/70 bg-card p-2">
+        <form onSubmit={submit} className="mt-2 space-y-1.5 rounded-[3px] border border-border bg-card p-2">
           <Input
             autoFocus
             aria-label="Application name"

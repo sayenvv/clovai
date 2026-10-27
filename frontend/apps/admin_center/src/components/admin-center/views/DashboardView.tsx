@@ -98,7 +98,7 @@ export function DashboardView() {
                 View all
               </Link>
             </div>
-            <div className="overflow-hidden rounded-lg border border-border/70">
+            <div className="overflow-hidden rounded-[3px] border border-border/70">
               <table className="w-full text-xs">
                 <thead className="bg-muted/40 text-[10.5px] uppercase tracking-wider text-muted-foreground">
                   <tr>
@@ -177,7 +177,7 @@ export function DashboardView() {
             {recentUsers.map((user) => (
               <div
                 key={user.id}
-                className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-background/50 px-3 py-2.5"
+                className="flex items-center gap-2.5 rounded-[3px] border border-border/60 bg-background/50 px-3 py-2.5"
               >
                 <UserAvatar name={user.name} />
                 <div className="min-w-0">
