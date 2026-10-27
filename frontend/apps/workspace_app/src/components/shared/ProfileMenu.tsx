@@ -29,7 +29,14 @@ interface ProfileMenuProps {
   /** The workspace's settings, listed in the menu (the editor has no separate settings button). */
   settings?: {
     onOpenWorkflowSettings?: () => void
-    canvasView?: { showGrid: boolean; onShowGridChange: (on: boolean) => void; snapToGrid: boolean; onSnapToGridChange: (on: boolean) => void }
+    canvasView?: {
+      showGrid: boolean
+      onShowGridChange: (on: boolean) => void
+      snapToGrid: boolean
+      onSnapToGridChange: (on: boolean) => void
+      showMap?: boolean
+      onShowMapChange?: (on: boolean) => void
+    }
   }
 }
 
@@ -107,6 +114,16 @@ export const ProfileMenu = memo(function ProfileMenu({
             >
               Snap to grid
             </DropdownMenuCheckboxItem>
+            {settings.canvasView.onShowMapChange ? (
+              <DropdownMenuCheckboxItem
+                className={CHECK_ITEM}
+                checked={settings.canvasView.showMap ?? true}
+                onCheckedChange={(checked) => settings.canvasView?.onShowMapChange?.(checked === true)}
+                onSelect={(event) => event.preventDefault()}
+              >
+                Show map
+              </DropdownMenuCheckboxItem>
+            ) : null}
           </>
         ) : null}
         <DropdownMenuSeparator />

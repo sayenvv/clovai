@@ -81,6 +81,8 @@ interface AgentWorkflowCanvasProps {
   onSelectionChange: (selection: Selection) => void
   snapToGrid: boolean
   showGrid: boolean
+  /** The workflow map in the bottom-right corner (on unless turned off in settings). */
+  showMap?: boolean
   activePageId: string
   onAutoLayout: () => void
   transformDroppedNode: (node: DiagramNode, item: PaletteItem) => DiagramNode
@@ -138,6 +140,7 @@ export const AgentWorkflowCanvas = memo(
       onSelectionChange,
       snapToGrid,
       showGrid,
+      showMap = true,
       activePageId,
       onAutoLayout,
       transformDroppedNode,
@@ -588,7 +591,7 @@ export const AgentWorkflowCanvas = memo(
 
           {/* Map: a top view of the whole workflow in the bottom-right corner, left of the zoom
               buttons when they show; click or drag to move the view. */}
-          {!isEmptyWorkflow && areaSize.width >= 640 && (
+          {showMap && !isEmptyWorkflow && areaSize.width >= 640 && (
             <div className={cn('absolute bottom-4 z-20', hideControls ? 'right-4' : 'right-[4.25rem]')}>
               <CanvasMinimap
                 diagram={diagram}

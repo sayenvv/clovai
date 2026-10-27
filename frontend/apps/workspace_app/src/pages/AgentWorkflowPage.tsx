@@ -260,6 +260,7 @@ export default function AgentWorkflowPage() {
   const [selection, setSelection] = useState<Selection>(null)
   const [snapToGrid, setSnapToGrid] = useState(true)
   const [showGrid, setShowGrid] = useState(true)
+  const [showMap, setShowMap] = useState(true)
   const [shareOpen, setShareOpen] = useState(false)
   const [validationIssues, setValidationIssues] = useState<WorkflowValidationIssue[]>([])
   const [isValidated, setIsValidated] = useState(false)
@@ -1486,8 +1487,10 @@ export default function AgentWorkflowPage() {
       onShowGridChange: setShowGrid,
       snapToGrid,
       onSnapToGridChange: setSnapToGrid,
+      showMap,
+      onShowMapChange: setShowMap,
     }),
-    [showGrid, snapToGrid],
+    [showGrid, snapToGrid, showMap],
   )
 
   const openLibrary = useCallback(() => {
@@ -2377,6 +2380,7 @@ export default function AgentWorkflowPage() {
                       onSelectionChange={handleSelectionChange}
                       snapToGrid={snapToGrid}
                       showGrid={showGrid}
+                      showMap={showMap}
                       activePageId={activePage.id}
                       onAutoLayout={runAutoLayout}
                       transformDroppedNode={transformDroppedNode}

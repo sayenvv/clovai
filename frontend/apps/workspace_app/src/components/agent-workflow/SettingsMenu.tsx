@@ -55,6 +55,9 @@ export interface CanvasViewSettings {
   onShowGridChange: (enabled: boolean) => void
   snapToGrid: boolean
   onSnapToGridChange: (enabled: boolean) => void
+  /** The workflow map in the canvas corner. */
+  showMap?: boolean
+  onShowMapChange?: (enabled: boolean) => void
 }
 
 /** Settings dropdown — same interaction pattern as the profile menu. */
@@ -179,6 +182,15 @@ export const SettingsMenu = memo(function SettingsMenu({
                 >
                   Snap to grid
                 </DropdownMenuCheckboxItem>
+                {canvasView.onShowMapChange ? (
+                  <DropdownMenuCheckboxItem
+                    checked={canvasView.showMap ?? true}
+                    onCheckedChange={(checked) => canvasView.onShowMapChange?.(checked === true)}
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    Show map
+                  </DropdownMenuCheckboxItem>
+                ) : null}
               </>
             ) : null}
             <DropdownMenuSeparator />
