@@ -67,7 +67,7 @@ const TABS: Record<SettingsTab, { label: string; icon: LucideIcon; description: 
   variables: { label: 'Variables', icon: Braces, description: 'API keys, credentials and settings' },
   profile: { label: 'Profile', icon: UserRound, description: 'Your name, role and email' },
   workspace: { label: 'Workspace', icon: Users, description: 'Workspace name and details' },
-  appearance: { label: 'Appearance', icon: Palette, description: 'Light or dark theme' },
+  appearance: { label: 'Appearance', icon: Palette, description: 'Theme and editor auto-save' },
   security: { label: 'Security', icon: ShieldCheck, description: 'Password, sign out and deletion' },
   help: { label: 'Help & shortcuts', icon: CircleHelp, description: 'Keyboard shortcuts, documentation and about' },
 }

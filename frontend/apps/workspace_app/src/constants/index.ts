@@ -3,6 +3,7 @@ export const APP_SLUG = 'eleven-nodes'
 
 export const STORAGE_KEYS = {
   theme: 'eleven-nodes-theme',
+  autoSave: 'eleven-nodes-auto-save',
   configStore: 'eleven-nodes-config-store-v4',
   diagram: (toolId: string, workspaceId?: string) =>
     workspaceId
@@ -25,6 +26,7 @@ export const QUERY_KEYS = {
   activeConfig: ['config', 'active'] as const,
   configList: ['config', 'list'] as const,
   config: (id: string) => ['config', id] as const,
+  generationSpec: ['workflow-generation-spec'] as const,
 } as const
 
 export const ROUTES = {

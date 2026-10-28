@@ -17,6 +17,7 @@ import { UsersView } from '@/components/admin-center/views/UsersView'
 import { DefinitionDetailView } from '@/components/admin-center/views/DefinitionDetailView'
 import { DefinitionsView } from '@/components/admin-center/views/DefinitionsView'
 import { SystemLogsView } from '@/components/admin-center/views/SystemLogsView'
+import { WorkflowGenerationSpecView } from '@/components/admin-center/views/WorkflowGenerationSpecView'
 
 export const router = createBrowserRouter([
   {
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
       { path: 'configuration/model-clients', element: <ModelClientsView /> },
       { path: 'configuration/prompt-rules', element: <PromptRulesView /> },
       { path: 'configuration/context-providers', element: <ContextProvidersView /> },
+      { path: 'configuration/workflow-generation', element: <WorkflowGenerationSpecView /> },
       // Old addresses, kept so bookmarks land on the new pages.
       { path: 'configurations', element: <Navigate to="/configuration/system" replace /> },
       { path: 'application-config', element: <Navigate to="/configuration/system" replace /> },

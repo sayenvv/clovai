@@ -1,6 +1,13 @@
 import { useCallback, useRef, useState } from 'react'
 import { addTokenUsage } from '@/services/token-usage-store'
-import { executeOrchestration, type ExecutionLogEvent, type ExecutionStepDetail } from '@/services/orchestration-api'
+import type { ExecutionLogEvent, ExecutionStepDetail } from '@/services/orchestration-api'
+import {
+  answerWorkflowRun,
+  runOutputText,
+  startWorkflowRun,
+  type WorkflowRunRequest,
+  type WorkflowRunV4,
+} from '@/services/workflow-run-v4-api'
 import type {
   ExecutionPlanStep,
   ExecutionTraceStep,
@@ -265,6 +272,11 @@ export function useWorkflowRunner() {
   const cancelRef = useRef(false)
   const pendingExecutionRef = useRef<PendingExecution | null>(null)
   const loggedStepsRef = useRef(new Map<string, string>())
+  /** The 4.0 run waiting on a person, and how to continue it with their answer. */
+  const pendingRunRef = useRef<{
+    request: WorkflowRunRequest
+    resume: (response: Record<string, unknown>) => Promise<void>
+  } | null>(null)
 
   const appendEvent = useCallback((event: Omit<WorkflowExecutionEvent, 'id' | 'timestamp'>) => {
     const full: WorkflowExecutionEvent = {
@@ -312,138 +324,162 @@ export function useWorkflowRunner() {
             warnings: level === 'warning' ? [...previous.warnings, full] : previous.warnings,
           }))
         }
-        await executeOrchestration({
-          identity: {
-            workflowId: target.workflowId,
-            workspaceId: target.workspaceId,
-            tabId: target.pageId,
-            userId: target.userId,
-          },
-          inputs: parseWorkflowInput(input),
-          // The server trace id identifies this run, so its history entry can load the full trace
-          onTrace: (traceId) => {
-            if (!cancelRef.current) setState((previous) => ({ ...previous, runId: traceId }))
-          },
-          onEvent: (event) => {
-            if (cancelRef.current) return
-            if (event.event === 'usage') {
-              // Count each model call as it happens; the server records the same usage in the database.
-              addTokenUsage(event.totalTokens ?? 0)
-              return
-            }
-            if (event.event === 'agent') {
-              const matched = matchPlanStep(plan, event.agentId ?? '', event.agent?.trim() || '')
-              const agentName = matched?.agentName || event.agent?.trim() || 'Agent'
-              const reasoning = event.message ?? ''
-              const phase = event.status === 'failed' ? 'failed' : event.status === 'completed' ? 'completed' : 'running'
-              const nodeId = matched?.nodeId || event.agentId
-              const logMessage = `${agentName} ${phase}`
-              const logKey = `agent:${nodeId || agentName}`
-              const signature = phase === 'running' ? phase : `${phase}|${reasoning}`
-              const alreadyLogged = loggedStepsRef.current.get(logKey) === signature
-              if (!alreadyLogged) {
-                loggedStepsRef.current.set(logKey, signature)
-                if (phase === 'failed') console.error(`[execute] ${logMessage}`)
-                else console.info(`[execute] ${logMessage}`)
-              }
-              const level: WorkflowExecutionEvent['level'] =
-                phase === 'failed' ? 'error' : phase === 'completed' ? 'success' : 'info'
-              const kind: WorkflowExecutionEvent['kind'] =
-                phase === 'completed' || phase === 'failed' ? 'agent-complete' : 'agent-start'
-              setState((previous) => {
-                const next = applyAgentUpdate(previous, plan, event)
-                if (alreadyLogged) return next
-                const full: WorkflowExecutionEvent = {
-                  id: createEventId(),
-                  kind,
-                  level,
-                  message: logMessage,
-                  timestamp: new Date().toISOString(),
-                  agentName,
-                  nodeId,
-                }
-                return {
-                  ...next,
-                  events: [...next.events, full],
-                  errors: level === 'error' ? [...next.errors, full] : next.errors,
-                }
-              })
-              if (phase === 'failed') failed = true
-              return
-            }
-            if (event.event !== 'progress') return
-            for (const step of event.steps ?? []) {
-              if (!step.status || step.status === 'pending') continue
-              const key = step.id || step.message || 'step'
-              const signature = `${step.status}|${stepLog(step)}`
-              if (loggedStepsRef.current.get(key) === signature) continue
-              loggedStepsRef.current.set(key, signature)
-              recordLog(
-                stepLog(step),
-                step.status === 'failed' ? 'error' : step.status === 'completed' ? 'success' : 'info',
-                step.status === 'failed' ? 'error' : step.status === 'completed' ? 'workflow-complete' : 'workflow-start',
-              )
-            }
-            if (event.status === 'failed') {
-              failed = true
-              const message = event.message?.trim() || 'Workflow execution failed.'
-              recordLog(message, 'error', 'error')
-            }
-            if (event.status === 'completed') {
-              const text = outputText(event.result?.execution?.outputs)
-              if (text) reply = text
-              recordLog(event.message?.trim() || 'Workflow completed', 'success', 'workflow-complete')
-            }
-          },
-        })
-        if (cancelRef.current) return
-        setState((previous) => {
-          const last = plan[plan.length - 1]
-          const trace = previous.trace.map((step) =>
-            step.status === 'running'
-              ? { ...step, status: 'completed' as const, message: 'Completed' }
-              : step,
-          )
-          const streamed = last
-            ? trace.find((step) => step.nodeId === last.nodeId)?.output || previous.stepOutputs[last.nodeId] || ''
-            : ''
-          const finalText = streamed || reply
-          const closed = closeTurns(previous.messages)
-          const answered = !reply || closed.some((message) => squash(message.content) === squash(reply))
-          const messages = answered
-            ? closed
-            : [
-                ...closed,
-                {
-                  id: createEventId(),
-                  nodeId: 'final',
-                  agentName: 'Final answer',
-                  content: reply,
-                  kind: 'response' as const,
-                  status: 'done' as const,
-                },
-              ]
-          return {
-            ...previous,
-            messages,
-            status: failed ? 'failed' : 'completed',
-            activeNodeId: null,
-            activeEdgeId: null,
-            approvalPrompt: null,
-            completedNodeIds: previous.completedNodeIds,
-            finalResponse: finalText || previous.finalResponse,
-            trace:
-              finalText && last
-                ? trace.map((step) =>
-                    step.nodeId === last.nodeId
-                      ? { ...step, status: 'completed' as const, output: finalText, message: 'Completed' }
-                      : step,
-                  )
-                : trace,
-            stepOutputs:
-              finalText && last ? { ...previous.stepOutputs, [last.nodeId]: finalText } : previous.stepOutputs,
+        const onEvent = (event: ExecutionLogEvent) => {
+          if (cancelRef.current) return
+          if (event.event === 'usage') {
+            // Count each model call as it happens; the server records the same usage in the database.
+            addTokenUsage(event.totalTokens ?? 0)
+            return
           }
-        })
+          if (event.event === 'agent') {
+            const matched = matchPlanStep(plan, event.agentId ?? '', event.agent?.trim() || '')
+            const agentName = matched?.agentName || event.agent?.trim() || 'Agent'
+            const reasoning = event.message ?? ''
+            const phase = event.status === 'failed' ? 'failed' : event.status === 'completed' ? 'completed' : 'running'
+            const nodeId = matched?.nodeId || event.agentId
+            const logMessage = `${agentName} ${phase}`
+            const logKey = `agent:${nodeId || agentName}`
+            const signature = phase === 'running' ? phase : `${phase}|${reasoning}`
+            const alreadyLogged = loggedStepsRef.current.get(logKey) === signature
+            if (!alreadyLogged) {
+              loggedStepsRef.current.set(logKey, signature)
+              if (phase === 'failed') console.error(`[execute] ${logMessage}`)
+              else console.info(`[execute] ${logMessage}`)
+            }
+            const level: WorkflowExecutionEvent['level'] =
+              phase === 'failed' ? 'error' : phase === 'completed' ? 'success' : 'info'
+            const kind: WorkflowExecutionEvent['kind'] =
+              phase === 'completed' || phase === 'failed' ? 'agent-complete' : 'agent-start'
+            setState((previous) => {
+              const next = applyAgentUpdate(previous, plan, event)
+              if (alreadyLogged) return next
+              const full: WorkflowExecutionEvent = {
+                id: createEventId(),
+                kind,
+                level,
+                message: logMessage,
+                timestamp: new Date().toISOString(),
+                agentName,
+                nodeId,
+              }
+              return {
+                ...next,
+                events: [...next.events, full],
+                errors: level === 'error' ? [...next.errors, full] : next.errors,
+              }
+            })
+            if (phase === 'failed') failed = true
+            return
+          }
+          if (event.event !== 'progress') return
+          for (const step of event.steps ?? []) {
+            if (!step.status || step.status === 'pending') continue
+            const key = step.id || step.message || 'step'
+            const signature = `${step.status}|${stepLog(step)}`
+            if (loggedStepsRef.current.get(key) === signature) continue
+            loggedStepsRef.current.set(key, signature)
+            recordLog(
+              stepLog(step),
+              step.status === 'failed' ? 'error' : step.status === 'completed' ? 'success' : 'info',
+              step.status === 'failed' ? 'error' : step.status === 'completed' ? 'workflow-complete' : 'workflow-start',
+            )
+          }
+          if (event.status === 'failed') {
+            failed = true
+            const message = event.message?.trim() || 'Workflow execution failed.'
+            recordLog(message, 'error', 'error')
+          }
+          if (event.status === 'completed') {
+            const text = outputText(event.result?.execution?.outputs)
+            if (text) reply = text
+            recordLog(event.message?.trim() || 'Workflow completed', 'success', 'workflow-complete')
+          }
+        }
+        const complete = () => {
+          setState((previous) => {
+            const last = plan[plan.length - 1]
+            const trace = previous.trace.map((step) =>
+              step.status === 'running'
+                ? { ...step, status: 'completed' as const, message: 'Completed' }
+                : step,
+            )
+            const streamed = last
+              ? trace.find((step) => step.nodeId === last.nodeId)?.output || previous.stepOutputs[last.nodeId] || ''
+              : ''
+            const finalText = streamed || reply
+            const closed = closeTurns(previous.messages)
+            const answered = !reply || closed.some((message) => squash(message.content) === squash(reply))
+            const messages = answered
+              ? closed
+              : [
+                  ...closed,
+                  {
+                    id: createEventId(),
+                    nodeId: 'final',
+                    agentName: 'Final answer',
+                    content: reply,
+                    kind: 'response' as const,
+                    status: 'done' as const,
+                  },
+                ]
+            return {
+              ...previous,
+              messages,
+              status: failed ? 'failed' : 'completed',
+              activeNodeId: null,
+              activeEdgeId: null,
+              approvalPrompt: null,
+              completedNodeIds: previous.completedNodeIds,
+              finalResponse: finalText || previous.finalResponse,
+              trace:
+                finalText && last
+                  ? trace.map((step) =>
+                      step.nodeId === last.nodeId
+                        ? { ...step, status: 'completed' as const, output: finalText, message: 'Completed' }
+                        : step,
+                    )
+                  : trace,
+              stepOutputs:
+                finalText && last ? { ...previous.stepOutputs, [last.nodeId]: finalText } : previous.stepOutputs,
+            }
+          })
+        }
+        /** A run that finished completes the view; one that waits shows its request until it is answered. */
+        const settle = async (run: WorkflowRunV4): Promise<void> => {
+          if (cancelRef.current) return
+          const request = run.status === 'waiting' ? run.requests[0] : undefined
+          if (request) {
+            pendingRunRef.current = {
+              request,
+              resume: async (response) => settle(await answerWorkflowRun(run, request, response, onEvent)),
+            }
+            setState((previous) => ({
+              ...previous,
+              status: 'waiting-approval',
+              activeNodeId: request.nodeId,
+              approvalPrompt: {
+                edgeId: request.id,
+                message: request.payload.message ?? request.payload.question ?? '',
+                role: request.payload.approvers?.roles?.[0] ?? 'reviewer',
+                nextAgentName: request.nodeName,
+                agentName: request.nodeName,
+                feedbackRevisionsEnabled: request.kind !== 'wait_event',
+              },
+            }))
+            appendEvent({ kind: 'approval-wait', level: 'warning', message: `Waiting: ${request.nodeName}`, nodeId: request.nodeId })
+            return
+          }
+          pendingRunRef.current = null
+          if (run.status === 'succeeded') reply = runOutputText(run.output)
+          else {
+            failed = true
+            recordLog(run.error || run.issues?.map((issue) => issue.message).join('; ') || `The run ${run.status}.`, 'error', 'error')
+          }
+          complete()
+        }
+        const run = await startWorkflowRun({ workflowId: target.workflowId, inputs: parseWorkflowInput(input), onEvent })
+        setState((previous) => ({ ...previous, runId: run.id }))
+        await settle(run)
       } catch (error) {
         if (cancelRef.current) return
         const message = error instanceof Error ? error.message : 'Workflow execution failed.'
@@ -465,66 +501,54 @@ export function useWorkflowRunner() {
     [appendEvent],
   )
 
+  /** Answer the waiting run; a failure to continue it fails the run view. */
+  const answerPending = useCallback(
+    (response: Record<string, unknown>, message: string, level: WorkflowExecutionEvent['level']) => {
+      const pending = pendingRunRef.current
+      if (!pending) return
+      pendingRunRef.current = null
+      appendEvent({ kind: 'approval-received', level, message })
+      setState((previous) => ({ ...previous, status: 'running', approvalPrompt: null }))
+      pending.resume(response).catch((error: unknown) => {
+        const text = error instanceof Error ? error.message : 'The run could not continue.'
+        setState((previous) => ({ ...previous, status: 'failed', activeNodeId: null, approvalPrompt: null }))
+        appendEvent({ kind: 'error', level: 'error', message: text })
+      })
+    },
+    [appendEvent],
+  )
+
   const submitApproval = useCallback(
     (response: string) => {
-      const pending = pendingExecutionRef.current
-      if (!pending) return
       const note = response.trim()
-
-      appendEvent({
-        kind: 'approval-received',
-        level: 'success',
-        message: note ? `Approved: ${note.slice(0, 80)}` : 'Approved — continuing workflow.',
-      })
-      setState((previous) => ({
-        ...previous,
-        status: 'running',
-        approvalPrompt: null,
-      }))
-      const nextExecution: PendingExecution = {
-        ...pending,
-        approvedEdgeIds: Array.from(new Set([...pending.approvedEdgeIds, ...pending.pendingEdgeIds])),
-        pendingEdgeIds: [],
-        reviewerFeedback: '',
-        revisionCount: 0,
-      }
-      pendingExecutionRef.current = nextExecution
-      void runBackendExecution(nextExecution)
+      const kind = pendingRunRef.current?.request.kind
+      answerPending(
+        kind === 'approval' ? { approved: true, ...(note ? { comment: note } : {}) } : { text: note || 'Approved' },
+        note ? `Approved: ${note.slice(0, 80)}` : 'Approved — continuing workflow.',
+        'success',
+      )
     },
-    [appendEvent, runBackendExecution],
+    [answerPending],
   )
 
   const submitFeedback = useCallback(
     (feedback: string) => {
       const trimmed = feedback.trim()
       if (!trimmed) return
-      const pending = pendingExecutionRef.current
-      if (!pending) return
-
-      appendEvent({
-        kind: 'approval-received',
-        level: 'warning',
-        message: `Requested changes: ${trimmed.slice(0, 80)}`,
-      })
-      setState((previous) => ({
-        ...previous,
-        status: 'running',
-        approvalPrompt: null,
-      }))
-      const nextExecution: PendingExecution = {
-        ...pending,
-        reviewerFeedback: trimmed,
-        revisionCount: pending.revisionCount + 1,
-      }
-      pendingExecutionRef.current = nextExecution
-      void runBackendExecution(nextExecution)
+      const kind = pendingRunRef.current?.request.kind
+      answerPending(
+        kind === 'approval' ? { approved: false, comment: trimmed } : { text: trimmed },
+        `${kind === 'approval' ? 'Rejected' : 'Answered'}: ${trimmed.slice(0, 80)}`,
+        'warning',
+      )
     },
-    [appendEvent, runBackendExecution],
+    [answerPending],
   )
 
   const cancel = useCallback(() => {
     cancelRef.current = true
     pendingExecutionRef.current = null
+    pendingRunRef.current = null
     setState((previous) => ({
       ...previous,
       messages: closeTurns(previous.messages),
@@ -543,6 +567,7 @@ export function useWorkflowRunner() {
   const reset = useCallback(() => {
     cancelRef.current = false
     pendingExecutionRef.current = null
+    pendingRunRef.current = null
     setState(initialRunState())
   }, [])
 

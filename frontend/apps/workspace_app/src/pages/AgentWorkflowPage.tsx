@@ -192,9 +192,8 @@ import {
 } from '@/components/agent-workflow/workflow-storage'
 import { useWorkflowEditorPanels } from '@/components/agent-workflow/hooks/use-workflow-editor-panels'
 import { useWorkflowDocument } from '@/components/agent-workflow/hooks/use-workflow-document'
+import { useAutoSave } from '@/hooks/use-auto-save'
 import { persistWorkflowBuildSpec } from '@/components/agent-workflow/workflow-build-storage'
-import { buildOrchestrationDocument } from '@/components/agent-workflow/build-orchestration-document'
-import { orchestrationIdentity, saveOrchestration } from '@/services/orchestration-api'
 import { MobileAppDrawer } from '@/components/agent-workflow/MobileAppDrawer'
 import { MobilePageShell } from '@/components/agent-workflow/MobilePageShell'
 import { MobileWorkspaceHeader } from '@/components/agent-workflow/MobileWorkspaceHeader'
@@ -240,6 +239,9 @@ function defaultWorkflowMeta(): AgentWorkflowMeta {
     executionType: 'sequential',
   }
 }
+
+/** How long the editor waits after the last edit before auto-saving. */
+const AUTO_SAVE_DELAY_MS = 2000
 
 export default function AgentWorkflowPage() {
   const navigate = useNavigate()
@@ -500,6 +502,26 @@ export default function AgentWorkflowPage() {
       toast.success(`Imported "${result.pageName}".`)
     },
     [diagram, doc, getCanvasInsertAnchor, setDoc, invalidateValidation],
+  )
+
+  // An accepted assistant draft is the whole updated workflow: it replaces the open tab (ids remapped by the import).
+  const replaceWorkflowDocument = useCallback(
+    (imported: DiagramDocument) => {
+      const sourcePage = imported.pages.find((page) => page.id === imported.activePageId) ?? imported.pages[0]
+      if (!sourcePage || sourcePage.diagram.nodes.length === 0) return
+      const cleared = {
+        ...doc,
+        pages: doc.pages.map((page) => (page.id === doc.activePageId ? { ...page, diagram: { ...page.diagram, nodes: [], edges: [] } } : page)),
+      }
+      const result = importIntoDocument(cleared, imported, doc.activePageId, { x: 0, y: 0 })
+      if (!result) return
+      invalidateValidation()
+      setDoc(result.document)
+      setSelection(null)
+      requestAnimationFrame(() => canvasRef.current?.fitView())
+      toast.success(`Updated "${result.pageName}" from the assistant.`)
+    },
+    [doc, setDoc, invalidateValidation],
   )
 
   // ?open=<workflowId> (e.g. "Open in canvas" in the Admin Center): show that workflow in its own
@@ -1076,6 +1098,7 @@ export default function AgentWorkflowPage() {
             // The assistant's complete workflow lands exactly as File → Import would place it.
             onImportWorkflow: (imported: ImportedWorkflow) =>
               importWorkflowDocument(imported.document, imported.configuration),
+            onReplaceWorkflow: (imported: ImportedWorkflow) => replaceWorkflowDocument(imported.document),
             onClose: closeGeneratePanel,
           }
         : null,
@@ -1088,6 +1111,7 @@ export default function AgentWorkflowPage() {
       getCurrentWorkflow,
       handleWorkflowGenerated,
       importWorkflowDocument,
+      replaceWorkflowDocument,
       closeGeneratePanel,
     ],
   )
@@ -1106,17 +1130,23 @@ export default function AgentWorkflowPage() {
     [diagram.nodes.length, handleWorkflowGenerated],
   )
 
-  const handleSave = useCallback(async () => {
-    const nextDoc = {
-      ...doc,
-      workflow: {
-        ...(doc.workflow ?? defaultWorkflowMeta()),
-        version: (doc.workflow?.version ?? 1) + 1,
-        status: 'draft' as const,
-      },
+  /** Save the canvas as its 4.0 definition. Auto-save is quiet: same version, and only failures are shown. */
+  const handleSave = useCallback(async (options?: { auto?: boolean }) => {
+    const auto = options?.auto === true
+    const nextDoc = auto
+      ? doc
+      : {
+          ...doc,
+          workflow: {
+            ...(doc.workflow ?? defaultWorkflowMeta()),
+            version: (doc.workflow?.version ?? 1) + 1,
+            status: 'draft' as const,
+          },
+        }
+    if (!auto) {
+      setDoc(nextDoc)
+      setIsValidated(false)
     }
-    setDoc(nextDoc)
-    setIsValidated(false)
     const result = await persistWorkflowBuildSpec({
       doc: nextDoc,
       pageId: activePage.id,
@@ -1126,7 +1156,7 @@ export default function AgentWorkflowPage() {
       serverModelConfig,
     })
     if (result.databaseRecordId) {
-      toast.success('Workflow saved to the database')
+      if (!auto) toast.success('Workflow saved to the database')
     } else {
       toast.warning('Saved on this device only', {
         description: result.databaseError ?? 'The database could not be reached.',
@@ -1265,17 +1295,13 @@ export default function AgentWorkflowPage() {
       return Promise.resolve(false)
     }
 
-    const document = buildOrchestrationDocument({
+    return persistWorkflowBuildSpec({
       doc,
       pageId: page.id,
       diagram,
-      workspaceId: session.workspaceId,
-      userId: session.accountId,
-    })
-    return saveOrchestration({
-      identity: orchestrationIdentity(page.id, pageWorkflowId(doc, page.id)),
-      name: page.name,
-      document,
+      syncToDisk: true,
+      requireApi: true,
+      serverModelConfig,
     })
       .then(() => {
         setIsValidated(true)
@@ -1295,7 +1321,7 @@ export default function AgentWorkflowPage() {
         toast.error(error instanceof Error ? error.message : 'Could not check the workflow.')
         return false
       })
-  }, [diagram, paletteById, inferredType, setDoc, doc])
+  }, [diagram, paletteById, inferredType, setDoc, doc, serverModelConfig])
 
   const openExecutionPanel = useCallback(() => {
     keepRightOpenRef.current = true
@@ -1637,17 +1663,14 @@ export default function AgentWorkflowPage() {
       return
     }
 
-    const document = buildOrchestrationDocument({
+    // Run what is on the canvas now: save it as the 4.0 definition the engine runs, then start it
+    void persistWorkflowBuildSpec({
       doc: docToSave,
       pageId: page.id,
       diagram: diagramSnapshot,
-      workspaceId: session.workspaceId,
-      userId: session.accountId,
-    })
-    void saveOrchestration({
-      identity: orchestrationIdentity(page.id, pageWorkflowId(docToSave, page.id)),
-      name: page.name,
-      document,
+      syncToDisk: true,
+      requireApi: true,
+      serverModelConfig,
     })
       .then(() => {
         resetExecution()
@@ -1673,6 +1696,7 @@ export default function AgentWorkflowPage() {
     navigate,
     resetExecution,
     startExecution,
+    serverModelConfig,
   ])
 
   /** Run, checking (and saving) the workflow first when it changed since the last check. */
@@ -1683,8 +1707,17 @@ export default function AgentWorkflowPage() {
   }, [runState.status, isValidated, handleValidate, executeValidated])
 
   useEffect(() => {
-    registerSaveHandler(handleSave)
+    registerSaveHandler(() => handleSave())
   }, [registerSaveHandler, handleSave])
+
+  // Auto-save (Settings → Appearance → Editor): save quietly once edits pause, never during a run
+  const [autoSave] = useAutoSave()
+  const runActive = runState.status === 'running' || runState.status === 'waiting-approval'
+  useEffect(() => {
+    if (!autoSave || !isDirty || runActive) return
+    const timer = window.setTimeout(() => void handleSave({ auto: true }), AUTO_SAVE_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [autoSave, isDirty, runActive, handleSave])
 
   const handleWorkflowNameChange = useCallback(
     (name: string) => {
@@ -2084,7 +2117,7 @@ export default function AgentWorkflowPage() {
           status={workflowMeta.status}
           validationErrorCount={errorCount}
           isDirty={isDirty}
-          onSave={handleSave}
+          onSave={() => void handleSave()}
           onDeploy={handleDeploy}
           onGenerate={openGeneratePanel}
           onExecute={openExecutionPanel}
@@ -2324,7 +2357,7 @@ export default function AgentWorkflowPage() {
                   onRun={openExecutionPanel}
                   canRun={agentNodes.length > 0 && !isExecuting}
                   isExecuting={isExecuting}
-                  onSave={handleSave}
+                  onSave={() => void handleSave()}
                   onAskAi={openGeneratePanel}
                   onShare={() => setShareOpen(true)}
                   onDeploy={handleDeploy}

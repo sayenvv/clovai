@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { AlertTriangle, Bot, Download, ListTree, Loader2, RotateCcw, Save, Send, Square, User, Workflow } from 'lucide-react'
+import { AlertTriangle, Bot, Download, ListTree, Loader2, PackagePlus, RotateCcw, Save, Send, Square, User, Workflow } from 'lucide-react'
 import { createDefinition, listDefinitions, type DefinitionDetail } from '@/api/definitions'
-import { runPlayground, type PlaygroundStep } from '@/api/playground'
+import {
+  answerPlaygroundV4,
+  installWorkflowAssistant,
+  runPlayground,
+  runPlaygroundV4,
+  type PlaygroundRequest,
+  type PlaygroundStep,
+  type PlaygroundV4Run,
+} from '@/api/playground'
+import { PlaygroundRequestCard } from '@/components/admin-center/PlaygroundRequestCard'
 import { ApplicationGate } from '@/components/admin-center/ApplicationGate'
 import { EmptyHint, PageBody, PageHeader } from '@/components/admin-center/PageShell'
 import { PremiumCard } from '@/components/admin-center/PremiumCard'
@@ -23,12 +32,25 @@ interface Turn {
   running: boolean
   /** The workflow JSON the run built, if it built one. */
   workflow?: Record<string, unknown>
+  /** A 4.0 run waiting for an answer, and what it asks. */
+  waiting?: { runId: string; request: PlaygroundRequest }
 }
 
 const newConversationId = () => `playground-${crypto.randomUUID()}`
 
-/** A 3.0 workflow, the only kind /execute can run. */
-const runnable = (row: DefinitionDetail) => Boolean((row.definition as { meta?: { orchestrationPattern?: string } }).meta?.orchestrationPattern)
+/** A workflow format 4.0 document (runs through /workflows/v4). */
+const isV4 = (row: DefinitionDetail | undefined) => (row?.definition as { schemaVersion?: string } | undefined)?.schemaVersion === '4.0'
+
+/** A 3.0 workflow /execute can run, or a 4.0 workflow. */
+const runnable = (row: DefinitionDetail) =>
+  isV4(row) || Boolean((row.definition as { meta?: { orchestrationPattern?: string } }).meta?.orchestrationPattern)
+
+/** A 4.0 run's answer: the assistant's `reply`, a text output, or the output as JSON. */
+function outputText(output: unknown): string {
+  if (typeof output === 'string') return output
+  if (output && typeof output === 'object' && typeof (output as { reply?: unknown }).reply === 'string') return (output as { reply: string }).reply
+  return output == null ? '' : JSON.stringify(output, null, 2)
+}
 
 /** The workflow's agent names by id, so steps read "Requirements Analyst" rather than an id. */
 function agentNames(row: DefinitionDetail | undefined): Record<string, string> {
@@ -50,23 +72,39 @@ export function PlaygroundView() {
   const [turns, setTurns] = useState<Turn[]>([])
   const [draft, setDraft] = useState('')
   const [showSteps, setShowSteps] = useState(true)
+  const [installing, setInstalling] = useState(false)
+  /** The 4.0 workflow assistant's draft, carried across one conversation's messages. */
+  const [draftId, setDraftId] = useState<string | undefined>()
   const abortRef = useRef<AbortController | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    let live = true
+  const loadWorkflows = (select?: string) =>
     listDefinitions('workflows', 'system_generated')
       .then((rows) => {
-        if (!live) return
         const usable = rows.filter(runnable).sort((a, b) => Number(b.purpose === 'ai_assistant') - Number(a.purpose === 'ai_assistant'))
         setWorkflows(usable)
-        setWorkflowId((chosen) => chosen || usable[0]?.id || '')
+        setWorkflowId((chosen) => select || chosen || usable[0]?.id || '')
       })
-      .catch((reason: unknown) => live && setLoadError(reason instanceof Error ? reason.message : String(reason)))
-    return () => {
-      live = false
-    }
+      .catch((reason: unknown) => setLoadError(reason instanceof Error ? reason.message : String(reason)))
+
+  useEffect(() => {
+    void loadWorkflows()
   }, [])
+
+  const hasV4Assistant = Boolean(workflows?.some((row) => isV4(row) && row.purpose === 'ai_assistant'))
+
+  const install = async () => {
+    setInstalling(true)
+    try {
+      await installWorkflowAssistant()
+      const rows = await listDefinitions('workflows', 'system_generated')
+      await loadWorkflows(rows.find((row) => isV4(row) && row.purpose === 'ai_assistant')?.id)
+    } catch (reason) {
+      setLoadError(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      setInstalling(false)
+    }
+  }
 
   // A block body: newer browsers return a Promise from scrollIntoView, and React would treat a
   // returned value as the effect's cleanup and crash calling it
@@ -81,6 +119,30 @@ export function PlaygroundView() {
   const update = (id: string, patch: Partial<Turn> | ((turn: Turn) => Partial<Turn>)) =>
     setTurns((previous) => previous.map((turn) => (turn.id === id ? { ...turn, ...(typeof patch === 'function' ? patch(turn) : patch) } : turn)))
 
+  /** Show a 4.0 run on its turn: its answer, what it waits for, or why it stopped. */
+  const showV4Run = (turnId: string, run: PlaygroundV4Run) => {
+    const request = run.status === 'waiting' ? run.requests?.[0] : undefined
+    if (request && run.id) {
+      update(turnId, { running: false, waiting: { runId: run.id, request } })
+      return
+    }
+    const nextDraft = (run.output as { draftId?: unknown } | null)?.draftId
+    if (typeof nextDraft === 'string' && nextDraft) setDraftId(nextDraft)
+    const problem = run.status === 'succeeded' ? '' : run.error || run.issues?.map((issue) => `${issue.path}: ${issue.message}`).join('; ') || run.status
+    update(turnId, { running: false, waiting: undefined, answer: outputText(run.output), error: problem })
+  }
+
+  const answer = async (turn: Turn, reply: Record<string, unknown>) => {
+    if (!turn.waiting || !current) return
+    const { runId, request } = turn.waiting
+    update(turn.id, { running: true, waiting: undefined })
+    try {
+      showV4Run(turn.id, await answerPlaygroundV4(runId, request.id, reply, current.ai_integration_id))
+    } catch (reason) {
+      update(turn.id, { running: false, error: reason instanceof Error ? reason.message : String(reason) })
+    }
+  }
+
   const send = async (event?: FormEvent) => {
     event?.preventDefault()
     const message = draft.trim()
@@ -90,6 +152,25 @@ export function PlaygroundView() {
     setDraft('')
     const controller = new AbortController()
     abortRef.current = controller
+    if (isV4(selected)) {
+      try {
+        const run = await runPlaygroundV4(
+          {
+            document: selected!.definition,
+            inputs: { message, ...(draftId ? { draftId } : {}) },
+            aiIntegrationId: current.ai_integration_id,
+            signal: controller.signal,
+          },
+          (step) => update(id, (turn) => ({ steps: [...turn.steps, step] })),
+        )
+        showV4Run(id, run)
+      } catch (reason) {
+        update(id, { error: controller.signal.aborted ? 'Stopped.' : reason instanceof Error ? reason.message : String(reason), running: false })
+      } finally {
+        abortRef.current = null
+      }
+      return
+    }
     try {
       const outcome = await runPlayground(
         {
@@ -114,6 +195,7 @@ export function PlaygroundView() {
   const restart = () => {
     abortRef.current?.abort()
     setTurns([])
+    setDraftId(undefined)
     setConversationId(newConversationId())
   }
 
@@ -122,9 +204,15 @@ export function PlaygroundView() {
       <PageHeader
         eyebrow="Overview"
         title="Playground"
-        description="Test a workflow the way users' chats run it: the execute API, live, with an optional context workflow. Each conversation keeps its own history."
+        description="Test a workflow the way users' chats run it, live. 3.0 workflows run through the execute API with an optional context workflow; 4.0 workflows (such as the workflow assistant) can stop to ask you something. Each conversation keeps its own history."
         actions={
           <>
+            {workflows !== null && !hasV4Assistant && (
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[11.5px]" onClick={() => void install()} disabled={installing}>
+                <PackagePlus className="h-3.5 w-3.5" />
+                Install 4.0 assistant
+              </Button>
+            )}
             <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[11.5px]" onClick={() => setShowSteps((value) => !value)}>
               <ListTree className="h-3.5 w-3.5" />
               {showSteps ? 'Hide steps' : 'Show steps'}
@@ -153,12 +241,13 @@ export function PlaygroundView() {
                 {workflows?.map((row) => (
                   <option key={row.id} value={row.id}>
                     {row.name || 'Untitled'}
+                    {isV4(row) ? ' · 4.0' : ''}
                     {row.purpose === 'ai_assistant' ? ' · AI assistant' : ''}
                   </option>
                 ))}
               </select>
             </label>
-            <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+            <label className={`grid gap-1 text-[11px] font-medium text-muted-foreground ${isV4(selected) ? 'invisible' : ''}`}>
               Context workflow (optional, sent as workflow_context_id)
               <select className={SELECT} value={contextId} onChange={(event) => setContextId(event.target.value)} disabled={running}>
                 <option value="">None</option>
@@ -174,7 +263,7 @@ export function PlaygroundView() {
           {loadError ? (
             <EmptyHint title="Couldn't load workflows" hint={loadError} />
           ) : workflows !== null && workflows.length === 0 ? (
-            <EmptyHint title="No runnable workflows" hint="Create or upload a schemaVersion 3.0 workflow under Workflows first." />
+            <EmptyHint title="No runnable workflows" hint="Create or upload a workflow under Workflows first, or install the 4.0 workflow assistant." />
           ) : null}
 
           <PremiumCard className="flex min-h-[420px] flex-col">
@@ -214,6 +303,8 @@ export function PlaygroundView() {
                           <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
                             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Running…
                           </p>
+                        ) : turn.waiting ? (
+                          <PlaygroundRequestCard request={turn.waiting.request} busy={running} onAnswer={(reply) => void answer(turn, reply)} />
                         ) : turn.error ? (
                           <p className="flex items-start gap-1.5 rounded-[2px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
                             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />

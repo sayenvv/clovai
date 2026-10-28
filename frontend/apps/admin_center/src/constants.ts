@@ -43,6 +43,7 @@ export const ROUTES = {
   modelClients: '/configuration/model-clients',
   promptRules: '/configuration/prompt-rules',
   contextProviders: '/configuration/context-providers',
+  workflowGeneration: '/configuration/workflow-generation',
   template: '/template',
   access: '/access',
   systemLogs: '/system-logs',

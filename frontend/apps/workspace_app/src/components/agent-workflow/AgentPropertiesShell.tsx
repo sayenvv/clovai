@@ -110,6 +110,8 @@ interface GenerateChatOptions {
   onGenerated: (plan: WorkflowGenerationPlan, base: CanvasPlan | null) => void
   /** A complete workflow the assistant returned, placed on the canvas like File → Import. */
   onImportWorkflow?: (imported: ImportedWorkflow) => void
+  /** An accepted 4.0 assistant draft: replaces the open tab. */
+  onReplaceWorkflow?: (imported: ImportedWorkflow) => void
   onClose: () => void
   /** Saved sessions, listed beside the chat when it is expanded. */
   chats?: {
@@ -552,6 +554,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 getCurrentWorkflow={generate.getCurrentWorkflow}
                 onGenerated={generate.onGenerated}
                 onImportWorkflow={generate.onImportWorkflow}
+                onReplaceWorkflow={generate.onReplaceWorkflow}
                 conversationId={generate.chats?.activeId}
               />
               </div>

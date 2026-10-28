@@ -10,6 +10,8 @@ import { PageIntro, SettingsCard } from '@/components/agent-workflow/dashboard/d
 import { ROUTES } from '@/constants'
 import { useSession } from '@/hooks/use-session'
 import { useTheme } from '@/hooks/use-theme'
+import { useAutoSave } from '@/hooks/use-auto-save'
+import { Switch } from '@/components/ui/switch'
 import { AccountUnavailableError, deleteAccount, renameWorkspace, updateProfile } from '@/services/account-api'
 import { PROJECT_ROLES, changeAccountPassword, logout, type ProjectRole } from '@/services/project-auth-store'
 import { cn } from '@/utils/cn'
@@ -197,6 +199,7 @@ export function WorkspaceTab() {
 /** Light or dark, shared with the editor. */
 export function AppearanceTab() {
   const { theme, toggleTheme } = useTheme()
+  const [autoSave, setAutoSave] = useAutoSave()
   const options = [
     { value: 'light', label: 'Light', icon: Sun },
     { value: 'dark', label: 'Dark', icon: Moon },
@@ -204,7 +207,7 @@ export function AppearanceTab() {
 
   return (
     <div className="space-y-5">
-      <PageIntro eyebrow="Preferences" title="Appearance" description="How the dashboard and the editor look on this device." />
+      <PageIntro eyebrow="Preferences" title="Appearance" description="How the dashboard and the editor look and behave on this device." />
 
       <SettingsCard title="Theme" description="Applies to the dashboard and the editor alike.">
         <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Theme">
@@ -243,6 +246,18 @@ export function AppearanceTab() {
           <Monitor className="size-3.5" />
           Saved in this browser.
         </p>
+      </SettingsCard>
+
+      <SettingsCard title="Editor" description="How the workflow editor keeps your work.">
+        <label className="flex items-center justify-between gap-4">
+          <span>
+            <span className="block text-[12.5px] font-medium text-foreground">Auto-save</span>
+            <span className="block text-[11.5px] text-muted-foreground">
+              Save the open workflow a couple of seconds after each change, without pressing Save.
+            </span>
+          </span>
+          <Switch checked={autoSave} onCheckedChange={setAutoSave} aria-label="Auto-save" />
+        </label>
       </SettingsCard>
     </div>
   )

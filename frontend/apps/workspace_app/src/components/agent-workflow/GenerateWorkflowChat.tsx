@@ -1,12 +1,11 @@
 import { memo, useEffect, useRef, useState } from 'react'
-import { Check, ChevronRight, FileText, Paperclip, Target, X, type LucideIcon } from 'lucide-react'
+import { ChevronRight, FileText, Target, X, type LucideIcon } from 'lucide-react'
 import { WorkflowIcon as Workflow } from '@/components/shared/WorkflowIcon'
 import { toast } from 'sonner'
 import {
   ChatComposer,
   ChatEmptyState,
   ChatTurnBody,
-  ComposerIconButton,
   ComposerSendButton,
   ComposerStopButton,
 } from '@/components/agent-workflow/ChatComposer'
@@ -15,26 +14,15 @@ import {
   readableChatText,
   UserMessage,
 } from '@/components/agent-workflow/ExecutionSidebarPanel'
-import { applyChatMessage } from '@/components/agent-workflow/use-workflow-runner'
 import { PetalLoader, PetalMark } from '@/components/shared/PetalLoader'
-import type { ExecutionLogEvent } from '@/services/orchestration-api'
 import { PlanReviewCard } from '@/components/agent-workflow/PlanReviewCard'
 import type { PlanReview } from '@/services/workflow-run-api'
 import type { WorkflowChatMessage } from '@/types/agent-workflow'
 import { GenerateModelPicker } from '@/components/agent-workflow/GenerateModelPicker'
 import {
-  generateWorkflowFromPrompt,
   type GenerateWorkflowAttachment,
   type GenerateWorkflowModel,
 } from '@/services/generate-workflow-api'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { describeWorkflowTab } from '@/components/agent-workflow/workflow-tab-context'
 import type { CanvasPlan } from '@/components/agent-workflow/workflow-plan-from-diagram'
 import { listAgentNodes } from '@/components/agent-workflow/tool-agent-mapping'
 import type { DiagramPage } from '@/components/designer/diagram-types'
@@ -42,16 +30,28 @@ import { cn } from '@/utils/cn'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
 import { fetchSavedWorkflows, type SavedWorkflowSummary } from '@/services/activity-api'
+import { AssistantRequestCard, DraftReviewCard, draftHasChanges } from '@/components/agent-workflow/AssistantCards'
+import { buildWorkflowV4 } from '@/components/agent-workflow/build-workflow-v4'
+import { importWorkflowV4 } from '@/components/agent-workflow/import-workflow-v4'
+import { useGenerationSpec } from '@/hooks/use-generation-spec'
+import {
+  acceptDraft,
+  answerAssistant,
+  createDraft,
+  discardDraft,
+  fetchDraftDiff,
+  streamAssistantMessage,
+  type AssistantRequest,
+  type AssistantRun,
+  type AssistantRunEvent,
+  type DraftDiff,
+} from '@/services/workflow-assistant-api'
 
 const ASSISTANT_NAME = 'ElevenNodes AI'
 const MAX_ATTACHMENTS = 5
 const MAX_CONTEXT_TABS = 3
 /** Matches the API's per-file limit. */
 const MAX_ATTACHMENT_CHARS = 200_000
-/** Earlier turns sent with each request, so follow-ups like "make it shorter" have context. */
-const MAX_HISTORY_MESSAGES = 10
-/** Matches the API's per-message limit. */
-const MAX_HISTORY_CHARS = 20_000
 const ATTACHMENT_ACCEPT = '.csv,.json,.log,.md,.txt,.xml,.yaml,.yml,application/json,text/*'
 
 const EXAMPLE_PROMPTS = [
@@ -100,6 +100,8 @@ interface GenerateWorkflowChatProps {
   onGenerated: (plan: WorkflowGenerationPlan, base: CanvasPlan | null) => void
   /** A complete workflow the assistant returned, placed on the canvas like File → Import. */
   onImportWorkflow?: (imported: ImportedWorkflow) => void
+  /** An accepted 4.0 assistant draft: replaces the open tab. */
+  onReplaceWorkflow?: (imported: ImportedWorkflow) => void
   /** The chat session id, sent as the run's conversation id (for agents with conversation history). */
   conversationId?: string
 }
@@ -150,35 +152,6 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function planSummary(
-  plan: WorkflowGenerationPlan,
-  meta: { model: string; summary?: string; tokens?: number },
-): string {
-  const count = plan.agents.length
-  const reviews = plan.edges.filter((edge) => edge.humanApproval).length
-  // What was done is the assistant's own summary; the UI only states what is on the canvas.
-  const lines: string[] = []
-  const note = meta.summary?.trim() || plan.description.trim()
-  if (note) lines.push(note, '')
-  lines.push(`**${plan.workflowName}** is on the canvas with ${count} agent${count === 1 ? '' : 's'}.`)
-  lines.push(
-    '',
-    ...plan.agents.map(
-      (agent, index) =>
-        `${index + 1}. **${agent.name}**${agent.description ? ` — ${agent.description}` : ''}`,
-    ),
-  )
-  if (reviews > 0) lines.push('', `Includes ${reviews} human review step${reviews === 1 ? '' : 's'}.`)
-  lines.push('', `_Generated with ${meta.model}._`)
-  return lines.join('\n')
-}
-
-/** Fold one streamed row into the run's turns, keyed by agent like the execute chat. */
-function applyAgentRow(steps: WorkflowChatMessage[], event: ExecutionLogEvent): WorkflowChatMessage[] {
-  const agentName = event.agent?.trim() || 'Agent'
-  return applyChatMessage(steps, event.agentId || agentName, agentName, event)
-}
-
 /**
  * An agent's answer here is a workflow JSON draft or a review, so it is shown
  * folded under a title like a reasoning step, and the reply below sums it up.
@@ -217,7 +190,7 @@ function RunSteps({
   const shown = steps.filter((step) => !(running(step) && step.nodeId.endsWith(':thinking')))
   const items: TimelineItem[] = shown.map((step) =>
     running(step) && !step.content.trim()
-      ? { key: step.id, state: 'running', title: activities[step.nodeId] || fallbackActivity, content: '' }
+      ? { key: step.id, state: 'running', title: activities[step.nodeId] || step.title || fallbackActivity, content: '' }
       : {
           key: step.id,
           state: step.status === 'failed' || step.content.startsWith('⚠') ? 'failed' : 'done',
@@ -354,11 +327,71 @@ function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
 
 
 /** Earlier turns for the API, oldest first. Errors and "Stopped." notes are left out. */
-function chatHistory(messages: GenerateChatMessage[]) {
-  return messages
-    .filter((message) => !message.tone && message.content.trim())
-    .slice(-MAX_HISTORY_MESSAGES)
-    .map((message) => ({ role: message.role, content: message.content.slice(0, MAX_HISTORY_CHARS) }))
+/** What each assistant agent is doing while it runs. */
+const AGENT_ACTIVITY: Record<string, string> = {
+  Router: 'Understanding the request',
+  Planner: 'Planning the workflow',
+  Builder: 'Building the workflow',
+  'Step filler': 'Filling in the steps',
+  Editor: 'Editing the workflow',
+  Repairer: 'Fixing problems',
+  Explainer: 'Explaining the workflow',
+  Reviewer: 'Reviewing the workflow',
+  Operator: 'Running a test',
+  Responder: 'Writing the reply',
+}
+
+/** The assistant's tools, as the step a person sees. */
+const TOOL_ACTIVITY: Record<string, string> = {
+  open_draft: 'Opening the draft',
+  get_outline: 'Reading the workflow outline',
+  get_object: 'Reading a step',
+  get_section: 'Reading part of the workflow',
+  find: 'Searching the workflow',
+  apply_ops: 'Applying changes to the draft',
+  validate_draft: 'Checking the draft',
+  get_diff: 'Comparing the changes',
+  catalog_models: 'Looking up models',
+  catalog_model_clients: 'Looking up model connections',
+  catalog_agents: 'Looking up saved agents',
+  catalog_tools: 'Looking up tools',
+  test_run: 'Test-running the workflow',
+  get_run: 'Reading the test run',
+}
+
+const toolActivity = (tool: string) => TOOL_ACTIVITY[tool] ?? tool.replace(/_/g, ' ').replace(/^\w/, (letter) => letter.toUpperCase())
+
+/**
+ * The 4.0 assistant's run as chat steps: one row per agent, and under it one row per tool call, each
+ * running until it completes, so a long turn shows what it is doing.
+ */
+function applyAssistantEvent(steps: WorkflowChatMessage[], event: AssistantRunEvent): WorkflowChatMessage[] {
+  const finish = (index: number, failed: boolean, content: string) => {
+    if (index < 0) return steps
+    const next = [...steps]
+    next[index] = { ...next[index], status: failed ? 'failed' : 'done', content }
+    return next
+  }
+  if (event.type === 'tool.started' && event.tool) {
+    const title = toolActivity(event.tool)
+    return [...steps, { id: `tool-${steps.length}`, nodeId: `tool:${event.tool}`, agentName: event.agent ?? 'Assistant', title, content: '', kind: 'reasoning', status: 'streaming' }]
+  }
+  if (event.type === 'tool.completed' && event.tool) {
+    const index = steps.findLastIndex((step) => step.nodeId === `tool:${event.tool}` && step.status === 'streaming')
+    return finish(index, Boolean(event.error), event.error ? `⚠ ${event.error}` : `${event.agent ?? 'The assistant'} used ${event.tool}.`)
+  }
+  if (event.nodeType && event.nodeType !== 'agent' && event.type === 'node.started') return steps
+  if (event.type === 'node.started' && event.nodeId) {
+    const name = event.name ?? 'Step'
+    const title = AGENT_ACTIVITY[name] ?? name
+    return [...steps, { id: `${event.nodeId}-${steps.length}`, nodeId: event.nodeId, agentName: name, title, content: '', kind: 'reasoning', status: 'streaming' }]
+  }
+  if ((event.type === 'node.completed' || event.type === 'node.failed') && event.nodeId) {
+    const index = steps.map((step) => step.nodeId).lastIndexOf(event.nodeId)
+    const failed = event.type === 'node.failed'
+    return finish(index, failed, failed ? `⚠ ${event.error ?? 'Failed'}` : `${steps[index]?.agentName ?? 'The agent'} finished.`)
+  }
+  return steps
 }
 
 /** Right-panel chat that drafts a workflow onto the canvas from a description. */
@@ -373,12 +406,16 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   pages,
   activePageId,
   replacesCanvas = false,
-  getCurrentWorkflow,
-  onGenerated,
   onImportWorkflow,
-  conversationId,
+  onReplaceWorkflow,
 }: GenerateWorkflowChatProps) {
   const [draft, setDraft] = useState('')
+  const generationSpec = useGenerationSpec()
+  /** The draft this conversation edits, its pending question, and its changes waiting for review. */
+  const [assistantDraftId, setAssistantDraftId] = useState<string | undefined>()
+  const [pendingRequest, setPendingRequest] = useState<{ runId: string; request: AssistantRequest } | null>(null)
+  const [pendingDraft, setPendingDraft] = useState<DraftDiff | null>(null)
+  const [assistantBusy, setAssistantBusy] = useState(false)
   /** The user's saved workflows, offered as the request's context workflow. */
   const [savedWorkflows, setSavedWorkflows] = useState<SavedWorkflowSummary[]>([])
   /** The saved workflow picked as context (`workflow_context_id`); it stays picked across messages. */
@@ -447,10 +484,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     }
   }, [])
   const contextWorkflow = savedWorkflows.find((row) => row.workflow_id === contextWorkflowId)
-  // The saved workflow open on the canvas: the chat's context when nothing else is picked
-  const canvasWorkflow = savedWorkflows.find(
-    (row) => row.workflow_id === pages.find((page) => page.id === activePageId)?.workflowId,
-  )
 
   // Tabs can be deleted while selected; only keep ones that still exist.
   const contextTabs = contextTabIds
@@ -471,139 +504,167 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     abortRef.current?.abort()
   }
 
-  const handleGenerate = async (promptOverride?: string) => {
-    const prompt = (promptOverride ?? draft).trim()
-    if (!prompt || isGenerating) return
-
-    // The open tab is the workflow being edited; other tabs travel as reference context.
-    const base = getCurrentWorkflow?.() ?? null
-    // The workflow the run works on (workflow_context_id): the one picked with the target icon, else
-    // the first saved tab added as context, else the saved workflow open on the canvas. The server
-    // reads the saved copy, so the list is re-read now to know about a canvas saved since the chat opened.
-    const saved = await fetchSavedWorkflows().catch(() => savedWorkflows)
-    setSavedWorkflows(saved)
-    const savedRow = (workflowId: string | undefined) => saved.find((row) => row.workflow_id === workflowId)
-    const pickedWorkflow = savedRow(contextWorkflowId || undefined)
-    const tabWorkflow = contextTabs.map((page) => savedRow(page.workflowId)).find((row) => row !== undefined)
-    const canvasWorkflow = savedRow(pages.find((page) => page.id === activePageId)?.workflowId)
-    const workflowContext = pickedWorkflow ?? tabWorkflow ?? canvasWorkflow
-    const workflowContextId = workflowContext?.workflow_id ?? ''
-    const contextWorkflowName = workflowContext?.name || 'Untitled workflow'
-    const history = chatHistory(messages)
-    const sentFiles = attachments
-    // Describe tabs at send time so the model sees their latest state.
-    const sentTabs = contextTabs.filter((page) => !base || page.id !== activePageId).map((page) => ({
-      name: `Workflow tab: ${page.name}`,
-      content: describeWorkflowTab(page),
-      label: page.name,
-    }))
-    const context = [
-      ...(workflowContextId ? [{ kind: 'workflow' as const, name: contextWorkflowName }] : []),
-      ...sentTabs.map((tab) => ({ kind: 'tab' as const, name: tab.label })),
-      ...sentFiles.map((file) => ({ kind: 'file' as const, name: file.name })),
-    ]
-    const startedAt = Date.now()
+  /** A finished or waiting assistant run: its question as a card, or its reply and the draft to review. */
+  const showAssistantRun = async (run: AssistantRun, startedAt: number) => {
+    const steps = finishSteps(liveStepsRef.current)
+    const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000))
+    if (run.status === 'waiting' && run.requests.length > 0) {
+      setPendingRequest({ runId: run.id, request: run.requests[0] })
+      if (steps.length) onMessagesChange((previous) => [...previous, { id: `assistant-${Date.now()}`, role: 'assistant', content: '', steps, seconds }])
+      return
+    }
+    setPendingRequest(null)
+    if (run.status !== 'succeeded') {
+      const detail = run.error || run.issues?.map((issue) => issue.message).join('; ') || run.status
+      onMessagesChange((previous) => [
+        ...previous,
+        { id: `assistant-error-${Date.now()}`, role: 'assistant', content: `The workflow assistant couldn't finish: ${detail}`, tone: 'error', steps, seconds },
+      ])
+      return
+    }
+    const draftId = run.output?.draftId || assistantDraftId
+    if (draftId) setAssistantDraftId(draftId)
     onMessagesChange((previous) => [
       ...previous,
-      {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content: prompt,
-        ...(context.length > 0 ? { context } : {}),
-      },
+      { id: `assistant-${Date.now()}`, role: 'assistant', content: run.output?.reply ?? '', steps, seconds },
     ])
-    setDraft('')
-    setAttachments([])
-    setContextTabIds([])
+    if (draftId) {
+      const diff = await fetchDraftDiff(draftId).catch(() => null)
+      setPendingDraft(diff && draftHasChanges(diff) ? diff : null)
+    }
+  }
+
+  /** The draft to work on: the conversation's, else one of the open tab when it has agents. */
+  const ensureAssistantDraft = async (): Promise<string | undefined> => {
+    if (assistantDraftId) return assistantDraftId
+    const page = pages.find((candidate) => candidate.id === activePageId)
+    const spec = generationSpec.data?.document
+    if (!page || !spec || listAgentNodes(page.diagram).length === 0) return undefined
+    const document = buildWorkflowV4({ doc: { pages, activePageId }, pageId: activePageId, diagram: page.diagram, spec })
+    const created = await createDraft(document)
+    setAssistantDraftId(created.id)
+    return created.id
+  }
+
+  const runAssistant = async (start: () => Promise<AssistantRun>) => {
+    const startedAt = Date.now()
     setIsGenerating(true)
+    setAssistantBusy(true)
     liveStepsRef.current = []
     setLiveSteps([])
     setActivities({})
-    const onAgentEvent = (event: ExecutionLogEvent) => {
-      const stage = event.agentId
-      if (event.activity && stage) setActivities((previous) => (previous[stage] === event.activity ? previous : { ...previous, [stage]: event.activity! }))
-      liveStepsRef.current = applyAgentRow(liveStepsRef.current, event)
-      setLiveSteps(liveStepsRef.current)
-    }
-
-    const controller = new AbortController()
-    abortRef.current = controller
     try {
-      const result = await generateWorkflowFromPrompt({
-        prompt,
-        model,
-        ...(base ? { workflow: base.plan } : {}),
-        history,
-        attachments: [
-          ...sentTabs.map(({ name, content }) => ({ name, content })),
-          ...sentFiles.map(({ name, content }) => ({ name, content })),
-        ],
-        ...(workflowContextId ? { workflowContextId } : {}),
-        ...(conversationId ? { conversationId } : {}),
-        onAgentEvent,
-        onPlanReview: setPendingReview,
-        signal: controller.signal,
-      })
-      const plan = result.plan
-      // Merge into the open canvas (keeping agent settings) only when the backend says it updated it.
-      if (plan) onGenerated(plan, result.mode === 'update' ? base : null)
-      if (result.imported) onImportWorkflow?.(result.imported)
-      onMessagesChange((previous) => [
-        ...previous,
-        {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: plan
-            ? planSummary(plan, {
-                model: result.model,
-                summary: result.summary,
-                tokens: result.tokens,
-              })
-            : result.imported
-              ? result.summary || 'Added the workflow to the canvas.'
-              : result.reply ?? '',
-          steps: finishSteps(liveStepsRef.current),
-          seconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
-          tokens: result.tokens,
-        },
-      ])
+      await showAssistantRun(await start(), startedAt)
     } catch (error) {
-      const stopped = controller.signal.aborted
+      const stopped = abortRef.current?.signal.aborted
       onMessagesChange((previous) => [
         ...previous,
         stopped
-          ? {
-              id: `assistant-stopped-${Date.now()}`,
-              role: 'assistant',
-              content: 'Stopped.',
-              tone: 'muted',
-              steps: finishSteps(liveStepsRef.current),
-            }
+          ? { id: `assistant-stopped-${Date.now()}`, role: 'assistant', content: 'Stopped.', tone: 'muted' }
           : {
               id: `assistant-error-${Date.now()}`,
               role: 'assistant',
               content: `The workflow assistant couldn't finish. ${error instanceof Error ? error.message : ''}`.trim(),
               tone: 'error',
-              steps: finishSteps(liveStepsRef.current),
             },
       ])
     } finally {
-      if (abortRef.current === controller) abortRef.current = null
+      abortRef.current = null
       setIsGenerating(false)
-      setPendingReview(null)
+      setAssistantBusy(false)
       liveStepsRef.current = []
       setLiveSteps([])
     }
   }
+
+  const handleAssistantMessage = async (prompt: string) => {
+    onMessagesChange((previous) => [...previous, { id: `user-${Date.now()}`, role: 'user', content: prompt }])
+    setDraft('')
+    setPendingRequest(null)
+    setPendingDraft(null)
+    const controller = new AbortController()
+    abortRef.current = controller
+    await runAssistant(async () => {
+      const draftId = await ensureAssistantDraft()
+      return streamAssistantMessage({
+        message: prompt,
+        draftId,
+        model,
+        onEvent: (event) => {
+          liveStepsRef.current = applyAssistantEvent(liveStepsRef.current, event)
+          setLiveSteps(liveStepsRef.current)
+        },
+        signal: controller.signal,
+      })
+    })
+  }
+
+  const answerRequest = (response: Record<string, unknown>) => {
+    if (!pendingRequest) return
+    const { runId, request } = pendingRequest
+    setPendingRequest(null)
+    void runAssistant(() => answerAssistant(runId, request.id, response))
+  }
+
+  const acceptAssistantDraft = async () => {
+    if (!assistantDraftId) return
+    setAssistantBusy(true)
+    let accepted: Awaited<ReturnType<typeof acceptDraft>>
+    try {
+      accepted = await acceptDraft(assistantDraftId)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not accept the changes.')
+      setAssistantBusy(false)
+      return
+    }
+    // Accepted: the draft is closed, so the card goes whatever happens next
+    setPendingDraft(null)
+    setAssistantDraftId(undefined)
+    try {
+      const imported = importWorkflowV4(accepted.document)
+      ;(onReplaceWorkflow ?? onImportWorkflow)?.(imported)
+      if (imported.losses.length) toast.warning(`Shown approximately on the canvas: ${imported.losses.join('; ')}`)
+      // Keep working on what was accepted
+      const next = await createDraft(accepted.document)
+      setAssistantDraftId(next.id)
+    } catch (error) {
+      toast.error(`Accepted, but it could not be shown on the canvas: ${error instanceof Error ? error.message : 'unknown error'}`)
+    } finally {
+      setAssistantBusy(false)
+    }
+  }
+
+  const discardAssistantDraft = async () => {
+    if (!assistantDraftId) return
+    setAssistantBusy(true)
+    try {
+      await discardDraft(assistantDraftId)
+      setAssistantDraftId(undefined)
+      setPendingDraft(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not discard the changes.')
+    } finally {
+      setAssistantBusy(false)
+    }
+  }
+
+  const handleGenerate = async (promptOverride?: string) => {
+    const prompt = (promptOverride ?? draft).trim()
+    if (!prompt || isGenerating) return
+    await handleAssistantMessage(prompt)
+  }
+
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
       <div ref={scrollRef} className="min-h-0 w-full min-w-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
         <div>
           <h2 className="text-[15px] font-semibold leading-tight text-foreground">{ASSISTANT_NAME}</h2>
-          <p className="mt-0.5 text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Assistant · {replacesCanvas ? 'edits the canvas' : 'drafts onto the canvas'}
-          </p>
+          <div className="mt-0.5 flex items-center justify-between gap-2">
+            <p className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Assistant · {replacesCanvas ? 'edits the canvas' : 'drafts onto the canvas'}
+            </p>
+          </div>
         </div>
         {messages.length === 0 && (
           <ChatEmptyState
@@ -616,7 +677,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
           />
         )}
 
-        {messages.map((message, index) =>
+        {messages.map((message) =>
           message.role === 'user' ? (
             <UserMessage key={message.id} content={message.content}>
               {message.context?.length ? (
@@ -656,6 +717,18 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
               </ChatTurnBody>
             </div>
           ),
+        )}
+
+        {!isGenerating && pendingRequest && (
+          <AssistantRequestCard key={pendingRequest.request.id} request={pendingRequest.request} busy={assistantBusy} onAnswer={answerRequest} />
+        )}
+        {!isGenerating && !pendingRequest && pendingDraft && (
+          <DraftReviewCard
+            diff={pendingDraft}
+            busy={assistantBusy}
+            onAccept={() => void acceptAssistantDraft()}
+            onDiscard={() => void discardAssistantDraft()}
+          />
         )}
 
         {isGenerating && (
@@ -737,110 +810,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
             ) : null
           }
           leading={
-            <>
-              <ComposerIconButton
-                icon={Paperclip}
-                label="Attach files"
-                disabled={isGenerating || attachments.length >= MAX_ATTACHMENTS}
-                onClick={() => fileInputRef.current?.click()}
-                title={
-                  attachments.length >= MAX_ATTACHMENTS
-                    ? `Up to ${MAX_ATTACHMENTS} files`
-                    : 'Attach files (text, Markdown, JSON, CSV, XML, YAML)'
-                }
-              />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={isGenerating}>
-                  <ComposerIconButton
-                    icon={Workflow}
-                    label="Add workflow tabs as context (a saved tab also becomes the workflow to work on)"
-                    badge={contextTabs.length > 0 ? contextTabs.length : undefined}
-                  />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" side="top" className="w-64">
-                  <DropdownMenuLabel className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
-                    Workflow tabs
-                    <span className="font-normal tabular-nums">
-                      {contextTabs.length}/{MAX_CONTEXT_TABS}
-                    </span>
-                  </DropdownMenuLabel>
-                  <div className="max-h-56 overflow-y-auto">
-                    {pages.map((page) => {
-                      const selected = contextTabIds.includes(page.id)
-                      const count = listAgentNodes(page.diagram).length
-                      return (
-                        <DropdownMenuItem
-                          key={page.id}
-                          disabled={!selected && contextTabs.length >= MAX_CONTEXT_TABS}
-                          // Keep the menu open so several tabs can be picked.
-                          onSelect={(event) => {
-                            event.preventDefault()
-                            toggleContextTab(page.id)
-                          }}
-                          className="items-start py-1.5"
-                        >
-                          <Workflow className="mt-0.5" />
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-center gap-1.5">
-                              <span className="truncate text-[13px] text-foreground">{page.name}</span>
-                              {page.id === activePageId ? (
-                                <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground">
-                                  Current
-                                </span>
-                              ) : null}
-                            </span>
-                            <span className="block text-[11px] text-muted-foreground">
-                              {page.kind === 'sub' ? 'Sub-workflow' : 'Workflow'} · {count} agent
-                              {count === 1 ? '' : 's'}
-                            </span>
-                          </span>
-                          <span className="flex h-4 w-4 shrink-0 items-center justify-center pt-0.5">
-                            {selected ? <Check className="h-3.5 w-3.5 !text-foreground" /> : null}
-                          </span>
-                        </DropdownMenuItem>
-                      )
-                    })}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild disabled={isGenerating}>
-                  <ComposerIconButton
-                    icon={Target}
-                    label="Pick a saved workflow as context"
-                    badge={contextWorkflow ? 1 : undefined}
-                  />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" side="top" className="w-64">
-                  <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground">
-                    Context workflow
-                  </DropdownMenuLabel>
-                  <div className="max-h-56 overflow-y-auto">
-                    {savedWorkflows.length === 0 ? (
-                      <p className="px-2 py-1.5 text-[12px] text-muted-foreground">No saved workflows yet.</p>
-                    ) : (
-                      savedWorkflows.map((row) => {
-                        const selected = row.workflow_id === contextWorkflowId
-                        return (
-                          <DropdownMenuItem
-                            key={row.workflow_id}
-                            onSelect={() => setContextWorkflowId(selected ? '' : row.workflow_id)}
-                            className="py-1.5"
-                          >
-                            <Workflow />
-                            <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
-                              {row.name || 'Untitled workflow'}
-                            </span>
-                            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                              {selected ? <Check className="h-3.5 w-3.5 !text-foreground" /> : null}
-                            </span>
-                          </DropdownMenuItem>
-                        )
-                      })
-                    )}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
               <GenerateModelPicker
                 value={model}
                 onChange={onModelChange}
@@ -849,7 +818,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                 ollamaBaseUrl={ollamaBaseUrl}
                 disabled={isGenerating}
               />
-            </>
           }
           action={
             isGenerating ? (
@@ -859,13 +827,11 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
             )
           }
           hint={
-            contextWorkflow
-              ? `Working on "${contextWorkflow.name || 'Untitled workflow'}"`
-              : canvasWorkflow
-                ? `Working on "${canvasWorkflow.name || 'Untitled workflow'}" (open on the canvas)`
-                : replacesCanvas
-                ? 'Changes apply to the current canvas'
-                : 'Drafts a new workflow on the canvas'
+            assistantDraftId
+              ? 'Working on a draft: review and accept its changes'
+              : replacesCanvas
+                ? 'Works on a draft of the open tab'
+                : 'Drafts a new workflow'
           }
         />
       </div>

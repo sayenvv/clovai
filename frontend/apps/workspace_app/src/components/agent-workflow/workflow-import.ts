@@ -7,6 +7,8 @@ import {
   type DiagramNode,
   type DiagramPage,
 } from '@/components/designer/diagram-types'
+import type { WorkflowV4Document } from '@/types/workflow-v4'
+import { importWorkflowV4 } from '@/components/agent-workflow/import-workflow-v4'
 import { listAgentNodes, listToolsForAgent } from '@/components/agent-workflow/tool-agent-mapping'
 import { isStartFlowNode } from '@/components/agent-workflow/workflow-flow-nodes'
 import type { WorkflowConfiguration } from '@/services/workflow-configuration-store'
@@ -56,8 +58,25 @@ function configurationFromSettings(settings: WorkflowBuildSpec['settings'] | und
  * Read a workflow file: the Code tab's build spec JSON (its `canvas` block holds the pages and
  * node positions) or a bare canvas document. Throws when the file holds no workflow.
  */
+/** A 4.0 document as a canvas: the tab it was saved from when it carries one, else converted. */
+function parseWorkflowV4(parsed: WorkflowV4Document): ImportedWorkflow {
+  const page = parsed.canvas?.pages?.[0]
+  const diagram = page?.diagram as Diagram | undefined
+  if (diagram && Array.isArray(diagram.nodes) && diagram.nodes.length > 0) {
+    const pageId = `page-v4-${parsed.meta.id}`
+    return {
+      document: normalizeDocument({
+        pages: [{ id: pageId, name: parsed.meta.name, diagram, kind: 'main', workflowId: parsed.meta.id }],
+        activePageId: pageId,
+      }),
+    }
+  }
+  return importWorkflowV4(parsed)
+}
+
 export function parseWorkflowFile(text: string): ImportedWorkflow {
   const parsed = JSON.parse(text) as Record<string, unknown>
+  if (parsed?.schemaVersion === '4.0') return parseWorkflowV4(parsed as unknown as WorkflowV4Document)
   const spec =
     parsed && typeof parsed === 'object' && 'canvas' in parsed
       ? (parsed as unknown as WorkflowBuildSpec)
