@@ -1,18 +1,35 @@
-import { Activity, Bot, CodeXml, Gauge, GitBranch, History, MessageCircleQuestion, Split, UserCheck } from 'lucide-react'
+import {
+  Activity,
+  Bot,
+  GitBranch,
+  History,
+  Hourglass,
+  Layers,
+  MessageCircleQuestion,
+  Radio,
+  Repeat,
+  Split,
+  UserCheck,
+  Wrench,
+} from 'lucide-react'
 import { Frame } from '@/components/Frame'
 import { Heading } from '@/components/Heading'
 import { Reveal } from '@/components/Reveal'
 
+/** The step types the engine runs today (app/workflows/build/executors), plus what every run gets. */
 const ITEMS = [
-  { icon: Bot, title: 'Agents', body: 'Instructions, tools, memory and structured output.' },
+  { icon: Bot, title: 'Agents', body: 'A model with instructions, tools, memory and structured output.' },
+  { icon: Wrench, title: 'Tools', body: 'Call a function, an API or an MCP server directly.' },
   { icon: GitBranch, title: 'Conditions', body: 'Route the run on what earlier steps produced.' },
-  { icon: Split, title: 'Parallel steps', body: 'Fan out into branches and join again.' },
-  { icon: UserCheck, title: 'Human approvals', body: 'Pause for a decision, with feedback loops.' },
+  { icon: Split, title: 'Parallel branches', body: 'Fan out into branches and join again.' },
+  { icon: Repeat, title: 'Loops', body: 'Run steps for each item in a list, in turn or in parallel.' },
+  { icon: Layers, title: 'Subworkflows', body: 'Reuse a saved workflow as a single step.' },
+  { icon: UserCheck, title: 'Approval gates', body: 'Pause for a decision; rejected work can loop back.' },
   { icon: MessageCircleQuestion, title: 'Ask the user', body: 'Stop mid-run for an answer, then continue.' },
+  { icon: Radio, title: 'Wait for an event', body: 'Hold until an outside system signals, with a timeout.' },
+  { icon: Hourglass, title: 'Delays', body: 'Wait a set time before the next step.' },
   { icon: History, title: 'Checkpoints', body: 'Paused runs resume exactly where they stopped.' },
-  { icon: Gauge, title: 'Run limits', body: 'Caps on time, steps, tokens and cost.' },
-  { icon: Activity, title: 'Traces', body: 'Every step, duration, token and decision.' },
-  { icon: CodeXml, title: 'Code steps', body: 'Exact logic where a model is not needed.' },
+  { icon: Activity, title: 'Traces and limits', body: 'Every step and token recorded; caps on time and cost.' },
 ]
 
 export function Capabilities() {

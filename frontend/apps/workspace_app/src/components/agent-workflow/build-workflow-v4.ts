@@ -446,6 +446,11 @@ export function buildWorkflowV4({
         place(id, node.x, node.y)
         break
       }
+      case 'step':
+        // The rule names the node type and its fields (ask user, delay, wait for event)
+        nodes.push({ id, name: node.label, ...fields } as NodeV4)
+        place(id, node.x, node.y)
+        break
       case 'approval':
         nodes.push({ id, name: node.label, type: 'approval', ...fields } as NodeV4)
         place(id, node.x, node.y)
@@ -459,6 +464,12 @@ export function buildWorkflowV4({
     }
   }
   const nodeById = new Map(nodes.map((node) => [node.id, node]))
+  // Steps with one way out still name it on their connector, as the format requires
+  const SINGLE_OUTCOME: Record<string, string> = { ask_user: 'replied', wait_event: 'event' }
+  const outcomeOf = (nodeId: string) => {
+    const type: string | undefined = nodeById.get(nodeId)?.type
+    return type ? SINGLE_OUTCOME[type] : undefined
+  }
 
   // ---- Edges
   const edges: EdgeV4[] = []
@@ -604,7 +615,8 @@ export function buildWorkflowV4({
       continue
     }
     const when = fromRole === 'approval' ? undefined : whenOf(edge.connector?.condition)
-    addEdge({ from, to, ...(when ? { when } : {}), ...(fromRole === 'approval' ? { on: 'approved' } : {}) }, edge.id)
+    const on = fromRole === 'approval' ? 'approved' : outcomeOf(from)
+    addEdge({ from, to, ...(when ? { when } : {}), ...(on ? { on } : {}) }, edge.id)
     if (fromRole === 'approval') {
       const reviewer = source?.agent
       const back = flowEdges.find((incoming) => incoming.to === edge.from)?.from
@@ -654,7 +666,8 @@ export function buildWorkflowV4({
           pendingRejected.push(node.id)
         }
       } else {
-        addEdge({ from: node.id, to: endNode.id })
+        const on = outcomeOf(node.id)
+        addEdge({ from: node.id, to: endNode.id, ...(on ? { on } : {}) })
       }
     }
     for (const approvalId of new Set(pendingRejected)) addEdge({ from: approvalId, to: endNode.id, on: 'rejected' })

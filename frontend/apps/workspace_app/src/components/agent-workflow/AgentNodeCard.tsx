@@ -3,19 +3,22 @@ import {
   BookOpen,
   Bot,
   Boxes,
-  GitFork,
-  ListOrdered,
-  MessagesSquare,
-  Split,
-  Network,
-  Users,
   Cpu,
   Database,
+  GitFork,
+  Hourglass,
+  ListOrdered,
+  MessageCircleQuestion,
+  MessagesSquare,
+  Network,
   Plug,
   Plus,
+  Radio,
   ShieldCheck,
   Sparkles,
+  Split,
   Terminal,
+  Users,
   Wrench,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -424,6 +427,38 @@ function ReviewCard({ title, isSelected, className }: { title: string; isSelecte
   )
 }
 
+/** The flow steps besides approvals: what each pauses for, with its icon and accent. */
+const FLOW_STEPS: Record<string, { label: string; icon: LucideIcon; tile: string }> = {
+  'aw-ask-user': { label: 'Ask user', icon: MessageCircleQuestion, tile: 'bg-sky-500 shadow-sky-500/30' },
+  'aw-delay': { label: 'Delay', icon: Hourglass, tile: 'bg-zinc-500 shadow-zinc-500/30' },
+  'aw-wait-event': { label: 'Wait for event', icon: Radio, tile: 'bg-violet-500 shadow-violet-500/30' },
+}
+
+function FlowStepCard({ paletteId, title, meta, isSelected, className }: { paletteId: string; title: string; meta?: string; isSelected: boolean; className?: string }) {
+  const step = FLOW_STEPS[paletteId]
+  return (
+    <div className={cn('agent-wf-node group relative h-full w-full', className)}>
+      <div
+        className={cn(
+          'flex h-full w-full items-center gap-2.5 rounded-[3px] border bg-card px-3 transition-colors duration-150',
+          isSelected ? 'border-foreground/50 shadow-[0_0_0_4px_hsl(var(--foreground)/0.06)]' : 'border-border hover:border-foreground/30',
+        )}
+      >
+        <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm', step.tile)}>
+          <step.icon className="size-[18px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-semibold leading-tight text-foreground">{title}</p>
+          <p className="mt-1 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            {step.label}
+            {meta ? <span className="font-normal normal-case tracking-normal"> · {meta}</span> : null}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** An executor: a terminal-style dark card in both themes. */
 function ExecutorCard({ title, isSelected, className }: { title: string; isSelected: boolean; className?: string }) {
   return (
@@ -601,6 +636,10 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   }
   if (agent?.agentType === 'human') {
     return <ReviewCard title={title} isSelected={isSelected} className={className} />
+  }
+  if (FLOW_STEPS[node.paletteId]) {
+    const meta = node.paletteId === 'aw-delay' ? `${agent?.timeoutSeconds ?? 30} s` : undefined
+    return <FlowStepCard paletteId={node.paletteId} title={title} meta={meta} isSelected={isSelected} className={className} />
   }
 
   /** Tools and knowledge take any number, so their pills keep offering "+" once filled. */

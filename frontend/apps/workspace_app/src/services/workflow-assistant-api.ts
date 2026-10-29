@@ -31,7 +31,18 @@ export interface AssistantRunEvent {
   detail?: {
     inputs?: Record<string, string>
     counts?: Record<string, number>
-    result?: { applied?: number; valid?: boolean; issues?: number; items?: number; results?: number; matches?: number; error?: string }
+    result?: {
+      applied?: number
+      valid?: boolean
+      issues?: number
+      items?: number
+      results?: number
+      matches?: number
+      error?: string
+      /** A run the tool started: the assistant's test run, shown for the user to verify. */
+      runId?: string
+      status?: string
+    }
   }
   time: string
 }
@@ -102,6 +113,10 @@ export async function streamAssistantMessage(options: {
   workflowId?: string
   /** The model every assistant agent runs on for this message. */
   model?: GenerateWorkflowModel
+  /** The chat: the assistant remembers its earlier turns in the same conversation. */
+  conversationId?: string
+  /** A saved workflow the user is asking about, read only. */
+  referenceWorkflowId?: string
   onEvent?: (event: AssistantRunEvent) => void
   signal?: AbortSignal
 }): Promise<AssistantRun> {
@@ -113,6 +128,8 @@ export async function streamAssistantMessage(options: {
       ...(options.draftId ? { draftId: options.draftId } : {}),
       ...(options.workflowId ? { workflowId: options.workflowId } : {}),
       ...(assistantModel(options.model) ? { model: assistantModel(options.model) } : {}),
+      ...(options.conversationId ? { conversationId: options.conversationId } : {}),
+      ...(options.referenceWorkflowId ? { referenceWorkflowId: options.referenceWorkflowId } : {}),
     }),
     signal: options.signal,
   })
@@ -150,6 +167,21 @@ export function answerAssistant(runId: string, requestId: string, response: Reco
     method: 'POST',
     body: JSON.stringify({ response }),
   })
+}
+
+/** A finished (or waiting) run, such as the assistant's test run of a draft. */
+export interface TestRun extends AssistantRun {
+  inputs: Record<string, unknown>
+}
+
+export function fetchTestRun(runId: string): Promise<TestRun> {
+  return request(`/api/v1/workflows/v4/runs/${encodeURIComponent(runId)}`)
+}
+
+/** The test run an assistant turn started, if any: the last `test_run` call that reported a run. */
+export function testRunIdOf(events: AssistantRunEvent[]): string | undefined {
+  return [...events].reverse().find((event) => event.type === 'tool.completed' && event.tool === 'test_run' && event.detail?.result?.runId)
+    ?.detail?.result?.runId
 }
 
 /** A draft of a 4.0 document, such as the open canvas tab, for the assistant to work on. */

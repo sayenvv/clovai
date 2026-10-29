@@ -33,6 +33,9 @@ const PALETTE_AGENT_TYPE: Record<string, AgentType> = {
   'aw-reviewer': 'human',
   'aw-router': 'router',
   'aw-switch': 'control',
+  'aw-ask-user': 'control',
+  'aw-delay': 'control',
+  'aw-wait-event': 'control',
   'aw-parallel': 'control',
   'aw-merge': 'control',
   'aw-memory': 'memory',
@@ -297,7 +300,8 @@ export function defaultAgentConfig(paletteId: string, label: string): AgentNodeC
     memoryEnabled: agentType === 'agent',
     memoryScope: 'workflow',
     retryCount: 2,
-    timeoutSeconds: 120,
+    // A Delay block's wait (the engine runs delays of up to 60 s inside a run)
+    timeoutSeconds: paletteId === 'aw-delay' ? 30 : 120,
     status: 'draft',
   }
 }

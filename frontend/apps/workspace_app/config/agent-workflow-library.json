@@ -62,6 +62,38 @@
       "toolCount": 0
     },
     {
+      "id": "approval",
+      "paletteId": "aw-reviewer",
+      "label": "Approval gate",
+      "description": "Pauses the run until a person approves or rejects; rejected work can go back for another try.",
+      "agentType": "human",
+      "toolCount": 0
+    },
+    {
+      "id": "ask-user",
+      "paletteId": "aw-ask-user",
+      "label": "Ask user",
+      "description": "Pauses to ask the question in its name, then continues with the answer.",
+      "agentType": "control",
+      "toolCount": 0
+    },
+    {
+      "id": "delay",
+      "paletteId": "aw-delay",
+      "label": "Delay",
+      "description": "Waits a set number of seconds (up to 60) before the next step.",
+      "agentType": "control",
+      "toolCount": 0
+    },
+    {
+      "id": "wait-event",
+      "paletteId": "aw-wait-event",
+      "label": "Wait for event",
+      "description": "Holds until an outside system sends the event in its name, then continues.",
+      "agentType": "control",
+      "toolCount": 0
+    },
+    {
       "id": "agent",
       "paletteId": "aw-agent",
       "label": "Agent",

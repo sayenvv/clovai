@@ -6,7 +6,7 @@ import { Frame } from '@/components/Frame'
 
 const QUESTIONS = [
   { q: 'What is Eleven Nodes?', a: 'A workspace for building and running AI agent workflows. You describe what you need, an assistant builds it, and you review every change on a visual canvas before it runs.' },
-  { q: 'Do I need to write code?', a: 'No. The assistant and the canvas cover most workflows. When you need custom logic, code steps and your own tools fit in alongside the agents.' },
+  { q: 'Do I need to write code?', a: 'No. The assistant and the canvas cover most workflows. When you need exact logic, tools, transform steps and conditions fit in alongside the agents.' },
   { q: 'Which models can I use?', a: 'OpenAI, Azure OpenAI, Anthropic, Gemini, Mistral, Groq and Ollama are built in, and anything with an OpenAI-compatible API works too. Use the model clients your admin adds or your own; each workflow has a default model, and any agent can use its own.' },
   { q: 'Can a person approve steps before they happen?', a: 'Yes. Add an approval anywhere. The run pauses until someone approves; a rejection can send the work back for another try.' },
   { q: 'How do I see what a run did?', a: 'Every run is traced: the path it took, each agent’s output, how long each step took and the tokens it used.' },

@@ -16,6 +16,8 @@ export type SpecRole =
   | 'trigger'
   | 'note'
   | 'attached'
+  /** A flow step whose rule sets the 4.0 node `type` and its fields directly (ask user, delay, wait for event). */
+  | 'step'
   | 'switch'
   | 'chain'
   | 'parallel'

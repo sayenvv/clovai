@@ -34,7 +34,6 @@ import {
   Plus,
   Search,
   Server,
-  ShieldCheck,
   Sparkles,
   Terminal,
   Wrench,
@@ -322,12 +321,14 @@ export const LIBRARY_ORCHESTRATORS: { paletteId: string; label: string; descript
 export const ORCHESTRATOR_TILE = 'bg-gradient-to-b from-foreground/[0.06] to-foreground/[0.14] text-foreground ring-foreground/25'
 
 /** Ready-made agent types, added to the canvas like any block. */
+/** The Flow group: the steps the engine runs besides agents and tools. Code (executor) steps are left out until
+ *  the engine can run them (they need a sandbox). */
+const FLOW_BLOCK_IDS = new Set(['start', 'end', 'switch', 'approval', 'ask-user', 'delay', 'wait-event'])
+
 export const LIBRARY_AGENTS: { paletteId: string; label: string; description: string; icon: LucideIcon }[] = [
   { paletteId: 'aw-llm-agent', label: 'LLM agent', description: 'General-purpose reasoning agent', icon: Bot },
   { paletteId: 'aw-specialist', label: 'Specialist', description: 'Focused domain expert agent', icon: BrainCircuit },
   { paletteId: 'aw-tool-agent', label: 'Tool agent', description: 'Calls tools and APIs to get work done', icon: Hammer },
-  { paletteId: 'aw-reviewer', label: 'Human review', description: 'Pauses for a person to approve', icon: ShieldCheck },
-  { paletteId: EXECUTOR_PALETTE_ID, label: 'Executor', description: 'Runs code to process messages', icon: Terminal },
 ]
 
 export const CAPABILITY_VISUALS: Record<AgentCapabilityKind, { icon: LucideIcon; tile: string; title: string }> = {
@@ -899,7 +900,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   const flowBlocks = useMemo(
     () =>
       SIDEBAR_BLOCKS.filter(
-        (block) => (block.id === 'start' || block.id === 'end' || block.id === 'switch') && matches(needle, block.label, block.description),
+        (block) => FLOW_BLOCK_IDS.has(block.id) && matches(needle, block.label, block.description),
       ),
     [needle],
   )

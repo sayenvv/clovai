@@ -40,6 +40,9 @@ function conditionText(expression: unknown): string {
   return typeof expression === 'string' ? expression.replace(/^\s*\{\{\s*|\s*\}\}\s*$/g, '') : ''
 }
 
+/** 4.0 step types drawn as the canvas's Flow blocks (the generation spec maps them back). */
+const FLOW_STEP_PALETTE: Record<string, string> = { ask_user: 'aw-ask-user', delay: 'aw-delay', wait_event: 'aw-wait-event' }
+
 export function importWorkflowV4(document: WorkflowV4Document): ImportedV4Workflow {
   const losses: string[] = []
   // Only meta and graph are required; every other section may be missing
@@ -79,6 +82,21 @@ export function importWorkflowV4(document: WorkflowV4Document): ImportedV4Workfl
   graph.nodes.forEach((node, index) => {
     const at = position(node.id, index)
     const base = { id: node.id, label: node.name || node.type, x: at.x, y: at.y }
+    // Flow steps the canvas draws as their own blocks; the block's name carries the question or event
+    const step = node as unknown as { type: string; question?: unknown; seconds?: number; source?: { event?: string } }
+    const flowPalette = FLOW_STEP_PALETTE[step.type]
+    if (flowPalette) {
+      const label =
+        step.type === 'ask_user' && typeof step.question === 'string' && !step.question.includes('{{')
+          ? step.question
+          : step.type === 'wait_event' && step.source?.event
+            ? step.source.event
+            : base.label
+      const config = defaultAgentConfig(flowPalette, label)
+      if (step.type === 'delay' && typeof step.seconds === 'number') config.timeoutSeconds = step.seconds
+      nodes.push({ ...base, label, paletteId: flowPalette, agent: config })
+      return
+    }
     switch (node.type) {
       case 'start':
         nodes.push({ ...base, paletteId: 'aw-start' })

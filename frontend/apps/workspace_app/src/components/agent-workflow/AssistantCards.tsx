@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check, Eye, EyeOff, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { AssistantRequest, DraftDiff } from '@/services/workflow-assistant-api'
+import { fetchTestRun, type AssistantRequest, type DraftDiff, type TestRun } from '@/services/workflow-assistant-api'
 import type { DiagramNode } from '@/components/designer/diagram-types'
 import type { DiffState, DraftPreview } from '@/components/agent-workflow/draft-preview'
 import { cn } from '@/utils/cn'
@@ -264,6 +264,149 @@ export function DraftPreviewBar({
           <Check className="h-3.5 w-3.5" /> Accept
         </Button>
       </div>
+    </div>
+  )
+}
+
+const RUN_STATUS: Record<string, { label: string; className: string }> = {
+  succeeded: { label: 'Succeeded', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
+  failed: { label: 'Failed', className: 'bg-red-500/10 text-red-700 dark:text-red-400' },
+  waiting: { label: 'Waiting', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400' },
+  running: { label: 'Running', className: 'bg-sky-500/10 text-sky-700 dark:text-sky-400' },
+  cancelled: { label: 'Cancelled', className: 'bg-muted text-muted-foreground' },
+}
+
+const asText = (value: unknown): string =>
+  value == null ? '' : typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+
+/** What the input was: the message itself when the workflow takes one, else the whole input. */
+function inputText(inputs: Record<string, unknown>): string {
+  const keys = Object.keys(inputs)
+  return keys.length === 1 && keys[0] === 'message' ? asText(inputs.message) : asText(inputs)
+}
+
+const verifiedKey = (runId: string) => `assistant-test-verified:${runId}`
+
+/**
+ * The assistant's test run of a draft, for the user to check: the input it used, each step and how it ended,
+ * the output, and whether it looks right. "Something's wrong" starts a message about it.
+ */
+export function TestRunCard({ runId, onReportProblem }: { runId: string; onReportProblem: (text: string) => void }) {
+  const [run, setRun] = useState<TestRun | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [verified, setVerified] = useState(() => {
+    try {
+      return localStorage.getItem(verifiedKey(runId)) === '1'
+    } catch {
+      return false
+    }
+  })
+
+  useEffect(() => {
+    let live = true
+    fetchTestRun(runId)
+      .then((value) => live && setRun(value))
+      .catch(() => live && setFailed(true))
+    return () => {
+      live = false
+    }
+  }, [runId])
+
+  if (failed) return <p className="mt-2 text-[12px] text-muted-foreground">The test run could not be loaded.</p>
+  if (!run) return <div className="mt-2 h-24 animate-pulse rounded-md border border-border bg-muted/30" />
+
+  const status = RUN_STATUS[run.status] ?? RUN_STATUS.cancelled
+  const steps = run.events.filter(
+    (event) => (event.type === 'node.completed' || event.type === 'node.failed') && event.nodeType !== 'start' && event.nodeType !== 'end',
+  )
+  const tokens = run.events.reduce((sum, event) => sum + (event.type === 'usage' ? (event.totalTokens ?? 0) : 0), 0)
+  const output = asText(run.output)
+
+  const confirm = () => {
+    setVerified(true)
+    try {
+      localStorage.setItem(verifiedKey(runId), '1')
+    } catch {
+      // Not remembered across reloads; the card still shows it now
+    }
+  }
+
+  return (
+    <div className={CARD}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-medium text-foreground">Test run</p>
+        <span className="flex items-center gap-2">
+          {tokens ? <span className="font-mono text-[11px] text-muted-foreground">{tokens.toLocaleString()} tokens</span> : null}
+          <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', status.className)}>{status.label}</span>
+        </span>
+      </div>
+
+      <div>
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Input</p>
+        <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap rounded border border-border bg-background px-2 py-1.5 font-mono text-[11.5px] text-foreground">
+          {inputText(run.inputs)}
+        </pre>
+      </div>
+
+      {steps.length ? (
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Steps</p>
+          <ol className="mt-1 space-y-1">
+            {steps.map((step, index) => {
+              const failedStep = step.type === 'node.failed'
+              const auto = step.nodeType === 'approval' || step.nodeType === 'ask_user'
+              const note = failedStep
+                ? step.error
+                : auto
+                  ? `${step.outcome ?? 'answered'} automatically in the test`
+                  : step.summary || step.outcome || ''
+              return (
+                <li key={`${step.nodeId}-${index}`} className="flex gap-2">
+                  <span
+                    className={cn('mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full', failedStep ? 'bg-red-500' : 'bg-emerald-500')}
+                    aria-hidden
+                  />
+                  <span className="min-w-0">
+                    <span className="font-medium text-foreground">{step.name}</span>
+                    {note ? <span className="text-muted-foreground"> · {note}</span> : null}
+                  </span>
+                </li>
+              )
+            })}
+          </ol>
+        </div>
+      ) : null}
+
+      {run.error ? <p className="text-red-600 dark:text-red-400">{run.error}</p> : null}
+      {output ? (
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Output</p>
+          <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border bg-background px-2 py-1.5 text-[12px] text-foreground">
+            {output}
+          </pre>
+        </div>
+      ) : null}
+
+      {verified ? (
+        <p className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+          <Check className="h-3.5 w-3.5" /> You checked this result
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2">
+          <span className="mr-auto text-muted-foreground">Does this look right?</span>
+          <Button size="sm" className="h-7 gap-1 text-[11.5px]" onClick={confirm}>
+            <Check className="h-3.5 w-3.5" /> Looks right
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11.5px]"
+            onClick={() => onReportProblem('The test run did not do what I expected: ')}
+          >
+            Something&apos;s wrong
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

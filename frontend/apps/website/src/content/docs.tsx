@@ -138,7 +138,10 @@ export const DOCS: DocGroup[] = [
               <li><strong>Condition</strong>: sends the run one way or another, based on what earlier steps produced.</li>
               <li><strong>Approval</strong>: pauses the run until a person approves or rejects.</li>
               <li><strong>Ask user</strong>: pauses to ask a question and continues with the answer.</li>
-              <li><strong>Code</strong> and <strong>Transform</strong>: small, exact steps for logic that does not need a model.</li>
+              <li><strong>Wait for event</strong>: holds until an outside system sends an event, or times out.</li>
+              <li><strong>Loop</strong>: runs a set of steps for each item in a list, one after another or in parallel.</li>
+              <li><strong>Subworkflow</strong>: runs another saved workflow as one step.</li>
+              <li><strong>Transform</strong> and <strong>Delay</strong>: reshape data without a model, or wait a set time.</li>
             </ul>
             <p>
               Connections can fan out into parallel branches and join again, and a connection may loop back, always with a

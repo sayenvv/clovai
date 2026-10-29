@@ -31,7 +31,8 @@ import { cn } from '@/utils/cn'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
 import { fetchSavedWorkflows, type SavedWorkflowSummary } from '@/services/activity-api'
-import { AssistantRequestCard, DraftPreviewBar, DraftReviewCard, draftHasChanges } from '@/components/agent-workflow/AssistantCards'
+import { AssistantRequestCard, DraftPreviewBar, DraftReviewCard, TestRunCard, draftHasChanges } from '@/components/agent-workflow/AssistantCards'
+import { WorkflowReferencePicker } from '@/components/agent-workflow/WorkflowReferencePicker'
 import { buildDraftPreview, type CanvasDraftPreview, type DraftPreview } from '@/components/agent-workflow/draft-preview'
 import { buildWorkflowV4 } from '@/components/agent-workflow/build-workflow-v4'
 import { importWorkflowV4 } from '@/components/agent-workflow/import-workflow-v4'
@@ -43,6 +44,7 @@ import {
   discardDraft,
   fetchDraftPreview,
   streamAssistantMessage,
+  testRunIdOf,
   type AssistantRequest,
   type AssistantRun,
   type AssistantRunEvent,
@@ -75,6 +77,8 @@ export interface GenerateChatMessage {
   seconds?: number
   /** Tokens the run used, summed from its usage events; shown beside the time. */
   tokens?: number
+  /** The assistant's test run in this turn, shown as a card for the user to check. */
+  testRunId?: string
 }
 
 interface PendingAttachment extends GenerateWorkflowAttachment {
@@ -456,6 +460,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   onImportWorkflow,
   onReplaceWorkflow,
   onPreviewDraft,
+  conversationId,
 }: GenerateWorkflowChatProps) {
   const [draft, setDraft] = useState('')
   const generationSpec = useGenerationSpec()
@@ -578,7 +583,13 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     onMessagesChange((previous) => [
       ...previous,
       // A plain conversational reply has no steps, so no "Thought for Ns" line either.
-      { id: `assistant-${Date.now()}`, role: 'assistant', content: run.output?.reply ?? '', ...(steps.length ? { steps, seconds, tokens } : {}) },
+      {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: run.output?.reply ?? '',
+        ...(steps.length ? { steps, seconds, tokens } : {}),
+        ...(testRunIdOf(run.events) ? { testRunId: testRunIdOf(run.events) } : {}),
+      },
     ])
     if (draftId) {
       const loaded = await fetchDraftPreview(draftId).catch(() => null)
@@ -641,7 +652,17 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   }
 
   const handleAssistantMessage = async (prompt: string) => {
-    onMessagesChange((previous) => [...previous, { id: `user-${Date.now()}`, role: 'user', content: prompt }])
+    // A saved workflow picked to ask about goes with the message, and shows on it
+    const reference = contextWorkflow
+    onMessagesChange((previous) => [
+      ...previous,
+      {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: prompt,
+        ...(reference ? { context: [{ kind: 'workflow' as const, name: reference.name || 'Untitled workflow' }] } : {}),
+      },
+    ])
     setDraft('')
     setPendingRequest(null)
     setPendingDraft(null)
@@ -653,6 +674,8 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
         message: prompt,
         draftId,
         model,
+        conversationId,
+        referenceWorkflowId: reference?.workflow_id,
         onEvent: (event) => {
           liveStepsRef.current = applyAssistantEvent(liveStepsRef.current, event)
           setLiveSteps(liveStepsRef.current)
@@ -811,6 +834,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                     <ChatMarkdown content={message.content} streaming={false} />
                   </motion.div>
                 )}
+                {message.testRunId ? <TestRunCard runId={message.testRunId} onReportProblem={setDraft} /> : null}
               </ChatTurnBody>
             </div>
           ),
@@ -879,7 +903,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                   <ContextChip
                     icon={Target}
                     name={contextWorkflow.name || 'Untitled workflow'}
-                    meta="context"
+                    meta="asking about"
                     onRemove={() => setContextWorkflowId('')}
                   />
                 ) : null}
@@ -910,6 +934,13 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
             ) : null
           }
           leading={
+              <span className="flex items-center gap-0.5">
+              <WorkflowReferencePicker
+                workflows={savedWorkflows}
+                selectedId={contextWorkflowId}
+                onSelect={setContextWorkflowId}
+                disabled={isGenerating}
+              />
               <GenerateModelPicker
                 value={model}
                 onChange={onModelChange}
@@ -918,6 +949,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                 ollamaBaseUrl={ollamaBaseUrl}
                 disabled={isGenerating}
               />
+              </span>
           }
           action={
             isGenerating ? (
