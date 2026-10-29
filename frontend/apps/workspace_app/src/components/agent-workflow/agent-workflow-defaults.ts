@@ -235,7 +235,7 @@ export function defaultAgentConfig(paletteId: string, label: string): AgentNodeC
           : kind === 'integration'
             ? `Use the ${label} integration for this agent.`
             : `Execute ${label} for the mapped agent.`,
-      model: 'gpt-4.1',
+      model: '',
       temperature: 0.2,
       tools: isMcp ? [] : defaultToolsForPalette(paletteId),
       inputSchema: '{\n  "input": "string"\n}',
@@ -283,7 +283,8 @@ export function defaultAgentConfig(paletteId: string, label: string): AgentNodeC
     agentType,
     description: block?.description ?? '',
     instructions: `You are ${label}. Complete your task using the workflow context provided.`,
-    model: 'gpt-4.1',
+    // No model of its own: the agent runs on the workflow's model until one is picked
+    model: '',
     temperature: 0.2,
     tools: defaultToolsForPalette(paletteId),
     inputSchema: '{\n  "input": "string"\n}',

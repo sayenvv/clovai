@@ -1,3 +1,4 @@
+import { RunModelPicker } from '@/components/agent-workflow/RunModelPicker'
 import { memo, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Activity,
@@ -201,11 +202,14 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
           canSubmit={!awaitingApproval && !isExecuting && canExecute && Boolean(testInput.trim())}
           disabled={isExecuting || awaitingApproval}
           leading={
-            <ExecutionFileUploadButton
-              variant="icon"
-              disabled={isExecuting || awaitingApproval}
-              onInputLoaded={onTestInputChange}
-            />
+            <>
+              <ExecutionFileUploadButton
+                variant="icon"
+                disabled={isExecuting || awaitingApproval}
+                onInputLoaded={onTestInputChange}
+              />
+              <RunModelPicker disabled={isExecuting || awaitingApproval} />
+            </>
           }
           placeholder={awaitingApproval ? 'Waiting for your review above…' : 'Message the workflow…'}
           action={

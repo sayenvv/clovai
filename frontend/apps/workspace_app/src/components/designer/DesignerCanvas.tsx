@@ -14,6 +14,7 @@ import { cn } from '@/utils/cn'
 import { useTheme } from '@/hooks/use-theme'
 import { NodeShape } from './NodeShape'
 import { AgentNodeCard, AGENT_DOCK_SLOTS } from '@/components/agent-workflow/AgentNodeCard'
+import type { DiffState } from '@/components/agent-workflow/draft-preview'
 import type { AgentAttachAction, MappedChildCounts, NodeOrchestration } from '@/components/agent-workflow/AgentNodeCard'
 import { findOrchestrations, PATTERN_META } from '@/components/agent-workflow/orchestration-patterns'
 import {
@@ -202,6 +203,24 @@ function makeRoomOffsets(
 }
 
 /** The ring drawn around a node for its run state. */
+const DIFF_RING_CLASSES: Record<DiffState, string> = {
+  added: 'border-blue-500 shadow-[0_0_0_4px_rgba(59,130,246,0.16)]',
+  removed: 'border-dashed border-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.12)]',
+  changed: 'border-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.14)]',
+}
+
+const DIFF_BADGE: Record<DiffState, { label: string; className: string }> = {
+  added: { label: 'New', className: 'bg-blue-500' },
+  removed: { label: 'Removed', className: 'bg-red-500' },
+  changed: { label: 'Edited', className: 'bg-amber-500' },
+}
+
+const DIFF_STROKE: Record<DiffState, { light: string; dark: string }> = {
+  added: { light: '#3b82f6', dark: '#60a5fa' },
+  removed: { light: '#ef4444', dark: '#f87171' },
+  changed: { light: '#f59e0b', dark: '#fbbf24' },
+}
+
 const RUN_RING_CLASSES: Record<NodeRunStatus, string> = {
   running: 'border-sky-500 shadow-[0_0_0_4px_rgba(14,165,233,0.15)] motion-safe:animate-pulse',
   waiting: 'border-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.15)]',
@@ -333,6 +352,9 @@ interface DesignerCanvasProps {
   onEdgeOpen?: (edgeId: string) => void
   /** Run state per node id, drawn as a ring around the node. */
   runStatusByNode?: Record<string, NodeRunStatus>
+  /** A proposed change per node and connector id (the assistant's draft before it is accepted). */
+  diffByNode?: Record<string, DiffState>
+  diffByEdge?: Record<string, DiffState>
   /** A node expanded into its details card: hidden here, the card takes its place. */
   hiddenNodeId?: string
   /** Empty canvas was clicked (pressed and released without panning). */
@@ -439,6 +461,8 @@ export const DesignerCanvas = memo(function DesignerCanvas({
   onNodeOpen,
   onEdgeOpen,
   runStatusByNode,
+  diffByNode,
+  diffByEdge,
   hiddenNodeId,
   onBackgroundClick,
   onNodeContextMenu,
@@ -1712,6 +1736,7 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 isInvalidTarget && 'opacity-40',
                 isCompatibleTarget && 'opacity-100',
                 node.id === hiddenNodeId && 'pointer-events-none opacity-0',
+                diffByNode?.[node.id] === 'removed' && 'opacity-55',
               )}
               style={{
                 left: node.x,
@@ -1740,6 +1765,22 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 setEditingNodeId(node.id)
               }}
             >
+              {diffByNode?.[node.id] && (
+                <>
+                  <span
+                    className={cn('pointer-events-none absolute -inset-1.5 z-[2] rounded-[16px] border-2', DIFF_RING_CLASSES[diffByNode[node.id]])}
+                    aria-hidden
+                  />
+                  <span
+                    className={cn(
+                      'pointer-events-none absolute -top-2.5 left-2 z-[3] rounded-full px-1.5 py-px text-[10px] font-semibold leading-4 text-white shadow-sm ring-2 ring-[hsl(var(--canvas))]',
+                      DIFF_BADGE[diffByNode[node.id]].className,
+                    )}
+                  >
+                    {DIFF_BADGE[diffByNode[node.id]].label}
+                  </span>
+                </>
+              )}
               {runStatusByNode?.[node.id] && (
                 <span
                   className={cn(
@@ -2012,7 +2053,9 @@ export const DesignerCanvas = memo(function DesignerCanvas({
             const toRun = runStatusByNode?.[edge.to]
             const onRunPath = fromRun === 'completed' && (toRun === 'completed' || toRun === 'running' || toRun === 'waiting')
             const runPathStroke = isDark ? '#34d399' : '#10b981'
-            const stroke = onRunPath ? runPathStroke : isSelected ? accentStroke : isHovered ? hoverStroke : baseStroke
+            const edgeDiff = diffByEdge?.[edge.id]
+            const diffStroke = edgeDiff ? DIFF_STROKE[edgeDiff][isDark ? 'dark' : 'light'] : undefined
+            const stroke = diffStroke ?? (onRunPath ? runPathStroke : isSelected ? accentStroke : isHovered ? hoverStroke : baseStroke)
             const strokeWidth = agentMode
               ? isSelected
                 ? 2
@@ -2138,7 +2181,9 @@ export const DesignerCanvas = memo(function DesignerCanvas({
                 )}
                 strokeWidth={strokeWidth}
                 strokeDasharray={
-                  flowMotion
+                  edgeDiff === 'removed'
+                    ? `${6 / Math.max(viewport.scale, 0.5)} ${4 / Math.max(viewport.scale, 0.5)}`
+                    : flowMotion
                     ? undefined
                     : approvalEdge
                       ? `${5 / Math.max(viewport.scale, 0.5)} ${4 / Math.max(viewport.scale, 0.5)}`

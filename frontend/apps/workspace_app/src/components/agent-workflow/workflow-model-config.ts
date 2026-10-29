@@ -12,6 +12,20 @@ export const DEFAULT_WORKFLOW_MODEL_CONFIG: WorkflowModelConfig = {
   stream: false,
 }
 
+/** The name of a 4.0 model preset that stands for the workflow's model (agents without one of their own). */
+export const WORKFLOW_MODEL_PRESET = 'Workflow model'
+
+/** The 4.0 connection that stands for the workflow's model client. */
+export const WORKFLOW_CONNECTION_NAME = 'Default model client'
+
+/**
+ * The model an agent runs on of its own: only one picked from a model client. Anything else (an old
+ * default name, a model without a client) means it inherits the workflow's model.
+ */
+export function agentOwnModel(agent: { model?: string; modelConnectionId?: string } | undefined): string {
+  return agent?.modelConnectionId ? (agent.model?.trim() ?? '') : ''
+}
+
 export const MODEL_PROVIDERS = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'anthropic', label: 'Anthropic' },
@@ -49,13 +63,16 @@ export function resolveWorkflowModelConfig(
   }
 }
 
-/** Model shown in the toolbar and used when exporting unless the workflow picks Ollama. */
+/**
+ * The workflow's model: what the toolbar shows, test runs use and agents without their own inherit.
+ * The workflow's pick wins; the server's model is the fallback.
+ */
 export function workflowActiveModelConfig(
   workflow: { modelConfig?: Partial<WorkflowModelConfig> } | undefined,
   server: WorkflowModelConfig,
 ): WorkflowModelConfig {
   const stored = workflow?.modelConfig
-  if (stored && isLocalModel(stored) && stored.model?.trim()) {
+  if (stored?.model?.trim()) {
     return resolveWorkflowModelConfig(stored)
   }
   return resolveWorkflowModelConfig(server)

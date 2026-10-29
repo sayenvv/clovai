@@ -102,12 +102,10 @@ function resolveModelConfig(
   agents: DiagramNode[],
   serverModelConfig?: WorkflowModelConfig,
 ): WorkflowModelConfig {
+  // The workflow's own model wins; the server's is the fallback when the workflow never picked one
   const stored = doc.workflow?.modelConfig
-  if (stored?.provider === 'ollama' && stored.model?.trim()) {
-    return resolveWorkflowModelConfig(stored)
-  }
+  if (stored?.model?.trim()) return resolveWorkflowModelConfig(stored)
   if (serverModelConfig) return resolveWorkflowModelConfig(serverModelConfig)
-  if (stored) return resolveWorkflowModelConfig(stored)
   return buildModelConfigFromAgents(agents)
 }
 

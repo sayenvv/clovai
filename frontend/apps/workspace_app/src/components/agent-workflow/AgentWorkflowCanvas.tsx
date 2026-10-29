@@ -54,6 +54,7 @@ import type { PaletteItem } from '@/types/config'
 import type { Selection } from '@/components/designer/selection-utils'
 import { canvasInsertAnchor } from '@/components/agent-workflow/sub-workflow-ops'
 import type { AgentAttachAction } from '@/components/agent-workflow/AgentNodeCard'
+import type { CanvasDraftPreview } from '@/components/agent-workflow/draft-preview'
 import { DevProfiler } from '@/utils/render-profiler'
 import { cn } from '@/utils/cn'
 
@@ -128,13 +129,18 @@ interface AgentWorkflowCanvasProps {
   /** A model client from the library was dropped onto a node. */
   onDropModelProvider?: (nodeId: string, providerId: ModelProviderId) => void
   hideEmptyState?: boolean
+  /**
+   * The assistant's draft, shown instead of the workflow until it is accepted: read-only, every change
+   * marked, with `bar` (accept / discard) floating on top.
+   */
+  draftPreview?: CanvasDraftPreview | null
 }
 export const AgentWorkflowCanvas = memo(
   forwardRef<AgentWorkflowCanvasHandle, AgentWorkflowCanvasProps>(function AgentWorkflowCanvas(
     {
-      diagram,
+      diagram: workflowDiagram,
       paletteById,
-      onChange,
+      onChange: onWorkflowChange,
       selection,
       onSelectionChange,
       snapToGrid,
@@ -155,7 +161,7 @@ export const AgentWorkflowCanvas = memo(
       onRedo,
       emptyState,
       onClearCanvas,
-      hideControls = false,
+      hideControls: hideOwnControls = false,
       onOpenLibrary,
       onBrowseTemplates,
       onAskAi,
@@ -167,9 +173,14 @@ export const AgentWorkflowCanvas = memo(
       onNodeContextMenu,
       onDropModelProvider,
       hideEmptyState = false,
+      draftPreview = null,
     },
     ref,
   ) {
+    const previewing = Boolean(draftPreview)
+    const diagram = draftPreview?.preview.diagram ?? workflowDiagram
+    const onChange = useMemo(() => (previewing ? () => {} : onWorkflowChange), [previewing, onWorkflowChange])
+    const hideControls = hideOwnControls || previewing
     const canvasAreaRef = useRef<HTMLDivElement>(null)
     const diagramRef = useRef(diagram)
     diagramRef.current = diagram
@@ -251,6 +262,12 @@ export const AgentWorkflowCanvas = memo(
     const fitView = useCallback(() => {
       applyCenteredViewport(diagramRef.current)
     }, [applyCenteredViewport])
+
+    // Opening or closing a preview shows the whole of what is now drawn
+    const previewDiagram = draftPreview?.preview.diagram
+    useEffect(() => {
+      requestAnimationFrame(() => applyCenteredViewport(diagramRef.current))
+    }, [previewDiagram, applyCenteredViewport])
 
     useImperativeHandle(ref, () => ({ getInsertAnchor, zoomBy, fitView }), [
       getInsertAnchor,
@@ -676,7 +693,7 @@ export const AgentWorkflowCanvas = memo(
             agentMode
             transformDroppedNode={transformDroppedNode}
             finalizeDroppedNode={finalizeDroppedNode}
-            selectionDisabled={executionPanelOpen}
+            selectionDisabled={executionPanelOpen || previewing}
             onUndo={onUndo}
             onRedo={onRedo}
             onNodeAttachAction={onNodeAttachAction}
@@ -686,14 +703,20 @@ export const AgentWorkflowCanvas = memo(
             onRunWorkflow={runFromStart}
             onNodeOpen={onNodeOpen}
             onEdgeOpen={onEdgeOpen}
-            runStatusByNode={runStatusByNode}
+            runStatusByNode={previewing ? undefined : runStatusByNode}
+            diffByNode={draftPreview?.preview.nodes}
+            diffByEdge={draftPreview?.preview.edges}
             hiddenNodeId={hiddenNodeId}
             expandedNode={expandedNode}
             onNodeContextMenu={onNodeContextMenu}
             onBackgroundClick={focus && focus.target.kind !== 'center' ? focus.onClose : undefined}
           />
 
-          {selectionBar && !focus ? (
+          {draftPreview ? (
+            <div className="absolute left-1/2 top-4 z-30 -translate-x-1/2">{draftPreview.bar}</div>
+          ) : null}
+
+          {selectionBar && !focus && !previewing ? (
             <div className="absolute left-1/2 top-4 z-20 -translate-x-1/2">{selectionBar}</div>
           ) : null}
 

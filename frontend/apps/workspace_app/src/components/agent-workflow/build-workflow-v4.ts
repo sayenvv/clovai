@@ -25,6 +25,10 @@ import { parseCondition } from '@/components/agent-workflow/workflow-edge-groups
 import {
   DEFAULT_WORKFLOW_MODEL_CONFIG,
   resolveWorkflowModelConfig,
+  agentOwnModel,
+  WORKFLOW_CONNECTION_NAME,
+  WORKFLOW_MODEL_PRESET,
+  workflowActiveModelConfig,
 } from '@/components/agent-workflow/workflow-model-config'
 import { getWorkflowConfiguration, type WorkflowConfiguration } from '@/services/workflow-configuration-store'
 import type { Diagram, DiagramDocument, DiagramEdge, DiagramNode } from '@/components/designer/diagram-types'
@@ -272,17 +276,19 @@ export function buildWorkflowV4({
   const roleOf = (id: string): SpecRole | undefined => ruleOf.get(id)?.role ?? (nodesById.has(id) ? 'skip' : undefined)
 
   // ---- Models and connections
-  const workflowModel = resolveWorkflowModelConfig(
-    serverModelConfig ?? doc.workflow?.modelConfig ?? DEFAULT_WORKFLOW_MODEL_CONFIG,
-  )
+  // The workflow's own model wins; the server's is the fallback when the workflow never picked one
+  const workflowModel = serverModelConfig
+    ? workflowActiveModelConfig(doc.workflow, serverModelConfig)
+    : resolveWorkflowModelConfig(doc.workflow?.modelConfig ?? DEFAULT_WORKFLOW_MODEL_CONFIG)
   const connections = new Map<string, ConnectionV4>()
   const models = new Map<string, ModelV4>()
   const defaultConnectionId = stableUuid(`connection:default:${workflowId}`)
   connections.set(defaultConnectionId, {
     id: defaultConnectionId,
-    name: 'Default model client',
+    name: WORKFLOW_CONNECTION_NAME,
     provider: workflowModel.provider,
-    credentialId: stableUuid(`credential:default:${workflowId}`),
+    // The model client picked for the workflow; without one the server uses the application's for the provider
+    credentialId: workflowModel.connectionId ?? stableUuid(`credential:default:${workflowId}`),
   })
   const modelFor = (model: string, temperature: number | undefined, provider?: string, connection?: string) => {
     let connectionId = defaultConnectionId
@@ -297,13 +303,15 @@ export function buildWorkflowV4({
         })
       }
     }
+    const inherits = !model.trim() && !connection
     const raw = model.trim() || workflowModel.model
     const name = raw.includes('/') ? raw.split('/').slice(1).join('/') : raw
-    const id = stableUuid(`model:${connectionId}:${raw}:${temperature ?? ''}`)
+    const id = stableUuid(`model:${inherits ? 'workflow' : connectionId}:${raw}:${temperature ?? ''}`)
     if (!models.has(id)) {
       models.set(id, {
         id,
-        name,
+        // Read back on import: agents on this preset have no model of their own
+        name: inherits ? WORKFLOW_MODEL_PRESET : name,
         connectionId,
         model: name,
         params: { temperature: temperature ?? workflowModel.temperature, maxTokens: workflowModel.maxTokens },
@@ -375,7 +383,7 @@ export function buildWorkflowV4({
       kind: 'native',
       ...(config?.description ? { description: config.description } : {}),
       instructions: config?.instructions ?? '',
-      modelId: modelFor(config?.model ?? '', config?.temperature, config?.modelProvider, config?.modelConnectionId),
+      modelId: modelFor(agentOwnModel(config), config?.temperature, config?.modelProvider, config?.modelConnectionId),
       toolIds,
       ...(knowledgeIds.length ? { knowledgeIds } : {}),
       ...(config?.memoryEnabled || longTerm ? { memory: { conversation: true, longTerm } } : {}),
@@ -632,8 +640,24 @@ export function buildWorkflowV4({
     place(endId, right + 200, layout[startUuid]?.y ?? 0)
   }
   if (endNode) {
-    for (const node of needsEnd) addEdge({ from: node.id, to: endNode.id })
-    for (const approvalId of pendingRejected) addEdge({ from: approvalId, to: endNode.id, on: 'rejected' })
+    for (const node of needsEnd) {
+      // An approval ends on both outcomes: approved goes on to End, rejected ends there too unless it loops back
+      if (node.type === 'approval') {
+        addEdge({ from: node.id, to: endNode.id, on: 'approved' })
+        if (edges.some((edge) => edge.from === node.id && edge.on === 'rejected')) continue
+        // With feedback revisions, rejected goes back to the step before for another try
+        const block = diagram.nodes.find((candidate) => nodeUuid(candidate.id) === node.id)
+        const back = block ? flowEdges.find((incoming) => incoming.to === block.id)?.from : undefined
+        if (block?.agent?.feedbackRevisionsEnabled && back) {
+          addEdge({ from: node.id, to: nodeUuid(back), on: 'rejected', maxTraversals: block.agent.maxFeedbackRevisions ?? 5 })
+        } else {
+          pendingRejected.push(node.id)
+        }
+      } else {
+        addEdge({ from: node.id, to: endNode.id })
+      }
+    }
+    for (const approvalId of new Set(pendingRejected)) addEdge({ from: approvalId, to: endNode.id, on: 'rejected' })
   }
 
   // Agents whose output a condition reads return those fields, so the condition has something to read

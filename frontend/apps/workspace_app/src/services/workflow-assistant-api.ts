@@ -161,6 +161,11 @@ export function fetchDraftDiff(draftId: string): Promise<DraftDiff> {
   return request(`/api/v1/workflow-assistant/drafts/${encodeURIComponent(draftId)}/diff`)
 }
 
+/** The draft, the document it started from and their diff, to show the changes on the canvas. */
+export function fetchDraftPreview(draftId: string): Promise<{ document: WorkflowV4Document; base: WorkflowV4Document; diff: DraftDiff }> {
+  return request(`/api/v1/workflow-assistant/drafts/${encodeURIComponent(draftId)}/preview`)
+}
+
 /** Close the draft; its document is what the canvas should show and save. */
 export function acceptDraft(draftId: string): Promise<{ draftId: string; workflowId: string | null; document: WorkflowV4Document }> {
   return request(`/api/v1/workflow-assistant/drafts/${encodeURIComponent(draftId)}/accept`, { method: 'POST' })

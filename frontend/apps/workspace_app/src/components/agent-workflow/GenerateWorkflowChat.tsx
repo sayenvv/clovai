@@ -30,7 +30,8 @@ import { cn } from '@/utils/cn'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
 import { fetchSavedWorkflows, type SavedWorkflowSummary } from '@/services/activity-api'
-import { AssistantRequestCard, DraftReviewCard, draftHasChanges } from '@/components/agent-workflow/AssistantCards'
+import { AssistantRequestCard, DraftPreviewBar, DraftReviewCard, draftHasChanges } from '@/components/agent-workflow/AssistantCards'
+import { buildDraftPreview, type CanvasDraftPreview, type DraftPreview } from '@/components/agent-workflow/draft-preview'
 import { buildWorkflowV4 } from '@/components/agent-workflow/build-workflow-v4'
 import { importWorkflowV4 } from '@/components/agent-workflow/import-workflow-v4'
 import { useGenerationSpec } from '@/hooks/use-generation-spec'
@@ -39,7 +40,7 @@ import {
   answerAssistant,
   createDraft,
   discardDraft,
-  fetchDraftDiff,
+  fetchDraftPreview,
   streamAssistantMessage,
   type AssistantRequest,
   type AssistantRun,
@@ -102,6 +103,8 @@ interface GenerateWorkflowChatProps {
   onImportWorkflow?: (imported: ImportedWorkflow) => void
   /** An accepted 4.0 assistant draft: replaces the open tab. */
   onReplaceWorkflow?: (imported: ImportedWorkflow) => void
+  /** Show the pending draft on the canvas with its changes marked (null: show the workflow again). */
+  onPreviewDraft?: (preview: CanvasDraftPreview | null) => void
   /** The chat session id, sent as the run's conversation id (for agents with conversation history). */
   conversationId?: string
 }
@@ -213,13 +216,13 @@ function RunSteps({
   )
 }
 
-/** A finished run, folded to "Thought for Ns"; opening it shows the steps as the timeline. */
+/** A finished run under "Thought for Ns", its steps open as the timeline (they can be folded). */
 function formatTokens(tokens: number): string {
   return tokens >= 1_000 ? `${(tokens / 1_000).toFixed(1)}k` : String(tokens)
 }
 
 function ThoughtSteps({ steps, seconds, tokens }: { steps: WorkflowChatMessage[]; seconds?: number; tokens?: number }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const expandable = steps.length > 0
   return (
     <div className="min-w-0">
@@ -262,7 +265,7 @@ function preview(content: string): string {
 }
 
 function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const expandable = item.state !== 'running' && Boolean(item.content)
 
   return (
@@ -438,13 +441,16 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   replacesCanvas = false,
   onImportWorkflow,
   onReplaceWorkflow,
+  onPreviewDraft,
 }: GenerateWorkflowChatProps) {
   const [draft, setDraft] = useState('')
   const generationSpec = useGenerationSpec()
   /** The draft this conversation edits, its pending question, and its changes waiting for review. */
   const [assistantDraftId, setAssistantDraftId] = useState<string | undefined>()
   const [pendingRequest, setPendingRequest] = useState<{ runId: string; request: AssistantRequest } | null>(null)
-  const [pendingDraft, setPendingDraft] = useState<DraftDiff | null>(null)
+  const [pendingDraft, setPendingDraft] = useState<{ diff: DraftDiff; preview: DraftPreview | null } | null>(null)
+  /** Whether the pending draft is drawn on the canvas; a new draft opens there. */
+  const [previewOnCanvas, setPreviewOnCanvas] = useState(true)
   const [assistantBusy, setAssistantBusy] = useState(false)
   /** The user's saved workflows, offered as the request's context workflow. */
   const [savedWorkflows, setSavedWorkflows] = useState<SavedWorkflowSummary[]>([])
@@ -561,8 +567,19 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       { id: `assistant-${Date.now()}`, role: 'assistant', content: run.output?.reply ?? '', ...(steps.length ? { steps, seconds, tokens } : {}) },
     ])
     if (draftId) {
-      const diff = await fetchDraftDiff(draftId).catch(() => null)
-      setPendingDraft(diff && draftHasChanges(diff) ? diff : null)
+      const loaded = await fetchDraftPreview(draftId).catch(() => null)
+      if (!loaded || !draftHasChanges(loaded.diff)) {
+        setPendingDraft(null)
+        return
+      }
+      let preview: DraftPreview | null = null
+      try {
+        preview = buildDraftPreview(loaded.base, loaded.document, loaded.diff)
+      } catch {
+        // Not drawable (an unusual document): the card still lists the changes
+      }
+      setPendingDraft({ diff: loaded.diff, preview })
+      setPreviewOnCanvas(true)
     }
   }
 
@@ -680,6 +697,34 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     }
   }
 
+  // The pending draft on the canvas, with accept / discard over it. The bar calls the latest handlers.
+  const reviewActions = useRef({ accept: () => {}, discard: () => {}, hide: () => {} })
+  reviewActions.current = {
+    accept: () => void acceptAssistantDraft(),
+    discard: () => void discardAssistantDraft(),
+    hide: () => setPreviewOnCanvas(false),
+  }
+  const shownPreview = pendingDraft && previewOnCanvas && !isGenerating && !pendingRequest ? pendingDraft.preview : null
+  useEffect(() => {
+    onPreviewDraft?.(
+      shownPreview
+        ? {
+            preview: shownPreview,
+            bar: (
+              <DraftPreviewBar
+                counts={shownPreview.counts}
+                busy={assistantBusy}
+                onAccept={() => reviewActions.current.accept()}
+                onDiscard={() => reviewActions.current.discard()}
+                onHide={() => reviewActions.current.hide()}
+              />
+            ),
+          }
+        : null,
+    )
+  }, [shownPreview, assistantBusy, onPreviewDraft])
+  useEffect(() => () => onPreviewDraft?.(null), [onPreviewDraft])
+
   const handleGenerate = async (promptOverride?: string) => {
     const prompt = (promptOverride ?? draft).trim()
     if (!prompt || isGenerating) return
@@ -756,7 +801,10 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
         )}
         {!isGenerating && !pendingRequest && pendingDraft && (
           <DraftReviewCard
-            diff={pendingDraft}
+            diff={pendingDraft.diff}
+            preview={pendingDraft.preview}
+            previewOnCanvas={previewOnCanvas && Boolean(onPreviewDraft)}
+            onTogglePreview={pendingDraft.preview && onPreviewDraft ? () => setPreviewOnCanvas((value) => !value) : undefined}
             busy={assistantBusy}
             onAccept={() => void acceptAssistantDraft()}
             onDiscard={() => void discardAssistantDraft()}

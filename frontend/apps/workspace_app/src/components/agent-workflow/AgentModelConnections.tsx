@@ -46,7 +46,7 @@ export const AgentModelConnections = memo(function AgentModelConnections({
     <Field label="Models" hint="Yours are marked; manage them in Dashboard → Models">
       {status === 'unavailable' ? (
         <p className="rounded-[3px] border border-dashed border-border px-3 py-2.5 text-[11.5px] leading-relaxed text-muted-foreground">
-          Your own models will appear here once they’re added. For now, use a model client from the catalog below.
+          Model clients appear here once they’re added in Admin center → Model clients, or as your own in Dashboard → Models. Until then the agent runs on the workflow’s model.
         </p>
       ) : status === 'error' ? (
         <p className="text-xs text-destructive">

@@ -12,6 +12,7 @@
  * in `losses`, since saving them from the canvas does not keep their 4.0 settings.
  */
 
+import { WORKFLOW_CONNECTION_NAME, WORKFLOW_MODEL_PRESET } from '@/components/agent-workflow/workflow-model-config'
 import { defaultAgentConfig, defaultConnectorConfig } from '@/components/agent-workflow/agent-workflow-defaults'
 import { layoutWorkflowDiagram } from '@/components/agent-workflow/workflow-layout'
 import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
@@ -46,6 +47,7 @@ export function importWorkflowV4(document: WorkflowV4Document): ImportedV4Workfl
   const agents = new Map((document.agents ?? []).map((agent) => [agent.id, agent]))
   const tools = new Map((document.tools ?? []).map((tool) => [tool.id, tool]))
   const models = new Map((document.models ?? []).map((model) => [model.id, model]))
+  const connections = new Map((document.connections ?? []).map((connection) => [connection.id, connection]))
   const layout = document.canvas?.pages?.[0]?.layout ?? {}
   const edgesFrom = (id: string) => graph.edges.filter((edge) => edge.from === id)
   const hasFlowInto = (id: string) => graph.edges.some((edge) => edge.to === id && (edge.type ?? 'next') !== 'handoff')
@@ -61,8 +63,11 @@ export function importWorkflowV4(document: WorkflowV4Document): ImportedV4Workfl
     if (agent.kind === 'native') {
       config.instructions = agent.instructions
       const model = agent.modelId ? models.get(agent.modelId) : undefined
-      if (model) {
+      const connection = model ? connections.get(model.connectionId) : undefined
+      // Its own model only on a model client of its own; otherwise it inherits the workflow's model
+      if (model && model.name !== WORKFLOW_MODEL_PRESET && connection?.credentialId && connection.name !== WORKFLOW_CONNECTION_NAME) {
         config.model = model.model
+        config.modelConnectionId = connection.credentialId
         if (typeof model.params?.temperature === 'number') config.temperature = model.params.temperature
       }
       if (agent.responseSchema) config.outputSchema = JSON.stringify(agent.responseSchema, null, 2)

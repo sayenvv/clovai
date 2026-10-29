@@ -45,6 +45,8 @@ export interface WorkflowModelConfig {
   model: string
   /** Server URL for local providers such as Ollama. */
   baseUrl?: string
+  /** The model client it runs on (a saved model connection's id); unset: the application's client for `provider`. */
+  connectionId?: string
   temperature: number
   topP: number
   maxTokens: number

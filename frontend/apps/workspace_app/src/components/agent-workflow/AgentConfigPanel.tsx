@@ -1,5 +1,4 @@
 import { memo, useCallback, useState } from 'react'
-import { Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
@@ -7,18 +6,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Field, PanelSection } from '@/components/agent-workflow/FormField'
-import {
-  ModelProviderLogo,
-  modelForProvider,
-  resolveModelProvider,
-  type ModelProvider,
-} from '@/components/agent-workflow/model-providers'
-import type { CatalogModelOption } from '@/services/models-api'
-import {
-  availableModelProviders,
-  catalogModelsFor,
-  useModelCatalog,
-} from '@/components/agent-workflow/hooks/use-model-catalog'
+import { resolveModelProvider } from '@/components/agent-workflow/model-providers'
+import { catalogModelsFor, useModelCatalog } from '@/components/agent-workflow/hooks/use-model-catalog'
+import { useWorkflowModel } from '@/components/agent-workflow/workflow-model-context'
+import { agentOwnModel } from '@/components/agent-workflow/workflow-model-config'
 import { cn } from '@/utils/cn'
 import { InstructionsEditorField } from '@/components/agent-workflow/InstructionsEditorField'
 import { HumanInTheLoopPanel } from '@/components/agent-workflow/HumanInTheLoopPanel'
@@ -68,9 +59,12 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
   onChange,
 }: AgentConfigPanelProps) {
   const agent = node.agent!
-  const currentProvider = resolveModelProvider(agent)
-  const { catalog, error: catalogError, reload: reloadCatalog } = useModelCatalog()
-  const providers = availableModelProviders(catalog)
+  const workflowModel = useWorkflowModel()
+  // No model and no connection of its own: the agent runs on the workflow's model
+  const inheritsModel = !agentOwnModel(agent)
+  const currentProvider = inheritsModel ? undefined : resolveModelProvider(agent)
+  // Only read for what the agent's model rejects (no temperature on reasoning models)
+  const { catalog } = useModelCatalog()
   const { connections } = useModelConnections()
   const unsupportedOptions = agent.modelConnectionId
     ? connections.find((connection) => connection.id === agent.modelConnectionId)?.unsupportedOptions
@@ -236,6 +230,24 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
         )}
 
         <TabsContent value="model" className="mt-3 flex-1 overflow-y-auto space-y-4 pb-4">
+          <Field label="Runs on" hint="By default an agent uses the workflow's model, the one test runs use. Pick one of the models below to give it its own.">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={inheritsModel}
+              onClick={() => updateAgent(onChange, node.id, { model: '', modelProvider: undefined, modelConnectionId: undefined })}
+              className={cn(
+                'flex w-full min-w-0 items-center justify-between gap-2 rounded-[3px] border px-2 py-1.5 text-left text-xs transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                inheritsModel
+                  ? 'border-foreground/50 bg-accent text-foreground'
+                  : 'border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground',
+              )}
+            >
+              <span className="font-medium">Workflow model (default)</span>
+              <span className="truncate font-mono text-[10.5px] text-muted-foreground">{workflowModel?.model || 'not set'}</span>
+            </button>
+          </Field>
           <AgentModelConnections
             selectedId={agent.modelConnectionId}
             onSelect={(connection) =>
@@ -252,62 +264,6 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
               )
             }
           />
-          <Field
-            label="Model client"
-            hint={agent.modelConnectionId ? 'Using your own model above; pick a client here to switch back' : 'The provider this agent runs on'}
-          >
-            {catalog === null ? (
-              <CatalogStatus error={catalogError} onRetry={reloadCatalog} />
-            ) : providers.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                No model clients are configured. Add one in Admin center → Configuration → models.
-              </p>
-            ) : (
-            <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Model client">
-              {providers.map((provider) => {
-                const active = !agent.modelConnectionId && provider.id === currentProvider?.id
-                return (
-                  <button
-                    key={provider.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() =>
-                      updateAgent(onChange, node.id, {
-                        modelConnectionId: undefined,
-                        modelProvider: provider.id,
-                        model: modelForProvider(
-                          provider,
-                          agent.model,
-                          catalogModelsFor(catalog, provider.id).map((model) => model.id),
-                        ),
-                      })
-                    }
-                    className={cn(
-                      'flex min-w-0 items-center gap-2 rounded-[3px] border px-2 py-1.5 text-left text-xs transition-colors',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      active
-                        ? 'border-foreground/50 bg-accent text-foreground'
-                        : 'border-border text-muted-foreground hover:border-foreground/25 hover:text-foreground',
-                    )}
-                  >
-                    <ModelProviderLogo provider={provider} className="size-5 rounded-[5px]" />
-                    <span className="truncate font-medium">{provider.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-            )}
-          </Field>
-          <Field label="Model" hint={currentProvider ? `Models available on ${currentProvider.label}` : 'Choose a model client first'}>
-            <ModelList
-              models={catalogModelsFor(catalog, currentProvider?.id)}
-              loading={catalog === null}
-              provider={currentProvider}
-              value={agent.model}
-              onChange={(model) => updateAgent(onChange, node.id, { model })}
-            />
-          </Field>
           <Field label="Temperature" hint={temperatureSupported ? undefined : `${agent.model} does not support temperature`}>
             <Input
               type="number"
@@ -404,113 +360,6 @@ export const AgentConfigPanel = memo(function AgentConfigPanel({
     </div>
   )
 })
-
-/**
- * The models the agent can run on: the client's suggested models plus whatever the
- * application's model catalog lists for it (e.g. models installed on Ollama). Pick one from
- * the list; "Other model…" is there for a name the list doesn't have.
- */
-/** Loading / failure note for the model catalog. */
-function CatalogStatus({ error, onRetry }: { error: string | null; onRetry: () => void }) {
-  return error ? (
-    <p className="text-xs text-destructive">
-      {error}{' '}
-      <button type="button" onClick={onRetry} className="font-medium underline underline-offset-2">
-        Retry
-      </button>
-    </p>
-  ) : (
-    <p className="text-xs text-muted-foreground">Loading model clients…</p>
-  )
-}
-
-/**
- * The models the agent can run on, as the application's model catalog lists them for the
- * chosen client. "Other model…" is there for a name the catalog doesn't have.
- */
-function ModelList({
-  provider,
-  models,
-  loading,
-  value,
-  onChange,
-}: {
-  provider: ModelProvider | undefined
-  models: CatalogModelOption[]
-  loading: boolean
-  value: string
-  onChange: (model: string) => void
-}) {
-  const [custom, setCustom] = useState(false)
-  const current = value.trim()
-  const listed = models.some((model) => model.id === current)
-
-  if (!provider) {
-    return <p className="text-xs text-muted-foreground">Pick a model client above to see its models.</p>
-  }
-  if (loading) {
-    return <p className="text-xs text-muted-foreground">Loading models…</p>
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <div className="max-h-56 space-y-0.5 overflow-y-auto rounded-[3px] border border-border bg-card p-1" role="listbox" aria-label="Models">
-        {models.length === 0 && !current ? (
-          <p className="px-2 py-1.5 text-xs text-muted-foreground">No models listed for {provider.label}.</p>
-        ) : null}
-        {models.map((model) => {          const selected = model.id === current
-          return (
-            <button
-              key={model.id}
-              type="button"
-              role="option"
-              aria-selected={selected}
-              onClick={() => {
-                setCustom(false)
-                onChange(model.id)
-              }}
-              className={cn(
-                'flex w-full items-center gap-2 rounded-[2px] px-2 py-1.5 text-left transition-colors',
-                selected ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-              )}
-            >
-              <ModelProviderLogo provider={provider} className="size-4 rounded-[4px]" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-mono text-xs">{model.id}</span>
-                {model.detail ? <span className="block truncate text-[10.5px] text-muted-foreground">{model.detail}</span> : null}
-              </span>
-              {selected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
-            </button>
-          )
-        })}
-        {current && !listed ? (
-          <div className="flex items-center gap-2 rounded-[2px] bg-accent px-2 py-1.5 text-foreground">
-            <ModelProviderLogo provider={provider} className="size-4 rounded-[4px]" />
-            <span className="min-w-0 flex-1 truncate font-mono text-xs">{current}</span>
-            <Check className="h-3.5 w-3.5 shrink-0" />
-          </div>
-        ) : null}
-      </div>
-      {custom ? (
-        <Input
-          autoFocus
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="Model name"
-          className="h-8 font-mono text-xs"
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setCustom(true)}
-          className="text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-        >
-          Other model…
-        </button>
-      )}
-    </div>
-  )
-}
 
 /** The model client logo / id used for a saved connection's provider. */
 export function connectionProviderId(provider: ModelConnectionProvider): string {

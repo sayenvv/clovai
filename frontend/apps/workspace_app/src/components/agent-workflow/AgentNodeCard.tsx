@@ -20,6 +20,8 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { useWorkflowModel } from '@/components/agent-workflow/workflow-model-context'
+import { agentOwnModel } from '@/components/agent-workflow/workflow-model-config'
 import { contextProviderCounts, useContextProviders } from '@/components/agent-workflow/hooks/use-context-providers'
 import {
   childKindForPalette,
@@ -237,14 +239,19 @@ function AgentIcon({ paletteId, logo, status }: { paletteId: string; logo?: stri
   )
 }
 
-/** "Specialist · gpt-4.1", or the type and a "Needs model" warning. */
-/** The agent's model as a chip (green dot when set, amber prompt when not), then its type. */
-function AgentSubtitle({ type, model }: { type: string; model?: string }) {
+/**
+ * The agent's model as a chip, then its type: a green dot for its own model, a blue one for the
+ * workflow's model it inherits, and an amber prompt when there is neither.
+ */
+function AgentSubtitle({ type, model, inherited = false }: { type: string; model?: string; inherited?: boolean }) {
   return (
     <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
       {model ? (
-        <span className="inline-flex min-w-0 items-center gap-1 rounded-[2px] bg-muted px-1.5 py-[3px] font-mono text-[10px] leading-none text-foreground/75 ring-1 ring-inset ring-border/60">
-          <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden />
+        <span
+          className="inline-flex min-w-0 items-center gap-1 rounded-[2px] bg-muted px-1.5 py-[3px] font-mono text-[10px] leading-none text-foreground/75 ring-1 ring-inset ring-border/60"
+          title={inherited ? "The workflow's model (this agent has none of its own)" : undefined}
+        >
+          <span className={cn('size-1.5 shrink-0 rounded-full', inherited ? 'bg-sky-500' : 'bg-emerald-500')} aria-hidden />
           <span className="truncate">{model}</span>
         </span>
       ) : (
@@ -529,6 +536,7 @@ export const AgentNodeCard = memo(function AgentNodeCard({
   onAttachAction,
   orchestration,
 }: AgentNodeCardProps) {
+  const workflowModel = useWorkflowModel()
   const agent = node.agent
   // Before any early return (hooks rule); one shared, cached request for the whole canvas
   const { providers: offeredProviders } = useContextProviders()
@@ -548,7 +556,8 @@ export const AgentNodeCard = memo(function AgentNodeCard({
     return <ChildCard title={title} kind={kind} isSelected={isSelected} tooltip={tooltip} className={className} />
   }
 
-  const model = agent?.model?.trim()
+  const ownModel = agentOwnModel(agent)
+  const model = ownModel || workflowModel?.model?.trim()
   const configured = Boolean(model)
   const status: NodeStatus = configured ? 'ready' : 'attention'
   const provider = resolveModelProvider(agent)
@@ -617,7 +626,7 @@ export const AgentNodeCard = memo(function AgentNodeCard({
             {orchestration ? <OrchestrationBadge orchestration={orchestration} /> : null}
             {agent?.humanInTheLoop ? <HitlBadge /> : null}
           </div>
-          <AgentSubtitle type={typeLabel} model={model} />
+          <AgentSubtitle type={typeLabel} model={model} inherited={!ownModel && Boolean(model)} />
         </div>
       </div>
 

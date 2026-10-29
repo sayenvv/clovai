@@ -1,3 +1,5 @@
+import { WorkflowModelChangeContext, WorkflowModelContext } from '@/components/agent-workflow/workflow-model-context'
+import type { CanvasDraftPreview } from '@/components/agent-workflow/draft-preview'
 import { pageWorkflowId } from '@/components/agent-workflow/page-workflow-id'
 import {
   useCallback,
@@ -279,6 +281,8 @@ export default function AgentWorkflowPage() {
     kind: AgentCapabilityKind
   } | null>(null)
   const [generatePanelOpen, setGeneratePanelOpen] = useState(false)
+  /** The assistant's draft, drawn on the canvas with its changes marked until it is accepted or discarded. */
+  const [draftPreview, setDraftPreview] = useState<CanvasDraftPreview | null>(null)
   // Workflow AI widened over the workspace (the canvas area), keeping the library and status bar.
   const [aiExpanded, setAiExpanded] = useState(false)
   useEffect(() => {
@@ -1099,6 +1103,7 @@ export default function AgentWorkflowPage() {
             onImportWorkflow: (imported: ImportedWorkflow) =>
               importWorkflowDocument(imported.document, imported.configuration),
             onReplaceWorkflow: (imported: ImportedWorkflow) => replaceWorkflowDocument(imported.document),
+            onPreviewDraft: setDraftPreview,
             onClose: closeGeneratePanel,
           }
         : null,
@@ -2101,6 +2106,8 @@ export default function AgentWorkflowPage() {
 
   return (
     <DevProfiler id="AgentWorkflowPage">
+    <WorkflowModelContext.Provider value={toolbarModelConfig}>
+    <WorkflowModelChangeContext.Provider value={handleModelConfigChange}>
     <div
       className={
         isMobile
@@ -2451,6 +2458,7 @@ export default function AgentWorkflowPage() {
                       onAskAi={openGeneratePanel}
                       onClearCanvas={handleClearCanvas}
                       hideControls={!isMobile}
+                      draftPreview={generatePanelOpen ? draftPreview : null}
                     />
                   ) : (
                     <WorkflowBuildCodeView
@@ -2681,6 +2689,8 @@ export default function AgentWorkflowPage() {
       />
 
     </div>
+    </WorkflowModelChangeContext.Provider>
+    </WorkflowModelContext.Provider>
     </DevProfiler>
   )
 }

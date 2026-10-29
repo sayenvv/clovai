@@ -1,3 +1,4 @@
+import type { CanvasDraftPreview } from '@/components/agent-workflow/draft-preview'
 import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
 import type { ExecutionRecord } from '@/services/execution-history-store'
 import { isGraphWorkflow, isSwitchNode } from '@/components/agent-workflow/workflow-edge-groups'
@@ -112,6 +113,8 @@ interface GenerateChatOptions {
   onImportWorkflow?: (imported: ImportedWorkflow) => void
   /** An accepted 4.0 assistant draft: replaces the open tab. */
   onReplaceWorkflow?: (imported: ImportedWorkflow) => void
+  /** The assistant's pending draft to show on the canvas (null: show the workflow again). */
+  onPreviewDraft?: (preview: CanvasDraftPreview | null) => void
   onClose: () => void
   /** Saved sessions, listed beside the chat when it is expanded. */
   chats?: {
@@ -555,6 +558,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 onGenerated={generate.onGenerated}
                 onImportWorkflow={generate.onImportWorkflow}
                 onReplaceWorkflow={generate.onReplaceWorkflow}
+                onPreviewDraft={generate.onPreviewDraft}
                 conversationId={generate.chats?.activeId}
               />
               </div>
