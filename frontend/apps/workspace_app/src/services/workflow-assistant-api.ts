@@ -21,6 +21,18 @@ export interface AssistantRunEvent {
   tool?: string
   agent?: string
   agentId?: string
+  /** On an agent's `node.completed`: what it decided, in a sentence or two. */
+  summary?: string
+  /** On `tool.started`: the model's own one-line why for the call. */
+  reason?: string
+  /** On `usage`: the tokens one agent call used. */
+  totalTokens?: number
+  /** On `tool.completed`: what the call touched (short text arguments, list sizes) and what it reported. */
+  detail?: {
+    inputs?: Record<string, string>
+    counts?: Record<string, number>
+    result?: { applied?: number; valid?: boolean; issues?: number; items?: number; results?: number; matches?: number; error?: string }
+  }
   time: string
 }
 

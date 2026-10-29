@@ -161,8 +161,9 @@ function foldedStep(step: WorkflowChatMessage): WorkflowChatMessage {
 }
 
 function finishSteps(steps: WorkflowChatMessage[]): WorkflowChatMessage[] {
+  if (steps.every((step) => step.agentName === ROUTER_AGENT)) return []
   return steps
-    .filter((step) => step.content.trim())
+    .filter((step) => step.content.trim() || step.nodeId.startsWith('tool:'))
     .map((step) => (step.status === 'streaming' ? { ...step, status: 'done' as const } : step))
 }
 
@@ -189,8 +190,8 @@ function RunSteps({
   const running = (step: WorkflowChatMessage) => live && step.status === 'streaming'
   const shown = steps.filter((step) => !(running(step) && step.nodeId.endsWith(':thinking')))
   const items: TimelineItem[] = shown.map((step) =>
-    running(step) && !step.content.trim()
-      ? { key: step.id, state: 'running', title: activities[step.nodeId] || step.title || fallbackActivity, content: '' }
+    running(step) && (!step.content.trim() || step.nodeId.startsWith('tool:'))
+      ? { key: step.id, state: 'running', title: activities[step.nodeId] || step.title || fallbackActivity, content: step.content }
       : {
           key: step.id,
           state: step.status === 'failed' || step.content.startsWith('⚠') ? 'failed' : 'done',
@@ -284,7 +285,8 @@ function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
       <div className={cn('min-w-0', !last && 'pb-3')}>
         {item.state === 'running' ? (
           <div className="flex h-5 min-w-0 items-center gap-2" role="status" aria-live="polite">
-            <span className="truncate text-[12.5px] font-medium text-foreground">{item.title}…</span>
+            <span className="shrink-0 text-[12.5px] font-medium text-foreground">{item.title}…</span>
+            {item.content ? <span className="min-w-0 truncate text-[12.5px] text-muted-foreground/70">{item.content}</span> : null}
           </div>
         ) : (
           <>
@@ -327,69 +329,97 @@ function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
 
 
 /** Earlier turns for the API, oldest first. Errors and "Stopped." notes are left out. */
-/** What each assistant agent is doing while it runs. */
-const AGENT_ACTIVITY: Record<string, string> = {
-  Router: 'Understanding the request',
-  Planner: 'Planning the workflow',
-  Builder: 'Building the workflow',
-  'Step filler': 'Filling in the steps',
-  Editor: 'Editing the workflow',
-  Repairer: 'Fixing problems',
-  Explainer: 'Explaining the workflow',
-  Reviewer: 'Reviewing the workflow',
-  Operator: 'Running a test',
-  Responder: 'Writing the reply',
+/** What each assistant agent is doing while it runs, and what it did once it is done. */
+const AGENT_ACTIVITY: Record<string, [running: string, done: string]> = {
+  Router: ['Understanding the request', 'Understood the request'],
+  Planner: ['Planning the workflow', 'Planned the workflow'],
+  Builder: ['Building the workflow', 'Built the workflow'],
+  'Step filler': ['Filling in the steps', 'Filled in the steps'],
+  Editor: ['Editing the workflow', 'Edited the workflow'],
+  Repairer: ['Fixing problems', 'Fixed problems'],
+  Explainer: ['Looking into the workflow', 'Looked into the workflow'],
+  Reviewer: ['Reviewing the workflow', 'Reviewed the workflow'],
+  Operator: ['Running a test', 'Ran a test'],
 }
 
-/** The assistant's tools, as the step a person sees. */
-const TOOL_ACTIVITY: Record<string, string> = {
-  open_draft: 'Opening the draft',
-  get_outline: 'Reading the workflow outline',
-  get_object: 'Reading a step',
-  get_section: 'Reading part of the workflow',
-  find: 'Searching the workflow',
-  apply_ops: 'Applying changes to the draft',
-  validate_draft: 'Checking the draft',
-  get_diff: 'Comparing the changes',
-  catalog_models: 'Looking up models',
-  catalog_model_clients: 'Looking up model connections',
-  catalog_agents: 'Looking up saved agents',
-  catalog_tools: 'Looking up tools',
-  test_run: 'Test-running the workflow',
-  get_run: 'Reading the test run',
+/** The agent that writes the reply: its output is the reply itself, so it is not a step. */
+const REPLY_AGENT = 'Responder'
+
+/** The agent that reads the request. When it is all that ran (a greeting, small talk), the reply needs no steps. */
+const ROUTER_AGENT = 'Router'
+
+/** The assistant's tools, as the step a person sees while it runs and once it is done. */
+const TOOL_ACTIVITY: Record<string, [running: string, done: string]> = {
+  open_draft: ['Opening the draft', 'Opened the draft'],
+  get_outline: ['Reading the workflow', 'Read the workflow'],
+  get_object: ['Reading a step', 'Read a step'],
+  get_section: ['Reading part of the workflow', 'Read part of the workflow'],
+  find: ['Searching the workflow', 'Searched the workflow'],
+  apply_ops: ['Editing the draft', 'Edited the draft'],
+  validate_draft: ['Checking the draft', 'Checked the draft'],
+  get_diff: ['Comparing the changes', 'Compared the changes'],
+  catalog_models: ['Looking up models', 'Looked up models'],
+  catalog_model_clients: ['Looking up model connections', 'Looked up model connections'],
+  catalog_agents: ['Looking up saved agents', 'Looked up saved agents'],
+  catalog_tools: ['Looking up tools', 'Looked up tools'],
+  test_run: ['Test-running the workflow', 'Test-ran the workflow'],
+  get_run: ['Reading the test run', 'Read the test run'],
 }
 
-const toolActivity = (tool: string) => TOOL_ACTIVITY[tool] ?? tool.replace(/_/g, ' ').replace(/^\w/, (letter) => letter.toUpperCase())
+const humanize = (name: string) => name.replace(/_/g, ' ').replace(/^\w/, (letter) => letter.toUpperCase())
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
+
+/** One line on what a tool call touched and found: "n3", "“email” · 2 matches", "4 changes · 1 issue". */
+function toolDetail(detail: AssistantRunEvent['detail']): string {
+  if (!detail) return ''
+  const parts: string[] = Object.values(detail.inputs ?? {}).map((value) => (value.includes(' ') ? `“${value}”` : value))
+  const ops = detail.counts?.ops
+  if (ops) parts.push(plural(ops, 'change'))
+  const result = detail.result ?? {}
+  for (const key of ['matches', 'results', 'items'] as const) {
+    if (result[key] !== undefined) parts.push(plural(result[key], key === 'matches' ? 'match' : 'result'))
+  }
+  if (result.issues) parts.push(plural(result.issues, 'issue') + ' to fix')
+  else if (result.valid) parts.push('no issues')
+  return parts.join(' · ')
+}
 
 /**
- * The 4.0 assistant's run as chat steps: one row per agent, and under it one row per tool call, each
- * running until it completes, so a long turn shows what it is doing.
+ * The 4.0 assistant's run as chat steps, like a coding assistant's: each agent and each tool call is one
+ * row that reads as an action ("Searched for “email”"), with the agent's reasoning or the call's result
+ * under it. Rows run until their event completes, so a long turn shows what it is doing.
  */
 function applyAssistantEvent(steps: WorkflowChatMessage[], event: AssistantRunEvent): WorkflowChatMessage[] {
-  const finish = (index: number, failed: boolean, content: string) => {
+  const finish = (index: number, patch: Partial<WorkflowChatMessage>) => {
     if (index < 0) return steps
     const next = [...steps]
-    next[index] = { ...next[index], status: failed ? 'failed' : 'done', content }
+    next[index] = { ...next[index], status: 'done', ...patch }
     return next
   }
   if (event.type === 'tool.started' && event.tool) {
-    const title = toolActivity(event.tool)
-    return [...steps, { id: `tool-${steps.length}`, nodeId: `tool:${event.tool}`, agentName: event.agent ?? 'Assistant', title, content: '', kind: 'reasoning', status: 'streaming' }]
+    const title = TOOL_ACTIVITY[event.tool]?.[0] ?? humanize(event.tool)
+    return [...steps, { id: `tool-${steps.length}`, nodeId: `tool:${event.tool}`, agentName: event.agent ?? 'Assistant', title, content: event.reason ?? '', kind: 'reasoning', status: 'streaming' }]
   }
   if (event.type === 'tool.completed' && event.tool) {
     const index = steps.findLastIndex((step) => step.nodeId === `tool:${event.tool}` && step.status === 'streaming')
-    return finish(index, Boolean(event.error), event.error ? `⚠ ${event.error}` : `${event.agent ?? 'The assistant'} used ${event.tool}.`)
+    const failure = event.error ?? event.detail?.result?.error
+    if (failure) return finish(index, { status: 'failed', content: failure })
+    // The reason leads (the row's one-line preview); what the call touched follows when the row is opened.
+    const content = [steps[index]?.content, toolDetail(event.detail)].filter(Boolean).join('\n\n')
+    return finish(index, { title: TOOL_ACTIVITY[event.tool]?.[1] ?? humanize(event.tool), content })
   }
   if (event.nodeType && event.nodeType !== 'agent' && event.type === 'node.started') return steps
+  if (event.agent === REPLY_AGENT) return steps
   if (event.type === 'node.started' && event.nodeId) {
-    const name = event.name ?? 'Step'
-    const title = AGENT_ACTIVITY[name] ?? name
+    const name = event.agent ?? event.name ?? 'Step'
+    const title = AGENT_ACTIVITY[name]?.[0] ?? name
     return [...steps, { id: `${event.nodeId}-${steps.length}`, nodeId: event.nodeId, agentName: name, title, content: '', kind: 'reasoning', status: 'streaming' }]
   }
   if ((event.type === 'node.completed' || event.type === 'node.failed') && event.nodeId) {
     const index = steps.map((step) => step.nodeId).lastIndexOf(event.nodeId)
-    const failed = event.type === 'node.failed'
-    return finish(index, failed, failed ? `⚠ ${event.error ?? 'Failed'}` : `${steps[index]?.agentName ?? 'The agent'} finished.`)
+    if (event.type === 'node.failed') return finish(index, { status: 'failed', content: event.error ?? 'Failed' })
+    const name = steps[index]?.agentName ?? ''
+    return finish(index, { title: AGENT_ACTIVITY[name]?.[1] ?? name, content: event.summary ?? '' })
   }
   return steps
 }
@@ -508,9 +538,10 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   const showAssistantRun = async (run: AssistantRun, startedAt: number) => {
     const steps = finishSteps(liveStepsRef.current)
     const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000))
+    const tokens = run.events.reduce((sum, event) => sum + (event.type === 'usage' ? (event.totalTokens ?? 0) : 0), 0) || undefined
     if (run.status === 'waiting' && run.requests.length > 0) {
       setPendingRequest({ runId: run.id, request: run.requests[0] })
-      if (steps.length) onMessagesChange((previous) => [...previous, { id: `assistant-${Date.now()}`, role: 'assistant', content: '', steps, seconds }])
+      if (steps.length) onMessagesChange((previous) => [...previous, { id: `assistant-${Date.now()}`, role: 'assistant', content: '', steps, seconds, tokens }])
       return
     }
     setPendingRequest(null)
@@ -518,7 +549,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       const detail = run.error || run.issues?.map((issue) => issue.message).join('; ') || run.status
       onMessagesChange((previous) => [
         ...previous,
-        { id: `assistant-error-${Date.now()}`, role: 'assistant', content: `The workflow assistant couldn't finish: ${detail}`, tone: 'error', steps, seconds },
+        { id: `assistant-error-${Date.now()}`, role: 'assistant', content: `The workflow assistant couldn't finish: ${detail}`, tone: 'error', steps, seconds, tokens },
       ])
       return
     }
@@ -526,7 +557,8 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     if (draftId) setAssistantDraftId(draftId)
     onMessagesChange((previous) => [
       ...previous,
-      { id: `assistant-${Date.now()}`, role: 'assistant', content: run.output?.reply ?? '', steps, seconds },
+      // A plain conversational reply has no steps, so no "Thought for Ns" line either.
+      { id: `assistant-${Date.now()}`, role: 'assistant', content: run.output?.reply ?? '', ...(steps.length ? { steps, seconds, tokens } : {}) },
     ])
     if (draftId) {
       const diff = await fetchDraftDiff(draftId).catch(() => null)
