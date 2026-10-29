@@ -17,7 +17,9 @@ import { getSession, restoreSessionFromServer, type ProjectSession } from '@/ser
 export function WorkspaceLayout() {
   const { data: record, isPending, isError, error, refetch } = useActiveConfig()
   const location = useLocation()
-  const isAgentWorkflowWorkspace = location.pathname.startsWith('/tools/agent-workflow')
+  // The workspace's own pages: the canvas at the root and its panels, the run page and the dashboard
+  const isAgentWorkflowWorkspace =
+    /^\/(library|inspect|logs|execute)?\/?$/.test(location.pathname) || location.pathname.startsWith('/tools/agent-workflow')
   const workspaceFallback = isAgentWorkflowWorkspace ? <WorkflowWorkspaceLoadingScreen /> : <LoadingScreen />
   const [session, setSession] = useState<ProjectSession | null>(() =>
     isAgentWorkflowWorkspace ? getSession() : null,

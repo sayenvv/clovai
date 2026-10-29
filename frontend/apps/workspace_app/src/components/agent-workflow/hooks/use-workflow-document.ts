@@ -1,3 +1,4 @@
+import { ROUTES } from '@/constants'
 import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react'
 import { withPageWorkflowIds } from '@/components/agent-workflow/page-workflow-id'
 import { toast } from 'sonner'
@@ -170,7 +171,7 @@ export function useWorkflowDocument(
   const createNewWorkspace = useCallback(() => {
     const nextDoc = createWorkflowWorkspaceDocument()
     const handoffId = createWorkflowWorkspaceHandoff(nextDoc)
-    const url = new URL('/tools/agent-workflow', window.location.origin)
+    const url = new URL(ROUTES.agentWorkflow, window.location.origin)
     url.searchParams.set('workspaceDraft', handoffId)
     const opened = window.open(url.toString(), '_blank')
 

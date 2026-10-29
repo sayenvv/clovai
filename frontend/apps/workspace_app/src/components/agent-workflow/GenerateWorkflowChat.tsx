@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
 import { ChevronRight, FileText, Target, X, type LucideIcon } from 'lucide-react'
 import { WorkflowIcon as Workflow } from '@/components/shared/WorkflowIcon'
 import { toast } from 'sonner'
@@ -14,7 +15,7 @@ import {
   readableChatText,
   UserMessage,
 } from '@/components/agent-workflow/ExecutionSidebarPanel'
-import { PetalLoader, PetalMark } from '@/components/shared/PetalLoader'
+import { PetalMark } from '@/components/shared/PetalLoader'
 import { PlanReviewCard } from '@/components/agent-workflow/PlanReviewCard'
 import type { PlanReview } from '@/services/workflow-run-api'
 import type { WorkflowChatMessage } from '@/types/agent-workflow'
@@ -269,16 +270,29 @@ function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
   const expandable = item.state !== 'running' && Boolean(item.content)
 
   return (
-    <li className="relative grid grid-cols-[22px_minmax(0,1fr)] gap-x-2.5">
+    // Each step slides in from a soft blur as it arrives, like the website's assistant
+    <motion.li
+      initial={{ opacity: 0, x: -8, filter: 'blur(4px)' }}
+      animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+      transition={{ duration: 0.45, ease: 'easeOut' }}
+      className="relative grid grid-cols-[22px_minmax(0,1fr)] gap-x-2.5"
+    >
       {/* Marker column: the marker, then the rail down to the next item's marker. */}
       <div className="relative flex justify-center">
         <span className="flex h-5 items-center">
           {item.state === 'running' ? (
-            <PetalLoader size={22} label={item.title} className="-my-0.5" />
+            // Working: the orange dot with a ring pulsing out of it
+            <span className="relative flex h-[7px] w-[7px]" role="img" aria-label={item.title}>
+              <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-[#EB6115] opacity-60 motion-reduce:animate-none" />
+              <span aria-hidden className="relative h-[7px] w-[7px] rounded-full bg-[#EB6115] shadow-[0_0_8px_rgba(235,97,21,0.6)]" />
+            </span>
           ) : (
             <span
               aria-hidden
-              className={cn('h-[7px] w-[7px] rounded-full', item.state === 'failed' ? 'bg-red-500' : 'bg-foreground/60')}
+              className={cn(
+                'h-[7px] w-[7px] rounded-full',
+                item.state === 'failed' ? 'bg-red-500' : 'bg-[#EB6115] shadow-[0_0_8px_rgba(235,97,21,0.6)]',
+              )}
             />
           )}
         </span>
@@ -325,7 +339,7 @@ function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
           </>
         )}
       </div>
-    </li>
+    </motion.li>
   )
 }
 
@@ -789,7 +803,13 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                     {message.content}
                   </p>
                 ) : (
-                  <ChatMarkdown content={message.content} streaming={false} />
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
+                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                    transition={{ duration: 0.45, ease: 'easeOut' }}
+                  >
+                    <ChatMarkdown content={message.content} streaming={false} />
+                  </motion.div>
                 )}
               </ChatTurnBody>
             </div>

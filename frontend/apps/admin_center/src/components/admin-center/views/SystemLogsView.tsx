@@ -47,7 +47,7 @@ const LEVEL_META: Record<LogLevel, { tone: 'warning' | 'danger'; bar: string; ic
   CRITICAL: { tone: 'danger', bar: 'bg-red-800 dark:bg-red-400', icon: AlertOctagon, label: 'Critical' },
 }
 
-const traceUrl = (traceId: string) => `${AGENT_WORKFLOW_URL}/dashboard/traces/${encodeURIComponent(traceId)}`
+const traceUrl = (traceId: string) => `${AGENT_WORKFLOW_URL}/tools/agent-workflow/dashboard/traces/${encodeURIComponent(traceId)}`
 
 function when(iso: string): string {
   const date = new Date(iso)

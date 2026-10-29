@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { createBrowserRouter, Navigate, useSearchParams } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { WorkspaceLayout } from '@/components/layout/WorkspaceLayout'
 import { ROUTES } from '@/constants'
@@ -42,6 +42,13 @@ const AdminConfigPage = lazy(() => import('@/pages/admin/AdminConfigPage'))
 const DynamicPage = lazy(() => import('@/pages/DynamicPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
+/** Old /tools/agent-workflow/... links: the same place at the root, keeping the query (?open=, ?settings=). */
+function LegacyWorkspaceRedirect() {
+  const { pathname, search, hash } = useLocation()
+  const rest = pathname.replace(/^\/tools\/agent-workflow/, '') || '/'
+  return <Navigate to={`${rest}${search}${hash}`} replace />
+}
+
 function DashboardRedirect() {
   const [params] = useSearchParams()
   return <Navigate to={ROUTES.workspaceSettings(params.get('tab') ?? 'overview')} replace />
@@ -67,7 +74,7 @@ export const router = createBrowserRouter([
         ],
       },
       {
-        path: '/tools/agent-workflow',
+        path: '/',
         element: <AgentWorkflowPage />,
         children: [
           { index: true, element: <></> },
@@ -76,7 +83,12 @@ export const router = createBrowserRouter([
           { path: 'logs', element: <></> },
         ],
       },
-      { path: '/tools/agent-workflow/execute', element: <WorkflowExecutePage /> },
+      { path: '/execute', element: <WorkflowExecutePage /> },
+      { path: '/tools/agent-workflow', element: <LegacyWorkspaceRedirect /> },
+      { path: '/tools/agent-workflow/library', element: <LegacyWorkspaceRedirect /> },
+      { path: '/tools/agent-workflow/inspect', element: <LegacyWorkspaceRedirect /> },
+      { path: '/tools/agent-workflow/logs', element: <LegacyWorkspaceRedirect /> },
+      { path: '/tools/agent-workflow/execute', element: <LegacyWorkspaceRedirect /> },
       // The dashboard now lives in the workspace's Settings; old links land on the same tab there.
       { path: '/dashboard', element: <DashboardRedirect /> },
       { path: '/tools/:toolId', element: <ToolDetailPage /> },
@@ -85,7 +97,8 @@ export const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
-      { path: '/', element: <LandingPage /> },
+      // The old landing page; the marketing site (apps/website) replaces it at www.<domain>
+      { path: '/home', element: <LandingPage /> },
       { path: '/tools', element: <ToolsPage /> },
       { path: '/admin/config', element: <AdminConfigPage /> },
       { path: '/404', element: <NotFoundPage /> },

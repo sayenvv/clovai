@@ -204,19 +204,19 @@ function makeRoomOffsets(
 
 /** The ring drawn around a node for its run state. */
 const DIFF_RING_CLASSES: Record<DiffState, string> = {
-  added: 'border-blue-500 shadow-[0_0_0_4px_rgba(59,130,246,0.16)]',
+  added: 'border-green-600 shadow-[0_0_0_4px_rgba(22,163,74,0.16)]',
   removed: 'border-dashed border-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.12)]',
   changed: 'border-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.14)]',
 }
 
 const DIFF_BADGE: Record<DiffState, { label: string; className: string }> = {
-  added: { label: 'New', className: 'bg-blue-500' },
+  added: { label: 'New', className: 'bg-green-600' },
   removed: { label: 'Removed', className: 'bg-red-500' },
   changed: { label: 'Edited', className: 'bg-amber-500' },
 }
 
 const DIFF_STROKE: Record<DiffState, { light: string; dark: string }> = {
-  added: { light: '#3b82f6', dark: '#60a5fa' },
+  added: { light: '#16a34a', dark: '#4ade80' },
   removed: { light: '#ef4444', dark: '#f87171' },
   changed: { light: '#f59e0b', dark: '#fbbf24' },
 }

@@ -1,3 +1,4 @@
+import { ROUTES } from '@/constants'
 import { memo } from 'react'
 import {
   AlertTriangle,
@@ -64,7 +65,7 @@ export const ExecutionPageHeader = memo(function ExecutionPageHeader({
       <div className="h-5 w-px bg-border" />
 
       <Button variant="ghost" size="sm" asChild className="h-8 gap-1.5 px-2">
-        <Link to="/tools/agent-workflow">
+        <Link to={ROUTES.agentWorkflow}>
           <ArrowLeft className="h-3.5 w-3.5" />
           Editor
         </Link>

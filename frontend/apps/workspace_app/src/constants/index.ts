@@ -35,13 +35,14 @@ export const ROUTES = {
   tool: (route: string) => route,
   admin: '/admin/config',
   page: (slug: string) => `/${slug}`,
-  agentWorkflow: '/tools/agent-workflow',
+  /** The workspace opens at the site's root (cloud.<domain>/); the marketing site is a separate app. */
+  agentWorkflow: '/',
   dashboard: '/dashboard',
   /** Settings inside the workspace (what used to be the separate dashboard), on one of its tabs. */
-  workspaceSettings: (tab = 'overview') => `/tools/agent-workflow?settings=${tab}`,
-  agentWorkflowLibrary: '/tools/agent-workflow/library',
-  agentWorkflowInspect: '/tools/agent-workflow/inspect',
-  agentWorkflowLogs: '/tools/agent-workflow/logs',
+  workspaceSettings: (tab = 'overview') => `/?settings=${tab}`,
+  agentWorkflowLibrary: '/library',
+  agentWorkflowInspect: '/inspect',
+  agentWorkflowLogs: '/logs',
   agentWorkflowDashboard: '/tools/agent-workflow/dashboard',
   agentWorkflowDashboardInstances: '/tools/agent-workflow/dashboard/instances',
   agentWorkflowDashboardRuns: '/tools/agent-workflow/dashboard/runs',
@@ -49,7 +50,7 @@ export const ROUTES = {
   agentWorkflowDashboardUsage: '/tools/agent-workflow/dashboard/usage',
   agentWorkflowDashboardAgents: '/tools/agent-workflow/dashboard/agents',
   agentWorkflowDashboardTraces: '/tools/agent-workflow/dashboard/traces',
-  agentWorkflowExecute: '/tools/agent-workflow/execute',
+  agentWorkflowExecute: '/execute',
 } as const
 
 /** Standalone Admin Center micro-app (separate Vite process / port). */

@@ -14,24 +14,24 @@
     --card-foreground: 30 2% 19.2%;
     --popover: 0 0% 100%;
     --popover-foreground: 30 2% 19.2%;
-    --primary: 21 85% 43%;
+    --primary: 155 47% 16.3%;
     --primary-foreground: 0 0% 100%;
-    --primary-deep: 21 85% 36%;
+    --primary-deep: 154 53% 9.2%;
     --secondary: 0 0% 92.5%;
     --secondary-foreground: 30 2% 19.2%;
     --muted: 30 10% 92.2%;
     --muted-foreground: 30 2.1% 36.9%;
-    --accent: 30 100% 93%;
-    --accent-foreground: 20 85% 28%;
+    --accent: 150 33% 92%;
+    --accent-foreground: 155 47% 16.3%;
     --destructive: 0 72.2% 50.6%;
     --destructive-foreground: 0 0% 100%;
     --border: 30 6.2% 87.5%;
     --input: 30 3.5% 77.6%;
-    --ring: 21 85% 43%;
+    --ring: 155 47% 16.3%;
     --radius: 0.25rem;
     --canvas: 0 0% 100%;
     --canvas-grid: 30 5% 84%;
-    --rail: 21 85% 38%;
+    --rail: 155 51% 12%;
     /* App chrome beside the rail: top bar and outline panel, the icon column, the search field */
     --chrome: 0 0% 98%;
     --chrome-strong: 240 3% 94.5%;
@@ -45,20 +45,20 @@
     --card-foreground: 240 4% 95.1%;
     --popover: 240 2.6% 14.9%;
     --popover-foreground: 240 4% 95.1%;
-    --primary: 22 94% 51%;
+    --primary: 155 48% 47.3%;
     --primary-foreground: 0 0% 0%;
-    --primary-deep: 24 95% 60%;
+    --primary-deep: 155 49% 57.1%;
     --secondary: 240 2.3% 16.9%;
     --secondary-foreground: 240 4% 95.1%;
     --muted: 240 2.3% 16.9%;
     --muted-foreground: 240 2.7% 64.1%;
-    --accent: 21 50% 13%;
-    --accent-foreground: 25 95% 75%;
+    --accent: 155 35% 12%;
+    --accent-foreground: 155 55% 72%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
     --border: 240 2.3% 16.9%;
     --input: 240 1.8% 21.6%;
-    --ring: 22 94% 51%;
+    --ring: 155 48% 47.3%;
     --rail: 240 3% 5.5%;
     --chrome: 240 3% 6.5%;
     --chrome-strong: 240 3% 9%;
@@ -78,7 +78,7 @@
     --card: 0 0% 100%;
     --popover: 0 0% 100%;
     --muted: 240 3.2% 93.9%;
-    --accent: 28 95% 90%;
+    --accent: 150 33% 90%;
     --secondary: 0 0% 92.5%;
     --muted-foreground: 30 2.1% 36.9%;
     --border: 30 10% 92.2%;
@@ -93,7 +93,7 @@
     --card: 240 3.1% 12.5%;
     --popover: 240 2.6% 14.9%;
     --muted: 240 2.3% 16.9%;
-    --accent: 21 50% 13%;
+    --accent: 155 35% 12%;
     --secondary: 240 2.3% 16.9%;
     --border: 240 2.3% 16.9%;
     --input: 240 1.8% 21.6%;
@@ -106,12 +106,12 @@
   .rail-surface {
     --background: var(--rail);
     --foreground: 0 0% 100%;
-    --muted-foreground: 28 90% 88%;
-    --accent: 24 85% 52%;
+    --muted-foreground: 150 25% 80%;
+    --accent: 152 44% 21.8%;
     --accent-foreground: 0 0% 100%;
-    --border: 18 85% 33%;
+    --border: 155 46% 18.8%;
     --primary: 0 0% 100%;
-    --primary-foreground: 21 85% 38%;
+    --primary-foreground: 155 51% 12%;
     --ring: 0 0% 100%;
     background-color: hsl(var(--rail));
     color: hsl(var(--foreground));
@@ -121,15 +121,15 @@
   .dark .rail-surface {
     --foreground: 240 4% 95.1%;
     --muted-foreground: 240 2.7% 64.1%;
-    --accent: 21 50% 13%;
-    --accent-foreground: 25 95% 75%;
+    --accent: 155 35% 12%;
+    --accent-foreground: 155 55% 72%;
     --border: 240 2.3% 16.9%;
-    --primary: 22 94% 51%;
+    --primary: 155 48% 47.3%;
     --primary-foreground: 0 0% 0%;
-    --ring: 22 94% 51%;
+    --ring: 155 48% 47.3%;
   }
 
-  /* Workflow AI panel: a neutral grey accent instead of the brand orange */
+  /* Workflow AI panel: a neutral grey accent instead of the brand green */
   .chat-neutral {
     --primary: 0 0% 24%;
     --primary-foreground: 0 0% 100%;
@@ -152,26 +152,26 @@
     --node-hover: 30 16.7% 97.6%;
     --node-selected: 0 0% 100%;
     --node-border: 30 6.2% 87.5%;
-    --node-selected-border: 21 85% 43%;
+    --node-selected-border: 155 47% 16.3%;
     --edge: 30 3.5% 70%;
-    --edge-active: 21 85% 43%;
-    --success: 142 76.2% 30%;
+    --edge-active: 155 47% 16.3%;
+    --success: 158 72% 38%;
     --warning: 32 94.6% 43.7%;
-    --info: 22 94% 51%;
+    --info: 221 100% 62%;
     --violet: 263 70% 50.4%;
   }
 
   .dark {
     --node: 240 3.1% 12.5%;
     --node-hover: 240 2.6% 14.9%;
-    --node-selected: 22 40% 13%;
+    --node-selected: 155 30% 12%;
     --node-border: 240 2.3% 16.9%;
-    --node-selected-border: 22 94% 51%;
+    --node-selected-border: 155 48% 47.3%;
     --edge: 240 1.7% 23.1%;
-    --edge-active: 22 94% 51%;
-    --success: 142 70.6% 45.3%;
+    --edge-active: 155 48% 47.3%;
+    --success: 151 65% 54%;
     --warning: 38 92.1% 50.2%;
-    --info: 22 94% 56%;
+    --info: 220 100% 68%;
     --violet: 255 91.7% 76.3%;
   }
 }

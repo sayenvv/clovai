@@ -99,7 +99,7 @@ export function draftHasChanges(diff: DraftDiff): boolean {
 }
 
 const DIFF_CHIPS: Array<{ state: DiffState; label: string; className: string }> = [
-  { state: 'added', label: 'new', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+  { state: 'added', label: 'new', className: 'bg-green-500/10 text-green-700 dark:text-green-400' },
   { state: 'changed', label: 'edited', className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
   { state: 'removed', label: 'removed', className: 'bg-red-500/10 text-red-600 dark:text-red-400' },
 ]
@@ -117,7 +117,7 @@ function DiffChips({ counts }: { counts: Record<DiffState, number> }) {
 }
 
 const THUMB_FILL: Record<DiffState | 'same', string> = {
-  added: 'fill-blue-500/15 stroke-blue-500',
+  added: 'fill-green-500/15 stroke-green-600',
   changed: 'fill-amber-500/15 stroke-amber-500',
   removed: 'fill-red-500/10 stroke-red-500 [stroke-dasharray:4_3]',
   same: 'fill-muted stroke-border',
@@ -151,7 +151,7 @@ function DraftThumbnail({ preview }: { preview: DraftPreview }) {
             y2={to.y + to.height / 2}
             strokeWidth={4}
             className={cn(
-              state === 'added' ? 'stroke-blue-500' : state === 'removed' ? 'stroke-red-500 [stroke-dasharray:10_8]' : 'stroke-muted-foreground/40',
+              state === 'added' ? 'stroke-green-600' : state === 'removed' ? 'stroke-red-500 [stroke-dasharray:10_8]' : 'stroke-muted-foreground/40',
             )}
           />
         )

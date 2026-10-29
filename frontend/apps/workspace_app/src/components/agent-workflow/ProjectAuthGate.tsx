@@ -4,16 +4,15 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft,
   ArrowRight,
+  Bot,
   Building2,
   Check,
   LayoutDashboard,
   Lock,
   ShieldCheck,
-  Sparkles,
   UserPlus,
   UserRound,
 } from 'lucide-react'
-import { Logo, LOGO_SIZE } from '@/components/shared/Logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,6 +31,11 @@ import {
   type ProjectRole,
   type ProjectSession,
 } from '@/services/project-auth-store'
+
+/*
+ * The sign-in gate in the website's style: always light, one brand green, hairlines. A brand panel on the left
+ * (it stays put between steps) and the form on the right, which slides between steps.
+ */
 
 type Flow = 'welcome' | 'create-account' | 'login' | 'reset-password' | 'hub' | 'create-instance'
 
@@ -54,6 +58,14 @@ const fadeSlide = {
   transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] as const },
 }
 
+// The website's palette, fixed here so the gate looks the same whatever the workspace theme is
+const INK = 'text-[#16130F]'
+const SOFT = 'text-[#3A3530]'
+const MUTED = 'text-[#6B655E]'
+const FAINT = 'text-[#9A938B]'
+const LINE = 'border-black/[0.08]'
+const BRAND_LINK = 'font-medium text-[#163D2D] underline-offset-4 hover:underline'
+
 interface ProjectAuthGateProps {
   onAuthenticated: (session: ProjectSession) => void
 }
@@ -64,32 +76,156 @@ function FieldError({ message }: { message: string | null }) {
     <motion.p
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-lg border border-destructive/20 bg-destructive/[0.04] px-3.5 py-2.5 text-[13px] text-destructive"
+      className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700"
+      role="alert"
     >
       {message}
     </motion.p>
   )
 }
 
-function MiniCanvasPreview() {
+const DOTS = { backgroundImage: 'radial-gradient(rgba(23,23,23,0.1) 1px, transparent 1px)', backgroundSize: '20px 20px' }
+
+/** A small live canvas: three steps, a run's light travelling between them, then the run's result. */
+function AuthCanvasPreview() {
+  const nodes = [
+    { label: 'Lead Intake', meta: 'Agent' },
+    { label: 'Email Writer', meta: 'Agent', fresh: true },
+    { label: 'Approval', meta: 'Manager', approval: true },
+  ]
   return (
-    <div className="relative mt-10 hidden overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 lg:block">
-      <div
-        className="absolute inset-0 opacity-40"
-        style={{
-          backgroundImage: 'radial-gradient(rgba(255,255,255,0.18) 1px, transparent 1px)',
-          backgroundSize: '16px 16px',
-        }}
-      />
-      <div className="relative space-y-2.5">
-        <div className="h-8 w-[70%] rounded-lg border border-foreground/30 bg-gradient-to-r from-foreground/20 to-blue-500/10" />
-        <div className="ml-6 h-7 w-[55%] rounded-lg border border-blue-400/30 bg-gradient-to-r from-blue-500/15 to-cyan-500/10" />
-        <div className="h-8 w-[65%] rounded-lg border border-foreground/15 bg-gradient-to-r from-foreground/10 to-foreground/5" />
+    <div className="overflow-hidden rounded-xl bg-white shadow-[0_0_0_1px_rgba(23,23,23,0.08),0_20px_48px_-28px_rgba(23,23,23,0.4)]">
+      <div className={cn('flex items-center gap-2 border-b px-4 py-2.5', LINE)}>
+        <span className="flex gap-1.5" aria-hidden>
+          <span className="h-2 w-2 rounded-full bg-black/10" />
+          <span className="h-2 w-2 rounded-full bg-black/10" />
+          <span className="h-2 w-2 rounded-full bg-black/10" />
+        </span>
+        <span className={cn('text-[12px]', MUTED)}>Lead follow-up</span>
       </div>
-      <p className="relative mt-4 text-[11px] font-medium tracking-wide text-white/50">
-        Canvas preview · Agent workflow
-      </p>
+      <div className="relative bg-[#FAFAF9] px-5 py-8" style={DOTS}>
+        <div className="relative flex items-center justify-between gap-3">
+          {/* The connector behind the steps, with a run's light moving along it */}
+          <span className="absolute inset-x-10 top-1/2 h-px -translate-y-1/2 bg-black/20" aria-hidden />
+          <motion.span
+            className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[#EB6115] shadow-[0_0_10px_rgba(235,97,21,0.7)]"
+            initial={{ left: '12%' }}
+            animate={{ left: ['12%', '50%', '86%'] }}
+            transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut', repeatDelay: 0.6 }}
+            aria-hidden
+          />
+          {nodes.map((node, index) => (
+            <motion.div
+              key={node.label}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 + index * 0.12, duration: 0.5 }}
+              className={cn(
+                'relative flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-white px-2.5 py-2',
+                node.fresh
+                  ? 'shadow-[0_0_0_2px_#16A34A,0_0_0_5px_rgba(22,163,74,0.12)]'
+                  : 'shadow-[0_0_0_1px_rgba(23,23,23,0.1),0_4px_10px_-6px_rgba(23,23,23,0.3)]',
+              )}
+            >
+              {node.fresh && (
+                <span className="absolute -top-2 left-2 rounded-full bg-[#16A34A] px-1.5 text-[9px] font-semibold leading-4 text-white">
+                  New
+                </span>
+              )}
+              <span
+                className={cn(
+                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
+                  node.approval ? 'bg-amber-500/12 text-amber-600' : 'bg-[#EB6115]/10 text-[#C9500C]',
+                )}
+              >
+                {node.approval ? <ShieldCheck className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+              </span>
+              <span className="min-w-0">
+                <span className={cn('block truncate text-[11.5px] font-semibold', INK)}>{node.label}</span>
+                <span className={cn('block text-[10px]', MUTED)}>{node.meta}</span>
+              </span>
+            </motion.div>
+          ))}
+        </div>
+        <div className="mt-6 flex justify-center">
+          <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[11.5px] shadow-[0_0_0_1px_rgba(23,23,23,0.08)]">
+            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#1BA672] text-white">
+              <Check className="h-2.5 w-2.5" strokeWidth={4} />
+            </span>
+            <span className={cn('font-medium', INK)}>Run completed</span>
+            <span className={cn('font-mono', MUTED)}>3.2s · 3.6k tokens</span>
+          </span>
+        </div>
+      </div>
     </div>
+  )
+}
+
+const PROOF = ['Built on Microsoft Agent Framework', 'Review every AI change before it lands', 'Approvals, traces and run limits built in']
+
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 48 48" className="h-4 w-4" aria-hidden>
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  )
+}
+
+function GoogleButton({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'flex h-11 w-full items-center justify-center gap-2.5 rounded-lg border border-black/[0.12] bg-white text-[14px] font-medium transition-colors hover:bg-[#FAFAF9] disabled:opacity-60',
+        INK,
+      )}
+    >
+      <GoogleMark />
+      Continue with Google
+    </button>
+  )
+}
+
+function OrDivider() {
+  return (
+    <div className={cn('flex items-center gap-3 text-[12px]', FAINT)}>
+      <span className={cn('h-px flex-1 border-t', LINE)} />
+      or
+      <span className={cn('h-px flex-1 border-t', LINE)} />
+    </div>
+  )
+}
+
+/** The step a wizard is on: numbered dots joined by a line, the current one in the brand green. */
+function Stepper({ index, labels }: { index: number; labels: readonly string[] }) {
+  return (
+    <ol className="mb-8 flex items-center gap-2" aria-label={`Step ${index + 1} of ${labels.length}`}>
+      {labels.map((label, i) => {
+        const done = i < index
+        const active = i === index
+        return (
+          <li key={label} className="flex min-w-0 flex-1 items-center gap-2">
+            <span
+              className={cn(
+                'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors',
+                done && 'bg-[#163D2D] text-white',
+                active && 'bg-[#163D2D] text-white shadow-[0_0_0_4px_rgba(22,61,45,0.12)]',
+                !done && !active && 'bg-white text-[#9A938B] shadow-[0_0_0_1px_rgba(23,23,23,0.12)]',
+              )}
+            >
+              {done ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : i + 1}
+            </span>
+            <span className={cn('truncate text-[12.5px] font-medium', active || done ? INK : FAINT)}>{label}</span>
+            {i < labels.length - 1 && <span className={cn('h-px min-w-3 flex-1', done ? 'bg-[#163D2D]' : 'bg-black/10')} />}
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 
@@ -111,125 +247,61 @@ function WizardShell({
   panelKey: string
 }) {
   return (
-    <div className="relative flex min-h-screen overflow-hidden bg-[#07090f] text-white">
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 60% 50% at 15% 20%, rgba(99,102,241,0.28), transparent 55%), radial-gradient(ellipse 50% 45% at 85% 10%, rgba(6,182,212,0.16), transparent 50%), radial-gradient(ellipse 40% 35% at 70% 80%, rgba(139,92,246,0.12), transparent 50%)',
-        }}
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
-        style={{
-          backgroundImage: 'radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)',
-          backgroundSize: '28px 28px',
-        }}
-        aria-hidden
-      />
+    <div className={cn('flex min-h-screen bg-white antialiased', INK)}>
+      {/* Brand panel */}
+      <aside className={cn('relative hidden w-[46%] max-w-[46rem] flex-col justify-between overflow-hidden border-r bg-[#FAFAF9] px-12 py-10 lg:flex xl:px-16', LINE)}>
+        <div className="pointer-events-none absolute inset-0" style={DOTS} aria-hidden />
+        <Link to="/" className="relative inline-flex w-fit items-center gap-2.5" aria-label={APP_NAME}>
+          <img src="/brand/mark-darkgreen.svg" alt="" className="h-7 w-7" />
+          <span className="text-[15px] font-semibold tracking-tight">{APP_NAME}</span>
+        </Link>
 
-      <div className="relative mx-auto grid w-full max-w-6xl lg:grid-cols-[1.05fr_0.95fr]">
-        {/* Immersive brand panel */}
-        <aside className="relative flex flex-col justify-between px-6 py-10 sm:px-10 lg:min-h-screen lg:px-12 lg:py-14">
-          <div>
-            <Link to="/" className="inline-flex items-center gap-2.5" aria-label={APP_NAME}>
-              <Logo size={LOGO_SIZE} />
-              <span className="text-[15px] font-semibold tracking-tight text-white">{APP_NAME}</span>
-            </Link>
-
-            <div className="mt-10 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-white/70 backdrop-blur">
-              <Sparkles className="h-3 w-3 text-cyan-300" />
-              Enterprise workspace onboarding
-            </div>
-
-            <h1 className="mt-5 max-w-md text-[2rem] font-semibold leading-[1.15] tracking-tight text-white sm:text-[2.35rem]">
-              {title}
-            </h1>
-            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-white/60">{subtitle}</p>
-
-            {typeof stepIndex === 'number' && typeof stepCount === 'number' && stepLabels && (
-              <ol className="mt-10 hidden space-y-0 lg:block" aria-label={`Step ${stepIndex + 1} of ${stepCount}`}>
-                {stepLabels.map((label, index) => {
-                  const done = index < stepIndex
-                  const active = index === stepIndex
-                  return (
-                    <li key={label} className="relative flex gap-3.5 pb-7 last:pb-0">
-                      {index < stepCount - 1 && (
-                        <span
-                          className={cn(
-                            'absolute left-[13px] top-8 h-[calc(100%-1.5rem)] w-px',
-                            done ? 'bg-cyan-300/50' : 'bg-white/10',
-                          )}
-                          aria-hidden
-                        />
-                      )}
-                      <span
-                        className={cn(
-                          'relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold transition-colors',
-                          done && 'border-cyan-300/60 bg-cyan-300 text-slate-950',
-                          active && 'border-white/40 bg-white/10 text-white shadow-[0_0_0_4px_rgba(255,255,255,0.04)]',
-                          !done && !active && 'border-white/15 bg-transparent text-white/40',
-                        )}
-                      >
-                        {done ? <Check className="h-3.5 w-3.5" /> : index + 1}
-                      </span>
-                      <span className="pt-1">
-                        <span
-                          className={cn(
-                            'block text-[13px] font-medium',
-                            active || done ? 'text-white' : 'text-white/40',
-                          )}
-                        >
-                          {label}
-                        </span>
-                      </span>
-                    </li>
-                  )
-                })}
-              </ol>
-            )}
-
-            <MiniCanvasPreview />
+        <div className="relative mx-auto w-full max-w-[30rem]">
+          <h2 className="text-[30px] font-semibold leading-[1.15] tracking-[-0.03em]">
+            Build AI agent workflows <span className="text-[#9A938B]">you can see, review and trust.</span>
+          </h2>
+          <div className="mt-9">
+            <AuthCanvasPreview />
           </div>
+          <ul className="mt-9 space-y-2.5">
+            {PROOF.map((item) => (
+              <li key={item} className={cn('flex items-center gap-2.5 text-[14px]', SOFT)}>
+                <Check className="h-4 w-4 text-[#163D2D]" strokeWidth={2.5} />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-          <div className="mt-10 hidden items-center gap-4 text-[12px] text-white/45 lg:flex">
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Local-first security
-            </span>
-            <span className="h-3 w-px bg-white/15" />
-            <span>Account → Instance → Canvas</span>
+        <p className={cn('relative flex items-center gap-1.5 text-[12.5px]', MUTED)}>
+          <ShieldCheck className="h-3.5 w-3.5" />
+          Local-first security · Account → Instance → Canvas
+        </p>
+      </aside>
+
+      {/* Form */}
+      <main className="flex min-w-0 flex-1 flex-col">
+        <div className={cn('flex h-16 items-center border-b px-5 lg:hidden', LINE)}>
+          <Link to="/" className="inline-flex items-center gap-2.5" aria-label={APP_NAME}>
+            <img src="/brand/mark-darkgreen.svg" alt="" className="h-7 w-7" />
+            <span className="text-[15px] font-semibold tracking-tight">{APP_NAME}</span>
+          </Link>
+        </div>
+        <div className="flex flex-1 items-center justify-center px-5 py-12 sm:px-10">
+          <div className="w-full max-w-[25rem]">
+            <AnimatePresence mode="wait">
+              <motion.div key={panelKey} {...fadeSlide}>
+                {typeof stepIndex === 'number' && typeof stepCount === 'number' && stepLabels && (
+                  <Stepper index={stepIndex} labels={stepLabels} />
+                )}
+                <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em]">{title}</h1>
+                <p className={cn('mt-2 text-[15px] leading-relaxed', MUTED)}>{subtitle}</p>
+                <div className="mt-8">{children}</div>
+              </motion.div>
+            </AnimatePresence>
           </div>
-        </aside>
-
-        {/* Form panel */}
-        <section className="relative flex items-center px-4 pb-10 sm:px-8 lg:px-10 lg:py-14">
-          <div className="w-full">
-            {typeof stepIndex === 'number' && typeof stepCount === 'number' && (
-              <div className="mb-4 flex items-center gap-2 lg:hidden">
-                {Array.from({ length: stepCount }).map((_, index) => (
-                  <div
-                    key={index}
-                    className={cn(
-                      'h-1 flex-1 rounded-full transition-colors',
-                      index <= stepIndex ? 'bg-cyan-300' : 'bg-white/15',
-                    )}
-                  />
-                ))}
-              </div>
-            )}
-
-            <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] p-6 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.8)] backdrop-blur-2xl sm:p-8">
-              <AnimatePresence mode="wait">
-                <motion.div key={panelKey} {...fadeSlide}>
-                  {children}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </div>
-        </section>
-      </div>
+        </div>
+      </main>
     </div>
   )
 }
@@ -254,28 +326,26 @@ function ActionCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'group relative flex w-full items-start gap-4 overflow-hidden rounded-xl border px-4 py-4 text-left transition-all duration-300',
+        'group relative flex w-full items-start gap-3.5 rounded-xl border bg-white px-4 py-4 text-left transition-[border-color,background-color,box-shadow] duration-200',
         accent === 'primary'
-          ? 'border-cyan-300/30 bg-gradient-to-br from-cyan-400/10 via-white/[0.04] to-foreground/10 hover:border-cyan-300/50'
-          : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]',
+          ? 'border-[#163D2D]/40 shadow-[0_0_0_3px_rgba(22,61,45,0.06)] hover:border-[#163D2D]'
+          : 'border-black/[0.1] hover:border-black/25 hover:bg-[#FAFAF9]',
       )}
     >
       <span
         className={cn(
-          'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
-          accent === 'primary'
-            ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-200'
-            : 'border-white/10 bg-white/[0.04] text-white/80',
+          'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+          accent === 'primary' ? 'bg-[#163D2D] text-white' : 'bg-[#F4F4F2] text-[#3A3530] ring-1 ring-inset ring-black/[0.06]',
         )}
       >
         <Icon className="h-4 w-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-semibold tracking-tight text-white">{title}</span>
-        <span className="mt-1 block text-[13px] leading-relaxed text-white/55">{description}</span>
-        {meta && <span className="mt-2 block text-[11px] font-medium tracking-wide text-white/40">{meta}</span>}
+        <span className={cn('block text-[14.5px] font-semibold tracking-tight', INK)}>{title}</span>
+        <span className={cn('mt-0.5 block text-[13px] leading-relaxed', MUTED)}>{description}</span>
+        {meta && <span className={cn('mt-2 block text-[12px] font-medium', FAINT)}>{meta}</span>}
       </span>
-      <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-white/35 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-white/70" />
+      <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-[#9A938B] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-[#16130F]" />
     </button>
   )
 }
@@ -294,14 +364,14 @@ function FooterActions({
   pending?: boolean
 }) {
   return (
-    <div className="mt-8 flex items-center justify-between gap-3 border-t border-white/10 pt-5">
+    <div className={cn('mt-8 flex items-center justify-between gap-3 border-t pt-5', LINE)}>
       <Button
         type="button"
         variant="ghost"
         size="sm"
         onClick={onBack}
         disabled={backDisabled}
-        className="text-white/70 hover:bg-white/5 hover:text-white"
+        className="text-[#6B655E] hover:bg-black/[0.04] hover:text-[#16130F]"
       >
         <ArrowLeft className="h-4 w-4" />
         Back
@@ -310,7 +380,7 @@ function FooterActions({
         type="button"
         disabled={pending}
         onClick={onPrimary}
-        className="bg-white text-slate-950 hover:bg-white/90"
+        className="h-10 rounded-lg bg-[#163D2D] px-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] hover:bg-[#0B2419]"
       >
         {pending ? 'Please wait…' : primaryLabel}
         {!pending && <ArrowRight className="h-4 w-4" />}
@@ -319,12 +389,12 @@ function FooterActions({
   )
 }
 
-function DarkInput(props: ComponentProps<typeof Input>) {
+function FieldInput(props: ComponentProps<typeof Input>) {
   return (
     <Input
       {...props}
       className={cn(
-        'h-11 border-white/10 bg-white/[0.04] text-white placeholder:text-white/30 focus-visible:border-cyan-300/40 focus-visible:ring-cyan-300/20',
+        'h-11 rounded-lg border-black/[0.12] bg-white text-[14px] text-[#16130F] placeholder:text-[#9A938B] focus-visible:border-[#163D2D]/60 focus-visible:ring-[#163D2D]/15',
         props.className,
       )}
     />
@@ -514,8 +584,8 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
     return (
       <WizardShell
         panelKey="welcome"
-        title="Provision your workspace"
-        subtitle="Sign in to an existing account, or create one to provision a company or individual instance."
+        title={`Welcome to ${APP_NAME}`}
+        subtitle="Sign in to your workspace, or create an account to set one up."
       >
         <div className="space-y-3">
           <ActionCard
@@ -538,14 +608,10 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
               resetErrors()
             }}
           />
-          <button
-            type="button"
-            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[13px] font-medium text-white/80 hover:bg-white/[0.06]"
-            onClick={() => void finishGoogle()}
-            disabled={pending}
-          >
-            Continue with Google
-          </button>
+          <div className="pt-2">
+            <OrDivider />
+          </div>
+          <GoogleButton onClick={() => void finishGoogle()} disabled={pending} />
           <FieldError message={error} />
         </div>
       </WizardShell>
@@ -556,15 +622,15 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
     return (
       <WizardShell
         panelKey="login"
-        title="Sign in to continue"
-        subtitle="Authenticate your account before opening a workspace instance."
+        title="Sign in"
+        subtitle="Welcome back. Sign in to open your workspace."
       >
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="login-email" className="text-[12px] font-medium text-white/70">
+            <Label htmlFor="login-email" className="text-[13px] font-medium text-[#3A3530]">
               Email
             </Label>
-            <DarkInput
+            <FieldInput
               id="login-email"
               type="email"
               value={email}
@@ -575,10 +641,10 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="login-password" className="text-[12px] font-medium text-white/70">
+            <Label htmlFor="login-password" className="text-[13px] font-medium text-[#3A3530]">
               Password
             </Label>
-            <DarkInput
+            <FieldInput
               id="login-password"
               type="password"
               value={password}
@@ -590,7 +656,7 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
           <div className="flex justify-end">
             <button
               type="button"
-              className="text-[12px] font-medium text-white/55 underline-offset-4 hover:text-white/85 hover:underline"
+              className="text-[13px] font-medium text-[#6B655E] underline-offset-4 hover:text-[#16130F] hover:underline"
               onClick={() => {
                 setFlow('reset-password')
                 setPassword('')
@@ -602,7 +668,7 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
             </button>
           </div>
           {notice && (
-            <p className="rounded-lg border border-emerald-400/25 bg-emerald-500/[0.08] px-3.5 py-2.5 text-[13px] text-emerald-200">
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-[13px] text-emerald-800">
               {notice}
             </p>
           )}
@@ -613,19 +679,13 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
             pending={pending}
             onPrimary={() => void finishLogin()}
           />
-          <button
-            type="button"
-            className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[13px] font-medium text-white/80 hover:bg-white/[0.06]"
-            onClick={() => void finishGoogle()}
-            disabled={pending}
-          >
-            Continue with Google
-          </button>
-          <p className="mt-4 text-center text-[13px] text-white/45">
+          <OrDivider />
+          <GoogleButton onClick={() => void finishGoogle()} disabled={pending} />
+          <p className="mt-6 text-center text-[13.5px] text-[#6B655E]">
             New here?{' '}
             <button
               type="button"
-              className="font-medium text-white/85 underline-offset-4 hover:underline"
+              className={BRAND_LINK}
               onClick={() => {
                 setFlow('create-account')
                 setStep(0)
@@ -648,7 +708,7 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
         subtitle="Forgot your password?"
       >
         <div className="space-y-4">
-          <p className="text-[13px] leading-relaxed text-white/70">
+          <p className="text-[14px] leading-relaxed text-[#3A3530]">
             Password reset by email isn&apos;t available yet. Ask an admin to reset your password, or sign in with
             Google if your account uses it. Once you&apos;re signed in you can change your password from Account →
             Security.
@@ -682,10 +742,10 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
             : 'Account verified. Create an instance to unlock your dedicated workspace.'
         }
       >
-        <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-          <p className="text-[11px] font-medium tracking-wide text-white/40 uppercase">Signed in</p>
-          <p className="mt-1 text-[13px] font-medium text-white">{account.email}</p>
-          <p className="mt-0.5 text-[12px] text-white/45">
+        <div className="mb-5 rounded-xl border border-black/[0.08] bg-[#FAFAF9] px-4 py-3">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#9A938B]">Signed in</p>
+          <p className="mt-1 text-[14px] font-medium text-[#16130F]">{account.email}</p>
+          <p className="mt-0.5 text-[12.5px] text-[#6B655E]">
             {PROJECT_ROLES.find((item) => item.value === account.role)?.label ?? account.role}
           </p>
         </div>
@@ -717,10 +777,10 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
 
         <FieldError message={error} />
 
-        <div className="mt-6 text-center text-[13px] text-white/45">
+        <div className="mt-6 text-center text-[13.5px] text-[#6B655E]">
           <button
             type="button"
-            className="font-medium text-white/80 underline-offset-4 hover:text-white hover:underline"
+            className={BRAND_LINK}
             onClick={() => {
               setAccount(null)
               goWelcome()
@@ -745,17 +805,14 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
         stepLabels={ACCOUNT_STEPS.map((item) => item.label)}
       >
         <div>
-          <p className="mb-5 text-[12px] font-medium tracking-wide text-white/45 lg:hidden">
-            Step {step + 1} of {ACCOUNT_STEPS.length} · {current.label}
-          </p>
 
           {step === 0 && (
             <div className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="fullName" className="text-[12px] font-medium text-white/70">
+                <Label htmlFor="fullName" className="text-[13px] font-medium text-[#3A3530]">
                   Full name
                 </Label>
-                <DarkInput
+                <FieldInput
                   id="fullName"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -764,7 +821,7 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
                 />
               </div>
               <div className="space-y-2.5">
-                <Label className="text-[12px] font-medium text-white/70">Role</Label>
+                <Label className="text-[13px] font-medium text-[#3A3530]">Role</Label>
                 <div className="flex flex-wrap gap-2">
                   {PROJECT_ROLES.map((item) => (
                     <button
@@ -772,10 +829,10 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
                       type="button"
                       onClick={() => setRole(item.value)}
                       className={cn(
-                        'rounded-full border px-3.5 py-1.5 text-[12px] font-medium transition-all',
+                        'rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
                         role === item.value
-                          ? 'border-cyan-300/50 bg-cyan-300/15 text-cyan-100'
-                          : 'border-white/10 bg-white/[0.03] text-white/55 hover:border-white/20 hover:text-white/80',
+                          ? 'border-[#163D2D] bg-[#163D2D] text-white'
+                          : 'border-black/[0.12] bg-white text-[#3A3530] hover:border-black/25',
                       )}
                     >
                       {item.label}
@@ -789,10 +846,10 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
           {step === 1 && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[12px] font-medium text-white/70">
+                <Label htmlFor="email" className="text-[13px] font-medium text-[#3A3530]">
                   Work email
                 </Label>
-                <DarkInput
+                <FieldInput
                   id="email"
                   type="email"
                   value={email}
@@ -803,10 +860,10 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-[12px] font-medium text-white/70">
+                  <Label htmlFor="password" className="text-[13px] font-medium text-[#3A3530]">
                     Password
                   </Label>
-                  <DarkInput
+                  <FieldInput
                     id="password"
                     type="password"
                     value={password}
@@ -815,10 +872,10 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword" className="text-[12px] font-medium text-white/70">
+                  <Label htmlFor="confirmPassword" className="text-[13px] font-medium text-[#3A3530]">
                     Confirm
                   </Label>
-                  <DarkInput
+                  <FieldInput
                     id="confirmPassword"
                     type="password"
                     value={confirmPassword}
@@ -831,7 +888,7 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
           )}
 
           {step === 2 && (
-            <dl className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+            <dl className="overflow-hidden rounded-xl border border-black/[0.08] bg-[#FAFAF9]">
               {(
                 [
                   ['Name', fullName.trim() || '—'],
@@ -841,10 +898,10 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
               ).map(([label, value]) => (
                 <div
                   key={label}
-                  className="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-3.5 last:border-b-0"
+                  className="flex items-center justify-between gap-4 border-b border-black/[0.08] px-4 py-3.5 last:border-b-0"
                 >
-                  <dt className="text-[12px] text-white/45">{label}</dt>
-                  <dd className="truncate text-right text-[13px] font-medium text-white">{value}</dd>
+                  <dt className="text-[13px] text-[#6B655E]">{label}</dt>
+                  <dd className="truncate text-right text-[13.5px] font-medium text-[#16130F]">{value}</dd>
                 </div>
               ))}
             </dl>
@@ -876,11 +933,11 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
           />
 
           {step === 0 && (
-            <p className="mt-4 text-center text-[13px] text-white/45">
+            <p className="mt-6 text-center text-[13.5px] text-[#6B655E]">
               Already have an account?{' '}
               <button
                 type="button"
-                className="font-medium text-white/85 underline-offset-4 hover:underline"
+                className={BRAND_LINK}
                 onClick={() => {
                   setFlow('login')
                   resetErrors()
@@ -906,9 +963,6 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
       stepLabels={INSTANCE_STEPS.map((item) => item.label)}
     >
       <div>
-        <p className="mb-5 text-[12px] font-medium tracking-wide text-white/45 lg:hidden">
-          Step {step + 1} of {INSTANCE_STEPS.length} · {current.label}
-        </p>
 
         {step === 0 && (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -937,26 +991,26 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
                   className={cn(
                     'flex h-full flex-col items-start gap-3 rounded-xl border p-4 text-left transition-all duration-300',
                     selected
-                      ? 'border-cyan-300/40 bg-cyan-300/[0.08] shadow-[0_0_0_1px_rgba(103,232,249,0.12)]'
-                      : 'border-white/10 bg-white/[0.03] hover:border-white/20',
+                      ? 'border-[#163D2D] bg-white shadow-[0_0_0_3px_rgba(22,61,45,0.08)]'
+                      : 'border-black/[0.1] bg-white hover:border-black/25',
                   )}
                 >
                   <span
                     className={cn(
                       'flex h-10 w-10 items-center justify-center rounded-xl border',
                       selected
-                        ? 'border-cyan-300/30 bg-cyan-300/10 text-cyan-200'
-                        : 'border-white/10 bg-white/[0.04] text-white/70',
+                        ? 'border-[#163D2D] bg-[#163D2D] text-white'
+                        : 'border-black/[0.08] bg-[#F4F4F2] text-[#3A3530]',
                     )}
                   >
                     <Icon className="h-4 w-4" />
                   </span>
                   <span>
-                    <span className="flex items-center gap-2 text-[14px] font-semibold text-white">
+                    <span className="flex items-center gap-2 text-[14.5px] font-semibold text-[#16130F]">
                       {label}
-                      {selected && <Check className="h-3.5 w-3.5 text-cyan-300" />}
+                      {selected && <Check className="h-3.5 w-3.5 text-[#163D2D]" strokeWidth={3} />}
                     </span>
-                    <span className="mt-1.5 block text-[12px] leading-relaxed text-white/50">
+                    <span className="mt-1.5 block text-[13px] leading-relaxed text-[#6B655E]">
                       {description}
                     </span>
                   </span>
@@ -968,10 +1022,10 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
 
         {step === 1 && (
           <div className="space-y-2">
-            <Label htmlFor="instanceName" className="text-[12px] font-medium text-white/70">
+            <Label htmlFor="instanceName" className="text-[13px] font-medium text-[#3A3530]">
               {accountType === 'company' ? 'Company name' : 'Instance name'}
             </Label>
-            <DarkInput
+            <FieldInput
               id="instanceName"
               value={instanceName}
               onChange={(e) => setInstanceName(e.target.value)}
@@ -982,7 +1036,7 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
         )}
 
         {step === 2 && (
-          <dl className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+          <dl className="overflow-hidden rounded-xl border border-black/[0.08] bg-[#FAFAF9]">
             {(
               [
                 ['Account', account?.email ?? '—'],
@@ -992,10 +1046,10 @@ export function ProjectAuthGate({ onAuthenticated }: ProjectAuthGateProps) {
             ).map(([label, value]) => (
               <div
                 key={label}
-                className="flex items-center justify-between gap-4 border-b border-white/10 px-4 py-3.5 last:border-b-0"
+                className="flex items-center justify-between gap-4 border-b border-black/[0.08] px-4 py-3.5 last:border-b-0"
               >
-                <dt className="text-[12px] text-white/45">{label}</dt>
-                <dd className="truncate text-right text-[13px] font-medium text-white">{value}</dd>
+                <dt className="text-[13px] text-[#6B655E]">{label}</dt>
+                <dd className="truncate text-right text-[13.5px] font-medium text-[#16130F]">{value}</dd>
               </div>
             ))}
           </dl>

@@ -11,10 +11,10 @@ export const CONFIG_CONSOLE_URL =
 
 export const AGENT_WORKFLOW_URL =
   import.meta.env.VITE_AGENT_WORKFLOW_URL?.replace(/\/$/, '') ||
-  `${MAIN_APP_URL}/tools/agent-workflow`
+  MAIN_APP_URL
 
 /** The workflow on the canvas, opened from the Admin Center; saving it there updates this row. */
-export const canvasUrl = (workflowId: string) => `${AGENT_WORKFLOW_URL}?open=${encodeURIComponent(workflowId)}`
+export const canvasUrl = (workflowId: string) => `${AGENT_WORKFLOW_URL}/?open=${encodeURIComponent(workflowId)}`
 
 export const STORAGE_KEYS = {
   theme: 'eleven-nodes-admin-theme',

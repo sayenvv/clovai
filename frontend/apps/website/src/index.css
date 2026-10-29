@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+    -webkit-text-size-adjust: 100%;
+    background: #ffffff;
+  }
+  body {
+    @apply bg-night font-sans text-bone antialiased;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  ::selection {
+    background: rgba(235, 97, 21, 0.18);
+    color: #16130f;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-ember ring-offset-2 ring-offset-night;
+  }
+}
+
+@layer components {
+  .page {
+    @apply mx-auto w-full max-w-page px-5 sm:px-8;
+  }
+  /* The surface every card and panel sits on: white, a hairline edge and a quiet shadow */
+  .glass {
+    background: #fff;
+    box-shadow:
+      0 0 0 1px rgba(23, 23, 23, 0.08),
+      0 1px 2px rgba(23, 23, 23, 0.04),
+      0 8px 24px -16px rgba(23, 23, 23, 0.16);
+  }
+  .hairline-x {
+    background: linear-gradient(90deg, transparent, rgba(31, 28, 26, 0.12), transparent);
+  }
+  /* Headlines: solid ink */
+  .text-sheen {
+    color: #16130f;
+  }
+  .text-ember-sheen {
+    background: linear-gradient(100deg, #c9500c, #f27a35 45%, #c9500c 55%, #f27a35);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    @apply animate-shimmer;
+  }
+  .dot-field {
+    background-image: radial-gradient(rgba(23, 23, 23, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  /* Section label: a small square in the brand green, then the name in mono caps */
+  .eyebrow {
+    @apply inline-flex items-center gap-2 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-bone-muted;
+  }
+  .eyebrow::before {
+    content: '';
+    @apply size-1.5 rounded-[1px] bg-forest-700;
+  }
+}
+
+/* Documentation prose */
+.doc {
+  @apply text-[16.5px] leading-[1.75] text-bone-soft;
+}
+.doc > * + * {
+  margin-top: 1.1em;
+}
+.doc h3 {
+  @apply mt-9 text-[19px] font-semibold tracking-[-0.02em] text-bone;
+}
+.doc h4 {
+  @apply text-[16px] font-semibold text-bone;
+}
+.doc a {
+  @apply font-medium text-ember-600 underline decoration-ember/30 underline-offset-[3px] transition-colors hover:decoration-ember;
+}
+.doc strong {
+  @apply font-semibold text-bone;
+}
+.doc em {
+  @apply text-bone;
+}
+.doc ul {
+  @apply space-y-2 pl-1;
+}
+.doc ul > li {
+  @apply relative pl-6;
+}
+.doc ul > li::before {
+  content: '';
+  @apply absolute left-1 top-[0.72em] size-1.5 rounded-full bg-ember/70;
+}
+/* Numbered steps joined by a rail */
+.doc-steps {
+  counter-reset: step;
+  @apply relative space-y-7;
+}
+.doc-steps > li {
+  counter-increment: step;
+  @apply relative pl-12;
+}
+.doc-steps > li::before {
+  content: counter(step);
+  @apply absolute left-0 top-0 flex size-8 items-center justify-center rounded-full bg-white font-mono text-[13px] font-medium text-ember-600;
+  box-shadow: 0 0 0 1px rgba(31, 28, 26, 0.08), 0 4px 12px -6px rgba(31, 28, 26, 0.25);
+}
+.doc-steps > li:not(:last-child)::after {
+  content: '';
+  @apply absolute bottom-[-1.5rem] left-4 top-10 w-px bg-ink/10;
+}
+.doc-steps p {
+  @apply mt-1;
+}
+.doc-note {
+  @apply rounded-2xl border px-5 py-4 text-[15px];
+}
+.doc-note-label {
+  @apply mb-1 font-mono text-[11px] font-medium uppercase tracking-[0.14em];
+}
+.doc-note-info {
+  @apply border-added/20 bg-added/[0.05];
+}
+.doc-note-info .doc-note-label {
+  @apply text-added;
+}
+.doc-note-tip {
+  @apply border-done/25 bg-done/[0.06];
+}
+.doc-note-tip .doc-note-label {
+  @apply text-done;
+}
+.doc-note-warn {
+  @apply border-edited/30 bg-edited/[0.07];
+}
+.doc-note-warn .doc-note-label {
+  @apply text-edited;
+}
+
+/* Fine film grain over the whole page, so large dark areas never look flat */
+.grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Sections rise in and come into focus once as they scroll into view (see Reveal.tsx) */
+.reveal {
+  opacity: 0;
+  transform: translateY(var(--rise, 14px));
+  transition:
+    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--delay, 0s);
+}
+.reveal[data-shown='true'] {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
