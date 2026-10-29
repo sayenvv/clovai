@@ -32,6 +32,7 @@ import type {
   WorkflowDeployment,
   WorkflowValidationIssue,
 } from '@/types/agent-workflow'
+import { DEFAULT_HTTP_TOOL } from '@/types/agent-workflow'
 import { findOrchestration, PATTERN_META } from '@/components/agent-workflow/orchestration-patterns'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
@@ -244,6 +245,11 @@ function defaultWorkflowMeta(): AgentWorkflowMeta {
 
 /** How long the editor waits after the last edit before auto-saving. */
 const AUTO_SAVE_DELAY_MS = 2000
+
+/** A name nobody chose: "New workflow", "Untitled workflow", "Workflow 2" and the like. */
+function isGenericWorkflowName(name: string): boolean {
+  return /^\s*((new|untitled)\s+)?(workflow|tab|page)?\s*\d*\s*$/i.test(name) || /^\s*(new|untitled)\b/i.test(name)
+}
 
 export default function AgentWorkflowPage() {
   const navigate = useNavigate()
@@ -521,11 +527,16 @@ export default function AgentWorkflowPage() {
       if (!result) return
       invalidateValidation()
       setDoc(result.document)
+      // The assistant names what it built; a tab the user named themselves keeps its name
+      const current = doc.pages.find((page) => page.id === doc.activePageId)?.name ?? ''
+      const named = sourcePage.name.trim()
+      const renamed = named && !isGenericWorkflowName(named) && isGenericWorkflowName(current) && named !== current
+      if (renamed) renamePage(doc.activePageId, named)
       setSelection(null)
       requestAnimationFrame(() => canvasRef.current?.fitView())
-      toast.success(`Updated "${result.pageName}" from the assistant.`)
+      toast.success(`Updated "${renamed ? named : result.pageName}" from the assistant.`)
     },
-    [doc, setDoc, invalidateValidation],
+    [doc, setDoc, invalidateValidation, renamePage],
   )
 
   // ?open=<workflowId> (e.g. "Open in canvas" in the Admin Center): show that workflow in its own
@@ -648,6 +659,34 @@ export default function AgentWorkflowPage() {
     [selectPage],
   )
 
+  /** A Loop block's steps: a new tab under the current one, linked to the block, then opened. */
+  const handleCreateLoopSteps = useCallback(
+    (nodeId: string) => {
+      const block = doc.pages.find((page) => page.id === doc.activePageId)?.diagram.nodes.find((node) => node.id === nodeId)
+      if (!block) return
+      const stepsPage = createPage(`${block.label || 'Loop'} steps`, { kind: 'sub', parentPageId: doc.activePageId })
+      setDoc((previous) => ({
+        ...previous,
+        pages: [
+          ...previous.pages.map((page) =>
+            page.id === previous.activePageId
+              ? {
+                  ...page,
+                  diagram: {
+                    ...page.diagram,
+                    nodes: page.diagram.nodes.map((node) => (node.id === nodeId ? { ...node, subWorkflowPageId: stepsPage.id } : node)),
+                  },
+                }
+              : page,
+          ),
+          stepsPage,
+        ],
+      }))
+      requestAnimationFrame(() => handleSelectPage(stepsPage.id))
+    },
+    [doc, setDoc, handleSelectPage],
+  )
+
   const handleNavigateHome = useCallback(() => {
     guardAction(() => navigate('/'))
   }, [guardAction, navigate])
@@ -719,6 +758,7 @@ export default function AgentWorkflowPage() {
               ...node.agent,
               ...(options?.mcpUrl ? { mcpUrl: options.mcpUrl } : {}),
               ...(options?.toolId ? { tools: [options.toolId] } : {}),
+              ...(options?.toolId === 'api_call' ? { http: { ...DEFAULT_HTTP_TOOL } } : {}),
             },
           }
         }
@@ -2212,6 +2252,7 @@ export default function AgentWorkflowPage() {
               onResizePointerDown={noopPointer}
               onToggleCollapse={() => navigate(ROUTES.agentWorkflow)}
               onOpenSubWorkflow={handleSelectPage}
+              onCreateLoopSteps={handleCreateLoopSteps}
               onWorkflowMetaChange={handleWorkflowMetaChange}
               onModelConfigChange={handleModelConfigChange}
               serverModelConfig={serverModelConfig}
@@ -2513,6 +2554,7 @@ export default function AgentWorkflowPage() {
             onResizePointerDown={right.onResizePointerDown}
             onToggleCollapse={right.toggle}
             onOpenSubWorkflow={handleSelectPage}
+              onCreateLoopSteps={handleCreateLoopSteps}
             onWorkflowMetaChange={handleWorkflowMetaChange}
             onModelConfigChange={handleModelConfigChange}
             serverModelConfig={serverModelConfig}

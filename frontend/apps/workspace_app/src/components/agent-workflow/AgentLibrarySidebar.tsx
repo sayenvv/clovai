@@ -25,10 +25,6 @@ import {
   LayoutGrid,
   List,
   GitFork,
-  ListOrdered,
-  MessagesSquare,
-  Network,
-  Split,
   Play,
   Plug,
   Plus,
@@ -52,6 +48,7 @@ import {
   type SidebarBlock,
 } from '@/components/agent-workflow/agent-workflow-defaults'
 import { WorkflowIcon } from '@/components/shared/WorkflowIcon'
+import { blockVisual, CAPABILITY_ICONS } from '@/components/agent-workflow/block-visuals'
 import { ExternalAgentListItem } from '@/components/agent-workflow/external-agent-ui'
 import { useModelConnections } from '@/components/agent-workflow/hooks/use-model-connections'
 import { ModelOwnerBadge } from '@/components/agent-workflow/ModelConnectionDialog'
@@ -89,7 +86,7 @@ export type LibrarySection =
 
 /** Library tabs that list catalog items, and the groups each one shows. */
 const CATALOG_SECTIONS: Partial<Record<LibrarySection, LibraryCategory[]>> = {
-  workflows: ['orchestration', 'flow'],
+  workflows: ['flow'],
   agents: ['agents'],
   tools: ['tool', 'mcp', 'integration'],
   skills: ['skill', 'memory'],
@@ -240,6 +237,11 @@ const BLOCK_KIND_LABELS: Record<string, string> = {
 }
 
 function resolveBlockVisual(block: SidebarBlock) {
+  // The shared look first, so the library shows the same icon as the canvas card
+  const shared = blockVisual(block.paletteId)
+  if (shared) {
+    return { styles: { icon: shared.tile, ring: '' }, Icon: shared.icon, kindLabel: BLOCK_KIND_LABELS[block.id] ?? block.label }
+  }
   const styles = BLOCK_STYLES[block.id === 'mcp-tool' ? 'mcp' : block.id] ?? BLOCK_STYLES.agent
   const Icon =
     block.id === 'start'
@@ -261,11 +263,10 @@ function resolveBlockVisual(block: SidebarBlock) {
 
 type LibraryView = 'list' | 'grid'
 
-type LibraryCategory = 'all' | 'orchestration' | 'agents' | AgentCapabilityKind | 'models' | 'flow'
+type LibraryCategory = 'all' | 'agents' | AgentCapabilityKind | 'models' | 'flow'
 
 const LIBRARY_CATEGORIES: { id: LibraryCategory; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'orchestration', label: 'Orchestration' },
   { id: 'agents', label: 'Agents' },
   { id: 'tool', label: 'Tools' },
   { id: 'skill', label: 'Skills' },
@@ -276,54 +277,12 @@ const LIBRARY_CATEGORIES: { id: LibraryCategory; label: string }[] = [
   { id: 'flow', label: 'Flow' },
 ]
 
-/**
- * Orchestrators: placing one sets the workflow's pattern, and the agents connected below it
- * become its team (see orchestration-patterns.ts).
- */
-export const LIBRARY_ORCHESTRATORS: { paletteId: string; label: string; description: string; badge: string; icon: LucideIcon }[] = [
-  {
-    paletteId: 'aw-sequential',
-    label: 'Sequential workflow',
-    description: 'Runs the agents below one after another',
-    badge: 'Sequential',
-    icon: ListOrdered,
-  },
-  {
-    paletteId: 'aw-concurrent',
-    label: 'Concurrent workflow',
-    description: 'Runs the agents below at the same time and merges results',
-    badge: 'Concurrent',
-    icon: GitFork,
-  },
-  {
-    paletteId: 'aw-orchestrator',
-    label: 'Magentic orchestrator',
-    description: 'Plans the task and delegates to the agents below',
-    badge: 'Magentic',
-    icon: Network,
-  },
-  {
-    paletteId: 'aw-group-manager',
-    label: 'Group chat manager',
-    description: 'Moderates a conversation between the agents below',
-    badge: 'Group chat',
-    icon: MessagesSquare,
-  },
-  {
-    paletteId: 'aw-router',
-    label: 'Handoff router',
-    description: 'Triages and hands off to one of the agents below',
-    badge: 'Handoff',
-    icon: Split,
-  },
-]
-
 export const ORCHESTRATOR_TILE = 'bg-gradient-to-b from-foreground/[0.06] to-foreground/[0.14] text-foreground ring-foreground/25'
 
 /** Ready-made agent types, added to the canvas like any block. */
 /** The Flow group: the steps the engine runs besides agents and tools. Code (executor) steps are left out until
  *  the engine can run them (they need a sandbox). */
-const FLOW_BLOCK_IDS = new Set(['start', 'end', 'switch', 'approval', 'ask-user', 'delay', 'wait-event'])
+const FLOW_BLOCK_IDS = new Set(['start', 'end', 'switch', 'approval', 'ask-user', 'delay', 'wait-event', 'transform', 'loop'])
 
 export const LIBRARY_AGENTS: { paletteId: string; label: string; description: string; icon: LucideIcon }[] = [
   { paletteId: 'aw-llm-agent', label: 'LLM agent', description: 'General-purpose reasoning agent', icon: Bot },
@@ -881,10 +840,6 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
   }, [flyoutOpen, importSourceId, closeFlyout])
 
   const needle = query.trim().toLowerCase()
-  const libraryOrchestrators = useMemo(
-    () => LIBRARY_ORCHESTRATORS.filter((item) => matches(needle, item.label, item.description, item.badge)),
-    [needle],
-  )
   const libraryAgents = useMemo(
     () => LIBRARY_AGENTS.filter((agent) => matches(needle, agent.label, agent.description)),
     [needle],
@@ -1250,24 +1205,6 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                     <CreateCustomCards kinds={CUSTOM_KINDS_BY_SECTION[resolvedSection]!} onCreate={onCreateCustom} view={libraryView} />
                   ) : null}
 
-                  {showCategory('orchestration') && libraryOrchestrators.length > 0 ? (
-                    <LibraryGroup view={libraryView} title="Orchestration" count={libraryOrchestrators.length}>
-                      {libraryOrchestrators.map((item) => (
-                        <LibraryRow
-                          view={libraryView}
-                          key={item.paletteId}
-                          icon={item.icon}
-                          tile={ORCHESTRATOR_TILE}
-                          title={item.label}
-                          description={item.description}
-                          badge={item.badge}
-                          dragPaletteId={item.paletteId}
-                          onClick={() => onAddAgent(item.paletteId)}
-                        />
-                      ))}
-                    </LibraryGroup>
-                  ) : null}
-
                   {showCategory('agents') && libraryAgents.length > 0 ? (
                     <LibraryGroup view={libraryView} title="Agents" count={libraryAgents.length}>
                       {libraryAgents.map((agent) => (
@@ -1295,7 +1232,7 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                           <LibraryRow
                             view={libraryView}
                             key={capability.id}
-                            icon={visual.icon}
+                            icon={CAPABILITY_ICONS[capability.id] ?? visual.icon}
                             tile={visual.tile}
                             title={capability.label}
                             description={capability.description}
@@ -1355,7 +1292,6 @@ export const AgentLibrarySidebar = memo(function AgentLibrarySidebar({
                   ) : null}
 
                   {needle &&
-                  libraryOrchestrators.length === 0 &&
                   libraryAgents.length === 0 &&
                   capabilitiesByKind.size === 0 &&
                   filteredClients.length === 0 &&

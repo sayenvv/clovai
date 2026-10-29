@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Braces, KeyRound, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
+import { Braces, KeyRound, Pencil, Plus, Save, Star, Trash2, X } from 'lucide-react'
 import {
   createModelClient,
   deleteModelClient,
+  setDefaultModelClient,
   errorMessage,
   listModelClients,
   listVariables,
@@ -176,6 +177,17 @@ export function ModelClientsView() {
     }
   }
 
+  const makeDefault = async (client: ModelClient) => {
+    if (!aiIntegrationId) return
+    setError('')
+    try {
+      await setDefaultModelClient(aiIntegrationId, client.id)
+      setClients((previous) => previous.map((item) => ({ ...item, isDefault: item.id === client.id })))
+    } catch (reason) {
+      setError(errorMessage(reason, 'Could not set the default model.'))
+    }
+  }
+
   const remove = async (client: ModelClient) => {
     if (!aiIntegrationId || !window.confirm(`Delete the model client “${client.name}”? Agents using it will stop working.`)) return
     setError('')
@@ -323,7 +335,14 @@ export function ModelClientsView() {
                   <tbody>
                     {clients.map((client) => (
                       <tr key={client.id} className="border-b border-border/40 last:border-0">
-                        <td className="px-3 py-2 font-medium text-foreground">{client.name}</td>
+                        <td className="px-3 py-2 font-medium text-foreground">
+                          {client.name}
+                          {client.isDefault ? (
+                            <span className="ml-2 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                              Default
+                            </span>
+                          ) : null}
+                        </td>
                         <td className="px-3 py-2 text-muted-foreground">
                           {PROVIDERS.find((item) => item.value === client.providerType)?.label ?? client.providerType}
                           <span className="font-mono"> · {client.model}</span>
@@ -344,6 +363,18 @@ export function ModelClientsView() {
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex justify-end gap-1">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className={cn('h-7 w-7', client.isDefault ? 'text-amber-500' : 'text-muted-foreground')}
+                              onClick={() => void makeDefault(client)}
+                              disabled={client.isDefault}
+                              aria-label={client.isDefault ? `${client.name} is the default model` : `Make ${client.name} the default model`}
+                              title={client.isDefault ? 'Default model: the AI assistant and workflows without a model run on it' : 'Make this the default model'}
+                            >
+                              <Star className={cn('h-3.5 w-3.5', client.isDefault && 'fill-current')} />
+                            </Button>
                             <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => open(client)} aria-label={`Edit ${client.name}`}>
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>

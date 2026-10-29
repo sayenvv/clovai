@@ -27,10 +27,12 @@ import {
 import type { CanvasPlan } from '@/components/agent-workflow/workflow-plan-from-diagram'
 import { listAgentNodes } from '@/components/agent-workflow/tool-agent-mapping'
 import type { DiagramPage } from '@/components/designer/diagram-types'
+import { addTokenUsage } from '@/services/token-usage-store'
 import { cn } from '@/utils/cn'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
 import { fetchSavedWorkflows, type SavedWorkflowSummary } from '@/services/activity-api'
+import { AssistantTestRun } from '@/components/agent-workflow/AssistantTestRun'
 import { AssistantRequestCard, DraftPreviewBar, DraftReviewCard, TestRunCard, draftHasChanges } from '@/components/agent-workflow/AssistantCards'
 import { WorkflowReferencePicker } from '@/components/agent-workflow/WorkflowReferencePicker'
 import { buildDraftPreview, type CanvasDraftPreview, type DraftPreview } from '@/components/agent-workflow/draft-preview'
@@ -45,6 +47,8 @@ import {
   fetchDraftPreview,
   streamAssistantMessage,
   testRunIdOf,
+  canvasTestOf,
+  type CanvasTestRequest,
   type AssistantRequest,
   type AssistantRun,
   type AssistantRunEvent,
@@ -79,6 +83,8 @@ export interface GenerateChatMessage {
   tokens?: number
   /** The assistant's test run in this turn, shown as a card for the user to check. */
   testRunId?: string
+  /** A test the assistant handed over, run in the chat until it finishes (then `testRunId` is set). */
+  liveTest?: CanvasTestRequest
 }
 
 interface PendingAttachment extends GenerateWorkflowAttachment {
@@ -150,6 +156,20 @@ function ContextChip({
   )
 }
 
+/** What the user answered, as their chat message: the text, the plan decision, or each form input with its label. */
+function answerText(request: AssistantRequest, response: Record<string, unknown>): string {
+  if (request.kind === 'approval') return response.approved ? 'Approved.' : 'Rejected.'
+  if ('approve' in response) return response.approve ? 'Build it as planned.' : String(response.changes ?? 'Change the plan.')
+  if (typeof response.text === 'string' && Object.keys(response).length === 1) return response.text
+  const fields = request.payload.responseSchema?.properties ?? {}
+  return Object.entries(response)
+    .map(([name, value]) => {
+      const shown = Array.isArray(value) ? value.join(', ') : typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)
+      return `${fields[name]?.title ?? name.replace(/_/g, ' ')}: ${shown}`
+    })
+    .join('\n')
+}
+
 function isTextFile(file: File): boolean {
   return file.type.startsWith('text/') || /\.(csv|json|log|md|txt|xml|yaml|yml)$/i.test(file.name)
 }
@@ -197,16 +217,28 @@ function RunSteps({
 }) {
   const running = (step: WorkflowChatMessage) => live && step.status === 'streaming'
   const shown = steps.filter((step) => !(running(step) && step.nodeId.endsWith(':thinking')))
-  const items: TimelineItem[] = shown.map((step) =>
-    running(step) && (!step.content.trim() || step.nodeId.startsWith('tool:'))
-      ? { key: step.id, state: 'running', title: activities[step.nodeId] || step.title || fallbackActivity, content: step.content }
-      : {
-          key: step.id,
-          state: step.status === 'failed' || step.content.startsWith('⚠') ? 'failed' : 'done',
-          title: foldedStep(step).title ?? 'Step',
-          content: readableChatText(step.content.replace(/^⚠\s*/, '')),
-        },
-  )
+  const items: TimelineItem[] = []
+  for (const step of shown) {
+    const item: TimelineItem =
+      running(step) && (!step.content.trim() || step.nodeId.startsWith('tool:'))
+        ? { key: step.id, state: 'running', title: activities[step.nodeId] || step.title || fallbackActivity, content: step.content }
+        : {
+            key: step.id,
+            state: step.status === 'failed' || step.content.startsWith('⚠') ? 'failed' : 'done',
+            title: foldedStep(step).title ?? 'Step',
+            content: readableChatText(step.content.replace(/^⚠\s*/, '')),
+          }
+    // An agent reading one step at a time makes a row per call; fold repeats of the same finished call into one.
+    const previous = items[items.length - 1]
+    if (previous && previous.state === 'done' && item.state === 'done' && previous.baseTitle === item.title) {
+      previous.count = (previous.count ?? 1) + 1
+      // "Read a step" → "Read the steps"
+      previous.title = item.title.replace(/\ba (\w+)$/, 'the $1s')
+      previous.content = [previous.content, item.content].filter(Boolean).join('\n')
+      continue
+    }
+    items.push({ ...item, baseTitle: item.title })
+  }
   // Between stages, and before the first one, something is still working.
   if (live && !items.some((item) => item.state === 'running')) {
     items.push({ key: 'working', state: 'running', title: fallbackActivity, content: '' })
@@ -263,6 +295,8 @@ interface TimelineItem {
   state: 'running' | 'done' | 'failed'
   title: string
   content: string
+  baseTitle?: string
+  count?: number
 }
 
 function preview(content: string): string {
@@ -589,6 +623,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
         content: run.output?.reply ?? '',
         ...(steps.length ? { steps, seconds, tokens } : {}),
         ...(testRunIdOf(run.events) ? { testRunId: testRunIdOf(run.events) } : {}),
+        ...(canvasTestOf(run.events) ? { liveTest: canvasTestOf(run.events) } : {}),
       },
     ])
     if (draftId) {
@@ -677,6 +712,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
         conversationId,
         referenceWorkflowId: reference?.workflow_id,
         onEvent: (event) => {
+          if (event.type === 'usage') addTokenUsage(event.totalTokens ?? 0)
           liveStepsRef.current = applyAssistantEvent(liveStepsRef.current, event)
           setLiveSteps(liveStepsRef.current)
         },
@@ -689,7 +725,20 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     if (!pendingRequest) return
     const { runId, request } = pendingRequest
     setPendingRequest(null)
-    void runAssistant(() => answerAssistant(runId, request.id, response))
+    // The answer joins the conversation like a message, and the assistant's steps on it stream in below
+    onMessagesChange((previous) => [...previous, { id: `user-${Date.now()}`, role: 'user', content: answerText(request, response) }])
+    const controller = new AbortController()
+    abortRef.current = controller
+    void runAssistant(() =>
+      answerAssistant(runId, request.id, response, {
+        onEvent: (event) => {
+          if (event.type === 'usage') addTokenUsage(event.totalTokens ?? 0)
+          liveStepsRef.current = applyAssistantEvent(liveStepsRef.current, event)
+          setLiveSteps(liveStepsRef.current)
+        },
+        signal: controller.signal,
+      }),
+    )
   }
 
   const acceptAssistantDraft = async () => {
@@ -834,7 +883,19 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
                     <ChatMarkdown content={message.content} streaming={false} />
                   </motion.div>
                 )}
-                {message.testRunId ? <TestRunCard runId={message.testRunId} onReportProblem={setDraft} /> : null}
+                {message.testRunId ? (
+                  <TestRunCard runId={message.testRunId} onReportProblem={setDraft} />
+                ) : message.liveTest ? (
+                  <AssistantTestRun
+                    testKey={message.id}
+                    test={message.liveTest}
+                    onFinished={(runId) =>
+                      onMessagesChange((previous) =>
+                        previous.map((item) => (item.id === message.id ? { ...item, testRunId: runId } : item)),
+                      )
+                    }
+                  />
+                ) : null}
               </ChatTurnBody>
             </div>
           ),

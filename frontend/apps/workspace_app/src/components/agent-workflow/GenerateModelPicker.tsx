@@ -61,6 +61,7 @@ export const GenerateModelPicker = memo(function GenerateModelPicker({
   const triggerHints =
     value.provider === 'client' ? [value.providerType, value.model] : value.provider === 'ollama' ? ['ollama'] : [serverModel]
   const admins = (clients ?? []).filter((client) => client.scope === 'application')
+  const fallback = admins.find((client) => client.isDefault)
 
   const group = (title: string, items: ModelConnection[]) =>
     items.length === 0 ? null : (
@@ -130,8 +131,8 @@ export const GenerateModelPicker = memo(function GenerateModelPicker({
         </div>
         <ModelItem
           name="Default"
-          detail="The application's default model"
-          hints={[serverModel]}
+          detail={fallback ? `${fallback.name} · ${fallback.model}` : "The application's default model"}
+          hints={fallback ? [fallback.providerType, fallback.model] : [serverModel]}
           selected={value.provider !== 'client'}
           onSelect={() => onChange({ provider: 'server' })}
         />

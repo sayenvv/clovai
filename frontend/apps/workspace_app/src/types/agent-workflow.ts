@@ -41,6 +41,12 @@ export interface AgentNodeConfig {
   agentType: AgentType
   description: string
   instructions: string
+  /** Transform blocks: the output, usually an expression such as `{{ nodes.intake.output.email }}`. */
+  transformOutput?: string
+  /** Loop blocks: the list to go through, the name each item has inside the loop, and how items run. */
+  loopOver?: string
+  loopItem?: string
+  loopMode?: 'sequential' | 'parallel'
   model: string
   /** The model client the agent runs on (see model-providers); guessed from `model` when unset. */
   modelProvider?: string
@@ -58,6 +64,8 @@ export interface AgentNodeConfig {
   mcpUrl?: string
   /** Function tool nodes: the backend function that runs it, as `package.module:function`. */
   handler?: string
+  /** HTTP tool nodes ("HTTP / API"): the request it sends, and how a long-running job is waited for. */
+  http?: HttpToolConfig
   /** The admin-listed context providers (memory, knowledge) this agent uses. */
   contextProviderIds?: string[]
   /** Eleven Nodes executor: stable id used in workflow build exports (defaults from node id). */
@@ -250,3 +258,33 @@ export interface WorkflowRunState {
     revisionCount?: number
   } | null
 }
+
+/**
+ * An HTTP tool's settings, built into a 4.0 `kind: "http"` tool. Text values may hold `{{ args.<name> }}` for the
+ * arguments the model passes (see the input schema). Headers, query and body are JSON text. The key is never
+ * stored here: `authVariable` names a secret variable, read when the call is made.
+ */
+export interface HttpToolConfig {
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  url: string
+  headers?: string
+  query?: string
+  body?: string
+  timeoutSeconds?: number
+  authType?: 'bearer' | 'header' | 'basic'
+  authVariable?: string
+  authHeader?: string
+  /** Start a job, then poll until it finishes. */
+  longRunning?: boolean
+  /** Where to check the job; empty: the `Location` of a 202 response. `{{ start.body.<field> }}` reads the first reply. */
+  statusUrl?: string
+  intervalSeconds?: number
+  jobTimeoutSeconds?: number
+  /** Expressions over the latest status reply, `response.status` and `response.body`. */
+  doneWhen?: string
+  failedWhen?: string
+  /** What to return once done; empty: the status reply's body. */
+  result?: string
+}
+
+export const DEFAULT_HTTP_TOOL: HttpToolConfig = { method: 'GET', url: '' }

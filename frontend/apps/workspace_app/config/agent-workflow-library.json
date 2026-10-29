@@ -94,6 +94,22 @@
       "toolCount": 0
     },
     {
+      "id": "transform",
+      "paletteId": "aw-transform",
+      "label": "Transform",
+      "description": "Reshapes data between steps without a model, using an expression for its output.",
+      "agentType": "control",
+      "toolCount": 0
+    },
+    {
+      "id": "loop",
+      "paletteId": "aw-loop",
+      "label": "Loop",
+      "description": "Runs the steps in its own tab once for each item in a list, one by one or in parallel.",
+      "agentType": "control",
+      "toolCount": 0
+    },
+    {
       "id": "agent",
       "paletteId": "aw-agent",
       "label": "Agent",

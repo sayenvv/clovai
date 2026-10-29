@@ -25,6 +25,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { DesignerResizeHandle } from '@/components/designer/DesignerResizeHandle'
 import { AgentConfigPanel } from '@/components/agent-workflow/AgentConfigPanel'
 import { SwitchConfigPanel } from '@/components/agent-workflow/SwitchConfigPanel'
+import { FLOW_STEP_PALETTE_IDS, FlowStepPanel } from '@/components/agent-workflow/FlowStepPanel'
 import { AttachCapabilityPanel } from '@/components/agent-workflow/AttachCapabilityPanel'
 import { ConnectorConfigPanel } from '@/components/agent-workflow/ConnectorConfigPanel'
 import { findOrchestration, resolveExecutionType } from '@/components/agent-workflow/orchestration-patterns'
@@ -217,6 +218,8 @@ interface AgentPropertiesShellProps {
   onResizePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
   onToggleCollapse: () => void
   onOpenSubWorkflow?: (pageId: string) => void
+  /** A Loop block's "Create steps tab": a tab for the steps it repeats. */
+  onCreateLoopSteps?: (nodeId: string) => void
   onConvertToSubWorkflow?: () => void
   canConvertToSubWorkflow?: boolean
   onWorkflowMetaChange?: (patch: Partial<AgentWorkflowMeta>) => void
@@ -245,6 +248,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   onResizePointerDown,
   onToggleCollapse,
   onOpenSubWorkflow,
+  onCreateLoopSteps,
   onConvertToSubWorkflow,
   canConvertToSubWorkflow = false,
   onWorkflowMetaChange,
@@ -332,6 +336,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
       diagram={diagram}
       onChange={onChange}
       onOpenSubWorkflow={onOpenSubWorkflow}
+      onCreateLoopSteps={onCreateLoopSteps}
       workflowMeta={workflowMeta}
       modelConfig={modelConfig}
       serverModelConfig={serverModelConfig}
@@ -620,6 +625,7 @@ export function DetailsPanelContent({
   diagram,
   onChange,
   onOpenSubWorkflow,
+  onCreateLoopSteps,
   modelConfig,
   serverModelConfig,
   onWorkflowMetaChange,
@@ -641,6 +647,7 @@ export function DetailsPanelContent({
   diagram: Diagram
   onChange: (updater: (previous: Diagram) => Diagram) => void
   onOpenSubWorkflow?: (pageId: string) => void
+  onCreateLoopSteps?: (nodeId: string) => void
   workflowMeta?: AgentWorkflowMeta
   modelConfig: WorkflowModelConfig
   serverModelConfig: WorkflowModelConfig
@@ -666,6 +673,12 @@ export function DetailsPanelContent({
 
   if (selection?.kind === 'node' && selectedNode && isSwitchNode(selectedNode)) {
     return <SwitchConfigPanel node={selectedNode} diagram={diagram} onChange={onChange} />
+  }
+
+  if (selection?.kind === 'node' && selectedNode && FLOW_STEP_PALETTE_IDS.has(selectedNode.paletteId)) {
+    return (
+      <FlowStepPanel node={selectedNode} doc={doc} onChange={onChange} onOpenTab={onOpenSubWorkflow} onCreateLoopSteps={onCreateLoopSteps} />
+    )
   }
 
   if (selection?.kind === 'node' && selectedNode && isSubWorkflowNode(selectedNode)) {

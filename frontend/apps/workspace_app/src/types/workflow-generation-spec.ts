@@ -18,6 +18,8 @@ export type SpecRole =
   | 'attached'
   /** A flow step whose rule sets the 4.0 node `type` and its fields directly (ask user, delay, wait for event). */
   | 'step'
+  /** A Loop block: its steps tab (`subWorkflowPageId`) is built as the loop's body. */
+  | 'loop'
   | 'switch'
   | 'chain'
   | 'parallel'

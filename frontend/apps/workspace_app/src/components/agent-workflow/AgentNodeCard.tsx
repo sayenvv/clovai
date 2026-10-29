@@ -6,14 +6,11 @@ import {
   Cpu,
   Database,
   GitFork,
-  Hourglass,
   ListOrdered,
-  MessageCircleQuestion,
   MessagesSquare,
   Network,
   Plug,
   Plus,
-  Radio,
   ShieldCheck,
   Sparkles,
   Split,
@@ -23,6 +20,15 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { BLOCK_VISUALS, CAPABILITY_ICONS as LIBRARY_ITEM_ICONS } from '@/components/agent-workflow/block-visuals'
+import { AGENT_CAPABILITIES } from '@/components/agent-workflow/agent-capabilities'
+
+const CAPABILITY_ICON_BY_NAME = new Map(
+  AGENT_CAPABILITIES.flatMap((capability) => {
+    const icon = LIBRARY_ITEM_ICONS[capability.id]
+    return icon ? [[(capability.nodeLabel ?? capability.label).toLowerCase(), icon] as const] : []
+  }),
+)
 import { useWorkflowModel } from '@/components/agent-workflow/workflow-model-context'
 import { agentOwnModel } from '@/components/agent-workflow/workflow-model-config'
 import { contextProviderCounts, useContextProviders } from '@/components/agent-workflow/hooks/use-context-providers'
@@ -428,11 +434,16 @@ function ReviewCard({ title, isSelected, className }: { title: string; isSelecte
 }
 
 /** The flow steps besides approvals: what each pauses for, with its icon and accent. */
-const FLOW_STEPS: Record<string, { label: string; icon: LucideIcon; tile: string }> = {
-  'aw-ask-user': { label: 'Ask user', icon: MessageCircleQuestion, tile: 'bg-sky-500 shadow-sky-500/30' },
-  'aw-delay': { label: 'Delay', icon: Hourglass, tile: 'bg-zinc-500 shadow-zinc-500/30' },
-  'aw-wait-event': { label: 'Wait for event', icon: Radio, tile: 'bg-violet-500 shadow-violet-500/30' },
+const FLOW_STEP_LABELS: Record<string, string> = {
+  'aw-ask-user': 'Ask user',
+  'aw-delay': 'Delay',
+  'aw-wait-event': 'Wait for event',
+  'aw-transform': 'Transform',
+  'aw-loop': 'Loop',
 }
+const FLOW_STEPS: Record<string, { label: string; icon: LucideIcon; tile: string }> = Object.fromEntries(
+  Object.entries(FLOW_STEP_LABELS).map(([paletteId, label]) => [paletteId, { label, icon: BLOCK_VISUALS[paletteId].icon, tile: BLOCK_VISUALS[paletteId].solid }]),
+)
 
 function FlowStepCard({ paletteId, title, meta, isSelected, className }: { paletteId: string; title: string; meta?: string; isSelected: boolean; className?: string }) {
   const step = FLOW_STEPS[paletteId]
@@ -504,7 +515,8 @@ function ChildCard({
   className?: string
 }) {
   const kindStyle = CHILD_KIND_STYLES[kind]
-  const KindIcon = kindStyle.icon
+  // A library tool keeps its own icon on the canvas (the chip's name is the tool's)
+  const KindIcon = CAPABILITY_ICON_BY_NAME.get(title.trim().toLowerCase()) ?? kindStyle.icon
   return (
     <div
       className={cn(
@@ -638,7 +650,12 @@ export const AgentNodeCard = memo(function AgentNodeCard({
     return <ReviewCard title={title} isSelected={isSelected} className={className} />
   }
   if (FLOW_STEPS[node.paletteId]) {
-    const meta = node.paletteId === 'aw-delay' ? `${agent?.timeoutSeconds ?? 30} s` : undefined
+    const meta =
+      node.paletteId === 'aw-delay'
+        ? `${agent?.timeoutSeconds ?? 30} s`
+        : node.paletteId === 'aw-loop'
+          ? `${agent?.loopMode === 'parallel' ? 'in parallel' : 'one by one'}${node.subWorkflowPageId ? '' : ' · no steps yet'}`
+          : undefined
     return <FlowStepCard paletteId={node.paletteId} title={title} meta={meta} isSelected={isSelected} className={className} />
   }
 

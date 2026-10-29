@@ -16,8 +16,8 @@ import { WORKFLOW_CONNECTION_NAME, WORKFLOW_MODEL_PRESET } from '@/components/ag
 import { defaultAgentConfig, defaultConnectorConfig } from '@/components/agent-workflow/agent-workflow-defaults'
 import { layoutWorkflowDiagram } from '@/components/agent-workflow/workflow-layout'
 import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
-import type { Diagram, DiagramEdge, DiagramNode } from '@/components/designer/diagram-types'
-import type { AgentNodeConfig } from '@/types/agent-workflow'
+import type { Diagram, DiagramEdge, DiagramNode, DiagramPage } from '@/components/designer/diagram-types'
+import type { AgentNodeConfig, HttpToolConfig } from '@/types/agent-workflow'
 import type { AgentV4, EdgeV4, NodeV4, ToolV4, WorkflowV4Document } from '@/types/workflow-v4'
 
 const MAGENTIC_PROMPT_KEYS: Record<string, string> = {
@@ -45,6 +45,9 @@ const FLOW_STEP_PALETTE: Record<string, string> = { ask_user: 'aw-ask-user', del
 
 export function importWorkflowV4(document: WorkflowV4Document): ImportedV4Workflow {
   const losses: string[] = []
+  const pageId = `page-v4-${document.meta.id}`
+  // Loop bodies, each as a steps tab under the main one
+  const extraPages: DiagramPage[] = []
   // Only meta and graph are required; every other section may be missing
   const graph = { ...document.graph, edges: document.graph.edges ?? [] }
   const agents = new Map((document.agents ?? []).map((agent) => [agent.id, agent]))
@@ -83,7 +86,50 @@ export function importWorkflowV4(document: WorkflowV4Document): ImportedV4Workfl
     const at = position(node.id, index)
     const base = { id: node.id, label: node.name || node.type, x: at.x, y: at.y }
     // Flow steps the canvas draws as their own blocks; the block's name carries the question or event
-    const step = node as unknown as { type: string; question?: unknown; seconds?: number; source?: { event?: string } }
+    const step = node as unknown as {
+      type: string
+      question?: unknown
+      seconds?: number
+      source?: { event?: string }
+      output?: unknown
+      over?: unknown
+      as?: string
+      mode?: 'sequential' | 'parallel'
+      body?: WorkflowV4Document['graph']
+    }
+    if (step.type === 'transform') {
+      const config = defaultAgentConfig('aw-transform', base.label)
+      config.transformOutput = typeof step.output === 'string' ? step.output : JSON.stringify(step.output ?? '', null, 2)
+      nodes.push({ ...base, paletteId: 'aw-transform', agent: config })
+      return
+    }
+    if (step.type === 'loop') {
+      const config = defaultAgentConfig('aw-loop', base.label)
+      config.loopOver = typeof step.over === 'string' ? step.over : JSON.stringify(step.over ?? '')
+      config.loopItem = step.as ?? 'item'
+      config.loopMode = step.mode ?? 'sequential'
+      // The body becomes the loop's steps tab: its steps after a Start, imported the same way
+      let stepsPageId: string | undefined
+      if (step.body?.nodes?.length) {
+        const startId = `${node.id}:start`
+        const body = importWorkflowV4({
+          ...document,
+          meta: { ...document.meta, id: `${document.meta.id}:${node.id}`, name: `${base.label} steps` },
+          canvas: undefined,
+          graph: {
+            startNodeId: startId,
+            nodes: [{ id: startId, name: 'Start', type: 'start' } as NodeV4, ...step.body.nodes],
+            edges: [{ id: `${startId}:edge`, from: startId, to: step.body.startNodeId } as EdgeV4, ...(step.body.edges ?? [])],
+          },
+        } as unknown as WorkflowV4Document)
+        const bodyPage = body.document.pages[0]
+        stepsPageId = `page-loop-${node.id}`
+        extraPages.push({ ...bodyPage, id: stepsPageId, name: `${base.label} steps`, kind: 'sub', parentPageId: pageId }, ...body.document.pages.slice(1))
+        losses.push(...body.losses)
+      }
+      nodes.push({ ...base, paletteId: 'aw-loop', agent: config, ...(stepsPageId ? { subWorkflowPageId: stepsPageId } : {}) })
+      return
+    }
     const flowPalette = FLOW_STEP_PALETTE[step.type]
     if (flowPalette) {
       const label =
@@ -181,10 +227,9 @@ export function importWorkflowV4(document: WorkflowV4Document): ImportedV4Workfl
   }
 
   const diagram = layoutWorkflowDiagram({ nodes, edges } satisfies Diagram, 'horizontal')
-  const pageId = `page-v4-${document.meta.id}`
   return {
     document: {
-      pages: [{ id: pageId, name: document.meta.name, diagram, kind: 'main', workflowId: document.meta.id }],
+      pages: [{ id: pageId, name: document.meta.name, diagram, kind: 'main', workflowId: document.meta.id }, ...extraPages],
       activePageId: pageId,
     },
     losses: [...new Set(losses)],
@@ -198,6 +243,11 @@ function toolNode(tool: ToolV4, agentId: string, at: { x: number; y: number }, i
   config.approvalMode = tool.approval === 'always' ? 'always_require' : 'never_require'
   if (tool.kind === 'mcp') config.mcpUrl = tool.server.url
   if (tool.kind === 'function') config.handler = tool.handler
+  if (tool.kind === 'http') {
+    config.tools = ['api_call']
+    config.http = httpConfig(tool)
+    if (tool.inputSchema) config.inputSchema = JSON.stringify(tool.inputSchema, null, 2)
+  }
   // One block per agent that uses the tool, so a shared tool gets an id per agent
   return { id: `${agentId}:${tool.id}`, paletteId, label: tool.name, x: at.x + 170 * index, y: at.y + 112, agent: config, mappedAgentId: agentId }
 }
@@ -224,3 +274,36 @@ function canvasEdge(edge: EdgeV4, nodes: Map<string, NodeV4>, routers: Set<strin
   }
 }
 
+
+/** A 4.0 http tool's request, auth and long-running settings, as the HTTP tool panel edits them. */
+function httpConfig(tool: Extract<ToolV4, { kind: 'http' }>): HttpToolConfig {
+  const request = tool.request as Record<string, unknown>
+  const auth = (tool as { auth?: Record<string, unknown> }).auth
+  const job = (tool as { longRunning?: Record<string, unknown> }).longRunning
+  const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined)
+  const json = (value: unknown) => (value && typeof value === 'object' ? JSON.stringify(value, null, 2) : undefined)
+  const number = (value: unknown) => (typeof value === 'number' ? value : undefined)
+  const method = String(request.method ?? 'GET').toUpperCase()
+  return {
+    method: (['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ? method : 'GET') as HttpToolConfig['method'],
+    url: text(request.url) ?? '',
+    headers: json(request.headers),
+    query: json(request.query),
+    body: json(request.body),
+    timeoutSeconds: number(request.timeoutSeconds),
+    ...(auth
+      ? { authType: (text(auth.type) ?? 'bearer') as HttpToolConfig['authType'], authVariable: text(auth.variable) ?? '', authHeader: text(auth.header) }
+      : {}),
+    ...(job
+      ? {
+          longRunning: true,
+          statusUrl: text(job.statusUrl),
+          intervalSeconds: number(job.intervalSeconds),
+          jobTimeoutSeconds: number(job.timeoutSeconds),
+          doneWhen: text(job.doneWhen),
+          failedWhen: text(job.failedWhen),
+          result: text(job.result),
+        }
+      : {}),
+  }
+}

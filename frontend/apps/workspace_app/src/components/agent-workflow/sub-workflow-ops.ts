@@ -20,6 +20,7 @@ import {
 import { isAgentNode } from '@/components/agent-workflow/tool-agent-mapping'
 
 export const SUB_WORKFLOW_PALETTE_ID = 'aw-sub-workflow'
+export const LOOP_PALETTE_ID = 'aw-loop'
 
 function createEdgeId(): string {
   return `edge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
@@ -70,6 +71,8 @@ function nodeBounds(nodes: DiagramNode[]): {
 }
 
 export function isSubWorkflowNode(node: DiagramNode): boolean {
+  // A Loop also links a tab (its steps), but it is not a subworkflow
+  if (node.paletteId === LOOP_PALETTE_ID) return false
   return node.paletteId === SUB_WORKFLOW_PALETTE_ID || Boolean(node.subWorkflowPageId)
 }
 

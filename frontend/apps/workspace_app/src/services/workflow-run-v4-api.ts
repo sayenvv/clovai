@@ -36,6 +36,16 @@ function asLogEvent(event: Record<string, unknown>): ExecutionLogEvent | null {
       return { event: 'agent', agentId: nodeId, agent: name, status: 'completed' }
     case 'node.failed':
       return { event: 'agent', agentId: nodeId, agent: name, status: 'failed', message: String(event.error ?? '') }
+    case 'usage':
+      // One model call's tokens (the server records and charges them; the run view updates the allowance shown)
+      return {
+        event: 'usage',
+        agentId: typeof event.agentId === 'string' ? event.agentId : undefined,
+        agent: typeof event.agent === 'string' ? event.agent : undefined,
+        inputTokens: Number(event.inputTokens ?? 0),
+        outputTokens: Number(event.outputTokens ?? 0),
+        totalTokens: Number(event.totalTokens ?? 0),
+      }
     case 'progress':
       return { event: 'agent', agentId: nodeId, agent: name, status: 'running', message: String(event.message ?? '') }
     default:
@@ -43,9 +53,11 @@ function asLogEvent(event: Record<string, unknown>): ExecutionLogEvent | null {
   }
 }
 
-/** Start the saved workflow; `onEvent` gets each node as it runs. Resolves once it finishes or waits. */
+/** Start the saved workflow (or a `document` sent inline, such as an assistant draft); `onEvent` gets each node
+ * as it runs. Resolves once it finishes or waits. */
 export async function startWorkflowRun(options: {
-  workflowId: string
+  workflowId?: string
+  document?: Record<string, unknown>
   inputs: Record<string, unknown>
   onEvent: (event: ExecutionLogEvent) => void
   signal?: AbortSignal
@@ -53,7 +65,7 @@ export async function startWorkflowRun(options: {
   const response = await authorizedFetch('/api/v1/workflows/v4/runs/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...(await orchestrationHeaders()) },
-    body: JSON.stringify({ workflowId: options.workflowId, inputs: options.inputs }),
+    body: JSON.stringify(options.document ? { document: options.document, inputs: options.inputs } : { workflowId: options.workflowId, inputs: options.inputs }),
     signal: options.signal,
   })
   if (!response.ok || !response.body) throw new Error(await errorMessage(response))

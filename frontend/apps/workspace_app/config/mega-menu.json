@@ -781,6 +781,51 @@
             "order": 21
           },
           {
+            "id": "aw-ask-user",
+            "label": "Ask user",
+            "description": "Pause to ask a question, then continue with the answer",
+            "shape": "manual-input",
+            "color": "slate",
+            "group": "Control",
+            "order": 23
+          },
+          {
+            "id": "aw-delay",
+            "label": "Delay",
+            "description": "Wait a set number of seconds",
+            "shape": "process",
+            "color": "slate",
+            "group": "Control",
+            "order": 24
+          },
+          {
+            "id": "aw-wait-event",
+            "label": "Wait for event",
+            "description": "Hold until an outside system sends an event",
+            "shape": "process",
+            "color": "slate",
+            "group": "Control",
+            "order": 25
+          },
+          {
+            "id": "aw-transform",
+            "label": "Transform",
+            "description": "Reshape data between steps without a model",
+            "shape": "process",
+            "color": "slate",
+            "group": "Control",
+            "order": 26
+          },
+          {
+            "id": "aw-loop",
+            "label": "Loop",
+            "description": "Run a set of steps for each item in a list",
+            "shape": "process",
+            "color": "slate",
+            "group": "Control",
+            "order": 27
+          },
+          {
             "id": "aw-parallel",
             "label": "Parallel Run",
             "description": "Execute agents concurrently",

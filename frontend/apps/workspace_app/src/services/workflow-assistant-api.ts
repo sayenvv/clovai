@@ -1,3 +1,4 @@
+import type { FormSchema } from '@/components/agent-workflow/SchemaForm'
 import { authorizedFetch } from '@/services/api-auth'
 import { orchestrationHeaders } from '@/services/orchestration-api'
 import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
@@ -42,6 +43,9 @@ export interface AssistantRunEvent {
       /** A run the tool started: the assistant's test run, shown for the user to verify. */
       runId?: string
       status?: string
+      /** A test handed to the canvas (`status` "started_on_canvas"): the draft and its test inputs. */
+      draftId?: string
+      inputs?: Record<string, unknown>
     }
   }
   time: string
@@ -55,7 +59,7 @@ export interface AssistantRequest {
   payload: {
     message?: string
     question?: string
-    responseSchema?: { properties?: Record<string, { type?: string }> } | null
+    responseSchema?: FormSchema | null
   }
 }
 
@@ -92,7 +96,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (response.status === 204 ? undefined : await response.json()) as T
 }
 
-/** The picked model as the assistant API takes it; the default model sends nothing (the assistant's own presets). */
+/** The picked model as the assistant API takes it; "Default" sends nothing, so the Admin Center's default model runs. */
 function assistantModel(model: GenerateWorkflowModel | undefined): Record<string, string> | undefined {
   switch (model?.provider) {
     case 'client':
@@ -133,8 +137,32 @@ export async function streamAssistantMessage(options: {
     }),
     signal: options.signal,
   })
-  if (!response.ok || !response.body) throw new Error(await errorMessage(response))
+  return readAssistantStream(response, options.onEvent)
+}
 
+/** Answer what a waiting run asked (a plan approval, a question, a form) and continue it; `onEvent` gets each
+ * step of the continued run as it happens, as for a message. */
+export async function answerAssistant(
+  runId: string,
+  requestId: string,
+  response: Record<string, unknown>,
+  options: { onEvent?: (event: AssistantRunEvent) => void; signal?: AbortSignal } = {},
+): Promise<AssistantRun> {
+  const reply = await authorizedFetch(
+    `/api/v1/workflows/v4/runs/${encodeURIComponent(runId)}/requests/${encodeURIComponent(requestId)}/stream`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await orchestrationHeaders()) },
+      body: JSON.stringify({ response }),
+      signal: options.signal,
+    },
+  )
+  return readAssistantStream(reply, options.onEvent)
+}
+
+/** A run's server-sent events: each step to `onEvent`, then the run itself (`event: run`). */
+async function readAssistantStream(response: Response, onEvent?: (event: AssistantRunEvent) => void): Promise<AssistantRun> {
+  if (!response.ok || !response.body) throw new Error(await errorMessage(response))
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
@@ -154,19 +182,11 @@ export async function streamAssistantMessage(options: {
       const parsed = JSON.parse(data) as unknown
       if (kind === 'run') run = parsed as AssistantRun
       else if (kind === 'error') throw new Error((parsed as { error?: string }).error ?? 'The assistant run failed')
-      else options.onEvent?.(parsed as AssistantRunEvent)
+      else onEvent?.(parsed as AssistantRunEvent)
     }
   }
   if (!run) throw new Error('The assistant stopped without an answer')
   return run
-}
-
-/** Answer what a waiting run asked (a plan approval, a question, a confirmation) and continue it. */
-export function answerAssistant(runId: string, requestId: string, response: Record<string, unknown>): Promise<AssistantRun> {
-  return request(`/api/v1/workflows/v4/runs/${encodeURIComponent(runId)}/requests/${encodeURIComponent(requestId)}`, {
-    method: 'POST',
-    body: JSON.stringify({ response }),
-  })
 }
 
 /** A finished (or waiting) run, such as the assistant's test run of a draft. */
@@ -182,6 +202,20 @@ export function fetchTestRun(runId: string): Promise<TestRun> {
 export function testRunIdOf(events: AssistantRunEvent[]): string | undefined {
   return [...events].reverse().find((event) => event.type === 'tool.completed' && event.tool === 'test_run' && event.detail?.result?.runId)
     ?.detail?.result?.runId
+}
+
+/** A test the assistant handed to the canvas (`test_run`): the draft and the inputs to run it with. */
+export interface CanvasTestRequest {
+  draftId: string
+  inputs: Record<string, unknown>
+}
+
+export function canvasTestOf(events: AssistantRunEvent[]): CanvasTestRequest | undefined {
+  const result = [...events]
+    .reverse()
+    .find((event) => event.type === 'tool.completed' && event.tool === 'test_run' && event.detail?.result?.status === 'started_on_canvas')
+    ?.detail?.result
+  return result?.draftId ? { draftId: result.draftId, inputs: result.inputs ?? {} } : undefined
 }
 
 /** A draft of a 4.0 document, such as the open canvas tab, for the assistant to work on. */

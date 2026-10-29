@@ -163,6 +163,8 @@ export interface ModelClient {
   apiVersion: string | null
   apiKeyVariable: string | null
   hasApiKey: boolean
+  /** The application's default model: the AI assistant, and workflows without a model the application has, run on it. */
+  isDefault?: boolean
   updatedAt: string | null
 }
 
@@ -194,6 +196,12 @@ export function updateModelClient(aiIntegrationId: string, id: string, input: Mo
   return request(withApplication(`/api/v1/admin/model-clients/${encodeURIComponent(id)}`, aiIntegrationId), {
     method: 'PUT',
     body: JSON.stringify(input),
+  })
+}
+
+export function setDefaultModelClient(aiIntegrationId: string, id: string): Promise<ModelClient> {
+  return request(withApplication(`/api/v1/admin/model-clients/${encodeURIComponent(id)}/default`, aiIntegrationId), {
+    method: 'PUT',
   })
 }
 

@@ -36,6 +36,8 @@ const PALETTE_AGENT_TYPE: Record<string, AgentType> = {
   'aw-ask-user': 'control',
   'aw-delay': 'control',
   'aw-wait-event': 'control',
+  'aw-transform': 'control',
+  'aw-loop': 'control',
   'aw-parallel': 'control',
   'aw-merge': 'control',
   'aw-memory': 'memory',

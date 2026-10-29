@@ -1,3 +1,4 @@
+import { isFlowBoundaryNode } from '@/components/agent-workflow/workflow-flow-nodes'
 /**
  * The canvas as a workflow format 4.0 document (backend `docs/workflow-format.md`), driven by the
  * workflow generation spec that admins publish in the Admin Center.
@@ -392,6 +393,33 @@ export function buildWorkflowV4({
     } as AgentV4)
   }
 
+  // ---- Loop bodies: a Loop block's steps tab, built like a workflow, its Start and End dropped
+  const merge = <T extends { id: string }>(into: T[], items: T[] | undefined) => {
+    for (const item of items ?? []) if (!into.some((existing) => existing.id === item.id)) into.push(item)
+  }
+  const loopBody = (block: DiagramNode): { startNodeId: string; nodes: NodeV4[]; edges: EdgeV4[] } => {
+    const bodyPage = doc.pages.find((candidate) => candidate.id === block.subWorkflowPageId)
+    const built = bodyPage && bodyPage.diagram.nodes.some((item) => !isFlowBoundaryNode(item))
+      ? buildWorkflowV4({ doc, pageId: bodyPage.id, diagram: bodyPage.diagram, spec, serverModelConfig, configuration: settings })
+      : undefined
+    const steps = built?.graph.nodes.filter((item) => item.type !== 'start' && item.type !== 'end') ?? []
+    if (!built || steps.length === 0) {
+      // No steps yet: each item passes through unchanged
+      const passId = stableUuid(`loop-pass:${block.id}`)
+      return { startNodeId: passId, nodes: [{ id: passId, name: 'Each item', type: 'transform', output: '{{ loop.item }}' } as unknown as NodeV4], edges: [] }
+    }
+    merge(agents, built.agents)
+    merge(tools, built.tools)
+    for (const model of built.models) if (!models.has(model.id)) models.set(model.id, model)
+    for (const connection of built.connections) if (!connections.has(connection.id)) connections.set(connection.id, connection)
+    const ids = new Set(steps.map((item) => item.id))
+    const start = built.graph.nodes.find((item) => item.type === 'start')
+    const first = built.graph.edges.find((edge) => edge.from === start?.id && ids.has(edge.to))?.to ?? steps[0].id
+    return { startNodeId: first, nodes: steps, edges: built.graph.edges.filter((edge) => ids.has(edge.from) && ids.has(edge.to)) }
+  }
+  const loopLimits = (block: DiagramNode) =>
+    block.agent?.loopMode === 'parallel' ? { limits: { concurrency: 4, maxItems: 100 } } : { limits: { maxItems: 100 } }
+
   // ---- Graph nodes
   const nodes: NodeV4[] = []
   const subworkflows: SubworkflowV4[] = []
@@ -443,6 +471,11 @@ export function buildWorkflowV4({
         const code = { id, name: node.label, type: 'code', ...fields } as Extract<NodeV4, { type: 'code' }>
         code.source = normalizeExecutorSource(code.source ?? '')
         nodes.push(code)
+        place(id, node.x, node.y)
+        break
+      }
+      case 'loop': {
+        nodes.push({ id, name: node.label, type: 'loop', ...fields, body: loopBody(node), ...loopLimits(node) } as unknown as NodeV4)
         place(id, node.x, node.y)
         break
       }

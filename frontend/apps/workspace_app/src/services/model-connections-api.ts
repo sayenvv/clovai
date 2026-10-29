@@ -55,6 +55,8 @@ export interface ModelConnection {
   /** modelConfig options the model rejects, such as `temperature` on reasoning models. */
   unsupportedOptions?: string[]
   scope: ModelConnectionScope
+  /** The application's default model (set in the Admin Center): "Default" in the model pickers runs on it. */
+  isDefault?: boolean
   createdAt: string
   updatedAt: string
 }

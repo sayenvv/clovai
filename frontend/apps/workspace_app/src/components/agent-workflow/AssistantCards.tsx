@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { fetchTestRun, type AssistantRequest, type DraftDiff, type TestRun } from '@/services/workflow-assistant-api'
 import type { DiagramNode } from '@/components/designer/diagram-types'
 import type { DiffState, DraftPreview } from '@/components/agent-workflow/draft-preview'
+import { SchemaForm } from '@/components/agent-workflow/SchemaForm'
 import { cn } from '@/utils/cn'
 
 /**
@@ -11,7 +12,7 @@ import { cn } from '@/utils/cn'
  * a question, a confirmation), and the draft's changes to accept onto the canvas or discard.
  */
 
-const CARD = 'mt-2 space-y-2 rounded-md border border-border bg-muted/30 p-3 text-[12px]'
+export const CARD = 'mt-2 space-y-2 rounded-md border border-border bg-muted/30 p-3 text-[12px]'
 
 export function AssistantRequestCard({
   request,
@@ -44,6 +45,16 @@ export function AssistantRequestCard({
     )
   }
 
+  if (!isPlanApproval) {
+    // Any other question: the inputs the asking step picked (choices, toggles, dates, text), drawn as a form
+    return (
+      <div className={CARD}>
+        <p className="whitespace-pre-wrap text-foreground">{request.payload.question}</p>
+        <SchemaForm schema={request.payload.responseSchema} busy={busy} onSubmit={onAnswer} />
+      </div>
+    )
+  }
+
   return (
     <div className={CARD}>
       <p className="whitespace-pre-wrap text-foreground">{request.payload.question}</p>
@@ -51,31 +62,23 @@ export function AssistantRequestCard({
         value={text}
         onChange={(event) => setText(event.target.value)}
         rows={2}
-        placeholder={isPlanApproval ? 'What should change? (leave empty to build it as planned)' : 'Your answer'}
+        placeholder="What should change? (leave empty to build it as planned)"
         className="w-full resize-none rounded border border-border bg-background px-2 py-1.5 text-[12px] outline-none focus:border-foreground/30"
         disabled={busy}
       />
       <div className="flex gap-2">
-        {isPlanApproval ? (
-          <>
-            <Button size="sm" className="h-7 text-[11.5px]" disabled={busy || text.trim().length > 0} onClick={() => onAnswer({ approve: true })}>
-              Build it
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-[11.5px]"
-              disabled={busy || !text.trim()}
-              onClick={() => onAnswer({ approve: false, changes: text.trim() })}
-            >
-              Change the plan
-            </Button>
-          </>
-        ) : (
-          <Button size="sm" className="h-7 text-[11.5px]" disabled={busy || !text.trim()} onClick={() => onAnswer({ text: text.trim() })}>
-            Send answer
-          </Button>
-        )}
+        <Button size="sm" className="h-7 text-[11.5px]" disabled={busy || text.trim().length > 0} onClick={() => onAnswer({ approve: true })}>
+          Build it
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-[11.5px]"
+          disabled={busy || !text.trim()}
+          onClick={() => onAnswer({ approve: false, changes: text.trim() })}
+        >
+          Change the plan
+        </Button>
       </div>
     </div>
   )
@@ -268,7 +271,7 @@ export function DraftPreviewBar({
   )
 }
 
-const RUN_STATUS: Record<string, { label: string; className: string }> = {
+export const RUN_STATUS: Record<string, { label: string; className: string }> = {
   succeeded: { label: 'Succeeded', className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
   failed: { label: 'Failed', className: 'bg-red-500/10 text-red-700 dark:text-red-400' },
   waiting: { label: 'Waiting', className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400' },
@@ -276,7 +279,7 @@ const RUN_STATUS: Record<string, { label: string; className: string }> = {
   cancelled: { label: 'Cancelled', className: 'bg-muted text-muted-foreground' },
 }
 
-const asText = (value: unknown): string =>
+export const asText = (value: unknown): string =>
   value == null ? '' : typeof value === 'string' ? value : JSON.stringify(value, null, 2)
 
 /** What the input was: the message itself when the workflow takes one, else the whole input. */

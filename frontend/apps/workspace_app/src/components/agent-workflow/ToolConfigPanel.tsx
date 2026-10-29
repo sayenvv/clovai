@@ -5,6 +5,7 @@ import { Select } from '@/components/ui/select'
 import { Field, PanelSection } from '@/components/agent-workflow/FormField'
 import { isMcpToolNode, listAgentNodes, remapToolToAgent } from '@/components/agent-workflow/tool-agent-mapping'
 import { toolFunctionName } from '@/components/agent-workflow/maf-tool'
+import { HttpToolSettings } from '@/components/agent-workflow/HttpToolSettings'
 import { normalizeApprovalMode, type ToolApprovalMode } from '@/types/agent-workflow'
 import type { Diagram, DiagramNode } from '@/components/designer/diagram-types'
 
@@ -35,6 +36,8 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({ node, diagram, on
   const agent = node.agent!
   const agents = listAgentNodes(diagram)
   const isMcp = isMcpToolNode(node)
+  // An "HTTP / API" block (older ones have no settings yet; editing them adds them)
+  const isHttp = !isMcp && (Boolean(agent.http) || agent.tools?.includes('api_call'))
 
   const updateTool = (patch: Partial<typeof agent>, label?: string) => {
     onChange((previous) => ({
@@ -77,7 +80,7 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({ node, diagram, on
           </Select>
         </Field>
 
-        <PanelSection title={isMcp ? 'MCP server' : 'Function tool'}>
+        <PanelSection title={isMcp ? 'MCP server' : isHttp ? 'HTTP tool' : 'Function tool'}>
           <Field
             label="Name"
             hint={`The model calls it as ${toolFunctionName(node.label, node.id)}`}
@@ -106,7 +109,10 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({ node, diagram, on
           </Field>
 
           {!isMcp ? (
-            <Field label="Input schema" hint="JSON Schema for the arguments the model passes">
+            <Field
+              label="Input schema"
+              hint={isHttp ? 'JSON Schema for the arguments the model passes; the request reads them as {{ args.<name> }}' : 'JSON Schema for the arguments the model passes'}
+            >
               <Textarea
                 rows={9}
                 className="font-mono text-xs"
@@ -132,6 +138,8 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({ node, diagram, on
             </Select>
           </Field>
         </PanelSection>
+
+        {isHttp ? <HttpToolSettings http={agent.http} onChange={(http) => updateTool({ http })} /> : null}
       </div>
     </div>
   )

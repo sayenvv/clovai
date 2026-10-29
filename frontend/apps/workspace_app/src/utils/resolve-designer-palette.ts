@@ -31,7 +31,9 @@ export function resolveDesignerPalette(
     return { palette: defaultPalette, isToolSpecific: true }
   }
 
-  return { palette: activePalette, isToolSpecific: true }
+  // A saved palette keeps its own items; blocks added to the app since it was saved are appended
+  const saved = new Set(activePalette.map((item) => item.id))
+  return { palette: [...activePalette, ...defaultPalette.filter((item) => !saved.has(item.id))], isToolSpecific: true }
 }
 
 export function mergePaletteWithAzure(base: PaletteItem[], azureItems: PaletteItem[]): PaletteItem[] {

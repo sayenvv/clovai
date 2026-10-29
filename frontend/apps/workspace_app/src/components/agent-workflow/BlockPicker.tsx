@@ -1,12 +1,12 @@
+import { blockVisual, CAPABILITY_ICONS } from '@/components/agent-workflow/block-visuals'
+import { SIDEBAR_BLOCKS } from '@/components/agent-workflow/agent-workflow-defaults'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import { CircleStop, GitFork, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import {
   CAPABILITY_VISUALS,
   LIBRARY_AGENTS,
-  LIBRARY_ORCHESTRATORS,
-  ORCHESTRATOR_TILE,
 } from '@/components/agent-workflow/AgentLibrarySidebar'
 import { AGENT_CAPABILITIES, type AgentCapabilityKind } from '@/components/agent-workflow/agent-capabilities'
 
@@ -35,6 +35,8 @@ interface PickerItem {
  * A searchable menu of everything that can follow a node: orchestrators and agents (added and
  * connected) and, under an agent, its tools, skills, integrations, MCP servers and memory.
  */
+const PICKER_FLOW_IDS = ['switch', 'approval', 'ask-user', 'delay', 'wait-event', 'transform', 'loop', 'end']
+
 export const BlockPicker = memo(function BlockPicker({
   state,
   onPickBlock,
@@ -53,15 +55,6 @@ export const BlockPicker = memo(function BlockPicker({
 
   const items = useMemo<PickerItem[]>(() => {
     const blocks: PickerItem[] = [
-      ...LIBRARY_ORCHESTRATORS.map((item) => ({
-        key: item.paletteId,
-        group: 'Orchestration',
-        label: item.label,
-        description: item.description,
-        icon: item.icon,
-        tile: ORCHESTRATOR_TILE,
-        pick: () => onPickBlock(item.paletteId),
-      })),
       ...LIBRARY_AGENTS.map((item) => ({
         key: item.paletteId,
         group: 'Agents',
@@ -72,24 +65,19 @@ export const BlockPicker = memo(function BlockPicker({
         pick: () => onPickBlock(item.paletteId),
       })),
     ]
-    blocks.push({
-      key: 'aw-switch',
-      group: 'Flow',
-      label: 'Switch',
-      description: 'Route to one next agent by case; the connector without a condition is the default',
-      icon: GitFork,
-      tile: 'bg-muted text-foreground/70 ring-border',
-      pick: () => onPickBlock('aw-switch'),
-    })
-    if (state.allowEnd) {
+    // The Flow blocks, as in the library (End only where a step may end the workflow)
+    for (const block of SIDEBAR_BLOCKS) {
+      if (!PICKER_FLOW_IDS.includes(block.id) || (block.id === 'end' && !state.allowEnd)) continue
+      const visual = blockVisual(block.paletteId)
+      if (!visual) continue
       blocks.push({
-        key: 'aw-end',
+        key: block.paletteId,
         group: 'Flow',
-        label: 'End',
-        description: 'Finish the workflow here',
-        icon: CircleStop,
-        tile: 'bg-muted text-foreground/70 ring-border',
-        pick: () => onPickBlock('aw-end'),
+        label: block.label,
+        description: block.description,
+        icon: visual.icon,
+        tile: visual.tile,
+        pick: () => onPickBlock(block.paletteId),
       })
     }
     if (!state.allowCapabilities) return blocks
@@ -100,7 +88,7 @@ export const BlockPicker = memo(function BlockPicker({
         group: visual.title,
         label: capability.label,
         description: capability.description,
-        icon: visual.icon,
+        icon: CAPABILITY_ICONS[capability.id] ?? visual.icon,
         tile: visual.tile,
         pick: () => onPickCapability(capability.id),
       }
