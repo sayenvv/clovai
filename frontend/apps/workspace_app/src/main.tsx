@@ -6,6 +6,7 @@ import { Toaster } from 'sonner'
 import { router } from '@/routes'
 import { ThemeProvider } from '@/hooks/use-theme'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { TokenUsageSync } from '@/components/shared/TokenUsageSync'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -25,6 +26,7 @@ createRoot(document.getElementById('root')!).render(
         <QueryClientProvider client={queryClient}>
           <RouterProvider router={router} />
           <Toaster position="bottom-right" richColors closeButton />
+          <TokenUsageSync />
         </QueryClientProvider>
       </ThemeProvider>
     </ErrorBoundary>

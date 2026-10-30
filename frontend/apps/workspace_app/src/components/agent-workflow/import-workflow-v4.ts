@@ -78,6 +78,7 @@ export function importWorkflowV4(document: WorkflowV4Document): ImportedV4Workfl
       }
       if (agent.responseSchema) config.outputSchema = JSON.stringify(agent.responseSchema, null, 2)
       config.memoryEnabled = Boolean(agent.memory?.conversation)
+      if (agent.contextProviderIds?.length) config.contextProviderIds = [...agent.contextProviderIds]
     }
     return config
   }

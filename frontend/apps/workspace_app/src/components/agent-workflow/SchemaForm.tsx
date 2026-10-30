@@ -21,6 +21,8 @@ export interface FormField {
 export interface FormSchema {
   properties?: Record<string, FormField>
   required?: string[]
+  /** How the chat draws the whole form, when it is not a plain form: `plan-approval` (build it, or say what to change). */
+  'x-ui'?: string
 }
 
 type Widget = 'text' | 'textarea' | 'radio' | 'select' | 'checkboxes' | 'toggle' | 'number' | 'date'

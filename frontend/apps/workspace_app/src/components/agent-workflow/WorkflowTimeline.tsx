@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from 'react'
 import { ChevronDown, GripVertical, Maximize2, Minimize2, RotateCcw } from 'lucide-react'
 import type { DailyUsage } from '@/services/activity-api'
 import { cn } from '@/utils/cn'
+import { TokenQuotaStatus } from '@/components/agent-workflow/TokenQuotaStatus'
 
 const WIDTH = 1000
 const HEIGHT = 44
@@ -89,10 +90,13 @@ export const WorkflowTimeline = memo(function WorkflowTimeline({ days, daily, on
           <span className="text-primary">Last {days} days</span>
           <span className="ml-2 text-muted-foreground">· {total} model call{total === 1 ? '' : 's'}</span>
         </button>
+        <div className="ml-auto text-[10.5px]">
+          <TokenQuotaStatus />
+        </div>
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="ml-auto flex h-5 w-5 items-center justify-center rounded-[2px] text-primary hover:bg-foreground/[0.07]"
+          className="flex h-5 w-5 items-center justify-center rounded-[2px] text-primary hover:bg-foreground/[0.07]"
           aria-label="Expand activity"
           title="Expand"
         >

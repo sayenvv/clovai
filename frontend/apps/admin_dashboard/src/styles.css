@@ -288,3 +288,40 @@ pre {
   margin: 6px 0 16px;
   font-size: 12px;
 }
+
+/* Credit usage */
+.toolbar select {
+  background: #161a22;
+  color: inherit;
+  border: 1px solid #2a2f3a;
+  border-radius: 6px;
+  padding: 7px 9px;
+}
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+.stat { border: 1px solid #2a2f3a; border-radius: 8px; background: #161a22; padding: 12px 14px; }
+.stat span { display: block; color: #9aa3b2; font-size: 12px; }
+.stat strong { display: block; margin-top: 4px; font-size: 22px; font-variant-numeric: tabular-nums; }
+.stat.warn strong { color: #f5b544; }
+.stat.over strong { color: #f87171; }
+.credits td { vertical-align: middle; }
+.user-link { display: grid; gap: 2px; }
+.user-link span { color: #9aa3b2; font-size: 12px; }
+.user-link:hover strong { text-decoration: underline; }
+.usage-cell { min-width: 200px; }
+.usage-bar { height: 6px; border-radius: 999px; background: #2a2f3a; overflow: hidden; }
+.usage-fill { display: block; height: 100%; border-radius: 999px; background: #6ee7b7; transition: width 0.4s; }
+.usage-fill.warn { background: #f5b544; }
+.usage-fill.over { background: #f87171; }
+.usage-text { display: block; margin-top: 5px; font-size: 12px; color: #9aa3b2; font-variant-numeric: tabular-nums; }
+.usage-text.warn { color: #f5b544; }
+.usage-text.over, .over-text { color: #f87171; }
+.daily { display: flex; align-items: flex-end; gap: 3px; height: 140px; padding-top: 8px; }
+.daily-bar { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.daily-bar span { width: 100%; border-radius: 3px 3px 0 0; background: #6ee7b7; opacity: 0.85; }
+.daily-bar:hover span { opacity: 1; }
+.columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.signin { max-width: 380px; }
+.panel h2 { margin: 0 0 10px; font-size: 14px; }
+@media (max-width: 900px) {
+  .stats, .columns { grid-template-columns: 1fr 1fr; }
+}

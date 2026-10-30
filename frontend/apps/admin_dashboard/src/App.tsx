@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { useApplication } from './application'
 import { ConfigurationPage } from './ConfigurationPage'
+import { CreditsPage } from './CreditsPage'
+import { CreditUserPage } from './CreditUserPage'
 import { DocumentPage } from './DocumentPage'
 
 export function App() {
@@ -69,11 +71,14 @@ export function App() {
         <nav className="nav">
           <NavLink to="/configuration">Configuration</NavLink>
           <NavLink to="/template">Template</NavLink>
+          <NavLink to="/credits">Credit usage</NavLink>
         </nav>
       </aside>
       <main className="content">
         <Routes>
           <Route path="/" element={<Navigate to="/configuration/application" replace />} />
+          <Route path="/credits" element={<CreditsPage />} />
+          <Route path="/credits/:userId" element={<CreditUserPage />} />
           <Route path="/configuration" element={<Navigate to="/configuration/application" replace />} />
           <Route path="/configuration/application" element={<ConfigurationPage tab="application" />} />
           <Route path="/configuration/environment" element={<ConfigurationPage tab="environment" />} />

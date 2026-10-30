@@ -16,8 +16,6 @@ import {
   UserMessage,
 } from '@/components/agent-workflow/ExecutionSidebarPanel'
 import { PetalMark } from '@/components/shared/PetalLoader'
-import { PlanReviewCard } from '@/components/agent-workflow/PlanReviewCard'
-import type { PlanReview } from '@/services/workflow-run-api'
 import type { WorkflowChatMessage } from '@/types/agent-workflow'
 import { GenerateModelPicker } from '@/components/agent-workflow/GenerateModelPicker'
 import {
@@ -27,7 +25,9 @@ import {
 import type { CanvasPlan } from '@/components/agent-workflow/workflow-plan-from-diagram'
 import { listAgentNodes } from '@/components/agent-workflow/tool-agent-mapping'
 import type { DiagramPage } from '@/components/designer/diagram-types'
-import { addTokenUsage } from '@/services/token-usage-store'
+import { addTokenUsage, refreshTokenUsage } from '@/services/token-usage-store'
+import { isOutOfTokens } from '@/components/agent-workflow/OutOfTokensNotice'
+import { BUY_CREDITS_URL } from '@/constants'
 import { cn } from '@/utils/cn'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
@@ -159,7 +159,9 @@ function ContextChip({
 /** What the user answered, as their chat message: the text, the plan decision, or each form input with its label. */
 function answerText(request: AssistantRequest, response: Record<string, unknown>): string {
   if (request.kind === 'approval') return response.approved ? 'Approved.' : 'Rejected.'
-  if ('approve' in response) return response.approve ? 'Build it as planned.' : String(response.changes ?? 'Change the plan.')
+  if (request.payload.responseSchema?.['x-ui'] === 'plan-approval') {
+    return response.approve ? 'Build it as planned.' : String(response.changes ?? 'Change the plan.')
+  }
   if (typeof response.text === 'string' && Object.keys(response).length === 1) return response.text
   const fields = request.payload.responseSchema?.properties ?? {}
   return Object.entries(response)
@@ -189,7 +191,8 @@ function foldedStep(step: WorkflowChatMessage): WorkflowChatMessage {
 }
 
 function finishSteps(steps: WorkflowChatMessage[]): WorkflowChatMessage[] {
-  if (steps.every((step) => step.agentName === ROUTER_AGENT)) return []
+  // Only quiet steps ran (a greeting, small talk): the reply needs no steps
+  if (steps.every((step) => step.quiet)) return []
   return steps
     .filter((step) => step.content.trim() || step.nodeId.startsWith('tool:'))
     .map((step) => (step.status === 'streaming' ? { ...step, status: 'done' as const } : step))
@@ -384,43 +387,6 @@ function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
 
 
 /** Earlier turns for the API, oldest first. Errors and "Stopped." notes are left out. */
-/** What each assistant agent is doing while it runs, and what it did once it is done. */
-const AGENT_ACTIVITY: Record<string, [running: string, done: string]> = {
-  Router: ['Understanding the request', 'Understood the request'],
-  Planner: ['Planning the workflow', 'Planned the workflow'],
-  Builder: ['Building the workflow', 'Built the workflow'],
-  'Step filler': ['Filling in the steps', 'Filled in the steps'],
-  Editor: ['Editing the workflow', 'Edited the workflow'],
-  Repairer: ['Fixing problems', 'Fixed problems'],
-  Explainer: ['Looking into the workflow', 'Looked into the workflow'],
-  Reviewer: ['Reviewing the workflow', 'Reviewed the workflow'],
-  Operator: ['Running a test', 'Ran a test'],
-}
-
-/** The agent that writes the reply: its output is the reply itself, so it is not a step. */
-const REPLY_AGENT = 'Responder'
-
-/** The agent that reads the request. When it is all that ran (a greeting, small talk), the reply needs no steps. */
-const ROUTER_AGENT = 'Router'
-
-/** The assistant's tools, as the step a person sees while it runs and once it is done. */
-const TOOL_ACTIVITY: Record<string, [running: string, done: string]> = {
-  open_draft: ['Opening the draft', 'Opened the draft'],
-  get_outline: ['Reading the workflow', 'Read the workflow'],
-  get_object: ['Reading a step', 'Read a step'],
-  get_section: ['Reading part of the workflow', 'Read part of the workflow'],
-  find: ['Searching the workflow', 'Searched the workflow'],
-  apply_ops: ['Editing the draft', 'Edited the draft'],
-  validate_draft: ['Checking the draft', 'Checked the draft'],
-  get_diff: ['Comparing the changes', 'Compared the changes'],
-  catalog_models: ['Looking up models', 'Looked up models'],
-  catalog_model_clients: ['Looking up model connections', 'Looked up model connections'],
-  catalog_agents: ['Looking up saved agents', 'Looked up saved agents'],
-  catalog_tools: ['Looking up tools', 'Looked up tools'],
-  test_run: ['Test-running the workflow', 'Test-ran the workflow'],
-  get_run: ['Reading the test run', 'Read the test run'],
-}
-
 const humanize = (name: string) => name.replace(/_/g, ' ').replace(/^\w/, (letter) => letter.toUpperCase())
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
 
@@ -452,8 +418,12 @@ function applyAssistantEvent(steps: WorkflowChatMessage[], event: AssistantRunEv
     return next
   }
   if (event.type === 'tool.started' && event.tool) {
-    const title = TOOL_ACTIVITY[event.tool]?.[0] ?? humanize(event.tool)
-    return [...steps, { id: `tool-${steps.length}`, nodeId: `tool:${event.tool}`, agentName: event.agent ?? 'Assistant', title, content: event.reason ?? '', kind: 'reasoning', status: 'streaming' }]
+    // Titles come from the workflow (the tool's ui); a tool without one shows its name
+    const title = event.ui?.running ?? humanize(event.tool)
+    return [
+      ...steps,
+      { id: `tool-${steps.length}`, nodeId: `tool:${event.tool}`, agentName: event.agent ?? 'Assistant', title, doneTitle: event.ui?.done, content: event.reason ?? '', kind: 'reasoning', status: 'streaming' },
+    ]
   }
   if (event.type === 'tool.completed' && event.tool) {
     const index = steps.findLastIndex((step) => step.nodeId === `tool:${event.tool}` && step.status === 'streaming')
@@ -461,20 +431,32 @@ function applyAssistantEvent(steps: WorkflowChatMessage[], event: AssistantRunEv
     if (failure) return finish(index, { status: 'failed', content: failure })
     // The reason leads (the row's one-line preview); what the call touched follows when the row is opened.
     const content = [steps[index]?.content, toolDetail(event.detail)].filter(Boolean).join('\n\n')
-    return finish(index, { title: TOOL_ACTIVITY[event.tool]?.[1] ?? humanize(event.tool), content })
+    return finish(index, { title: steps[index]?.doneTitle ?? humanize(event.tool), content })
   }
   if (event.nodeType && event.nodeType !== 'agent' && event.type === 'node.started') return steps
-  if (event.agent === REPLY_AGENT) return steps
   if (event.type === 'node.started' && event.nodeId) {
+    // An agent the workflow marks hidden (its output is the reply itself) is not a step
+    if (event.ui?.hidden) return steps
     const name = event.agent ?? event.name ?? 'Step'
-    const title = AGENT_ACTIVITY[name]?.[0] ?? name
-    return [...steps, { id: `${event.nodeId}-${steps.length}`, nodeId: event.nodeId, agentName: name, title, content: '', kind: 'reasoning', status: 'streaming' }]
+    return [
+      ...steps,
+      {
+        id: `${event.nodeId}-${steps.length}`,
+        nodeId: event.nodeId,
+        agentName: name,
+        title: event.ui?.running ?? name,
+        doneTitle: event.ui?.done,
+        quiet: event.ui?.quiet,
+        content: '',
+        kind: 'reasoning',
+        status: 'streaming',
+      },
+    ]
   }
   if ((event.type === 'node.completed' || event.type === 'node.failed') && event.nodeId) {
     const index = steps.map((step) => step.nodeId).lastIndexOf(event.nodeId)
     if (event.type === 'node.failed') return finish(index, { status: 'failed', content: event.error ?? 'Failed' })
-    const name = steps[index]?.agentName ?? ''
-    return finish(index, { title: AGENT_ACTIVITY[name]?.[1] ?? name, content: event.summary ?? '' })
+    return finish(index, { title: steps[index]?.doneTitle ?? steps[index]?.agentName ?? 'Step', content: event.summary ?? '' })
   }
   return steps
 }
@@ -501,7 +483,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   /** The draft this conversation edits, its pending question, and its changes waiting for review. */
   const [assistantDraftId, setAssistantDraftId] = useState<string | undefined>()
   const [pendingRequest, setPendingRequest] = useState<{ runId: string; request: AssistantRequest } | null>(null)
-  const [pendingDraft, setPendingDraft] = useState<{ diff: DraftDiff; preview: DraftPreview | null } | null>(null)
+  const [pendingDraft, setPendingDraft] = useState<{ diff: DraftDiff; preview: DraftPreview | null; testFailed?: boolean } | null>(null)
   /** Whether the pending draft is drawn on the canvas; a new draft opens there. */
   const [previewOnCanvas, setPreviewOnCanvas] = useState(true)
   const [assistantBusy, setAssistantBusy] = useState(false)
@@ -515,7 +497,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   /** Each agent's turns for the request in flight, streamed as they arrive. */
   const [liveSteps, setLiveSteps] = useState<WorkflowChatMessage[]>([])
   // The manager's plan the running workflow is waiting on, if any.
-  const [pendingReview, setPendingReview] = useState<PlanReview | null>(null)
   const liveStepsRef = useRef<WorkflowChatMessage[]>([])
   /** Tokens the request in flight has used so far. */
   /** What each running stage is doing, as the backend names it: Thinking, Planning, Designing… */
@@ -638,7 +619,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       } catch {
         // Not drawable (an unusual document): the card still lists the changes
       }
-      setPendingDraft({ diff: loaded.diff, preview })
+      setPendingDraft({ diff: loaded.diff, preview, testFailed: run.output?.testPassed === false })
       setPreviewOnCanvas(true)
     }
   }
@@ -673,7 +654,10 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
           : {
               id: `assistant-error-${Date.now()}`,
               role: 'assistant',
-              content: `The workflow assistant couldn't finish. ${error instanceof Error ? error.message : ''}`.trim(),
+              content:
+                error instanceof Error && isOutOfTokens(error.message)
+                  ? `You have used all your tokens. [Buy more credits](${BUY_CREDITS_URL}) to keep working with the assistant.`
+                  : `The workflow assistant couldn't finish. ${error instanceof Error ? error.message : ''}`.trim(),
               tone: 'error',
             },
       ])
@@ -683,6 +667,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       setAssistantBusy(false)
       liveStepsRef.current = []
       setLiveSteps([])
+      void refreshTokenUsage()  // the server's totals replace the live estimate
     }
   }
 
@@ -742,7 +727,8 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   }
 
   const acceptAssistantDraft = async () => {
-    if (!assistantDraftId) return
+    // A draft whose test still fails is not offered (the canvas preview bar's Accept included)
+    if (!assistantDraftId || pendingDraft?.testFailed) return
     setAssistantBusy(true)
     let accepted: Awaited<ReturnType<typeof acceptDraft>>
     try {
@@ -800,6 +786,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
               <DraftPreviewBar
                 counts={shownPreview.counts}
                 busy={assistantBusy}
+                acceptDisabled={Boolean(pendingDraft?.testFailed)}
                 onAccept={() => reviewActions.current.accept()}
                 onDiscard={() => reviewActions.current.discard()}
                 onHide={() => reviewActions.current.hide()}
@@ -814,6 +801,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   const handleGenerate = async (promptOverride?: string) => {
     const prompt = (promptOverride ?? draft).trim()
     if (!prompt || isGenerating) return
+    void refreshTokenUsage()  // credits an admin added show at once, not after a reload
     await handleAssistantMessage(prompt)
   }
 
@@ -911,8 +899,10 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
             previewOnCanvas={previewOnCanvas && Boolean(onPreviewDraft)}
             onTogglePreview={pendingDraft.preview && onPreviewDraft ? () => setPreviewOnCanvas((value) => !value) : undefined}
             busy={assistantBusy}
+            testFailed={pendingDraft.testFailed}
             onAccept={() => void acceptAssistantDraft()}
             onDiscard={() => void discardAssistantDraft()}
+            onKeepFixing={() => void handleGenerate('Update the workflow to fix the problems the last test found.')}
           />
         )}
 
@@ -924,13 +914,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
               activities={activities}
               fallbackActivity="Thinking"
             />
-            {pendingReview && (
-              <PlanReviewCard
-                key={pendingReview.requestId}
-                review={pendingReview}
-                onAnswered={() => setPendingReview(null)}
-              />
-            )}
           </div>
         )}
       </div>
@@ -1013,11 +996,13 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
               </span>
           }
           action={
-            isGenerating ? (
-              <ComposerStopButton onClick={stopGenerating} />
-            ) : (
-              <ComposerSendButton onClick={() => void handleGenerate()} disabled={!canGenerate} label="Send message" />
-            )
+            <>
+              {isGenerating ? (
+                <ComposerStopButton onClick={stopGenerating} />
+              ) : (
+                <ComposerSendButton onClick={() => void handleGenerate()} disabled={!canGenerate} label="Send message" />
+              )}
+            </>
           }
           hint={
             assistantDraftId

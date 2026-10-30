@@ -1,5 +1,6 @@
 import { memo, useEffect, useSyncExternalStore } from 'react'
-import { ensureTokenUsage, readTokenUsage, subscribeTokenUsage } from '@/services/token-usage-store'
+import { ensureTokenUsage, readTokenUsage, subscribeTokenUsage, tokenUsageLevel } from '@/services/token-usage-store'
+import { BUY_CREDITS_URL } from '@/constants'
 import { cn } from '@/utils/cn'
 
 function formatCount(value: number): string {
@@ -24,9 +25,9 @@ export const TokenBudgetBar = memo(function TokenBudgetBar() {
   if (!subscription || subscription.tokenLimit <= 0) return null
 
   const usedRatio = Math.min(1, subscription.tokensUsed / subscription.tokenLimit)
-  const percent = Math.round(usedRatio * 100)
-  // Colour only signals a problem: neutral until the allowance is nearly spent.
-  const level = usedRatio >= 0.95 ? 'critical' : usedRatio >= 0.8 ? 'warning' : 'normal'
+  // Colour only signals a problem: amber from 90% used, red from 95%
+  const { level: usage, percent } = tokenUsageLevel(subscription)
+  const level = usage === 'exhausted' ? 'critical' : usage
 
   return (
     <div className="rounded-lg border border-border/70 bg-background px-3 py-2.5">
@@ -56,12 +57,19 @@ export const TokenBudgetBar = memo(function TokenBudgetBar() {
       <p
         className={cn(
           'mt-1.5 text-[10.5px] tabular-nums',
-          level === 'critical' ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground',
+          level === 'critical' ? 'text-red-600 dark:text-red-400' : level === 'warning' ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground',
         )}
       >
-        {level === 'critical'
-          ? `Only ${formatCount(subscription.tokensRemaining)} left. Contact support to raise your limit.`
-          : `${formatCount(subscription.tokensRemaining)} remaining this period`}
+        {level !== 'normal' ? (
+          <>
+            {subscription.tokensRemaining > 0 ? `${percent}% used, ${formatCount(subscription.tokensRemaining)} left. ` : 'No tokens left: runs are paused. '}
+            <a href={BUY_CREDITS_URL} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">
+              Buy credits
+            </a>
+          </>
+        ) : (
+          `${formatCount(subscription.tokensRemaining)} remaining this period`
+        )}
       </p>
     </div>
   )

@@ -1,3 +1,5 @@
+import { refresh, withToken } from './auth'
+
 export type DocumentSummary = {
   id: string
   kind: string
@@ -17,14 +19,13 @@ export type Application = {
   location: string
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...init?.headers,
-    },
-  })
+/** A request the API refused for want of an admin sign-in (401, 403): pages show the sign-in form. */
+export class NeedsAdmin extends Error {}
+
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const send = () => fetch(path, withToken({ ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } }))
+  let response = await send()
+  if (response.status === 401 && (await refresh())) response = await send()
   if (!response.ok) {
     let detail = `${response.status}`
     try {
@@ -33,6 +34,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       detail = response.statusText || detail
     }
+    if (response.status === 401 || response.status === 403) throw new NeedsAdmin(detail)
     throw new Error(detail)
   }
   if (response.status === 204) return undefined as T

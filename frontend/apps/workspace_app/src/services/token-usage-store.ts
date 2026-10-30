@@ -99,3 +99,26 @@ export function ensureTokenUsage(): Promise<void> {
   }
   return loading
 }
+
+/** Read `/me` again for the server's totals: after a run (the server charges what it used) or on returning to the tab. */
+export function refreshTokenUsage(): Promise<void> {
+  if (!getSession()) return Promise.resolve()
+  return authorizedFetch('/api/v1/auth/me')
+    .then(async (response) => {
+      if (!response.ok) return
+      const body = (await response.json()) as { subscription?: TokenUsageSnapshot }
+      if (body.subscription) writeTokenUsage(body.subscription)
+    })
+    .catch(() => undefined)
+}
+
+export type TokenUsageLevel = 'normal' | 'warning' | 'critical' | 'exhausted'
+
+/** How much of the allowance is used: warning from 90%, critical from 95%, exhausted at 100%. */
+export function tokenUsageLevel(snapshot: TokenUsageSnapshot | null): { level: TokenUsageLevel; percent: number } {
+  if (!snapshot || snapshot.tokenLimit <= 0) return { level: 'normal', percent: 0 }
+  const ratio = Math.min(1, snapshot.tokensUsed / snapshot.tokenLimit)
+  const percent = Math.floor(ratio * 100)
+  const level = snapshot.tokensRemaining <= 0 ? 'exhausted' : ratio >= 0.95 ? 'critical' : ratio >= 0.9 ? 'warning' : 'normal'
+  return { level, percent }
+}

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { fetchTestRun, type AssistantRequest, type DraftDiff, type TestRun } from '@/services/workflow-assistant-api'
 import type { DiagramNode } from '@/components/designer/diagram-types'
 import type { DiffState, DraftPreview } from '@/components/agent-workflow/draft-preview'
+import { OutOfTokensNotice } from '@/components/agent-workflow/OutOfTokensNotice'
 import { SchemaForm } from '@/components/agent-workflow/SchemaForm'
 import { cn } from '@/utils/cn'
 
@@ -24,9 +25,12 @@ export function AssistantRequestCard({
   onAnswer: (response: Record<string, unknown>) => void
 }) {
   const [text, setText] = useState('')
-  const fields = request.payload.responseSchema?.properties ?? {}
-  // A question whose answer is "approve, or say what to change" (the assistant's plan approval)
-  const isPlanApproval = request.kind === 'ask_user' && 'approve' in fields
+  // The workflow marks a question whose answer is "approve, or say what to change" (such as a plan to build)
+  const isPlanApproval = request.kind === 'ask_user' && request.payload.responseSchema?.['x-ui'] === 'plan-approval'
+
+  if (request.kind === 'credits') {
+    return <OutOfTokensNotice message={request.payload.message} busy={busy} onContinue={() => onAnswer({})} />
+  }
 
   if (request.kind === 'approval') {
     return (
@@ -175,16 +179,21 @@ export function DraftReviewCard({
   previewOnCanvas,
   onTogglePreview,
   busy,
+  testFailed = false,
   onAccept,
   onDiscard,
+  onKeepFixing,
 }: {
   diff: DraftDiff
   preview: DraftPreview | null
   previewOnCanvas: boolean
   onTogglePreview?: () => void
   busy: boolean
+  /** The assistant's test of this draft still fails: it is not offered until it works. */
+  testFailed?: boolean
   onAccept: () => void
   onDiscard: () => void
+  onKeepFixing?: () => void
 }) {
   const settings = diff.sections.length ? `Settings changed: ${diff.sections.join(', ')}` : null
   const lines = preview
@@ -220,10 +229,21 @@ export function DraftReviewCard({
           ))}
         </ul>
       ) : null}
+      {testFailed ? (
+        <p className="rounded border border-red-500/30 bg-red-500/[0.06] px-2 py-1.5 text-red-700 dark:text-red-300">
+          The test still fails, so this draft is not ready to use. Let the assistant keep fixing it, or discard it.
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" className="h-7 gap-1 text-[11.5px]" disabled={busy} onClick={onAccept}>
-          <Check className="h-3.5 w-3.5" /> Accept
-        </Button>
+        {testFailed ? (
+          <Button size="sm" className="h-7 gap-1 text-[11.5px]" disabled={busy || !onKeepFixing} onClick={onKeepFixing}>
+            <Check className="h-3.5 w-3.5" /> Keep fixing
+          </Button>
+        ) : (
+          <Button size="sm" className="h-7 gap-1 text-[11.5px]" disabled={busy} onClick={onAccept}>
+            <Check className="h-3.5 w-3.5" /> Accept
+          </Button>
+        )}
         <Button size="sm" variant="outline" className="h-7 gap-1 text-[11.5px]" disabled={busy} onClick={onDiscard}>
           <X className="h-3.5 w-3.5" /> Discard
         </Button>
@@ -242,12 +262,15 @@ export function DraftReviewCard({
 export function DraftPreviewBar({
   counts,
   busy,
+  acceptDisabled = false,
   onAccept,
   onDiscard,
   onHide,
 }: {
   counts: Record<DiffState, number>
   busy: boolean
+  /** The draft's test still fails: it cannot be accepted yet. */
+  acceptDisabled?: boolean
   onAccept: () => void
   onDiscard: () => void
   onHide: () => void
@@ -263,7 +286,13 @@ export function DraftPreviewBar({
         <Button size="sm" variant="outline" className="h-7 gap-1 rounded-full text-[11.5px]" disabled={busy} onClick={onDiscard}>
           <X className="h-3.5 w-3.5" /> Discard
         </Button>
-        <Button size="sm" className="h-7 gap-1 rounded-full text-[11.5px]" disabled={busy} onClick={onAccept}>
+        <Button
+          size="sm"
+          className="h-7 gap-1 rounded-full text-[11.5px]"
+          disabled={busy || acceptDisabled}
+          onClick={onAccept}
+          title={acceptDisabled ? 'The test still fails; let the assistant keep fixing it' : undefined}
+        >
           <Check className="h-3.5 w-3.5" /> Accept
         </Button>
       </div>

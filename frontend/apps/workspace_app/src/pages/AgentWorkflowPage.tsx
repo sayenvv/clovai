@@ -141,7 +141,6 @@ import {
   setWorkflowPurpose,
   type WorkflowPurpose,
 } from '@/services/assistant-api'
-import { forgetAssistantWorkflow } from '@/services/workflow-run-api'
 import { updateWorkflowConfiguration, type WorkflowConfiguration } from '@/services/workflow-configuration-store'
 import { addExecution, useExecutions } from '@/services/execution-history-store'
 import { catalogModelsFor, useModelCatalog } from '@/components/agent-workflow/hooks/use-model-catalog'
@@ -1235,7 +1234,6 @@ export default function AgentWorkflowPage() {
         // Publish what is on the canvas now: the server publishes the saved copy.
         await handleSave()
         await setWorkflowPurpose(activePurposeWorkflowId, purpose)
-        forgetAssistantWorkflow()
         setAssistantWorkflowId((current) =>
           purpose === 'ai_assistant' ? activePurposeWorkflowId : current === activePurposeWorkflowId ? null : current,
         )

@@ -22,6 +22,8 @@ export interface AssistantRunEvent {
   tool?: string
   agent?: string
   agentId?: string
+  /** How the workflow says to show this agent's step or tool call (its `ui`): titles, hidden, quiet. */
+  ui?: { running?: string; done?: string; hidden?: boolean; quiet?: boolean }
   /** On an agent's `node.completed`: what it decided, in a sentence or two. */
   summary?: string
   /** On `tool.started`: the model's own one-line why for the call. */
@@ -53,7 +55,7 @@ export interface AssistantRunEvent {
 
 export interface AssistantRequest {
   id: string
-  kind: 'approval' | 'ask_user' | 'wait_event'
+  kind: 'approval' | 'ask_user' | 'wait_event' | 'credits'
   nodeId: string
   nodeName: string
   payload: {
@@ -66,7 +68,8 @@ export interface AssistantRequest {
 export interface AssistantRun {
   id: string
   status: 'running' | 'waiting' | 'succeeded' | 'failed' | 'cancelled' | 'invalid' | 'unsupported'
-  output: { reply?: string; draftId?: string; openIssues?: unknown[] } | null
+  /** `testPassed`: false when the assistant's last test of the built or changed workflow still failed. */
+  output: { reply?: string; draftId?: string; openIssues?: unknown[]; testPassed?: boolean } | null
   error: string | null
   issues?: Array<{ path: string; code: string; message: string }>
   requests: AssistantRequest[]
@@ -200,7 +203,10 @@ export function fetchTestRun(runId: string): Promise<TestRun> {
 
 /** The test run an assistant turn started, if any: the last `test_run` call that reported a run. */
 export function testRunIdOf(events: AssistantRunEvent[]): string | undefined {
-  return [...events].reverse().find((event) => event.type === 'tool.completed' && event.tool === 'test_run' && event.detail?.result?.runId)
+  // The assistant's own test (self_test, after it builds or edits) or an older test_run: the last one is the result
+  return [...events]
+    .reverse()
+    .find((event) => event.type === 'tool.completed' && (event.tool === 'self_test' || event.tool === 'test_run') && event.detail?.result?.runId)
     ?.detail?.result?.runId
 }
 

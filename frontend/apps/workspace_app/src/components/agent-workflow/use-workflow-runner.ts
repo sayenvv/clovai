@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { addTokenUsage } from '@/services/token-usage-store'
+import { addTokenUsage, refreshTokenUsage } from '@/services/token-usage-store'
 import type { ExecutionLogEvent, ExecutionStepDetail } from '@/services/orchestration-api'
 import {
   answerWorkflowRun,
@@ -396,6 +396,7 @@ export function useWorkflowRunner() {
           }
         }
         const complete = () => {
+          void refreshTokenUsage()
           setState((previous) => {
             const last = plan[plan.length - 1]
             const trace = previous.trace.map((step) =>

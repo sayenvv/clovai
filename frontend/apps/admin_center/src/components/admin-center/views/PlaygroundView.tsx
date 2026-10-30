@@ -4,7 +4,6 @@ import { createDefinition, listDefinitions, type DefinitionDetail } from '@/api/
 import {
   answerPlaygroundV4,
   installWorkflowAssistant,
-  runPlayground,
   runPlaygroundV4,
   type PlaygroundRequest,
   type PlaygroundStep,
@@ -36,14 +35,12 @@ interface Turn {
   waiting?: { runId: string; request: PlaygroundRequest }
 }
 
-const newConversationId = () => `playground-${crypto.randomUUID()}`
 
 /** A workflow format 4.0 document (runs through /workflows/v4). */
 const isV4 = (row: DefinitionDetail | undefined) => (row?.definition as { schemaVersion?: string } | undefined)?.schemaVersion === '4.0'
 
-/** A 3.0 workflow /execute can run, or a 4.0 workflow. */
-const runnable = (row: DefinitionDetail) =>
-  isV4(row) || Boolean((row.definition as { meta?: { orchestrationPattern?: string } }).meta?.orchestrationPattern)
+/** Only 4.0 workflows run (older saved formats have no engine). */
+const runnable = (row: DefinitionDetail) => isV4(row)
 
 /** A 4.0 run's answer: the assistant's `reply`, a text output, or the output as JSON. */
 function outputText(output: unknown): string {
@@ -68,7 +65,6 @@ export function PlaygroundView() {
   const [loadError, setLoadError] = useState('')
   const [workflowId, setWorkflowId] = useState('')
   const [contextId, setContextId] = useState('')
-  const [conversationId, setConversationId] = useState(newConversationId)
   const [turns, setTurns] = useState<Turn[]>([])
   const [draft, setDraft] = useState('')
   const [showSteps, setShowSteps] = useState(true)
@@ -152,12 +148,12 @@ export function PlaygroundView() {
     setDraft('')
     const controller = new AbortController()
     abortRef.current = controller
-    if (isV4(selected)) {
+    {
       try {
         const run = await runPlaygroundV4(
           {
             document: selected!.definition,
-            inputs: { message, ...(draftId ? { draftId } : {}) },
+            inputs: { message, ...(draftId ? { draftId } : {}), ...(contextId ? { referenceWorkflowId: contextId } : {}) },
             aiIntegrationId: current.ai_integration_id,
             signal: controller.signal,
           },
@@ -169,26 +165,6 @@ export function PlaygroundView() {
       } finally {
         abortRef.current = null
       }
-      return
-    }
-    try {
-      const outcome = await runPlayground(
-        {
-          workflowId,
-          message,
-          aiIntegrationId: current.ai_integration_id,
-          workflowContextId: contextId || undefined,
-          conversationId,
-          signal: controller.signal,
-        },
-        (step) => update(id, (turn) => ({ steps: [...turn.steps, step] })),
-      )
-      update(id, { answer: outcome.output, error: outcome.error ?? '', traceId: outcome.traceId, running: false, workflow: outcome.workflow })
-    } catch (reason) {
-      const stopped = controller.signal.aborted
-      update(id, { error: stopped ? 'Stopped.' : reason instanceof Error ? reason.message : String(reason), running: false })
-    } finally {
-      abortRef.current = null
     }
   }
 
@@ -196,7 +172,6 @@ export function PlaygroundView() {
     abortRef.current?.abort()
     setTurns([])
     setDraftId(undefined)
-    setConversationId(newConversationId())
   }
 
   return (
@@ -204,7 +179,7 @@ export function PlaygroundView() {
       <PageHeader
         eyebrow="Overview"
         title="Playground"
-        description="Test a workflow the way users' chats run it, live. 3.0 workflows run through the execute API with an optional context workflow; 4.0 workflows (such as the workflow assistant) can stop to ask you something. Each conversation keeps its own history."
+        description="Test a 4.0 workflow the way users' chats run it, live, with an optional context workflow. A workflow (such as the workflow assistant) can stop to ask you something. Each conversation keeps its own history."
         actions={
           <>
             {workflows !== null && !hasV4Assistant && (
@@ -247,8 +222,8 @@ export function PlaygroundView() {
                 ))}
               </select>
             </label>
-            <label className={`grid gap-1 text-[11px] font-medium text-muted-foreground ${isV4(selected) ? 'invisible' : ''}`}>
-              Context workflow (optional, sent as workflow_context_id)
+            <label className="grid gap-1 text-[11px] font-medium text-muted-foreground">
+              Context workflow (optional, sent as referenceWorkflowId)
               <select className={SELECT} value={contextId} onChange={(event) => setContextId(event.target.value)} disabled={running}>
                 <option value="">None</option>
                 {workflows?.map((row) => (

@@ -60,6 +60,11 @@ export const ROUTES = {
  */
 export const DASHBOARD_TAB_LINK = { target: '_blank', rel: 'opener' } as const
 
+/** Where a user buys more tokens: VITE_BUY_CREDITS_URL, else the website's pricing page. */
+export const BUY_CREDITS_URL =
+  import.meta.env.VITE_BUY_CREDITS_URL ||
+  `${(import.meta.env.VITE_WEBSITE_URL || 'https://www.abc.com').replace(/\/$/, '')}/pricing/`
+
 export const ADMIN_CENTER_URL =
   import.meta.env.VITE_ADMIN_CENTER_URL?.replace(/\/$/, '') || 'http://127.0.0.1:5174'
 

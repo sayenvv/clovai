@@ -230,6 +230,10 @@ export interface WorkflowChatMessage {
   title?: string
   /** `streaming` while tokens are still arriving for this turn. */
   status: 'streaming' | 'done' | 'failed'
+  /** Its title once done, from the workflow's `ui` for the agent or tool. */
+  doneTitle?: string
+  /** A step shown only beside others (the workflow marks its agent `ui.quiet`, such as the one that routes). */
+  quiet?: boolean
 }
 
 export interface WorkflowRunState {

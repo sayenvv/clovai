@@ -108,6 +108,8 @@ export type AgentV4 =
       modelId?: string
       toolIds: string[]
       knowledgeIds?: string[]
+      /** Context providers from the Admin Center catalog, by id. */
+      contextProviderIds?: string[]
       memory?: { conversation: boolean; longTerm: boolean }
       responseSchema?: JsonSchema
       middlewareIds?: string[]

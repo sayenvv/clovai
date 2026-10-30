@@ -22,6 +22,7 @@ import {
 } from '@/components/agent-workflow/ChatComposer'
 import { ExecutionFileUploadButton } from '@/components/agent-workflow/ExecutionFileUploadButton'
 import { ReviewDecisionBar } from '@/components/agent-workflow/ReviewDecisionBar'
+import { refreshTokenUsage } from '@/services/token-usage-store'
 import { cn } from '@/utils/cn'
 import {
   primaryExecutionError,
@@ -85,6 +86,11 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
   runId,
   emptyHint ='Send a message to run it. Replies appear here; trace, logs and errors are in the output panel under the canvas.',
 }: ExecutionSidebarPanelProps) {
+  // The allowance is read again on every send, so credits an admin added show at once
+  const send = () => {
+    void refreshTokenUsage()
+    onExecute()
+  }
   const [approvalInput, setApprovalInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const isActive = runStatus === 'running' || runStatus === 'waiting-approval'
@@ -198,7 +204,7 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
         <ChatComposer
           value={awaitingApproval ? '' : testInput}
           onChange={onTestInputChange}
-          onSubmit={onExecute}
+          onSubmit={send}
           canSubmit={!awaitingApproval && !isExecuting && canExecute && Boolean(testInput.trim())}
           disabled={isExecuting || awaitingApproval}
           leading={
@@ -213,18 +219,20 @@ export const ExecutionSidebarPanel = memo(function ExecutionSidebarPanel({
           }
           placeholder={awaitingApproval ? 'Waiting for your review above…' : 'Message the workflow…'}
           action={
-            isActive && onCancel ? (
-              <ComposerStopButton onClick={onCancel} label="Stop" />
-            ) : (
-              <ComposerSendButton
-                onClick={onExecute}
-                disabled={!canExecute || isExecuting || !testInput.trim()}
-                busy={isExecuting}
-                label={canRerun ? 'Run again' : 'Run workflow'}
-                icon={canRerun ? RotateCcw : ArrowUp}
-                text={canRerun ? 'Run again' : undefined}
-              />
-            )
+            <>
+              {isActive && onCancel ? (
+                <ComposerStopButton onClick={onCancel} label="Stop" />
+              ) : (
+                <ComposerSendButton
+                  onClick={send}
+                  disabled={!canExecute || isExecuting || !testInput.trim()}
+                  busy={isExecuting}
+                  label={canRerun ? 'Run again' : 'Run workflow'}
+                  icon={canRerun ? RotateCcw : ArrowUp}
+                  text={canRerun ? 'Run again' : undefined}
+                />
+              )}
+            </>
           }
           hint={
             awaitingApproval

@@ -9,7 +9,7 @@ import { errorMessage, orchestrationHeaders, type ExecutionLogEvent } from '@/se
 
 export interface WorkflowRunRequest {
   id: string
-  kind: 'approval' | 'ask_user' | 'wait_event'
+  kind: 'approval' | 'ask_user' | 'wait_event' | 'credits'
   nodeId: string
   nodeName: string
   payload: { message?: string; question?: string; approvers?: { roles?: string[] } }

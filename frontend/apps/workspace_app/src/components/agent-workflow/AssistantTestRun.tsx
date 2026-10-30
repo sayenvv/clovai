@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { OutOfTokensNotice, isOutOfTokens } from '@/components/agent-workflow/OutOfTokensNotice'
 import { SchemaForm, type FormSchema } from '@/components/agent-workflow/SchemaForm'
 import { CARD, RUN_STATUS, asText } from '@/components/agent-workflow/AssistantCards'
 import { fetchDraftPreview, type CanvasTestRequest } from '@/services/workflow-assistant-api'
 import { answerWorkflowRun, startWorkflowRun, type WorkflowRunRequest, type WorkflowRunV4 } from '@/services/workflow-run-v4-api'
 import type { ExecutionLogEvent } from '@/services/orchestration-api'
-import { addTokenUsage } from '@/services/token-usage-store'
+import { addTokenUsage, refreshTokenUsage } from '@/services/token-usage-store'
 import { cn } from '@/utils/cn'
 
 type StepState = 'running' | 'done' | 'failed'
@@ -65,6 +66,7 @@ export function AssistantTestRun({
 
   const settle = (next: WorkflowRunV4) => {
     setRun(next)
+    void refreshTokenUsage()
     if (next.status !== 'waiting') onFinished(next.id)
   }
 
@@ -156,7 +158,9 @@ export function AssistantTestRun({
         </ol>
       </div>
 
-      {request ? (
+      {request?.kind === 'credits' ? (
+        <OutOfTokensNotice message={request.payload.message} busy={answering} onContinue={() => void answer(request, {})} />
+      ) : request ? (
         <div className="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/[0.06] p-2.5">
           <p className="font-medium text-foreground">{request.nodeName}</p>
           <p className="text-muted-foreground">
@@ -190,7 +194,11 @@ export function AssistantTestRun({
         </div>
       ) : null}
 
-      {error || run?.error ? <p className="text-red-600 dark:text-red-400">{error || run?.error}</p> : null}
+      {error && isOutOfTokens(error) ? (
+        <OutOfTokensNotice message={error} />
+      ) : error || run?.error ? (
+        <p className="text-red-600 dark:text-red-400">{error || run?.error}</p>
+      ) : null}
       {output ? (
         <div>
           <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Output</p>

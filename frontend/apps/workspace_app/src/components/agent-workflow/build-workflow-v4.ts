@@ -365,18 +365,8 @@ export function buildWorkflowV4({
       if (!tools.some((existing) => existing.id === tool.id)) tools.push(tool)
       toolIds.push(tool.id)
     }
-    const knowledgeIds = (config?.contextProviderIds ?? []).map((providerId) => {
-      const knowledgeId = stableUuid(`knowledge:${providerId}`)
-      if (!knowledge.has(knowledgeId)) {
-        knowledge.set(knowledgeId, {
-          id: knowledgeId,
-          name: providerId,
-          collectionId: asUuid('collection', providerId),
-          topK: defaults.knowledgeTopK ?? 6,
-        })
-      }
-      return knowledgeId
-    })
+    // The Admin Center's context providers (memory, history...): the engine builds each from its catalog entry
+    const contextProviderIds = (config?.contextProviderIds ?? []).filter((providerId) => UUID_PATTERN.test(providerId))
     const responseSchema = resolveSpecValue({ from: 'agent.outputSchema', parse: 'json' }, sources)
     agents.push({
       id,
@@ -386,7 +376,7 @@ export function buildWorkflowV4({
       instructions: config?.instructions ?? '',
       modelId: modelFor(agentOwnModel(config), config?.temperature, config?.modelProvider, config?.modelConnectionId),
       toolIds,
-      ...(knowledgeIds.length ? { knowledgeIds } : {}),
+      ...(contextProviderIds.length ? { contextProviderIds } : {}),
       ...(config?.memoryEnabled || longTerm ? { memory: { conversation: true, longTerm } } : {}),
       ...(isRecord(responseSchema) ? { responseSchema } : {}),
       ...extra,
