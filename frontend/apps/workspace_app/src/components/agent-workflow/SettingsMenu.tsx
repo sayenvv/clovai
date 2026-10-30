@@ -207,7 +207,7 @@ export const SettingsMenu = memo(function SettingsMenu({
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="text-base">AI usage</DialogTitle>
             <DialogDescription>
-              Your token allowance for this period. The dashboard has the full breakdown.
+              Your credits for this period. The dashboard has the full breakdown.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 px-5 py-4">

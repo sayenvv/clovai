@@ -1,16 +1,16 @@
 import { memo, useEffect, useSyncExternalStore } from 'react'
-import { ensureTokenUsage, readTokenUsage, subscribeTokenUsage, tokenUsageLevel } from '@/services/token-usage-store'
+import { creditsFor, ensureTokenUsage, readTokenUsage, subscribeTokenUsage, tokenUsageLevel } from '@/services/token-usage-store'
 import { BUY_CREDITS_URL } from '@/constants'
 import { cn } from '@/utils/cn'
 
 function formatCount(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k`
-  return String(value)
+  if (value >= 10_000) return `${(value / 1_000).toFixed(1)}k`
+  return value < 10 ? String(Number(value.toFixed(1))) : Math.round(value).toLocaleString()
 }
 
 /**
- * The user's token allowance, read from local storage.
+ * The user's allowance in credits, read from local storage.
  *
  * Runs update the stored figures as their usage events arrive, so `/me` is
  * only read when nothing is stored for this account yet.
@@ -25,6 +25,7 @@ export const TokenBudgetBar = memo(function TokenBudgetBar() {
   if (!subscription || subscription.tokenLimit <= 0) return null
 
   const usedRatio = Math.min(1, subscription.tokensUsed / subscription.tokenLimit)
+  const credits = (tokens: number) => formatCount(creditsFor(tokens, subscription))
   // Colour only signals a problem: amber from 90% used, red from 95%
   const { level: usage, percent } = tokenUsageLevel(subscription)
   const level = usage === 'exhausted' ? 'critical' : usage
@@ -32,19 +33,19 @@ export const TokenBudgetBar = memo(function TokenBudgetBar() {
   return (
     <div className="rounded-lg border border-border/70 bg-background px-3 py-2.5">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Tokens</span>
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Credits</span>
         <span className="text-[11px] tabular-nums text-muted-foreground">
-          <span className="font-semibold text-foreground">{formatCount(subscription.tokensUsed)}</span>
-          {' '}of {formatCount(subscription.tokenLimit)} used · {percent}%
+          <span className="font-semibold text-foreground">{credits(subscription.tokensUsed)}</span>
+          {' '}of {credits(subscription.tokenLimit)} used · {percent}%
         </span>
       </div>
       <div
         className="mt-2 h-1 overflow-hidden rounded-full bg-muted"
         role="progressbar"
-        aria-label="Tokens used"
+        aria-label="Credits used"
         aria-valuemin={0}
-        aria-valuemax={subscription.tokenLimit}
-        aria-valuenow={subscription.tokensUsed}
+        aria-valuemax={100}
+        aria-valuenow={percent}
       >
         <div
           className={cn(
@@ -62,13 +63,13 @@ export const TokenBudgetBar = memo(function TokenBudgetBar() {
       >
         {level !== 'normal' ? (
           <>
-            {subscription.tokensRemaining > 0 ? `${percent}% used, ${formatCount(subscription.tokensRemaining)} left. ` : 'No tokens left: runs are paused. '}
+            {subscription.tokensRemaining > 0 ? `${percent}% used, ${credits(subscription.tokensRemaining)} left. ` : 'No credits left: runs are paused. '}
             <a href={BUY_CREDITS_URL} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">
               Buy credits
             </a>
           </>
         ) : (
-          `${formatCount(subscription.tokensRemaining)} remaining this period`
+          `${credits(subscription.tokensRemaining)} credits remaining this period`
         )}
       </p>
     </div>

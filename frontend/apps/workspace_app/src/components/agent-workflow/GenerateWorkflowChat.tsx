@@ -25,7 +25,7 @@ import {
 import type { CanvasPlan } from '@/components/agent-workflow/workflow-plan-from-diagram'
 import { listAgentNodes } from '@/components/agent-workflow/tool-agent-mapping'
 import type { DiagramPage } from '@/components/designer/diagram-types'
-import { addTokenUsage, refreshTokenUsage } from '@/services/token-usage-store'
+import { addTokenUsage, formatCredits, refreshTokenUsage } from '@/services/token-usage-store'
 import { isOutOfTokens } from '@/components/agent-workflow/OutOfTokensNotice'
 import { BUY_CREDITS_URL } from '@/constants'
 import { cn } from '@/utils/cn'
@@ -257,10 +257,6 @@ function RunSteps({
 }
 
 /** A finished run under "Thought for Ns", its steps open as the timeline (they can be folded). */
-function formatTokens(tokens: number): string {
-  return tokens >= 1_000 ? `${(tokens / 1_000).toFixed(1)}k` : String(tokens)
-}
-
 function ThoughtSteps({ steps, seconds, tokens }: { steps: WorkflowChatMessage[]; seconds?: number; tokens?: number }) {
   const [open, setOpen] = useState(true)
   const expandable = steps.length > 0
@@ -278,7 +274,7 @@ function ThoughtSteps({ steps, seconds, tokens }: { steps: WorkflowChatMessage[]
       >
         <span>
           {seconds ? `Thought for ${seconds}s` : 'Thought'}
-          {tokens ? <span className="font-normal tabular-nums"> · {formatTokens(tokens)} tokens</span> : null}
+          {tokens ? <span className="font-normal tabular-nums"> · {formatCredits(tokens)}</span> : null}
         </span>
         {expandable ? (
           <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
@@ -656,7 +652,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
               role: 'assistant',
               content:
                 error instanceof Error && isOutOfTokens(error.message)
-                  ? `You have used all your tokens. [Buy more credits](${BUY_CREDITS_URL}) to keep working with the assistant.`
+                  ? `You have used all your credits. [Buy more credits](${BUY_CREDITS_URL}) to keep working with the assistant.`
                   : `The workflow assistant couldn't finish. ${error instanceof Error ? error.message : ''}`.trim(),
               tone: 'error',
             },

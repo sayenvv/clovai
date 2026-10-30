@@ -7,6 +7,7 @@ import type { DiffState, DraftPreview } from '@/components/agent-workflow/draft-
 import { OutOfTokensNotice } from '@/components/agent-workflow/OutOfTokensNotice'
 import { SchemaForm } from '@/components/agent-workflow/SchemaForm'
 import { cn } from '@/utils/cn'
+import { formatCredits } from '@/services/token-usage-store'
 
 /**
  * Cards the 4.0 workflow assistant shows in the chat: what a waiting run asks the user (a plan to approve,
@@ -368,7 +369,7 @@ export function TestRunCard({ runId, onReportProblem }: { runId: string; onRepor
       <div className="flex items-center justify-between gap-2">
         <p className="font-medium text-foreground">Test run</p>
         <span className="flex items-center gap-2">
-          {tokens ? <span className="font-mono text-[11px] text-muted-foreground">{tokens.toLocaleString()} tokens</span> : null}
+          {tokens ? <span className="font-mono text-[11px] text-muted-foreground">{formatCredits(tokens)}</span> : null}
           <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', status.className)}>{status.label}</span>
         </span>
       </div>

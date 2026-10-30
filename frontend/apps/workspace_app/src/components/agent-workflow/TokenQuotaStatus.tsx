@@ -5,7 +5,7 @@ import { ensureTokenUsage, readTokenUsage, subscribeTokenUsage, tokenUsageLevel 
 import { cn } from '@/utils/cn'
 
 /**
- * The status bar's token quota, live as runs report their tokens: the share used, amber from 90%, red from 95%,
+ * The status bar's credit quota, live as runs report what they use: the share used, amber from 90%, red from 95%,
  * and "Quota reached" when it is all used. It opens the page to buy credits.
  */
 export function TokenQuotaStatus() {
@@ -15,13 +15,13 @@ export function TokenQuotaStatus() {
   }, [])
   if (!usage || usage.tokenLimit <= 0) return null
   const { level, percent } = tokenUsageLevel(usage)
-  const label = level === 'exhausted' ? 'Quota reached' : `Tokens ${percent}%`
+  const label = level === 'exhausted' ? 'Quota reached' : `Credits ${percent}%`
   return (
     <a
       href={BUY_CREDITS_URL}
       target="_blank"
       rel="noreferrer"
-      title={level === 'exhausted' ? 'Quota reached: runs are paused. Buy credits' : `${percent}% of your tokens used. Buy credits`}
+      title={level === 'exhausted' ? 'Quota reached: runs are paused. Buy credits' : `${percent}% of your credits used. Buy credits`}
       className={cn(
         'flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-2 tabular-nums transition-colors hover:bg-accent hover:text-foreground',
         level === 'warning' && 'text-amber-700 dark:text-amber-300',
