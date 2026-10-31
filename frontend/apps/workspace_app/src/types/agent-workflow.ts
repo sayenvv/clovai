@@ -66,6 +66,10 @@ export interface AgentNodeConfig {
   handler?: string
   /** HTTP tool nodes ("HTTP / API"): the request it sends, and how a long-running job is waited for. */
   http?: HttpToolConfig
+  /** Tool nodes written as custom code: the switch in the tool's settings. */
+  customCode?: boolean
+  /** The saved code tool (`/code-tools`) such a tool runs; the 4.0 tool names it as `codeToolId`. */
+  codeToolId?: string
   /** The admin-listed context providers (memory, knowledge) this agent uses. */
   contextProviderIds?: string[]
   /** Eleven Nodes executor: stable id used in workflow build exports (defaults from node id). */

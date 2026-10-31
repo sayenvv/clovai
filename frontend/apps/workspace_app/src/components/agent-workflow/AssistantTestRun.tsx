@@ -7,7 +7,7 @@ import { CARD, RUN_STATUS, asText } from '@/components/agent-workflow/AssistantC
 import { fetchDraftPreview, type CanvasTestRequest } from '@/services/workflow-assistant-api'
 import { answerWorkflowRun, startWorkflowRun, type WorkflowRunRequest, type WorkflowRunV4 } from '@/services/workflow-run-v4-api'
 import type { ExecutionLogEvent } from '@/services/orchestration-api'
-import { addTokenUsage, refreshTokenUsage } from '@/services/token-usage-store'
+import { startTokenMeter, type TokenMeter } from '@/services/token-usage-store'
 import { cn } from '@/utils/cn'
 
 type StepState = 'running' | 'done' | 'failed'
@@ -44,10 +44,12 @@ export function AssistantTestRun({
   const [tokens, setTokens] = useState(0)
   const [interrupted] = useState(() => started.has(testKey))
   const hidden = useRef(new Set<string>())
+  /** Counts the running segment's tokens live until the server has charged them. */
+  const meter = useRef<TokenMeter | null>(null)
 
   const onEvent = (event: ExecutionLogEvent) => {
     if (event.event === 'usage') {
-      addTokenUsage(event.totalTokens ?? 0)
+      meter.current?.add(event.totalTokens ?? 0)
       setTokens((total) => total + (event.totalTokens ?? 0))
       return
     }
@@ -66,8 +68,18 @@ export function AssistantTestRun({
 
   const settle = (next: WorkflowRunV4) => {
     setRun(next)
-    void refreshTokenUsage()
     if (next.status !== 'waiting') onFinished(next.id)
+  }
+
+  /** Run one segment (the start, or an answer) with its own meter, settled however it ends. */
+  const metered = async <T,>(segment: () => Promise<T>): Promise<T> => {
+    meter.current = startTokenMeter()
+    try {
+      return await segment()
+    } finally {
+      void meter.current?.settle()
+      meter.current = null
+    }
   }
 
   useEffect(() => {
@@ -78,7 +90,7 @@ export function AssistantTestRun({
         const { document } = await fetchDraftPreview(test.draftId)
         // Start and End are not steps the user needs to follow
         for (const node of document.graph.nodes) if (node.type === 'start' || node.type === 'end') hidden.current.add(node.id)
-        settle(await startWorkflowRun({ document: document as unknown as Record<string, unknown>, inputs: test.inputs, onEvent }))
+        settle(await metered(() => startWorkflowRun({ document: document as unknown as Record<string, unknown>, inputs: test.inputs, onEvent })))
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : 'The test could not run.')
       }
@@ -90,7 +102,7 @@ export function AssistantTestRun({
     if (!run) return
     setAnswering(true)
     try {
-      settle(await answerWorkflowRun(run, request, response, onEvent))
+      settle(await metered(() => answerWorkflowRun(run, request, response, onEvent)))
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The test could not continue.')
     } finally {

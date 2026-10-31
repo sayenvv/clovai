@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { addTokenUsage, refreshTokenUsage } from '@/services/token-usage-store'
+import { startTokenMeter, type TokenMeter } from '@/services/token-usage-store'
 import type { ExecutionLogEvent, ExecutionStepDetail } from '@/services/orchestration-api'
 import {
   answerWorkflowRun,
@@ -296,6 +296,17 @@ export function useWorkflowRunner() {
   const runBackendExecution = useCallback(
     async (execution: PendingExecution) => {
       const { plan, input, target } = execution
+      // Each request (the start, each answer) counts its tokens live and settles them however it ends
+      let meter: TokenMeter | null = null
+      const metered = async <T,>(segment: () => Promise<T>): Promise<T> => {
+        meter = startTokenMeter()
+        try {
+          return await segment()
+        } finally {
+          void meter.settle()
+          meter = null
+        }
+      }
       try {
         let failed = false
         let reply = ''
@@ -328,7 +339,7 @@ export function useWorkflowRunner() {
           if (cancelRef.current) return
           if (event.event === 'usage') {
             // Count each model call as it happens; the server records the same usage in the database.
-            addTokenUsage(event.totalTokens ?? 0)
+            meter?.add(event.totalTokens ?? 0)
             return
           }
           if (event.event === 'agent') {
@@ -396,7 +407,6 @@ export function useWorkflowRunner() {
           }
         }
         const complete = () => {
-          void refreshTokenUsage()
           setState((previous) => {
             const last = plan[plan.length - 1]
             const trace = previous.trace.map((step) =>
@@ -452,7 +462,7 @@ export function useWorkflowRunner() {
           if (request) {
             pendingRunRef.current = {
               request,
-              resume: async (response) => settle(await answerWorkflowRun(run, request, response, onEvent)),
+              resume: async (response) => settle(await metered(() => answerWorkflowRun(run, request, response, onEvent))),
             }
             setState((previous) => ({
               ...previous,
@@ -478,7 +488,7 @@ export function useWorkflowRunner() {
           }
           complete()
         }
-        const run = await startWorkflowRun({ workflowId: target.workflowId, inputs: parseWorkflowInput(input), onEvent })
+        const run = await metered(() => startWorkflowRun({ workflowId: target.workflowId, inputs: parseWorkflowInput(input), onEvent }))
         setState((previous) => ({ ...previous, runId: run.id }))
         await settle(run)
       } catch (error) {

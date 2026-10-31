@@ -1,5 +1,5 @@
 import { STORAGE_KEYS } from '@/constants'
-import { authorizedFetch, clearAuthTokens, storeAuthTokens } from '@/services/api-auth'
+import { SIGNED_OUT_EVENT, authorizedFetch, signOutAllTabs, signOutGeneration, storeAuthTokens } from '@/services/api-auth'
 import {
   AGENT_WORKFLOW_TOOL_ID,
   createWorkflowWorkspaceDocument,
@@ -259,8 +259,11 @@ let restoring: Promise<void> | null = null
  */
 export function restoreSessionFromServer(): Promise<void> {
   restoring ??= (async () => {
+    const generation = signOutGeneration()
     try {
       const response = await authorizedFetch('/api/v1/auth/me')
+      // Signed out while this check was on its way: its answer is about the account that just signed out
+      if (generation !== signOutGeneration()) return
       if (response.status === 401) {
         // The tokens are gone or no longer valid (e.g. signed out in another tab): so is this session
         if (getSession()) logout()
@@ -300,8 +303,13 @@ export function setSession(session: ProjectSession): void {
 }
 
 export function logout(): void {
-  clearAuthTokens()
+  signOutAllTabs()
   clearSession()
+}
+
+// Signed out in another tab: this tab's session goes too
+if (typeof window !== 'undefined') {
+  window.addEventListener(SIGNED_OUT_EVENT, () => clearSession())
 }
 
 /** Forget this tab's session without signing out (the shared tokens stay). */

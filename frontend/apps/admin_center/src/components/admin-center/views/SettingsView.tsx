@@ -1,4 +1,5 @@
 import { ExternalLink } from 'lucide-react'
+import { CreditRateCard } from '@/components/admin-center/CreditRateCard'
 import { PageBody, PageHeader } from '@/components/admin-center/PageShell'
 import { PremiumCard } from '@/components/admin-center/PremiumCard'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ export function SettingsView() {
         }
       />
       <PageBody className="mx-auto max-w-3xl space-y-4">
+        <CreditRateCard />
         <PremiumCard className="space-y-4 p-5">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Workspace profile</h2>

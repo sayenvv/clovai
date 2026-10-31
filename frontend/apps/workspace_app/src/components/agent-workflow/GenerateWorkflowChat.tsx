@@ -25,7 +25,7 @@ import {
 import type { CanvasPlan } from '@/components/agent-workflow/workflow-plan-from-diagram'
 import { listAgentNodes } from '@/components/agent-workflow/tool-agent-mapping'
 import type { DiagramPage } from '@/components/designer/diagram-types'
-import { addTokenUsage, formatCredits, refreshTokenUsage } from '@/services/token-usage-store'
+import { formatCredits, refreshTokenUsage, startTokenMeter, type TokenMeter } from '@/services/token-usage-store'
 import { isOutOfTokens } from '@/components/agent-workflow/OutOfTokensNotice'
 import { BUY_CREDITS_URL } from '@/constants'
 import { cn } from '@/utils/cn'
@@ -256,7 +256,7 @@ function RunSteps({
   )
 }
 
-/** A finished run under "Thought for Ns", its steps open as the timeline (they can be folded). */
+/** A finished run under "Thought for Ns": every step with its reasoning, open (each can be folded). */
 function ThoughtSteps({ steps, seconds, tokens }: { steps: WorkflowChatMessage[]; seconds?: number; tokens?: number }) {
   const [open, setOpen] = useState(true)
   const expandable = steps.length > 0
@@ -303,6 +303,7 @@ function preview(content: string): string {
 }
 
 function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
+  // Every step shows its reasoning and what the call touched; the user can fold one away
   const [open, setOpen] = useState(true)
   const expandable = item.state !== 'running' && Boolean(item.content)
 
@@ -500,6 +501,8 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  /** Counts the running request's tokens live until the server has charged them. */
+  const meterRef = useRef<TokenMeter | null>(null)
 
   useEffect(() => {
     const element = scrollRef.current
@@ -634,6 +637,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
 
   const runAssistant = async (start: () => Promise<AssistantRun>) => {
     const startedAt = Date.now()
+    meterRef.current = startTokenMeter()
     setIsGenerating(true)
     setAssistantBusy(true)
     liveStepsRef.current = []
@@ -663,7 +667,8 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       setAssistantBusy(false)
       liveStepsRef.current = []
       setLiveSteps([])
-      void refreshTokenUsage()  // the server's totals replace the live estimate
+      void meterRef.current?.settle()  // the server charged this run: its totals replace the live count
+      meterRef.current = null
     }
   }
 
@@ -681,7 +686,8 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     ])
     setDraft('')
     setPendingRequest(null)
-    setPendingDraft(null)
+    // The draft's card is hidden while the assistant works and replaced by what it returns; if the run fails, the
+    // card (and the draft) are still there to accept or discard
     const controller = new AbortController()
     abortRef.current = controller
     await runAssistant(async () => {
@@ -693,7 +699,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
         conversationId,
         referenceWorkflowId: reference?.workflow_id,
         onEvent: (event) => {
-          if (event.type === 'usage') addTokenUsage(event.totalTokens ?? 0)
+          if (event.type === 'usage') meterRef.current?.add(event.totalTokens ?? 0)
           liveStepsRef.current = applyAssistantEvent(liveStepsRef.current, event)
           setLiveSteps(liveStepsRef.current)
         },
@@ -713,7 +719,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     void runAssistant(() =>
       answerAssistant(runId, request.id, response, {
         onEvent: (event) => {
-          if (event.type === 'usage') addTokenUsage(event.totalTokens ?? 0)
+          if (event.type === 'usage') meterRef.current?.add(event.totalTokens ?? 0)
           liveStepsRef.current = applyAssistantEvent(liveStepsRef.current, event)
           setLiveSteps(liveStepsRef.current)
         },
@@ -723,8 +729,8 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   }
 
   const acceptAssistantDraft = async () => {
-    // A draft whose test still fails is not offered (the canvas preview bar's Accept included)
-    if (!assistantDraftId || pendingDraft?.testFailed) return
+    // A draft whose test still fails can be accepted too ("Accept anyway"): the user fixes it on the canvas
+    if (!assistantDraftId) return
     setAssistantBusy(true)
     let accepted: Awaited<ReturnType<typeof acceptDraft>>
     try {
@@ -782,7 +788,6 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
               <DraftPreviewBar
                 counts={shownPreview.counts}
                 busy={assistantBusy}
-                acceptDisabled={Boolean(pendingDraft?.testFailed)}
                 onAccept={() => reviewActions.current.accept()}
                 onDiscard={() => reviewActions.current.discard()}
                 onHide={() => reviewActions.current.hide()}

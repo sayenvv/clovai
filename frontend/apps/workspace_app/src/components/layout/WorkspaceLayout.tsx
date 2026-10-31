@@ -5,6 +5,7 @@ import { useActiveConfig } from '@/hooks/use-config'
 import { AppConfigProvider } from '@/hooks/use-app-config'
 import { Button } from '@/components/ui/button'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { AuthLoadingScreen } from '@/components/shared/AuthLoadingScreen'
 import { LoadingScreen } from '@/components/shared/LoadingScreen'
 import { WorkflowWorkspaceLoadingScreen } from '@/components/agent-workflow/ExecuteLaunchOverlay'
 import { ProjectAuthGate } from '@/components/agent-workflow/ProjectAuthGate'
@@ -20,10 +21,11 @@ export function WorkspaceLayout() {
   // The workspace's own pages: the canvas at the root and its panels, the run page and the dashboard
   const isAgentWorkflowWorkspace =
     /^\/(library|inspect|logs|execute)?\/?$/.test(location.pathname) || location.pathname.startsWith('/tools/agent-workflow')
-  const workspaceFallback = isAgentWorkflowWorkspace ? <WorkflowWorkspaceLoadingScreen /> : <LoadingScreen />
   const [session, setSession] = useState<ProjectSession | null>(() =>
     isAgentWorkflowWorkspace ? getSession() : null,
   )
+  // The canvas skeleton only for someone signed in: signed out, the sign-in page comes next, not the workspace
+  const workspaceFallback = !isAgentWorkflowWorkspace ? <LoadingScreen /> : session ? <WorkflowWorkspaceLoadingScreen /> : <AuthLoadingScreen />
 
   useEffect(() => {
     if (!isAgentWorkflowWorkspace) {

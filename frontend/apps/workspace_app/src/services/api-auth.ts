@@ -3,6 +3,28 @@ import { STORAGE_KEYS } from '@/constants'
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://127.0.0.1:8000'
 
 let refreshInFlight: Promise<boolean> | null = null
+/** Set in localStorage on sign-out, so every open tab hears it (a `storage` event) and drops its own copy. */
+const SIGNED_OUT_KEY = 'eleven-nodes-signed-out'
+/** Fired in every tab when the user signs out (in this tab or another). */
+export const SIGNED_OUT_EVENT = 'eleven-nodes-signed-out-event'
+/** Bumped on every sign-out: a refresh or session check that began before it is ignored when it finishes. */
+let signOutCount = 0
+
+export function signOutGeneration(): number {
+  return signOutCount
+}
+
+// Another tab signed out: this tab's copy of the tokens (its sessionStorage) goes too, so it cannot refresh them
+// back into localStorage and sign every tab in again
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key !== SIGNED_OUT_KEY || !event.newValue) return
+    signOutCount += 1
+    removeStorage(STORAGE_KEYS.accessToken)
+    removeStorage(STORAGE_KEYS.refreshToken)
+    window.dispatchEvent(new Event(SIGNED_OUT_EVENT))
+  })
+}
 
 export function authHeaders(): Record<string, string> {
   const token = readStorage(STORAGE_KEYS.accessToken)
@@ -21,6 +43,17 @@ export function storeAuthTokens(payload: { access_token?: unknown; refresh_token
 export function clearAuthTokens() {
   removeStorage(STORAGE_KEYS.accessToken)
   removeStorage(STORAGE_KEYS.refreshToken)
+}
+
+/** Sign out everywhere: forget the tokens here, tell the other tabs, and void requests still in flight. */
+export function signOutAllTabs() {
+  signOutCount += 1
+  clearAuthTokens()
+  try {
+    localStorage.setItem(SIGNED_OUT_KEY, String(Date.now()))
+  } catch {
+    // private mode: only this tab signs out
+  }
 }
 
 /** Call the API with the current access token, refreshing it once after a 401. */
@@ -65,6 +98,7 @@ function refreshAccessToken(): Promise<boolean> {
 async function requestRefresh(): Promise<boolean> {
   const refreshToken = readStorage(STORAGE_KEYS.refreshToken)
   if (!refreshToken) return false
+  const generation = signOutCount
   let response: Response
   try {
     response = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
@@ -87,6 +121,8 @@ async function requestRefresh(): Promise<boolean> {
     clearAuthTokens()
     return false
   }
+  // Signed out while this refresh was on its way: its tokens must not sign the user back in
+  if (generation !== signOutCount) return false
   storeAuthTokens(payload)
   return true
 }

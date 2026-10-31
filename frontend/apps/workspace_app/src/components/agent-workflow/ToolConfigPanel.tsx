@@ -2,10 +2,12 @@ import { memo, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Field, PanelSection } from '@/components/agent-workflow/FormField'
 import { isMcpToolNode, listAgentNodes, remapToolToAgent } from '@/components/agent-workflow/tool-agent-mapping'
 import { toolFunctionName } from '@/components/agent-workflow/maf-tool'
 import { HttpToolSettings } from '@/components/agent-workflow/HttpToolSettings'
+import { CodeToolSettings } from '@/components/agent-workflow/CodeToolSettings'
 import { normalizeApprovalMode, type ToolApprovalMode } from '@/types/agent-workflow'
 import type { Diagram, DiagramNode } from '@/components/designer/diagram-types'
 
@@ -21,6 +23,16 @@ const SCHEMA_PLACEHOLDER = `{
   },
   "required": ["location"]
 }`
+
+/** Text that parses as a JSON Schema of arguments (`type: object` with `properties`). */
+function isJsonSchema(text: string | undefined): boolean {
+  try {
+    const value = JSON.parse(text ?? '') as { type?: unknown; properties?: unknown }
+    return value?.type === 'object' && Boolean(value.properties) && typeof value.properties === 'object'
+  } catch {
+    return false
+  }
+}
 
 interface ToolConfigPanelProps {
   node: DiagramNode
@@ -38,6 +50,8 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({ node, diagram, on
   const isMcp = isMcpToolNode(node)
   // An "HTTP / API" block (older ones have no settings yet; editing them adds them)
   const isHttp = !isMcp && (Boolean(agent.http) || agent.tools?.includes('api_call'))
+  // A tool written as custom code: the switch below, or one the assistant built with saved code
+  const isCode = !isMcp && !isHttp && (Boolean(agent.customCode) || Boolean(agent.codeToolId))
 
   const updateTool = (patch: Partial<typeof agent>, label?: string) => {
     onChange((previous) => ({
@@ -80,7 +94,7 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({ node, diagram, on
           </Select>
         </Field>
 
-        <PanelSection title={isMcp ? 'MCP server' : isHttp ? 'HTTP tool' : 'Function tool'}>
+        <PanelSection title={isMcp ? 'MCP server' : isHttp ? 'HTTP tool' : 'Tool'}>
           <Field
             label="Name"
             hint={`The model calls it as ${toolFunctionName(node.label, node.id)}`}
@@ -111,7 +125,13 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({ node, diagram, on
           {!isMcp ? (
             <Field
               label="Input schema"
-              hint={isHttp ? 'JSON Schema for the arguments the model passes; the request reads them as {{ args.<name> }}' : 'JSON Schema for the arguments the model passes'}
+              hint={
+                isHttp
+                  ? 'JSON Schema for the arguments the model passes; the request reads them as {{ args.<name> }}'
+                  : isCode
+                    ? "Leave empty to use run(...)'s signature"
+                    : 'JSON Schema for the arguments the model passes'
+              }
             >
               <Textarea
                 rows={9}
@@ -123,6 +143,27 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({ node, diagram, on
               />
               {schemaError ? <p className="text-[11px] text-destructive">{schemaError}</p> : null}
             </Field>
+          ) : null}
+
+          {!isMcp && !isHttp ? (
+            <div className="flex items-center justify-between rounded-[3px] border border-border px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm">Custom code</p>
+                <p className="text-[11px] text-muted-foreground">Write the tool in Python; it runs in a sandbox</p>
+              </div>
+              <Switch
+                checked={isCode}
+                onCheckedChange={(checked) =>
+                  updateTool(
+                    checked
+                      ? // The code's own arguments are used: drop a schema that is not a JSON Schema (the new-tool placeholder)
+                        { customCode: true, ...(isJsonSchema(agent.inputSchema) ? {} : { inputSchema: '' }) }
+                      : { customCode: false, codeToolId: undefined },
+                  )
+                }
+                aria-label="Custom code"
+              />
+            </div>
           ) : null}
 
           <Field label="Approval mode" hint="Whether a person must approve each call">
@@ -139,6 +180,15 @@ export const ToolConfigPanel = memo(function ToolConfigPanel({ node, diagram, on
           </Field>
         </PanelSection>
 
+        {isCode ? (
+          <CodeToolSettings
+            codeToolId={agent.codeToolId}
+            name={toolFunctionName(node.label, node.id)}
+            description={agent.description}
+            inputSchemaText={agent.inputSchema}
+            onLinked={(codeToolId) => updateTool({ codeToolId })}
+          />
+        ) : null}
         {isHttp ? <HttpToolSettings http={agent.http} onChange={(http) => updateTool({ http })} /> : null}
       </div>
     </div>

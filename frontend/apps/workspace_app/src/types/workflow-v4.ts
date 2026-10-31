@@ -85,6 +85,7 @@ export type ToolV4 =
   | (ToolBase & { kind: 'mcp'; server: { transport: 'http'; url: string }; connectionId?: string; allow?: string[] })
   | (ToolBase & { kind: 'connector'; connectionId?: string; action: string })
   | (ToolBase & { kind: 'http'; request: Record<string, unknown>; inputSchema?: JsonSchema })
+  | (ToolBase & { kind: 'code'; codeToolId: string; inputSchema?: JsonSchema })
 
 export interface KnowledgeV4 {
   id: string

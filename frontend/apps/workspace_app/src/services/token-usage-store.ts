@@ -20,47 +20,65 @@ interface StoredUsage extends TokenUsageSnapshot {
 
 const CHANGE_EVENT = 'eleven-nodes-token-usage'
 let loading: Promise<void> | null = null
-let cached: { raw: string | null; value: TokenUsageSnapshot | null } = { raw: null, value: null }
+let cached: { key: string; value: TokenUsageSnapshot | null } = { key: '', value: null }
+
+/**
+ * Tokens this tab's running requests used that the server has not charged yet, one meter per run: the server
+ * charges a run when it ends or pauses, and each run settles only its own meter.
+ */
+const meters = new Map<number, number>()
+let nextMeter = 1
+/**
+ * The least this tab shows for an account and allowance: what it showed last. The share used never goes back while
+ * the allowance is the same (a refresh racing a charge, another tab's write); a new allowance starts afresh.
+ */
+let floor: { accountId: string; tokenLimit: number; tokensUsed: number } | null = null
 
 function accountId(): string {
   return getSession()?.accountId ?? ''
 }
 
-/**
- * The allowance kept in local storage for the signed-in account.
- *
- * Model runs update it as their `usage` events stream in, and the final
- * result replaces it with the server's figures, so `/me` is only read when
- * nothing is stored yet.
- */
-export function readTokenUsage(): TokenUsageSnapshot | null {
-  let raw: string | null = null
+function notify(): void {
+  window.dispatchEvent(new Event(CHANGE_EVENT))
+}
+
+/** The server's figures for the signed-in account, as last read from `/me` (shared by the tabs). */
+function readServerUsage(): { raw: string; value: StoredUsage } | null {
   try {
-    raw = localStorage.getItem(STORAGE_KEYS.tokenUsage)
+    const raw = localStorage.getItem(STORAGE_KEYS.tokenUsage)
+    const stored = raw ? (JSON.parse(raw) as StoredUsage) : null
+    return raw && stored && stored.accountId === accountId() ? { raw, value: stored } : null
   } catch {
     return null
   }
-  // useSyncExternalStore needs the same object while the stored value is unchanged.
-  if (raw === cached.raw) return cached.value
-  let value: TokenUsageSnapshot | null = null
-  try {
-    const stored = raw ? (JSON.parse(raw) as StoredUsage) : null
-    if (stored && stored.accountId === accountId()) {
-      value = {
-        tokenLimit: stored.tokenLimit,
-        tokensUsed: stored.tokensUsed,
-        tokensRemaining: stored.tokensRemaining,
-        tokensPerCredit: stored.tokensPerCredit,
-      }
-    }
-  } catch {
-    value = null
+}
+
+/**
+ * The allowance as this tab shows it: the server's figures, plus what this tab's running requests used so far,
+ * never below what it showed last for the same allowance, never past the allowance (the server never charges past it).
+ */
+export function readTokenUsage(): TokenUsageSnapshot | null {
+  const server = readServerUsage()
+  if (!server) return null
+  const base = server.value
+  let used = base.tokensUsed + [...meters.values()].reduce((sum, tokens) => sum + tokens, 0)
+  if (floor && floor.accountId === base.accountId && floor.tokenLimit === base.tokenLimit) used = Math.max(used, floor.tokensUsed)
+  if (base.tokenLimit > 0) used = Math.min(used, Math.max(base.tokenLimit, base.tokensUsed))
+  // useSyncExternalStore needs the same object while nothing changed
+  const key = `${server.raw}|${used}`
+  if (key === cached.key) return cached.value
+  floor = { accountId: base.accountId, tokenLimit: base.tokenLimit, tokensUsed: used }
+  const value: TokenUsageSnapshot = {
+    tokenLimit: base.tokenLimit,
+    tokensUsed: used,
+    tokensRemaining: Math.max(0, base.tokenLimit - used),
+    tokensPerCredit: base.tokensPerCredit,
   }
-  cached = { raw, value }
+  cached = { key, value }
   return value
 }
 
-/** Replace the stored allowance, for example with the totals a finished run returns. */
+/** Keep the server's figures, for example the totals `/me` returned. */
 export function writeTokenUsage(snapshot: TokenUsageSnapshot): void {
   const stored: StoredUsage = { ...snapshot, accountId: accountId() }
   try {
@@ -68,15 +86,34 @@ export function writeTokenUsage(snapshot: TokenUsageSnapshot): void {
   } catch {
     // Private mode or full storage: the bar simply shows nothing new.
   }
-  window.dispatchEvent(new Event(CHANGE_EVENT))
+  notify()
 }
 
-/** Count tokens a running request just used, ahead of the server's final totals. */
-export function addTokenUsage(tokens: number): void {
-  const current = readTokenUsage()
-  if (!current || !Number.isFinite(tokens) || tokens <= 0) return
-  const tokensUsed = current.tokensUsed + tokens
-  writeTokenUsage({ ...current, tokensUsed, tokensRemaining: Math.max(0, current.tokenLimit - tokensUsed) })
+/** Counts one run's tokens live, ahead of the server's charge; `settle` when the run ends, pauses or fails. */
+export interface TokenMeter {
+  add: (tokens: number) => void
+  settle: () => Promise<void>
+}
+
+/** Start counting a run's tokens as its `usage` events arrive. */
+export function startTokenMeter(): TokenMeter {
+  const id = nextMeter++
+  meters.set(id, 0)
+  let settled = false
+  return {
+    add(tokens) {
+      if (settled || !Number.isFinite(tokens) || tokens <= 0) return
+      meters.set(id, (meters.get(id) ?? 0) + tokens)
+      notify()
+    },
+    settle() {
+      if (settled) return Promise.resolve()
+      settled = true
+      // The server charged this run before it answered: its totals now hold these tokens (the floor bridges the read)
+      meters.delete(id)
+      return refreshTokenUsage()
+    },
+  }
 }
 
 /** Notify `listener` when the allowance changes here or in another tab. */
@@ -110,7 +147,10 @@ export function ensureTokenUsage(): Promise<void> {
   return loading
 }
 
-/** Read `/me` again for the server's totals: after a run (the server charges what it used) or on returning to the tab. */
+/**
+ * Read `/me` again for the server's figures: after a run (it charged what the run used), credits an admin added,
+ * another tab's runs. What this tab's running requests used so far stays on top (their meters).
+ */
 export function refreshTokenUsage(): Promise<void> {
   if (!getSession()) return Promise.resolve()
   return authorizedFetch('/api/v1/auth/me')

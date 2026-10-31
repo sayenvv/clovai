@@ -244,6 +244,11 @@ function toolNode(tool: ToolV4, agentId: string, at: { x: number; y: number }, i
   config.approvalMode = tool.approval === 'always' ? 'always_require' : 'never_require'
   if (tool.kind === 'mcp') config.mcpUrl = tool.server.url
   if (tool.kind === 'function') config.handler = tool.handler
+  if (tool.kind === 'code') {
+    config.customCode = true
+    config.codeToolId = tool.codeToolId
+    if (tool.inputSchema) config.inputSchema = JSON.stringify(tool.inputSchema, null, 2)
+  }
   if (tool.kind === 'http') {
     config.tools = ['api_call']
     config.http = httpConfig(tool)

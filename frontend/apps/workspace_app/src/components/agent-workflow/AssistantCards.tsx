@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Check, Eye, EyeOff, X } from 'lucide-react'
+import { Check, ClipboardList, Eye, EyeOff, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { fetchTestRun, type AssistantRequest, type DraftDiff, type TestRun } from '@/services/workflow-assistant-api'
 import type { DiagramNode } from '@/components/designer/diagram-types'
 import type { DiffState, DraftPreview } from '@/components/agent-workflow/draft-preview'
+import { ChatMarkdown } from '@/components/agent-workflow/ChatMarkdown'
 import { OutOfTokensNotice } from '@/components/agent-workflow/OutOfTokensNotice'
 import { SchemaForm } from '@/components/agent-workflow/SchemaForm'
 import { cn } from '@/utils/cn'
@@ -54,15 +55,21 @@ export function AssistantRequestCard({
     // Any other question: the inputs the asking step picked (choices, toggles, dates, text), drawn as a form
     return (
       <div className={CARD}>
-        <p className="whitespace-pre-wrap text-foreground">{request.payload.question}</p>
+        <ChatMarkdown content={request.payload.question ?? ''} className="text-[12.5px] leading-5 text-foreground" />
         <SchemaForm schema={request.payload.responseSchema} busy={busy} onSubmit={onAnswer} />
       </div>
     )
   }
 
+  // The plan as a card: its heading, then the plan itself (steps, branches, assumptions) as formatted text
   return (
     <div className={CARD}>
-      <p className="whitespace-pre-wrap text-foreground">{request.payload.question}</p>
+      <p className="flex items-center gap-1.5 font-medium text-foreground">
+        <ClipboardList className="h-3.5 w-3.5" /> Plan to review
+      </p>
+      <div className="max-h-[340px] overflow-y-auto rounded border border-border/60 bg-muted/30 px-2.5 py-2">
+        <ChatMarkdown content={request.payload.question ?? ''} className="text-[12.5px] leading-5 text-foreground" />
+      </div>
       <textarea
         value={text}
         onChange={(event) => setText(event.target.value)}
@@ -190,7 +197,7 @@ export function DraftReviewCard({
   previewOnCanvas: boolean
   onTogglePreview?: () => void
   busy: boolean
-  /** The assistant's test of this draft still fails: it is not offered until it works. */
+  /** The assistant's test of this draft still fails: fixing comes first, accepting it as it is stays possible. */
   testFailed?: boolean
   onAccept: () => void
   onDiscard: () => void
@@ -232,14 +239,19 @@ export function DraftReviewCard({
       ) : null}
       {testFailed ? (
         <p className="rounded border border-red-500/30 bg-red-500/[0.06] px-2 py-1.5 text-red-700 dark:text-red-300">
-          The test still fails, so this draft is not ready to use. Let the assistant keep fixing it, or discard it.
+          The test still fails. Let the assistant keep fixing it, or accept it as it is and fix it on the canvas yourself.
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
         {testFailed ? (
-          <Button size="sm" className="h-7 gap-1 text-[11.5px]" disabled={busy || !onKeepFixing} onClick={onKeepFixing}>
-            <Check className="h-3.5 w-3.5" /> Keep fixing
-          </Button>
+          <>
+            <Button size="sm" className="h-7 gap-1 text-[11.5px]" disabled={busy || !onKeepFixing} onClick={onKeepFixing}>
+              <Check className="h-3.5 w-3.5" /> Keep fixing
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 gap-1 text-[11.5px]" disabled={busy} onClick={onAccept}>
+              <Check className="h-3.5 w-3.5" /> Accept anyway
+            </Button>
+          </>
         ) : (
           <Button size="sm" className="h-7 gap-1 text-[11.5px]" disabled={busy} onClick={onAccept}>
             <Check className="h-3.5 w-3.5" /> Accept
