@@ -1,4 +1,4 @@
-import { lazy } from 'react'
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { WorkspaceLayout } from '@/components/layout/WorkspaceLayout'
@@ -41,6 +41,7 @@ const WorkflowExecutePage = lazy(() => import('@/pages/WorkflowExecutePage'))
 const AdminConfigPage = lazy(() => import('@/pages/admin/AdminConfigPage'))
 const DynamicPage = lazy(() => import('@/pages/DynamicPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+const PublicAppPage = lazy(() => import('@/pages/PublicAppPage'))
 
 /** Old /tools/agent-workflow/... links: the same place at the root, keeping the query (?open=, ?settings=). */
 function LegacyWorkspaceRedirect() {
@@ -54,7 +55,35 @@ function DashboardRedirect() {
   return <Navigate to={ROUTES.workspaceSettings(params.get('tab') ?? 'overview')} replace />
 }
 
-export const router = createBrowserRouter([
+/**
+ * The workspace a page is served for when it is a user's app subdomain (`<workspace>.<VITE_APPS_BASE_DOMAIN>`), or
+ * null on the platform's own address.
+ */
+function appSubdomain(): string | null {
+  // The host name has no port; the setting may (localhost:5173 in development)
+  const base = (import.meta.env.VITE_APPS_BASE_DOMAIN as string | undefined)?.trim().toLowerCase().split(':')[0]
+  const host = window.location.hostname.toLowerCase()
+  if (!base || !host.endsWith(`.${base}`)) return null
+  return host.slice(0, -(base.length + 1)) || null
+}
+
+const appsHost = appSubdomain()
+
+/** A published app page, loaded on its own (it has no workspace layout around it). */
+function PublicApp({ workspace }: { workspace?: string }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <PublicAppPage workspace={workspace} />
+    </Suspense>
+  )
+}
+
+/** On a user's app subdomain only their published apps are served: `/<app>`. */
+const appRoutes = [{ path: '/:slug', element: <PublicApp workspace={appsHost ?? undefined} /> }]
+
+export const router = createBrowserRouter(appsHost ? appRoutes : [
+  // Published apps, open to anyone: /apps/<workspace>/<app> (on its own subdomain in production)
+  { path: '/apps/:workspace/:slug', element: <PublicApp /> },
   // Tool workspaces open in their own tab with no site chrome (like n8n/Figma).
   {
     element: <WorkspaceLayout />,

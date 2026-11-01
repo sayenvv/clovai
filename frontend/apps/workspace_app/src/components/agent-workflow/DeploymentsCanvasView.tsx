@@ -11,7 +11,7 @@ import {
   Rocket,
   Sparkles,
   Timer,
-  Wrench, GripVertical } from 'lucide-react'
+  Wrench, GripVertical, Plug } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   formatCurrency,
@@ -41,6 +41,8 @@ import {
   type PublishedWorkflowInstance,
 } from '@/services/published-instances-store'
 import { cn } from '@/utils/cn'
+import { AppBuilderView } from '@/components/agent-workflow/integrations/AppBuilderView'
+import { IntegrationsView } from '@/components/agent-workflow/integrations/IntegrationsView'
 
 const STATUS_FILTERS = ['all', 'deployed', 'failed'] as const
 
@@ -56,6 +58,9 @@ export const DeploymentsCanvasView = memo(function DeploymentsCanvasView({
   const [statusFilter, setStatusFilter] =
     useState<(typeof STATUS_FILTERS)[number]>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  /** A deployment's integrations, or its app builder, open in place of the list. */
+  const [integrating, setIntegrating] = useState<{ instanceId: string; page: 'methods' | 'app' } | null>(null)
+  const integrated = integrating ? instances.find((item) => item.id === integrating.instanceId) : undefined
 
   useEffect(() => {
     setExpandedId((current) => {
@@ -73,6 +78,18 @@ export const DeploymentsCanvasView = memo(function DeploymentsCanvasView({
     void navigator.clipboard.writeText(url).then(
       () => toast.success('Endpoint copied'),
       () => toast.error('Could not copy endpoint'),
+    )
+  }
+
+  if (integrating && integrated) {
+    return integrating.page === 'app' ? (
+      <AppBuilderView instance={integrated} onBack={() => setIntegrating({ instanceId: integrated.id, page: 'methods' })} />
+    ) : (
+      <IntegrationsView
+        instance={integrated}
+        onBack={() => setIntegrating(null)}
+        onOpenAppBuilder={() => setIntegrating({ instanceId: integrated.id, page: 'app' })}
+      />
     )
   }
 
@@ -148,6 +165,7 @@ export const DeploymentsCanvasView = memo(function DeploymentsCanvasView({
                 }
                 onCopyEndpoint={() => copyEndpoint(item.endpointUrl)}
                 onBackToCanvas={onBackToCanvas}
+                onIntegrate={() => setIntegrating({ instanceId: item.id, page: 'methods' })}
               />
             ))}
           </div>
@@ -164,6 +182,7 @@ function InstanceDetailCard({
   onToggle,
   onCopyEndpoint,
   onBackToCanvas,
+  onIntegrate,
 }: {
   item: PublishedWorkflowInstance
   isCurrent: boolean
@@ -171,6 +190,7 @@ function InstanceDetailCard({
   onToggle: () => void
   onCopyEndpoint: () => void
   onBackToCanvas: () => void
+  onIntegrate: () => void
 }) {
   const estSpend = item.metrics.totalCredits * 0.012
   const health = getInstanceHealth(item)
@@ -249,6 +269,10 @@ function InstanceDetailCard({
       {expanded ? (
         <div className="space-y-3 border-t border-border bg-muted/20 px-3 py-3">
           <div className="flex flex-wrap gap-1.5">
+            <Button type="button" size="sm" className="bg-primary hover:bg-primary/90" onClick={onIntegrate}>
+              <Plug className="h-3.5 w-3.5" />
+              Integrate
+            </Button>
             <Button type="button" variant="outline" size="sm" onClick={onCopyEndpoint}>
               <Copy className="h-3.5 w-3.5" />
               Copy endpoint
@@ -257,7 +281,7 @@ function InstanceDetailCard({
               <PenLine className="h-3.5 w-3.5" />
               Open canvas
             </Button>
-            <Button asChild size="sm" className="bg-primary hover:bg-primary/90">
+            <Button asChild size="sm" variant="outline">
               <a href={item.endpointUrl} target="_blank" rel="noreferrer">
                 <ExternalLink className="h-3.5 w-3.5" />
                 Open endpoint

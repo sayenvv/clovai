@@ -188,6 +188,7 @@ export function DraftReviewCard({
   onTogglePreview,
   busy,
   testFailed = false,
+  newPage = false,
   onAccept,
   onDiscard,
   onKeepFixing,
@@ -199,6 +200,8 @@ export function DraftReviewCard({
   busy: boolean
   /** The assistant's test of this draft still fails: fixing comes first, accepting it as it is stays possible. */
   testFailed?: boolean
+  /** A separate workflow: accepting opens it on a new page. */
+  newPage?: boolean
   onAccept: () => void
   onDiscard: () => void
   onKeepFixing?: () => void
@@ -216,7 +219,9 @@ export function DraftReviewCard({
   return (
     <div className={CARD}>
       <div className="flex items-center justify-between gap-2">
-        <p className="font-medium text-foreground">{preview?.isNew ? 'New workflow ready' : 'Changes ready to review'}</p>
+        <p className="font-medium text-foreground">
+          {newPage ? 'New workflow ready · opens on a new page' : preview?.isNew ? 'New workflow ready' : 'Changes ready to review'}
+        </p>
         {preview ? <DiffChips counts={preview.counts} /> : null}
       </div>
       {preview ? (

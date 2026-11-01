@@ -16,7 +16,6 @@ import {
   PanelRightClose,
   Play,
   Plus,
-  Sparkles,
   Trash2,
 } from 'lucide-react'
 import type { ChatSession } from '@/components/agent-workflow/hooks/use-chat-sessions'
@@ -67,6 +66,7 @@ import type { WorkflowModelConfig } from '@/types/workflow-build-spec'
 import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
 import type { CanvasPlan } from '@/components/agent-workflow/workflow-plan-from-diagram'
+import { AssistantChatIcon } from '@/components/agent-workflow/AssistantChatIcon'
 import { cn } from '@/utils/cn'
 
 interface ExecutionSidebarOptions {
@@ -114,6 +114,7 @@ interface GenerateChatOptions {
   onImportWorkflow?: (imported: ImportedWorkflow) => void
   /** An accepted 4.0 assistant draft: replaces the open tab. */
   onReplaceWorkflow?: (imported: ImportedWorkflow) => void
+  onOpenInNewPage?: (imported: ImportedWorkflow, name?: string) => void
   /** The assistant's pending draft to show on the canvas (null: show the workflow again). */
   onPreviewDraft?: (preview: CanvasDraftPreview | null) => void
   onClose: () => void
@@ -440,7 +441,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
               // A caps tab with the accent underline, as the reference's right panel
               <div className="flex min-w-0 items-center gap-1">
                 <span className="-mb-[9px] flex items-center gap-1.5 border-b-2 border-primary px-1 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
-                  <Sparkles className="h-3 w-3" />
+                  <AssistantChatIcon className="h-3 w-3" />
                   Workflow AI
                 </span>
               </div>
@@ -493,7 +494,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
               aria-label="Back to Workflow AI"
               title="Back to Workflow AI"
             >
-              <Sparkles className="h-4 w-4" />
+              <AssistantChatIcon className="h-4 w-4" />
             </Button>
           )}
           {generate && chatVisible && !embedded && onChatExpandedChange && (
@@ -563,6 +564,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 onGenerated={generate.onGenerated}
                 onImportWorkflow={generate.onImportWorkflow}
                 onReplaceWorkflow={generate.onReplaceWorkflow}
+                onOpenInNewPage={generate.onOpenInNewPage}
                 onPreviewDraft={generate.onPreviewDraft}
                 conversationId={generate.chats?.activeId}
               />

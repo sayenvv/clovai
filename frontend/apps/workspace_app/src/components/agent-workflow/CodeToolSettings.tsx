@@ -79,6 +79,9 @@ export const CodeToolSettings = memo(function CodeToolSettings({
   const [source, setSource] = useState(TEMPLATE)
   const [savedSource, setSavedSource] = useState<string | null>(null)
   const [timeoutSeconds, setTimeoutSeconds] = useState(30)
+  const [packagesText, setPackagesText] = useState('')
+  const [savedPackages, setSavedPackages] = useState('')
+  const packages = useMemo(() => packagesText.split('\n').map((item) => item.trim()).filter(Boolean), [packagesText])
   const [argsText, setArgsText] = useState('{\n  "text": "hi",\n  "times": 2\n}')
   const [result, setResult] = useState<CodeRunResult | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
@@ -103,6 +106,8 @@ export const CodeToolSettings = memo(function CodeToolSettings({
         setSource(tool.source ?? '')
         setSavedSource(tool.source ?? '')
         setTimeoutSeconds(tool.timeoutSeconds)
+        setPackagesText((tool.packages ?? []).join('\n'))
+        setSavedPackages((tool.packages ?? []).join('\n'))
         setArgsText(exampleArguments(tool.inputSchema))
       })
       .catch((error: unknown) => !cancelled && setProblem(error instanceof Error ? error.message : String(error)))
@@ -112,7 +117,7 @@ export const CodeToolSettings = memo(function CodeToolSettings({
   }, [codeToolId])
 
   const args = useMemo(() => parseObject(argsText), [argsText])
-  const dirty = savedSource === null || source !== savedSource
+  const dirty = savedSource === null || source !== savedSource || packagesText.trim() !== savedPackages.trim()
   const maxTimeout = sandbox?.maxTimeoutSeconds ?? 600
 
   const attempt = async (kind: 'run' | 'save' | 'check', action: () => Promise<void>) => {
@@ -136,7 +141,7 @@ export const CodeToolSettings = memo(function CodeToolSettings({
 
   const run = () =>
     attempt('run', async () => {
-      setResult(await runCode(source, args ?? {}, timeoutSeconds))
+      setResult(await runCode(source, args ?? {}, timeoutSeconds, packages))
     })
 
   const save = () =>
@@ -145,10 +150,12 @@ export const CodeToolSettings = memo(function CodeToolSettings({
       const parsed = inputSchemaText?.trim() ? parseObject(inputSchemaText) : null
       const schema = parsed && parsed.type === 'object' && parsed.properties && typeof parsed.properties === 'object' ? parsed : null
       const tool = await saveCodeTool(
-        { name: name.trim() || 'code_tool', description, source, timeoutSeconds, ...(schema ? { inputSchema: schema } : {}) },
+        { name: name.trim() || 'code_tool', description, source, timeoutSeconds, packages, ...(schema ? { inputSchema: schema } : {}) },
         codeToolId,
       )
       setSavedSource(tool.source ?? source)
+      setPackagesText(tool.packages.join('\n'))
+      setSavedPackages(tool.packages.join('\n'))
       setSaved((previous) => [...previous.filter((item) => item.id !== tool.id), tool].sort((a, b) => a.name.localeCompare(b.name)))
       if (tool.id !== codeToolId) onLinked(tool.id)
     })
@@ -181,6 +188,20 @@ export const CodeToolSettings = memo(function CodeToolSettings({
             onChange={(event) => setSource(event.target.value)}
             onKeyDown={(event) => indentOnTab(event, setSource)}
             aria-label="Python source"
+          />
+        </Field>
+
+        <Field
+          label="Packages"
+          hint="PyPI packages the code imports, one per line (pandas, requests==2.32.3). Installed once when you save or run; the first install can take a minute."
+        >
+          <Textarea
+            rows={2}
+            spellCheck={false}
+            className="font-mono text-xs"
+            placeholder={'pandas\npython-dateutil'}
+            value={packagesText}
+            onChange={(event) => setPackagesText(event.target.value)}
           />
         </Field>
 

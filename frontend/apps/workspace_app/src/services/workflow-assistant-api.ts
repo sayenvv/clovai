@@ -69,7 +69,8 @@ export interface AssistantRun {
   id: string
   status: 'running' | 'waiting' | 'succeeded' | 'failed' | 'cancelled' | 'invalid' | 'unsupported'
   /** `testPassed`: false when the assistant's last test of the built or changed workflow still failed. */
-  output: { reply?: string; draftId?: string; openIssues?: unknown[]; testPassed?: boolean } | null
+  /** `newPage`: the assistant built a separate workflow (accepting it opens a new canvas page). */
+  output: { reply?: string; draftId?: string; openIssues?: unknown[]; testPassed?: boolean; newPage?: boolean } | null
   error: string | null
   issues?: Array<{ path: string; code: string; message: string }>
   requests: AssistantRequest[]

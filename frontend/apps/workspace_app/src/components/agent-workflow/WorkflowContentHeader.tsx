@@ -17,7 +17,6 @@ import {
   RefreshCw,
   Rocket,
   Save,
-  Sparkles,
   Undo2,
   Workflow as WorkflowIcon,
 } from 'lucide-react'
@@ -33,6 +32,7 @@ import {
 import type { FlowDirection } from '@/components/designer/diagram-types'
 import type { WorkflowPurpose } from '@/services/assistant-api'
 import type { DeploymentStatus } from '@/types/agent-workflow'
+import { AssistantChatIcon } from '@/components/agent-workflow/AssistantChatIcon'
 import { cn } from '@/utils/cn'
 
 // Whether the header is folded to its one-line bar; remembered in this browser
@@ -276,7 +276,7 @@ export const WorkflowContentHeader = memo(function WorkflowContentHeader({
         </button>
         {onAskAi ? (
           <button type="button" className={TOOL_BUTTON} onClick={onAskAi}>
-            <Sparkles />
+            <AssistantChatIcon />
             Ask AI
           </button>
         ) : null}

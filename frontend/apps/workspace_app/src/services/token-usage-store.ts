@@ -9,6 +9,11 @@ export interface TokenUsageSnapshot {
   tokensRemaining: number
   /** Tokens one credit buys (the server's `TOKENS_PER_CREDIT`). */
   tokensPerCredit?: number
+  /** The plan, and when its allowance next resets (ISO), when the server reports them. */
+  planName?: string
+  periodEnd?: string
+  overageBudgetTokens?: number
+  overageUsedTokens?: number
 }
 
 /** The rate until the server has sent its own. */
@@ -29,10 +34,13 @@ let cached: { key: string; value: TokenUsageSnapshot | null } = { key: '', value
 const meters = new Map<number, number>()
 let nextMeter = 1
 /**
- * The least this tab shows for an account and allowance: what it showed last. The share used never goes back while
- * the allowance is the same (a refresh racing a charge, another tab's write); a new allowance starts afresh.
+ * The least this tab shows for an account and allowance while its own requests are running or being settled: what
+ * it showed last, so a refresh racing a charge cannot make the share go back. At any other time the server's figures
+ * win, also when an admin lowers them (resets the usage).
  */
 let floor: { accountId: string; tokenLimit: number; tokensUsed: number } | null = null
+/** Settled runs whose charge is still being read back from the server. */
+let settling = 0
 
 function accountId(): string {
   return getSession()?.accountId ?? ''
@@ -62,7 +70,8 @@ export function readTokenUsage(): TokenUsageSnapshot | null {
   if (!server) return null
   const base = server.value
   let used = base.tokensUsed + [...meters.values()].reduce((sum, tokens) => sum + tokens, 0)
-  if (floor && floor.accountId === base.accountId && floor.tokenLimit === base.tokenLimit) used = Math.max(used, floor.tokensUsed)
+  const busy = meters.size > 0 || settling > 0
+  if (busy && floor && floor.accountId === base.accountId && floor.tokenLimit === base.tokenLimit) used = Math.max(used, floor.tokensUsed)
   if (base.tokenLimit > 0) used = Math.min(used, Math.max(base.tokenLimit, base.tokensUsed))
   // useSyncExternalStore needs the same object while nothing changed
   const key = `${server.raw}|${used}`
@@ -111,7 +120,11 @@ export function startTokenMeter(): TokenMeter {
       settled = true
       // The server charged this run before it answered: its totals now hold these tokens (the floor bridges the read)
       meters.delete(id)
-      return refreshTokenUsage()
+      settling += 1
+      return refreshTokenUsage().finally(() => {
+        settling -= 1
+        notify()
+      })
     },
   }
 }

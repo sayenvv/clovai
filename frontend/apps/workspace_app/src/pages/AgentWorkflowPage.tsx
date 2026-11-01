@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { deployWorkflow, type Deployment } from '@/services/deployments-api'
 import { useAppConfig } from '@/hooks/use-app-config'
 import { selectedNodeIds, type Selection } from '@/components/designer/selection-utils'
 import { ShareDialog } from '@/components/designer/ShareDialog'
@@ -215,7 +216,6 @@ import { getSession } from '@/services/project-auth-store'
 import { DeploymentsCanvasView } from '@/components/agent-workflow/DeploymentsCanvasView'
 import type { BlocksTab, LibrarySection } from '@/components/agent-workflow/AgentLibrarySidebar'
 import {
-  getNextPublishedVersion,
   publishWorkflowInstance,
 } from '@/services/published-instances-store'
 
@@ -517,13 +517,19 @@ export default function AgentWorkflowPage() {
   const replaceWorkflowDocument = useCallback(
     (imported: DiagramDocument) => {
       const sourcePage = imported.pages.find((page) => page.id === imported.activePageId) ?? imported.pages[0]
-      if (!sourcePage || sourcePage.diagram.nodes.length === 0) return
+      if (!sourcePage || sourcePage.diagram.nodes.length === 0) {
+        toast.error('The accepted workflow has no steps to show.')
+        return
+      }
       const cleared = {
         ...doc,
         pages: doc.pages.map((page) => (page.id === doc.activePageId ? { ...page, diagram: { ...page.diagram, nodes: [], edges: [] } } : page)),
       }
       const result = importIntoDocument(cleared, imported, doc.activePageId, { x: 0, y: 0 })
-      if (!result) return
+      if (!result) {
+        toast.error('The accepted workflow could not be shown on this page.')
+        return
+      }
       invalidateValidation()
       setDoc(result.document)
       // The assistant names what it built; a tab the user named themselves keeps its name
@@ -1072,6 +1078,26 @@ export default function AgentWorkflowPage() {
     [],
   )
 
+  /** A separate workflow the assistant built: on a new page, which becomes the open one; the other pages stay as they are. */
+  const openWorkflowInNewPage = useCallback(
+    (imported: ImportedWorkflow, workflowName?: string) => {
+      const source = imported.document.pages.find((page) => page.id === imported.document.activePageId) ?? imported.document.pages[0]
+      const name = workflowName?.trim() || source?.name || 'New workflow'
+      // The page keeps the workflow's id, so accepting later changes to it updates this page instead of opening another
+      const page = { ...createPage(name), ...(source?.workflowId ? { workflowId: source.workflowId } : {}) }
+      const result = importIntoDocument({ ...doc, pages: [...doc.pages, page] }, imported.document, page.id, { x: 0, y: 0 })
+      if (!result) {
+        toast.error('The new workflow could not be opened on a page.')
+        return
+      }
+      invalidateValidation()
+      setDoc({ ...result.document, activePageId: page.id, activeMainPageId: page.id })
+      requestAnimationFrame(() => canvasRef.current?.fitView())
+      toast.success(`Opened "${name}" on a new page`)
+    },
+    [doc, setDoc, invalidateValidation],
+  )
+
   const handleWorkflowGenerated = useCallback(
     (plan: WorkflowGenerationPlan, base: CanvasPlan | null = null) => {
       const generated = diagramFromGenerationPlanSafe(plan, paletteById)
@@ -1142,6 +1168,7 @@ export default function AgentWorkflowPage() {
             onImportWorkflow: (imported: ImportedWorkflow) =>
               importWorkflowDocument(imported.document, imported.configuration),
             onReplaceWorkflow: (imported: ImportedWorkflow) => replaceWorkflowDocument(imported.document),
+            onOpenInNewPage: openWorkflowInNewPage,
             onPreviewDraft: setDraftPreview,
             onClose: closeGeneratePanel,
           }
@@ -1584,21 +1611,24 @@ export default function AgentWorkflowPage() {
       window.removeEventListener('eleven-nodes-open-library-deployments', openDeployments)
   }, [])
 
-  const deployValidated = useCallback(() => {
+  const deployValidated = useCallback(async () => {
     const session = getSession()
     if (!session) {
       toast.error('Sign in to deploy a workflow instance')
       return
     }
-    const version = getNextPublishedVersion(
-      session.accountId,
-      session.workspaceId,
-      activeWorkflowId,
-      workflowMeta.version ?? 0,
-    )
+    // The server freezes the saved definition as the deployment's next version, with its endpoint and key
+    let deployed: Deployment
+    try {
+      deployed = await deployWorkflow(activeWorkflowId)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not deploy the workflow.')
+      return
+    }
+    const version = deployed.version
     const deployment: WorkflowDeployment = {
       workflowId: activeWorkflowId,
-      endpointUrl: `https://api.elevennodes.app/v1/workflows/${activeWorkflowId}/v/${version}/run`,
+      endpointUrl: deployed.endpoint,
       triggerMethod: 'POST',
       authType: 'api-key',
       requestSchema: '{\n  "prompt": "string"\n}',
@@ -1630,6 +1660,8 @@ export default function AgentWorkflowPage() {
         authType: deployment.authType,
         status: 'deployed',
         deployedAt: deployment.deployedAt,
+        deploymentId: deployed.id,
+        apiKeyPrefix: deployed.apiKeyPrefix,
       })
     } catch (error) {
       const message =
@@ -1641,6 +1673,15 @@ export default function AgentWorkflowPage() {
       ...previous,
       `[${deployment.deployedAt}] Deployed v${deployment.version} → ${deployment.endpointUrl}`,
     ])
+    if (deployed.apiKey) {
+      // The key is shown this once: the server keeps only its hash
+      const apiKey = deployed.apiKey
+      toast.success('API key created', {
+        description: `${apiKey.slice(0, 12)}… Copy it now: it is not shown again (Integrations → API can replace it).`,
+        duration: Infinity,
+        action: { label: 'Copy key', onClick: () => void navigator.clipboard.writeText(apiKey) },
+      })
+    }
     toast.success(`Deployed v${deployment.version}`, {
       description: 'A new deployment version was added under Deployments.',
       action: {
@@ -1648,12 +1689,12 @@ export default function AgentWorkflowPage() {
         onClick: () => handleViewInstance(),
       },
     })
-  }, [isValidated, workflowMeta, testInput, setDoc, workflowName, handleViewInstance])
+  }, [activeWorkflowId, setDoc, workflowName, handleViewInstance])
 
   /** Deploy, checking (and saving) the workflow first when it changed since the last check. */
   const handleDeploy = useCallback(async () => {
     if (!isValidated && !(await handleValidate({ quiet: true }))) return
-    deployValidated()
+    await deployValidated()
   }, [isValidated, handleValidate, deployValidated])
 
   const executeValidated = useCallback(() => {
@@ -1856,6 +1897,8 @@ export default function AgentWorkflowPage() {
 
   const isExecutionMode = runState.status !== 'idle'
   const isExecuting = runState.status === 'running' || runState.status === 'waiting-approval'
+  // Deploy checks and saves the workflow itself first (and shows what to fix), so it only needs something to deploy
+  const canDeploy = diagram.nodes.length > 0 && !isExecuting
 
   // Each finished run goes into the execution history (the Executions view).
   const runStartRef = useRef<{ startedAt: string; input: string } | null>(null)
@@ -2168,7 +2211,7 @@ export default function AgentWorkflowPage() {
           onExecute={openExecutionPanel}
           canExecute={agentNodes.length > 0 && !isExecutionMode}
           isExecuting={isExecuting}
-          isValidated={isValidated}
+          canDeploy={canDeploy}
           onNavigateHome={handleNavigateHome}
           onOpenSettings={openWorkflowSettings}
           onOpenAppMenu={() => setAppMenuOpen(true)}
@@ -2185,7 +2228,6 @@ export default function AgentWorkflowPage() {
           onViewChange={handleAppRailChange}
           onAddBlocks={() => (librarySection === 'blocks' ? setLibrarySection(null) : openLibrary())}
           addBlocksOpen={librarySection === 'blocks'}
-          onAskAi={openGeneratePanel}
           onNavigateHome={handleNavigateHome}
           onOpenSettings={openWorkflowSettings}
           canvasView={canvasView}
@@ -2201,6 +2243,8 @@ export default function AgentWorkflowPage() {
           onSelectPage={handleSelectPage}
           issues={liveIssues}
           onSelectIssue={selectIssueOnCanvas}
+          chatOpen={generatePanelOpen}
+          onToggleChat={generatePanelOpen ? closeGeneratePanel : openGeneratePanel}
         />
       )}
 
@@ -2407,7 +2451,7 @@ export default function AgentWorkflowPage() {
                   onAskAi={openGeneratePanel}
                   onShare={() => setShareOpen(true)}
                   onDeploy={handleDeploy}
-                  canDeploy={isValidated}
+                  canDeploy={canDeploy}
                   purpose={
                     isAdmin
                       ? {

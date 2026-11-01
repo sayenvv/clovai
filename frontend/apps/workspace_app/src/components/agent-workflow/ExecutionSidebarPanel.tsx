@@ -334,8 +334,78 @@ export function AgentAvatar({ name }: { name: string }) {
   )
 }
 
-export function UserMessage({ content, children }: { content: string; children?: ReactNode }) {
+/** A sent message. With `onResend`, double-clicking edits it; Enter sends the text again (Shift+Enter: new line, Esc: cancel). */
+export function UserMessage({
+  content,
+  children,
+  onResend,
+}: {
+  content: string
+  children?: ReactNode
+  onResend?: (content: string) => void
+}) {
   const json = content.trimStart().startsWith('{')
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(content)
+
+  const editorRef = useRef<HTMLDivElement>(null)
+
+  const submit = () => {
+    const next = value.trim()
+    setEditing(false)
+    if (next) onResend?.(next)
+  }
+
+  useEffect(() => {
+    if (!editing) return
+    const onPointerDown = (event: MouseEvent) => {
+      if (!editorRef.current?.contains(event.target as Node)) setEditing(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
+  }, [editing])
+
+  if (editing && onResend) {
+    return (
+      <div ref={editorRef} className="min-w-0">
+        <ChatTurnHeader
+          name="You"
+          avatar={
+            <span className="flex h-6 w-6 items-center justify-center rounded-[3px] bg-primary text-primary-foreground">
+              <User className="h-3.5 w-3.5" />
+            </span>
+          }
+        />
+        <ChatTurnBody>
+          {children}
+          <textarea
+            autoFocus
+            value={value}
+            rows={Math.min(8, Math.max(2, value.split('\n').length))}
+            onChange={(event) => setValue(event.target.value)}
+            onFocus={(event) => event.target.setSelectionRange(value.length, value.length)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setEditing(false)
+              else if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault()
+                submit()
+              }
+            }}
+            className="w-full resize-none rounded-[3px] border border-primary bg-background px-3 py-2 text-[12.5px] leading-6 text-foreground outline-none"
+          />
+          <div className="mt-1 flex items-center justify-end gap-1.5">
+            <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[11px]" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+            <Button type="button" size="sm" className="h-6 px-2 text-[11px]" disabled={!value.trim()} onClick={submit}>
+              Send
+            </Button>
+          </div>
+        </ChatTurnBody>
+      </div>
+    )
+  }
+
   return (
     <div className="min-w-0">
       <ChatTurnHeader
@@ -349,9 +419,19 @@ export function UserMessage({ content, children }: { content: string; children?:
       <ChatTurnBody>
         {children}
         <p
+          title={onResend ? 'Double-click to edit and send again' : undefined}
+          onDoubleClick={
+            onResend
+              ? () => {
+                  setValue(content.trim())
+                  setEditing(true)
+                }
+              : undefined
+          }
           className={cn(
             'whitespace-pre-wrap break-words rounded-[3px] bg-accent px-3 py-2 text-[12.5px] leading-6 text-foreground',
             json && 'font-mono text-[12px] leading-5',
+            onResend && 'cursor-text',
           )}
         >
           {content.trim()}

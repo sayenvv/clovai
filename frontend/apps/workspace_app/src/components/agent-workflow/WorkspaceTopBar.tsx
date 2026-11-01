@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { Diagram, DiagramPage } from '@/components/designer/diagram-types'
 import { isAgentNode, isToolNode } from '@/components/agent-workflow/tool-agent-mapping'
+import { AssistantChatIcon } from '@/components/agent-workflow/AssistantChatIcon'
 import { APP_NAME } from '@/constants'
 import type { WorkflowValidationIssue } from '@/types/agent-workflow'
 import { cn } from '@/utils/cn'
@@ -32,6 +33,9 @@ interface WorkspaceTopBarProps {
   onSelectPage: (pageId: string) => void
   issues: WorkflowValidationIssue[]
   onSelectIssue: (issue: WorkflowValidationIssue) => void
+  /** Opens and closes the Workflow AI chat (as ⌘/Ctrl + K does). */
+  onToggleChat?: () => void
+  chatOpen?: boolean
 }
 
 /**
@@ -46,6 +50,8 @@ export const WorkspaceTopBar = memo(function WorkspaceTopBar({
   onSelectPage,
   issues,
   onSelectIssue,
+  onToggleChat,
+  chatOpen = false,
 }: WorkspaceTopBarProps) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -87,7 +93,7 @@ export const WorkspaceTopBar = memo(function WorkspaceTopBar({
       <span className="w-40 shrink-0 truncate text-[11.5px] font-medium text-foreground/85">{APP_NAME}</span>
 
       {/* Search: the workflow's agents, tools and pages */}
-      <div className="flex flex-1 justify-center">
+      <div className="flex flex-1 items-center justify-center gap-1.5">
         <div className="relative w-full max-w-[400px]">
           <div className="flex h-6 items-center gap-2 rounded-[2px] bg-[hsl(var(--chrome-input))] px-2">
             <Search className="h-3 w-3 shrink-0 text-foreground/60" aria-hidden />
@@ -156,9 +162,24 @@ export const WorkspaceTopBar = memo(function WorkspaceTopBar({
             </div>
           ) : null}
         </div>
+        {onToggleChat ? (
+          <button
+            type="button"
+            onClick={onToggleChat}
+            aria-pressed={chatOpen}
+            aria-label={chatOpen ? 'Close Workflow AI' : 'Open Workflow AI'}
+            title={`${chatOpen ? 'Close' : 'Open'} Workflow AI (⌘K)`}
+            className={cn(
+              'flex h-7 w-7 items-center justify-center rounded-[3px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              chatOpen ? 'text-primary' : 'text-foreground/70 hover:text-foreground',
+            )}
+          >
+            <AssistantChatIcon className="h-5 w-5" />
+          </button>
+        ) : null}
       </div>
 
-      {/* Notifications, Ask AI, settings, help */}
+      {/* Notifications, settings, help */}
       <div className="flex shrink-0 items-center gap-1.5">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

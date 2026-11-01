@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { GenerateChatMessage } from '@/components/agent-workflow/GenerateWorkflowChat'
 import { useSession } from '@/hooks/use-session'
+import { ASSISTANT_CHAT_IDLE_MINUTES } from '@/constants'
 
 /** One Workflow AI conversation. */
 export interface ChatSession {
@@ -9,6 +10,9 @@ export interface ChatSession {
   messages: GenerateChatMessage[]
   updatedAt: number
 }
+
+/** Fired while the assistant works on a request (each streamed step), so a long run never counts as idle. */
+export const ASSISTANT_ACTIVITY_EVENT = 'eleven-nodes-assistant-activity'
 
 // Chats are kept per account: one browser can be used by several people
 const STORAGE_PREFIX = 'eleven-nodes.workflow-ai.chats'
@@ -48,6 +52,12 @@ export function useChatSessions() {
     return stored.length > 0 ? stored : [newSession()]
   })
   const [activeId, setActiveId] = useState(() => sessions[0].id)
+  /** When the user last opened a chat themselves: a chat they reopen counts as active again. */
+  const [selectedAt, setSelectedAt] = useState(() => Date.now())
+  /** The last streamed step of a running request. */
+  const workingAt = useRef(0)
+  /** When the user last left this browser tab/window. */
+  const awayAt = useRef<number | null>(null)
   // Whose chats are on screen; a different account loads its own instead
   const [loadedKey, setLoadedKey] = useState(key)
 
@@ -109,7 +119,53 @@ export function useChatSessions() {
     [activeId],
   )
 
+  const selectChat = useCallback((id: string) => {
+    setActiveId(id)
+    setSelectedAt(Date.now())
+  }, [])
+
+  // Only count idle time while the user is away from this browser tab/window. Keeping the canvas and chat open
+  // should not rotate the conversation; returning after a long absence starts a new server-side conversation.
+  useEffect(() => {
+    const limit = ASSISTANT_CHAT_IDLE_MINUTES * 60_000
+    const isAway = () => document.visibilityState !== 'visible' || !document.hasFocus()
+    const check = () => {
+      if (isAway()) {
+        awayAt.current ??= Date.now()
+        return
+      }
+
+      const awaySince = awayAt.current
+      awayAt.current = null
+      if (awaySince === null || active.messages.length === 0) return
+      if (Date.now() - Math.max(awaySince, active.updatedAt, selectedAt, workingAt.current) < limit) return
+
+      const session = newSession()
+      setSessions((previous) => [session, ...previous])
+      setActiveId(session.id)
+      setSelectedAt(Date.now())
+    }
+    if (isAway()) awayAt.current ??= Date.now()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check()
+      else awayAt.current ??= Date.now()
+    }
+    const onWork = () => {
+      workingAt.current = Date.now()
+    }
+    window.addEventListener(ASSISTANT_ACTIVITY_EVENT, onWork)
+    window.addEventListener('blur', check)
+    window.addEventListener('focus', check)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener(ASSISTANT_ACTIVITY_EVENT, onWork)
+      window.removeEventListener('blur', check)
+      window.removeEventListener('focus', check)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [active, selectedAt])
+
   const ordered = useMemo(() => [...sessions].sort((a, b) => b.updatedAt - a.updatedAt), [sessions])
 
-  return { sessions: ordered, active, selectChat: setActiveId, newChat, deleteChat, setMessages }
+  return { sessions: ordered, active, selectChat, newChat, deleteChat, setMessages }
 }

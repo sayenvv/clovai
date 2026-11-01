@@ -193,6 +193,7 @@ export type NodeV4 =
       language: 'python'
       source: string
       entrypoint: string
+      packages?: string[]
       outputSchema?: JsonSchema
       sandbox: { timeoutSeconds: number; memoryMb: number; network: 'off' | 'on' }
     })

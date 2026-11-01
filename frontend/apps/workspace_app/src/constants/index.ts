@@ -18,6 +18,7 @@ export const STORAGE_KEYS = {
   refreshToken: 'eleven-nodes-refresh-token',
   publishedInstances: 'eleven-nodes-published-instances',
   tokenUsage: 'eleven-nodes-token-usage',
+  workflowApps: 'eleven-nodes-workflow-apps',
   /** Custom code blocks, kept in the browser until the custom-code API exists. */
   customCode: 'eleven-nodes-custom-code',
 } as const
@@ -70,3 +71,11 @@ export const ADMIN_CENTER_URL =
 
 /** Simulated network latency (ms) for the mock API layer. */
 export const MOCK_API_DELAY = 350
+
+/**
+ * Minutes without activity after which the Workflow AI starts a new chat when the user comes back
+ * (VITE_ASSISTANT_CHAT_IDLE_MINUTES, default 5). The old chat stays in the list.
+ */
+export const ASSISTANT_CHAT_IDLE_MINUTES = Number(import.meta.env.VITE_ASSISTANT_CHAT_IDLE_MINUTES) > 0
+  ? Number(import.meta.env.VITE_ASSISTANT_CHAT_IDLE_MINUTES)
+  : 5

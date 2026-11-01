@@ -45,7 +45,8 @@ interface MobileWorkspaceHeaderProps {
   status: DeploymentStatus
   isDirty?: boolean
   validationErrorCount: number
-  isValidated: boolean
+  /** Deploy is offered (it checks and saves the workflow itself first). */
+  canDeploy: boolean
   onSave: () => void
   onDeploy: () => void
   onGenerate?: () => void
@@ -67,7 +68,7 @@ export const MobileWorkspaceHeader = memo(function MobileWorkspaceHeader({
   status,
   isDirty = false,
   validationErrorCount,
-  isValidated,
+  canDeploy,
   onSave,
   onDeploy,
   onGenerate,
@@ -141,7 +142,7 @@ export const MobileWorkspaceHeader = memo(function MobileWorkspaceHeader({
             onExecuteWorkflow={onExecute}
             canExecute={canExecute && !isExecuting}
             onDeployWorkflow={showDesignControls ? onDeploy : undefined}
-            canDeploy={isValidated}
+            canDeploy={canDeploy}
             modelConfig={serverModelConfig}
             llmConfigured={llmConfigured}
             side="bottom"

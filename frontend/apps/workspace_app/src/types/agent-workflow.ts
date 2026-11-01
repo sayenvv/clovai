@@ -84,6 +84,12 @@ export interface AgentNodeConfig {
   executorWorkflowOutputType?: string
   /** Python handler source (@handler class or @executor function). */
   executorSource?: string
+  /** A code step's PyPI packages ("pandas", "requests==2.32.3"), installed into its sandbox environment. */
+  executorPackages?: string[]
+  /** A 4.0 step the canvas cannot draw yet (a tool step...), kept as it was so saving writes it back unchanged. */
+  v4Node?: Record<string, unknown>
+  /** The tool that step runs, kept with it. */
+  v4Tool?: Record<string, unknown>
   /** Maps to workflow terminal output — yield_output emits final workflow results. */
   contributesToWorkflowOutput?: boolean
   /** Maps to intermediate output stream — yield_output emits progress events. */

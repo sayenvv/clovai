@@ -230,6 +230,19 @@ export const ExecutorConfigPanel = memo(function ExecutorConfigPanel({
               minRows={10}
             />
           </Field>
+          <Field
+            label="Packages"
+            hint="PyPI packages the code imports, one per line (pandas, requests==2.32.3). Installed once in the sandbox, then reused."
+          >
+            <Textarea
+              rows={3}
+              spellCheck={false}
+              className="font-mono text-xs"
+              placeholder={'pandas\npython-dateutil'}
+              value={(config.executorPackages ?? []).join('\n')}
+              onChange={(event) => patch({ executorPackages: event.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })}
+            />
+          </Field>
         </TabsContent>
 
         <TabsContent value="messages" className="mt-3 flex-1 space-y-4 overflow-y-auto pb-4">

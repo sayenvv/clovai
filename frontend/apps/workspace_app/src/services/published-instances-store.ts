@@ -63,6 +63,9 @@ export interface PublishedWorkflowInstance {
   environment: 'production' | 'staging'
   metrics: PublishedInstanceMetrics
   recentRuns: PublishedInstanceRun[]
+  /** The server's deployment (`/api/v1/deployments`): its API, key and app. Missing on deploys made before it existed. */
+  deploymentId?: string
+  apiKeyPrefix?: string
 }
 
 export interface UpsertPublishedInstanceInput {
@@ -78,6 +81,8 @@ export interface UpsertPublishedInstanceInput {
   authType?: 'api-key' | 'bearer' | 'none'
   status?: PublishedInstanceStatus
   deployedAt?: string
+  deploymentId?: string
+  apiKeyPrefix?: string
 }
 
 function hashSeed(input: string): number {
@@ -347,6 +352,7 @@ export function publishWorkflowInstance(
     environment: telemetry.environment,
     metrics: telemetry.metrics,
     recentRuns: telemetry.recentRuns,
+    ...(input.deploymentId ? { deploymentId: input.deploymentId, apiKeyPrefix: input.apiKeyPrefix } : {}),
   }
 
   items.unshift(next)

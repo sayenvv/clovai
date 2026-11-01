@@ -33,6 +33,7 @@ import type { WorkflowGenerationPlan } from '@/types/workflow-generation'
 import type { ImportedWorkflow } from '@/components/agent-workflow/workflow-import'
 import { fetchSavedWorkflows, type SavedWorkflowSummary } from '@/services/activity-api'
 import { AssistantTestRun } from '@/components/agent-workflow/AssistantTestRun'
+import { ASSISTANT_ACTIVITY_EVENT } from '@/components/agent-workflow/hooks/use-chat-sessions'
 import { AssistantRequestCard, DraftPreviewBar, DraftReviewCard, TestRunCard, draftHasChanges } from '@/components/agent-workflow/AssistantCards'
 import { WorkflowReferencePicker } from '@/components/agent-workflow/WorkflowReferencePicker'
 import { buildDraftPreview, type CanvasDraftPreview, type DraftPreview } from '@/components/agent-workflow/draft-preview'
@@ -114,6 +115,8 @@ interface GenerateWorkflowChatProps {
   onImportWorkflow?: (imported: ImportedWorkflow) => void
   /** An accepted 4.0 assistant draft: replaces the open tab. */
   onReplaceWorkflow?: (imported: ImportedWorkflow) => void
+  /** Open a separate workflow the assistant built on a new canvas page (the open page is left as it is). */
+  onOpenInNewPage?: (imported: ImportedWorkflow, name?: string) => void
   /** Show the pending draft on the canvas with its changes marked (null: show the workflow again). */
   onPreviewDraft?: (preview: CanvasDraftPreview | null) => void
   /** The chat session id, sent as the run's conversation id (for agents with conversation history). */
@@ -472,6 +475,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   replacesCanvas = false,
   onImportWorkflow,
   onReplaceWorkflow,
+  onOpenInNewPage,
   onPreviewDraft,
   conversationId,
 }: GenerateWorkflowChatProps) {
@@ -480,7 +484,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   /** The draft this conversation edits, its pending question, and its changes waiting for review. */
   const [assistantDraftId, setAssistantDraftId] = useState<string | undefined>()
   const [pendingRequest, setPendingRequest] = useState<{ runId: string; request: AssistantRequest } | null>(null)
-  const [pendingDraft, setPendingDraft] = useState<{ diff: DraftDiff; preview: DraftPreview | null; testFailed?: boolean } | null>(null)
+  const [pendingDraft, setPendingDraft] = useState<{ diff: DraftDiff; preview: DraftPreview | null; testFailed?: boolean; newPage?: boolean } | null>(null)
   /** Whether the pending draft is drawn on the canvas; a new draft opens there. */
   const [previewOnCanvas, setPreviewOnCanvas] = useState(true)
   const [assistantBusy, setAssistantBusy] = useState(false)
@@ -618,9 +622,17 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       } catch {
         // Not drawable (an unusual document): the card still lists the changes
       }
-      setPendingDraft({ diff: loaded.diff, preview, testFailed: run.output?.testPassed === false })
+      setPendingDraft({ diff: loaded.diff, preview, testFailed: run.output?.testPassed === false, newPage: run.output?.newPage === true })
       setPreviewOnCanvas(true)
     }
+  }
+
+  /** The id of the workflow the open tab shows; null when the tab is empty (anything may replace it). */
+  const openWorkflowId = (): string | null => {
+    const page = pages.find((candidate) => candidate.id === activePageId)
+    const spec = generationSpec.data?.document
+    if (!page || !spec || page.diagram.nodes.length === 0) return null
+    return buildWorkflowV4({ doc: { pages, activePageId }, pageId: activePageId, diagram: page.diagram, spec }).meta.id
   }
 
   /** The draft to work on: the conversation's, else one of the open tab when it has agents. */
@@ -700,6 +712,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
         referenceWorkflowId: reference?.workflow_id,
         onEvent: (event) => {
           if (event.type === 'usage') meterRef.current?.add(event.totalTokens ?? 0)
+          window.dispatchEvent(new Event(ASSISTANT_ACTIVITY_EVENT))  // a running request keeps the chat active
           liveStepsRef.current = applyAssistantEvent(liveStepsRef.current, event)
           setLiveSteps(liveStepsRef.current)
         },
@@ -720,6 +733,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
       answerAssistant(runId, request.id, response, {
         onEvent: (event) => {
           if (event.type === 'usage') meterRef.current?.add(event.totalTokens ?? 0)
+          window.dispatchEvent(new Event(ASSISTANT_ACTIVITY_EVENT))  // a running request keeps the chat active
           liveStepsRef.current = applyAssistantEvent(liveStepsRef.current, event)
           setLiveSteps(liveStepsRef.current)
         },
@@ -745,7 +759,13 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     setAssistantDraftId(undefined)
     try {
       const imported = importWorkflowV4(accepted.document)
-      ;(onReplaceWorkflow ?? onImportWorkflow)?.(imported)
+      // A separate workflow opens on a new page; otherwise it replaces what the open page shows. A draft started
+      // on a new page stays separate on later turns too (only its first turn says newPage), so it is also told
+      // apart by its id: a workflow that is not the open one never replaces it.
+      const openId = openWorkflowId()
+      const separate = pendingDraft?.newPage || (openId !== null && accepted.document.meta?.id !== undefined && accepted.document.meta.id !== openId)
+      if (separate && onOpenInNewPage) onOpenInNewPage(imported, accepted.document.meta?.name)
+      else (onReplaceWorkflow ?? onImportWorkflow)?.(imported)
       if (imported.losses.length) toast.warning(`Shown approximately on the canvas: ${imported.losses.join('; ')}`)
       // Keep working on what was accepted
       const next = await createDraft(accepted.document)
@@ -831,7 +851,11 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
 
         {messages.map((message) =>
           message.role === 'user' ? (
-            <UserMessage key={message.id} content={message.content}>
+            <UserMessage
+              key={message.id}
+              content={message.content}
+              onResend={isGenerating || assistantBusy ? undefined : (text) => void handleGenerate(text)}
+            >
               {message.context?.length ? (
                 <div className="mb-1.5 flex flex-wrap gap-1.5">
                   {message.context.map((item) => (
@@ -901,6 +925,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
             onTogglePreview={pendingDraft.preview && onPreviewDraft ? () => setPreviewOnCanvas((value) => !value) : undefined}
             busy={assistantBusy}
             testFailed={pendingDraft.testFailed}
+            newPage={pendingDraft.newPage}
             onAccept={() => void acceptAssistantDraft()}
             onDiscard={() => void discardAssistantDraft()}
             onKeepFixing={() => void handleGenerate('Update the workflow to fix the problems the last test found.')}

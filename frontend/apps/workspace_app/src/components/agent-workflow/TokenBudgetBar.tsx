@@ -29,11 +29,16 @@ export const TokenBudgetBar = memo(function TokenBudgetBar() {
   // Colour only signals a problem: amber from 90% used, red from 95%
   const { level: usage, percent } = tokenUsageLevel(subscription)
   const level = usage === 'exhausted' ? 'critical' : usage
+  const resets = subscription.periodEnd
+    ? new Date(subscription.periodEnd).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : ''
 
   return (
     <div className="rounded-lg border border-border/70 bg-background px-3 py-2.5">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Credits</span>
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Credits{subscription.planName ? ` · ${subscription.planName}` : ''}
+        </span>
         <span className="text-[11px] tabular-nums text-muted-foreground">
           <span className="font-semibold text-foreground">{credits(subscription.tokensUsed)}</span>
           {' '}of {credits(subscription.tokenLimit)} used · {percent}%
@@ -69,7 +74,7 @@ export const TokenBudgetBar = memo(function TokenBudgetBar() {
             </a>
           </>
         ) : (
-          `${credits(subscription.tokensRemaining)} credits remaining this period`
+          `${credits(subscription.tokensRemaining)} credits remaining${resets ? `, resets ${resets}` : ' this period'}`
         )}
       </p>
     </div>

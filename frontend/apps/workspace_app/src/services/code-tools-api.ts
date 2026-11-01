@@ -9,6 +9,8 @@ export interface CodeTool {
   language: 'python'
   inputSchema: Record<string, unknown>
   timeoutSeconds: number
+  /** PyPI packages installed into the tool's sandbox environment. */
+  packages: string[]
   updatedAt: string | null
   source?: string
 }
@@ -20,6 +22,7 @@ export interface CodeToolWrite {
   /** Left out: derived from `run`'s signature. */
   inputSchema?: Record<string, unknown>
   timeoutSeconds: number
+  packages: string[]
 }
 
 /** One sandboxed call: what `run` returned, or the error and the line it was raised on. */
@@ -58,8 +61,8 @@ export const saveCodeTool = (tool: CodeToolWrite, id?: string) =>
   call<CodeTool>(id ? `/${id}` : '', { method: id ? 'PUT' : 'POST', body: JSON.stringify(tool) })
 
 /** Run code once in the sandbox, saved or not, with these arguments. */
-export const runCode = (source: string, args: Record<string, unknown>, timeoutSeconds: number) =>
-  call<CodeRunResult>('/test', { method: 'POST', body: JSON.stringify({ source, arguments: args, timeoutSeconds }) })
+export const runCode = (source: string, args: Record<string, unknown>, timeoutSeconds: number, packages: string[] = []) =>
+  call<CodeRunResult>('/test', { method: 'POST', body: JSON.stringify({ source, arguments: args, timeoutSeconds, packages }) })
 
 /** Check code without running it; resolves to the argument schema derived from `run`. */
 export const checkCode = (source: string) =>

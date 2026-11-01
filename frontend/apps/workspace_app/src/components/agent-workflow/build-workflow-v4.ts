@@ -423,6 +423,15 @@ export function buildWorkflowV4({
   for (const node of diagram.nodes) {
     const rule = ruleOf.get(node.id)
     const id = nodeUuid(node.id)
+    const kept = node.agent?.v4Node
+    if (kept) {
+      // A step the canvas cannot draw yet goes back as it came in (renamed if its block was)
+      nodes.push({ ...kept, id, name: node.label } as unknown as NodeV4)
+      const tool = node.agent?.v4Tool as ToolV4 | undefined
+      if (tool && !tools.some((item) => item.id === tool.id)) tools.push(tool)
+      place(id, node.x, node.y)
+      continue
+    }
     const fields = resolveSet(rule?.set, blockSources(node))
     switch (rule?.role) {
       case 'start':
@@ -759,7 +768,7 @@ export function buildWorkflowV4({
     workspace: null,
     agents,
     subworkflows,
-    graph: { startNodeId: startUuid, nodes, edges },
+    graph: { startNodeId: startUuid, nodes, edges: limitLoops(startUuid, edges) },
     limits: { timeoutSeconds: settings.timeoutSeconds, maxSteps: settings.maxIterations, ...defaults.limits },
     settings: {
       middlewareIds: [],
@@ -785,4 +794,33 @@ export function buildWorkflowV4({
       pages: [{ id: asUuid('page', pageId), name: page?.name ?? 'Main', layout, groups, notes, diagram, workflowId }],
     },
   }
+}
+
+
+/** How many times a loop drawn on the canvas may repeat, like an approval's revise loop. */
+const DEFAULT_LOOP_LIMIT = 5
+
+/**
+ * Every loop of next and error edges needs a limit on one of its edges, or the engine refuses the workflow: a
+ * connection drawn back to an earlier step gets `DEFAULT_LOOP_LIMIT` on the edge that closes the loop, unless the
+ * loop already has a limit somewhere (an approval's revise loop).
+ */
+export function limitLoops(startId: string, edges: EdgeV4[]): EdgeV4[] {
+  const flow = (edge: EdgeV4) => (edge.type ?? 'next') === 'next' || edge.type === 'error'
+  const out = new Map<string, EdgeV4[]>()
+  for (const edge of edges) if (flow(edge) && edge.maxTraversals == null) out.set(edge.from, [...(out.get(edge.from) ?? []), edge])
+  const limited = new Set<string>()
+  const state = new Map<string, 'open' | 'done'>()
+  const visit = (node: string) => {
+    state.set(node, 'open')
+    for (const edge of out.get(node) ?? []) {
+      const target = state.get(edge.to)
+      if (target === 'open') limited.add(edge.id)
+      else if (target === undefined) visit(edge.to)
+    }
+    state.set(node, 'done')
+  }
+  visit(startId)
+  for (const node of out.keys()) if (!state.has(node)) visit(node)
+  return limited.size ? edges.map((edge) => (limited.has(edge.id) ? { ...edge, maxTraversals: DEFAULT_LOOP_LIMIT } : edge)) : edges
 }

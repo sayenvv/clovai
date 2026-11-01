@@ -11,7 +11,6 @@ import {
   type ReactNode,
 } from 'react'
 import {
-  Sparkles,
   Trash2,
   LayoutGrid,
   Maximize2,
@@ -56,6 +55,7 @@ import { canvasInsertAnchor } from '@/components/agent-workflow/sub-workflow-ops
 import type { AgentAttachAction } from '@/components/agent-workflow/AgentNodeCard'
 import type { CanvasDraftPreview } from '@/components/agent-workflow/draft-preview'
 import { DevProfiler } from '@/utils/render-profiler'
+import { AssistantChatIcon } from '@/components/agent-workflow/AssistantChatIcon'
 import { cn } from '@/utils/cn'
 
 /** Workflows open at 90%; large ones zoom out further to fit. */
@@ -833,7 +833,7 @@ function EmptyCanvasStart({
       )}
       {onAskAi && (
         <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={onAskAi}>
-          <Sparkles className="h-3.5 w-3.5" />
+          <AssistantChatIcon className="h-3.5 w-3.5" />
           Ask AI
         </Button>
       )}

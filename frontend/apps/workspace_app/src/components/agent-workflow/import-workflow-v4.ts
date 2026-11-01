@@ -209,11 +209,25 @@ export function importWorkflowV4(document: WorkflowV4Document): ImportedV4Workfl
       case 'condition':
         nodes.push({ ...base, paletteId: 'aw-switch' })
         return
+      case 'code': {
+        const step = node as Extract<NodeV4, { type: 'code' }>
+        const config = defaultAgentConfig('aw-executor', base.label)
+        config.executorSource = step.source ?? ''
+        config.executorId = step.entrypoint ?? 'main'
+        config.executorPackages = step.packages ?? []
+        if (typeof step.sandbox?.timeoutSeconds === 'number') config.timeoutSeconds = step.sandbox.timeoutSeconds
+        nodes.push({ ...base, paletteId: 'aw-executor', agent: config })
+        return
+      }
       default: {
+        // Drawn as an Executor block, but the step itself is kept and saved back as it was
         const config = defaultAgentConfig('aw-executor', base.label)
         config.description = `Workflow 4.0 ${node.type.replace('_', ' ')} node`
+        config.v4Node = node as unknown as Record<string, unknown>
+        const toolId = (node as { toolId?: string }).toolId
+        const tool = toolId ? tools.get(toolId) : undefined
+        if (tool) config.v4Tool = tool as unknown as Record<string, unknown>
         nodes.push({ ...base, paletteId: 'aw-executor', agent: config })
-        losses.push(`${base.label}: ${node.type.replace('_', ' ')} nodes show as Executor blocks for now`)
       }
     }
   })
