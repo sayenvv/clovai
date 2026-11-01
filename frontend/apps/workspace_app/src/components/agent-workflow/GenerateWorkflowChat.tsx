@@ -11,12 +11,13 @@ import {
   ComposerStopButton,
 } from '@/components/agent-workflow/ChatComposer'
 import { ChatMarkdown } from '@/components/agent-workflow/ChatMarkdown'
+import { ChangesSummary, ToolCardView } from '@/components/agent-workflow/ToolCards'
 import {
   readableChatText,
   UserMessage,
 } from '@/components/agent-workflow/ExecutionSidebarPanel'
 import { PetalMark } from '@/components/shared/PetalLoader'
-import type { WorkflowChatMessage } from '@/types/agent-workflow'
+import type { ToolCard, WorkflowChatMessage } from '@/types/agent-workflow'
 import { GenerateModelPicker } from '@/components/agent-workflow/GenerateModelPicker'
 import {
   type GenerateWorkflowAttachment,
@@ -46,12 +47,13 @@ import {
   createDraft,
   discardDraft,
   fetchDraftPreview,
-  streamAssistantMessage,
+  streamBuilderMessage,
   testRunIdOf,
   canvasTestOf,
   type CanvasTestRequest,
   type AssistantRequest,
   type AssistantRun,
+  type BuilderRun,
   type AssistantRunEvent,
   type DraftDiff,
 } from '@/services/workflow-assistant-api'
@@ -160,7 +162,7 @@ function ContextChip({
 }
 
 /** What the user answered, as their chat message: the text, the plan decision, or each form input with its label. */
-function answerText(request: AssistantRequest, response: Record<string, unknown>): string {
+export function answerText(request: AssistantRequest, response: Record<string, unknown>): string {
   if (request.kind === 'approval') return response.approved ? 'Approved.' : 'Rejected.'
   if (request.payload.responseSchema?.['x-ui'] === 'plan-approval') {
     return response.approve ? 'Build it as planned.' : String(response.changes ?? 'Change the plan.')
@@ -193,7 +195,7 @@ function foldedStep(step: WorkflowChatMessage): WorkflowChatMessage {
   return step.kind === 'reasoning' ? step : { ...step, kind: 'reasoning', title: step.title ?? 'Response' }
 }
 
-function finishSteps(steps: WorkflowChatMessage[]): WorkflowChatMessage[] {
+export function finishSteps(steps: WorkflowChatMessage[]): WorkflowChatMessage[] {
   // Only quiet steps ran (a greeting, small talk): the reply needs no steps
   if (steps.every((step) => step.quiet)) return []
   return steps
@@ -210,7 +212,7 @@ function finishSteps(steps: WorkflowChatMessage[]): WorkflowChatMessage[] {
  * Markers sit in one fixed column centred under the assistant's avatar, joined
  * by a single rail; step text starts where the reply text starts.
  */
-function RunSteps({
+export function RunSteps({
   steps,
   live,
   activities = {},
@@ -233,10 +235,11 @@ function RunSteps({
             state: step.status === 'failed' || step.content.startsWith('⚠') ? 'failed' : 'done',
             title: foldedStep(step).title ?? 'Step',
             content: readableChatText(step.content.replace(/^⚠\s*/, '')),
+            card: step.card,
           }
     // An agent reading one step at a time makes a row per call; fold repeats of the same finished call into one.
     const previous = items[items.length - 1]
-    if (previous && previous.state === 'done' && item.state === 'done' && previous.baseTitle === item.title) {
+    if (previous && previous.state === 'done' && item.state === 'done' && previous.baseTitle === item.title && !item.card && !previous.card) {
       previous.count = (previous.count ?? 1) + 1
       // "Read a step" → "Read the steps"
       previous.title = item.title.replace(/\ba (\w+)$/, 'the $1s')
@@ -260,9 +263,10 @@ function RunSteps({
 }
 
 /** A finished run under "Thought for Ns": every step with its reasoning, open (each can be folded). */
-function ThoughtSteps({ steps, seconds, tokens }: { steps: WorkflowChatMessage[]; seconds?: number; tokens?: number }) {
+export function ThoughtSteps({ steps, seconds, tokens }: { steps: WorkflowChatMessage[]; seconds?: number; tokens?: number }) {
   const [open, setOpen] = useState(true)
   const expandable = steps.length > 0
+  const changed = steps.flatMap((step) => (step.card?.file ? [step.card.file] : []))
   return (
     <div className="min-w-0">
       <button
@@ -283,6 +287,11 @@ function ThoughtSteps({ steps, seconds, tokens }: { steps: WorkflowChatMessage[]
           <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
         ) : null}
       </button>
+      {changed.length ? (
+        <div className="mt-2">
+          <ChangesSummary files={changed} />
+        </div>
+      ) : null}
       {open ? (
         <div className="mt-2">
           <RunSteps steps={steps} live={false} />
@@ -297,6 +306,7 @@ interface TimelineItem {
   state: 'running' | 'done' | 'failed'
   title: string
   content: string
+  card?: ToolCard
   baseTitle?: string
   count?: number
 }
@@ -309,6 +319,7 @@ function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
   // Every step shows its reasoning and what the call touched; the user can fold one away
   const [open, setOpen] = useState(true)
   const expandable = item.state !== 'running' && Boolean(item.content)
+  // A card row reads as its card: the reason is a one-line note above it
 
   return (
     // Each step slides in from a soft blur as it arrives, like the website's assistant
@@ -377,6 +388,7 @@ function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
                 <ChatMarkdown content={item.content} streaming={false} className="text-[12px] leading-5 text-muted-foreground" />
               </div>
             ) : null}
+            {item.card ? <ToolCardView card={item.card} /> : null}
           </>
         )}
       </div>
@@ -389,6 +401,17 @@ function TimelineStep({ item, last }: { item: TimelineItem; last: boolean }) {
 /** Earlier turns for the API, oldest first. Errors and "Stopped." notes are left out. */
 const humanize = (name: string) => name.replace(/_/g, ' ').replace(/^\w/, (letter) => letter.toUpperCase())
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
+
+/** The card a tool call is drawn as, when its result has one. */
+function toolCard(detail: AssistantRunEvent['detail']): ToolCard | undefined {
+  const result = detail?.result
+  if (!result?.file && !result?.checks && !result?.command) return undefined
+  return {
+    ...(result.file ? { file: result.file } : {}),
+    ...(result.checks ? { checks: result.checks } : {}),
+    ...(result.command ? { command: { ...result.command, text: detail?.inputs?.command } } : {}),
+  }
+}
 
 /** One line on what a tool call touched and found: "n3", "“email” · 2 matches", "4 changes · 1 issue". */
 function toolDetail(detail: AssistantRunEvent['detail']): string {
@@ -410,7 +433,7 @@ function toolDetail(detail: AssistantRunEvent['detail']): string {
  * row that reads as an action ("Searched for “email”"), with the agent's reasoning or the call's result
  * under it. Rows run until their event completes, so a long turn shows what it is doing.
  */
-function applyAssistantEvent(steps: WorkflowChatMessage[], event: AssistantRunEvent): WorkflowChatMessage[] {
+export function applyAssistantEvent(steps: WorkflowChatMessage[], event: AssistantRunEvent): WorkflowChatMessage[] {
   const finish = (index: number, patch: Partial<WorkflowChatMessage>) => {
     if (index < 0) return steps
     const next = [...steps]
@@ -429,6 +452,9 @@ function applyAssistantEvent(steps: WorkflowChatMessage[], event: AssistantRunEv
     const index = steps.findLastIndex((step) => step.nodeId === `tool:${event.tool}` && step.status === 'streaming')
     const failure = event.error ?? event.detail?.result?.error
     if (failure) return finish(index, { status: 'failed', content: failure })
+    // A file's diff, checks or a command are drawn as a card: the row keeps only the reason as its text
+    const card = toolCard(event.detail)
+    if (card) return finish(index, { title: steps[index]?.doneTitle ?? humanize(event.tool), card })
     // The reason leads (the row's one-line preview); what the call touched follows when the row is opened.
     const content = [steps[index]?.content, toolDetail(event.detail)].filter(Boolean).join('\n\n')
     return finish(index, { title: steps[index]?.doneTitle ?? humanize(event.tool), content })
@@ -507,6 +533,8 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
   const abortRef = useRef<AbortController | null>(null)
   /** Counts the running request's tokens live until the server has charged them. */
   const meterRef = useRef<TokenMeter | null>(null)
+  // The builder assistant also builds apps: the app project and deployment it works on carry over to the next turn
+  const builderRef = useRef<{ projectId?: string; deploymentId?: string }>({})
 
   useEffect(() => {
     const element = scrollRef.current
@@ -647,7 +675,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     return created.id
   }
 
-  const runAssistant = async (start: () => Promise<AssistantRun>) => {
+  const runAssistant = async (start: () => Promise<BuilderRun>) => {
     const startedAt = Date.now()
     meterRef.current = startTokenMeter()
     setIsGenerating(true)
@@ -656,7 +684,10 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     setLiveSteps([])
     setActivities({})
     try {
-      await showAssistantRun(await start(), startedAt)
+      const run: BuilderRun = await start()
+      if (run.output?.projectId) builderRef.current.projectId = run.output.projectId
+      if (run.output?.deploymentId) builderRef.current.deploymentId = run.output.deploymentId
+      await showAssistantRun(run, startedAt)
     } catch (error) {
       const stopped = abortRef.current?.signal.aborted
       onMessagesChange((previous) => [
@@ -669,7 +700,7 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
               content:
                 error instanceof Error && isOutOfTokens(error.message)
                   ? `You have used all your credits. [Buy more credits](${BUY_CREDITS_URL}) to keep working with the assistant.`
-                  : `The workflow assistant couldn't finish. ${error instanceof Error ? error.message : ''}`.trim(),
+                  : `The assistant couldn't finish. ${error instanceof Error ? error.message : ''}`.trim(),
               tone: 'error',
             },
       ])
@@ -704,9 +735,12 @@ export const GenerateWorkflowChat = memo(function GenerateWorkflowChat({
     abortRef.current = controller
     await runAssistant(async () => {
       const draftId = await ensureAssistantDraft()
-      return streamAssistantMessage({
+      // The builder assistant: its workflow path is the workflow assistant's, and it can also build and connect apps
+      return streamBuilderMessage({
         message: prompt,
         draftId,
+        projectId: builderRef.current.projectId,
+        deploymentId: builderRef.current.deploymentId,
         model,
         conversationId,
         referenceWorkflowId: reference?.workflow_id,

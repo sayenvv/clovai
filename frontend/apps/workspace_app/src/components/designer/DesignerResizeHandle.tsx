@@ -1,4 +1,4 @@
-import { memo, type PointerEvent as ReactPointerEvent } from 'react'
+import { memo, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { cn } from '@/utils/cn'
 
 interface DesignerResizeHandleProps {
@@ -9,6 +9,8 @@ interface DesignerResizeHandleProps {
   grip?: boolean
   /** Double-clicking the line hides the panel, as in the code editor. */
   onDoubleClick?: () => void
+  /** Makes the handle focusable and resizable from the keyboard (arrow keys). */
+  onKeyDown?: (event: ReactKeyboardEvent<HTMLDivElement>) => void
 }
 
 /** Draggable edge handle for resizable designer panels. */
@@ -18,6 +20,7 @@ export const DesignerResizeHandle = memo(function DesignerResizeHandle({
   ariaLabel = 'Resize panel',
   grip = false,
   onDoubleClick,
+  onKeyDown,
 }: DesignerResizeHandleProps) {
   return (
     <div
@@ -26,8 +29,10 @@ export const DesignerResizeHandle = memo(function DesignerResizeHandle({
       aria-label={ariaLabel}
       onPointerDown={onPointerDown}
       onDoubleClick={onDoubleClick}
+      onKeyDown={onKeyDown}
+      tabIndex={onKeyDown ? 0 : undefined}
       className={cn(
-        'group/sash absolute top-0 z-10 h-full w-2 cursor-ew-resize touch-none',
+        'group/sash absolute top-0 z-10 h-full w-2 cursor-ew-resize touch-none outline-none [&:focus-visible>span:first-child]:bg-primary',
         side === 'left' ? '-left-1' : '-right-1',
       )}
     >

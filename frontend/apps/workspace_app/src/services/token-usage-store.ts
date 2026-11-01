@@ -82,6 +82,10 @@ export function readTokenUsage(): TokenUsageSnapshot | null {
     tokensUsed: used,
     tokensRemaining: Math.max(0, base.tokenLimit - used),
     tokensPerCredit: base.tokensPerCredit,
+    planName: base.planName,
+    periodEnd: base.periodEnd,
+    overageBudgetTokens: base.overageBudgetTokens,
+    overageUsedTokens: base.overageUsedTokens,
   }
   cached = { key, value }
   return value

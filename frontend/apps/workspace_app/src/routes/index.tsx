@@ -10,6 +10,7 @@ const LandingPage = lazy(() => import('@/pages/LandingPage'))
 const ToolsPage = lazy(() => import('@/pages/ToolsPage'))
 const ToolDetailPage = lazy(() => import('@/pages/ToolDetailPage'))
 const AgentWorkflowPage = lazy(() => import('@/pages/AgentWorkflowPage'))
+const BuilderAssistantPage = lazy(() => import('@/pages/BuilderAssistantPage'))
 const AgentWorkflowDashboardShell = lazy(
   () => import('@/components/agent-workflow/dashboard/DashboardShell'),
 )
@@ -113,6 +114,7 @@ export const router = createBrowserRouter(appsHost ? appRoutes : [
         ],
       },
       { path: '/execute', element: <WorkflowExecutePage /> },
+      { path: '/builder', element: <BuilderAssistantPage /> },
       { path: '/tools/agent-workflow', element: <LegacyWorkspaceRedirect /> },
       { path: '/tools/agent-workflow/library', element: <LegacyWorkspaceRedirect /> },
       { path: '/tools/agent-workflow/inspect', element: <LegacyWorkspaceRedirect /> },

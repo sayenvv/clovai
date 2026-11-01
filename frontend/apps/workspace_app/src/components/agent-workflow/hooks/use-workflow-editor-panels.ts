@@ -12,7 +12,8 @@ import {
   type PersistedPanelConfig,
 } from '@/components/agent-workflow/panel-layout'
 
-function usePersistedHorizontalPanel(config: PersistedPanelConfig, invert: boolean) {
+/** A side panel whose width and collapsed state are kept in this browser. */
+export function usePersistedHorizontalPanel(config: PersistedPanelConfig, invert: boolean) {
   const maxWidth = config.max ?? 2000
   const { width, setWidth, onResizePointerDown } = useHorizontalResize({
     initialWidth: readStoredSize(config),
@@ -66,7 +67,13 @@ function usePersistedHorizontalPanel(config: PersistedPanelConfig, invert: boole
     })
   }, [width])
 
-  return { size: width, collapsed, onResizePointerDown, toggle, expand, collapse }
+  /** Resize by `delta` pixels, for the keyboard. */
+  const nudge = useCallback(
+    (delta: number) => setWidth((previous) => Math.min(maxWidth, Math.max(config.min, previous + delta))),
+    [config.min, maxWidth, setWidth],
+  )
+
+  return { size: width, collapsed, onResizePointerDown, toggle, expand, collapse, nudge }
 }
 
 function usePersistedVerticalPanel(config: PersistedPanelConfig) {

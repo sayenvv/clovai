@@ -2,6 +2,7 @@ import type { FormSchema } from '@/components/agent-workflow/SchemaForm'
 import { authorizedFetch } from '@/services/api-auth'
 import { orchestrationHeaders } from '@/services/orchestration-api'
 import type { GenerateWorkflowModel } from '@/services/generate-workflow-api'
+import type { ToolCard, ToolFileChange } from '@/types/agent-workflow'
 import type { WorkflowV4Document } from '@/types/workflow-v4'
 
 /**
@@ -48,6 +49,10 @@ export interface AssistantRunEvent {
       /** A test handed to the canvas (`status` "started_on_canvas"): the draft and its test inputs. */
       draftId?: string
       inputs?: Record<string, unknown>
+      /** What the builder assistant's chat draws as cards. */
+      file?: ToolFileChange
+      checks?: ToolCard['checks']
+      command?: Omit<NonNullable<ToolCard['command']>, 'text'>
     }
   }
   time: string
@@ -142,6 +147,104 @@ export async function streamAssistantMessage(options: {
     signal: options.signal,
   })
   return readAssistantStream(response, options.onEvent)
+}
+
+/** What the builder assistant's run ends with: the workflow assistant's output plus the app project and deployment. */
+export type BuilderRun = Omit<AssistantRun, 'output'> & {
+  output: (NonNullable<AssistantRun['output']> & { projectId?: string; deploymentId?: string }) | null
+}
+
+/**
+ * Send a message to the builder assistant (backend `docs/unified-builder-assistant.md`), which builds workflows,
+ * builds apps and connects an app to a deployed workflow. Runs and answers work as for the workflow assistant.
+ */
+export async function streamBuilderMessage(options: {
+  message: string
+  draftId?: string
+  workflowId?: string
+  /** The app project this chat is building; left out, the builder opens a new one. */
+  projectId?: string
+  /** The deployed workflow an app should call; left out, the builder asks when there are several. */
+  deploymentId?: string
+  model?: GenerateWorkflowModel
+  conversationId?: string
+  referenceWorkflowId?: string
+  onEvent?: (event: AssistantRunEvent) => void
+  signal?: AbortSignal
+}): Promise<BuilderRun> {
+  const response = await authorizedFetch('/api/v1/builder-assistant/messages/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await orchestrationHeaders()) },
+    body: JSON.stringify({
+      message: options.message,
+      ...(options.draftId ? { draftId: options.draftId } : {}),
+      ...(options.workflowId ? { workflowId: options.workflowId } : {}),
+      ...(options.projectId ? { projectId: options.projectId } : {}),
+      ...(options.deploymentId ? { deploymentId: options.deploymentId } : {}),
+      ...(assistantModel(options.model) ? { model: assistantModel(options.model) } : {}),
+      ...(options.conversationId ? { conversationId: options.conversationId } : {}),
+      ...(options.referenceWorkflowId ? { referenceWorkflowId: options.referenceWorkflowId } : {}),
+    }),
+    signal: options.signal,
+  })
+  return (await readAssistantStream(response, options.onEvent)) as BuilderRun
+}
+
+/** An app project the builder works on, as the chat shows it. */
+export interface BuilderProject {
+  projectId?: string
+  files: string[]
+  scripts?: string[]
+  dependencies?: string[]
+  changed?: string[]
+  screenshots: string[]
+}
+
+export async function fetchBuilderProject(projectId: string): Promise<BuilderProject> {
+  const response = await authorizedFetch(`/api/v1/builder-assistant/projects/${encodeURIComponent(projectId)}`)
+  if (!response.ok) throw new Error(await errorMessage(response))
+  return (await response.json()) as BuilderProject
+}
+
+/** The app's dev server preview: whether it runs, its address (this machine only) and the end of its log. */
+export interface BuilderPreview {
+  running: boolean
+  available?: boolean
+  url: string | null
+  log?: string
+}
+
+async function previewCall(projectId: string, method: 'GET' | 'POST' | 'DELETE'): Promise<BuilderPreview> {
+  const response = await authorizedFetch(`/api/v1/builder-assistant/projects/${encodeURIComponent(projectId)}/preview`, { method })
+  if (!response.ok) throw new Error(await errorMessage(response))
+  return (await response.json()) as BuilderPreview
+}
+
+export const fetchBuilderPreview = (projectId: string) => previewCall(projectId, 'GET')
+export const startBuilderPreview = (projectId: string) => previewCall(projectId, 'POST')
+export const stopBuilderPreview = (projectId: string) => previewCall(projectId, 'DELETE')
+
+export async function fetchLatestBuilderProject(): Promise<string | null> {
+  const response = await authorizedFetch('/api/v1/builder-assistant/projects/latest')
+  if (!response.ok) throw new Error(await errorMessage(response))
+  return ((await response.json()) as { projectId: string | null }).projectId
+}
+
+export async function fetchBuilderFile(projectId: string, path: string): Promise<string> {
+  const response = await authorizedFetch(
+    `/api/v1/builder-assistant/projects/${encodeURIComponent(projectId)}/file?path=${encodeURIComponent(path)}`,
+  )
+  if (!response.ok) throw new Error(await errorMessage(response))
+  return ((await response.json()) as { content: string }).content
+}
+
+/** One screenshot the builder took, as an object URL (the caller revokes it). */
+export async function fetchBuilderScreenshot(projectId: string, name: string): Promise<string> {
+  const response = await authorizedFetch(
+    `/api/v1/builder-assistant/projects/${encodeURIComponent(projectId)}/screenshots/${encodeURIComponent(name)}`,
+  )
+  if (!response.ok) throw new Error(await errorMessage(response))
+  return URL.createObjectURL(await response.blob())
 }
 
 /** Answer what a waiting run asked (a plan approval, a question, a form) and continue it; `onEvent` gets each

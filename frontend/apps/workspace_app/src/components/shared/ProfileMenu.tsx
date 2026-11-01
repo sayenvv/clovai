@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useEffect, useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import { LogOut, Moon, Settings, Sun, Workflow } from 'lucide-react'
 import { UserAvatar } from '@/components/shared/UserAvatar'
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ROUTES } from '@/constants'
 import { logout } from '@/services/project-auth-store'
+import { ensureTokenUsage, readTokenUsage, refreshTokenUsage, subscribeTokenUsage } from '@/services/token-usage-store'
 import { cn } from '@/utils/cn'
 
 interface ProfileMenuProps {
@@ -59,9 +60,16 @@ export const ProfileMenu = memo(function ProfileMenu({
   // The label is "email" or "email · Admin"
   const [email, role] = (userLabel ?? '').split(' · ')
   const isAdmin = role === 'Admin'
+  const usage = useSyncExternalStore(subscribeTokenUsage, readTokenUsage, () => null)
+  const plan = usage?.planName
+
+  useEffect(() => {
+    if (userLabel) void ensureTokenUsage()
+  }, [userLabel])
 
   return (
-    <DropdownMenu>
+    // The plan can change on the server (an upgrade, an admin): read it again whenever the menu opens
+    <DropdownMenu onOpenChange={(open) => open && userLabel && void refreshTokenUsage()}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
@@ -80,8 +88,18 @@ export const ProfileMenu = memo(function ProfileMenu({
               <UserAvatar seed="profile" initials={userInitials} size="sm" ringClassName="ring-0" />
               <div className="min-w-0">
                 <p className="truncate text-[12px] font-semibold text-foreground">{email}</p>
-                <p className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                <p className="flex items-center gap-1.5 text-[9.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   {isAdmin ? 'Admin' : 'Member'}
+                  {plan ? (
+                    <span
+                      className={cn(
+                        'rounded-[2px] border px-1 py-px tracking-[0.08em]',
+                        plan.toLowerCase() === 'free' ? 'border-border text-muted-foreground' : 'border-primary/40 bg-primary/10 text-primary',
+                      )}
+                    >
+                      {plan}
+                    </span>
+                  ) : null}
                 </p>
               </div>
             </div>

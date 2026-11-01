@@ -20,7 +20,7 @@ export function WorkspaceLayout() {
   const location = useLocation()
   // The workspace's own pages: the canvas at the root and its panels, the run page and the dashboard
   const isAgentWorkflowWorkspace =
-    /^\/(library|inspect|logs|execute)?\/?$/.test(location.pathname) || location.pathname.startsWith('/tools/agent-workflow')
+    /^\/(library|inspect|logs|execute|builder)?\/?$/.test(location.pathname) || location.pathname.startsWith('/tools/agent-workflow')
   const [session, setSession] = useState<ProjectSession | null>(() =>
     isAgentWorkflowWorkspace ? getSession() : null,
   )

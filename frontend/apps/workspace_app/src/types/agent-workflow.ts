@@ -244,6 +244,31 @@ export interface WorkflowChatMessage {
   doneTitle?: string
   /** A step shown only beside others (the workflow marks its agent `ui.quiet`, such as the one that routes). */
   quiet?: boolean
+  /** A tool call shown as a card (a file's diff, checks, a command) instead of a line of text. */
+  card?: ToolCard
+}
+
+/** A file the builder assistant created or edited, with its diff (`[kind, text]`: + added, - removed, space
+ * context, @ the new file's line number where a hunk starts). */
+export interface ToolFileChange {
+  path: string
+  created: boolean
+  added: number
+  removed: number
+  lines: Array<[string, string]>
+  truncated: boolean
+}
+
+export interface ToolCard {
+  file?: ToolFileChange
+  checks?: {
+    passed: boolean
+    ran: string[]
+    failed: string[]
+    skipped: string[]
+    errors: Array<{ check?: string; file?: string; line?: number; message?: string }>
+  }
+  command?: { text?: string; ran: boolean; ok: boolean; exitCode?: number | null; refused?: string | null; log: string }
 }
 
 export interface WorkflowRunState {

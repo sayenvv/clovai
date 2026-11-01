@@ -34,6 +34,7 @@ import { SubWorkflowConfigPanel } from '@/components/agent-workflow/SubWorkflowC
 import { WorkflowInsightsPanel } from '@/components/agent-workflow/WorkflowInsightsPanel'
 import { WorkflowSettingsPanel } from '@/components/agent-workflow/WorkflowSettingsPanel'
 import { ExecutionSidebarPanel } from '@/components/agent-workflow/ExecutionSidebarPanel'
+import { BuilderChat } from '@/components/agent-workflow/BuilderChat'
 import {
   GenerateWorkflowChat,
   type GenerateChatMessage,
@@ -282,6 +283,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
   // While Workflow AI is open, selecting something on the canvas shows its properties.
   // The chat stays mounted underneath, so a running generation keeps streaming.
   const [showDetailsOverChat, setShowDetailsOverChat] = useState(false)
+  const [builderMode, setBuilderMode] = useState(false)
   const selectionKey =
     selection?.kind === 'nodes' ? `nodes:${selection.ids.join(',')}` : selection ? `${selection.kind}:${selection.id}` : ''
   useEffect(() => {
@@ -497,6 +499,18 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
               <AssistantChatIcon className="h-4 w-4" />
             </Button>
           )}
+          {generate && chatVisible && (
+            <Button
+              variant={builderMode ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-8 shrink-0 rounded-[2px] px-2 text-[11.5px] font-medium"
+              onClick={() => setBuilderMode((value) => !value)}
+              aria-pressed={builderMode}
+              title="Switch to the new Builder assistant (workflows and apps)"
+            >
+              Builder
+            </Button>
+          )}
           {generate && chatVisible && !embedded && onChatExpandedChange && (
             <Button
               variant="ghost"
@@ -548,6 +562,16 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
             <div className={cn('flex h-full', !chatVisible && 'hidden')}>
               {chatExpanded && generate.chats ? <ChatList chats={generate.chats} /> : null}
               <div className={cn('h-full min-w-0 flex-1', chatExpanded && 'mx-auto max-w-3xl')}>
+              <div className={cn('h-full', !builderMode && 'hidden')}>
+                <BuilderChat
+                  model={generate.model}
+                  onModelChange={generate.onModelChange}
+                  serverModel={serverModelConfig.model}
+                  llmConfigured={llmConfigured}
+                  ollamaBaseUrl={generate.ollamaBaseUrl}
+                />
+              </div>
+              <div className={cn('h-full', builderMode && 'hidden')}>
               <GenerateWorkflowChat
                 key={generate.chats?.activeId}
                 messages={generate.messages}
@@ -568,6 +592,7 @@ export const AgentPropertiesShell = memo(function AgentPropertiesShell({
                 onPreviewDraft={generate.onPreviewDraft}
                 conversationId={generate.chats?.activeId}
               />
+              </div>
               </div>
             </div>
           )}

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { AppPreview, type AppRunner } from '@/components/agent-workflow/integrations/AppPreview'
-import { getPublicApp, runPublicApp, type AppSettings, type PublicRun } from '@/services/deployments-api'
+import { getPublicApp, publicAppSiteUrl, runPublicApp, type AppSettings, type PublicRun } from '@/services/deployments-api'
 
 /** The text a visitor sees for a run: its output (a reply field when it has one), or what it waits for. */
 function runText(run: PublicRun): string {
@@ -45,6 +45,7 @@ export default function PublicAppPage({ workspace: hostWorkspace }: { workspace?
   const workspace = hostWorkspace ?? params.workspace ?? ''
   const slug = params.slug ?? ''
   const [config, setConfig] = useState<AppSettings | null>(null)
+  const [code, setCode] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export default function PublicAppPage({ workspace: hostWorkspace }: { workspace?
       .then((app) => {
         if (cancelled) return
         setConfig(app.config)
+        setCode(app.source === 'code')
         document.title = app.config.title || app.name
       })
       .catch((error: unknown) => !cancelled && setProblem(error instanceof Error ? error.message : 'This app could not be loaded.'))
@@ -81,6 +83,17 @@ export default function PublicAppPage({ workspace: hostWorkspace }: { workspace?
       <div className="flex min-h-screen items-center justify-center bg-background" role="status" aria-label="Loading">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
+    )
+  }
+  // A code app (built in the app builder's code mode) is the user's own code: shown sandboxed, from its own address
+  if (code) {
+    return (
+      <iframe
+        title={config.title || 'App'}
+        src={publicAppSiteUrl(workspace, slug)}
+        sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"
+        className="block h-screen w-screen border-0"
+      />
     )
   }
   const embedded = search.get('embed') === '1'

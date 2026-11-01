@@ -73,9 +73,10 @@ export const ADMIN_CENTER_URL =
 export const MOCK_API_DELAY = 350
 
 /**
- * Minutes without activity after which the Workflow AI starts a new chat when the user comes back
- * (VITE_ASSISTANT_CHAT_IDLE_MINUTES, default 5). The old chat stays in the list.
+ * Minutes away from the app after which the Workflow AI starts a new chat when the user comes back
+ * (VITE_ASSISTANT_CHAT_IDLE_MINUTES, default 480: a working day). The old chat stays in the list. Short values make
+ * the chat restart whenever the user switches to another window for a while.
  */
 export const ASSISTANT_CHAT_IDLE_MINUTES = Number(import.meta.env.VITE_ASSISTANT_CHAT_IDLE_MINUTES) > 0
   ? Number(import.meta.env.VITE_ASSISTANT_CHAT_IDLE_MINUTES)
-  : 5
+  : 480

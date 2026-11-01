@@ -92,3 +92,40 @@ export function persistPanelCollapsed(config: PersistedPanelConfig, collapsed: b
     // ignore
   }
 }
+
+/** App builder, template mode: the settings on the left and the design assistant on the right. */
+export const APP_BUILDER_SETTINGS_PANEL: PersistedPanelConfig = {
+  sizeKey: 'eleven-nodes-app-builder-settings-width',
+  collapsedKey: 'eleven-nodes-app-builder-settings-collapsed',
+  defaultSize: 320,
+  responsiveDefault: (viewportWidth) => Math.round(viewportWidth * 0.22),
+  min: 260,
+  max: 460,
+}
+
+export const APP_BUILDER_ASSISTANT_PANEL: PersistedPanelConfig = {
+  sizeKey: 'eleven-nodes-app-builder-assistant-width',
+  collapsedKey: 'eleven-nodes-app-builder-assistant-collapsed',
+  defaultSize: 340,
+  responsiveDefault: (viewportWidth) => Math.round(viewportWidth * 0.24),
+  min: 280,
+  max: 560,
+}
+
+/** App builder, code mode: the project's files on the left and the builder chat on the right. */
+export const APP_BUILDER_FILES_PANEL: PersistedPanelConfig = {
+  sizeKey: 'eleven-nodes-app-builder-files-width',
+  collapsedKey: 'eleven-nodes-app-builder-files-collapsed',
+  defaultSize: 240,
+  min: 180,
+  max: 400,
+}
+
+export const APP_BUILDER_CHAT_PANEL: PersistedPanelConfig = {
+  sizeKey: 'eleven-nodes-app-builder-chat-width',
+  collapsedKey: 'eleven-nodes-app-builder-chat-collapsed',
+  defaultSize: 400,
+  responsiveDefault: (viewportWidth) => Math.round(viewportWidth * 0.3),
+  min: 320,
+  max: 680,
+}

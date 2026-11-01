@@ -27,6 +27,9 @@ export type AppSettings = Omit<WorkflowAppConfig, 'instanceId' | 'status' | 'pub
 export interface DeploymentApp {
   config: AppSettings | null
   status: 'draft' | 'published'
+  /** What the address serves: the template (chat or form), or the code app built from `projectId`. */
+  source?: 'template' | 'code'
+  projectId?: string | null
   slug: string | null
   url: string | null
   publishedAt: string | null
@@ -59,6 +62,9 @@ export const getDeploymentApp = (id: string) => call<DeploymentApp>(`/${id}/app`
 export const saveDeploymentApp = (id: string, config: AppSettings) =>
   call<DeploymentApp>(`/${id}/app`, { method: 'PUT', body: JSON.stringify(config) })
 export const publishDeploymentApp = (id: string) => call<DeploymentApp>(`/${id}/app/publish`, { method: 'POST' })
+/** Build the code-mode project and publish it at the app's address, in place of the template (can take a minute). */
+export const publishDeploymentCodeApp = (id: string, projectId: string) =>
+  call<DeploymentApp>(`/${id}/app/publish-code`, { method: 'POST', body: JSON.stringify({ projectId }) })
 
 /** Ask the design assistant for a change; the new settings come back unsaved. */
 export const designDeploymentApp = (id: string, message: string, config: AppSettings) =>
@@ -75,7 +81,11 @@ async function publicCall<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 /** A published app's settings (no sign-in). */
 export const getPublicApp = (workspace: string, slug: string) =>
-  publicCall<{ name: string; config: AppSettings }>(`/apps/${encodeURIComponent(workspace)}/${encodeURIComponent(slug)}`)
+  publicCall<{ name: string; config: AppSettings; source?: 'template' | 'code' }>(`/apps/${encodeURIComponent(workspace)}/${encodeURIComponent(slug)}`)
+
+/** Where a published code app's built files are served. */
+export const publicAppSiteUrl = (workspace: string, slug: string) =>
+  `${API_BASE}/api/v1/public/apps/${encodeURIComponent(workspace)}/${encodeURIComponent(slug)}/site/`
 
 /** Run a published app's workflow (no sign-in; limited per visitor). */
 export const runPublicApp = (workspace: string, slug: string, inputs: Record<string, unknown>, conversationId?: string) =>

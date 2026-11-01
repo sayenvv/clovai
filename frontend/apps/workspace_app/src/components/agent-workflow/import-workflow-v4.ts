@@ -57,6 +57,10 @@ export function importWorkflowV4(document: WorkflowV4Document): ImportedV4Workfl
   const layout = document.canvas?.pages?.[0]?.layout ?? {}
   const edgesFrom = (id: string) => graph.edges.filter((edge) => edge.from === id)
   const hasFlowInto = (id: string) => graph.edges.some((edge) => edge.to === id && (edge.type ?? 'next') !== 'handoff')
+  // The End is implied on the canvas, except where a condition branches to it: that branch must stay a connector
+  // (the Switch's default path), or the Switch is left without one and the workflow cannot run
+  const conditionIds = new Set(graph.nodes.filter((node) => node.type === 'condition').map((node) => node.id))
+  const branchesToEnd = (id: string) => graph.edges.some((edge) => edge.to === id && conditionIds.has(edge.from))
 
   const nodes: DiagramNode[] = []
   const edges: DiagramEdge[] = []
@@ -149,8 +153,9 @@ export function importWorkflowV4(document: WorkflowV4Document): ImportedV4Workfl
         nodes.push({ ...base, paletteId: 'aw-start' })
         return
       case 'end':
-        // Not drawn; a custom output is the one thing the canvas cannot keep
+        // A custom output is the one thing the canvas cannot keep
         if (node.output !== undefined && node.output !== '{{ last.output }}') losses.push(`${base.label}: its output setting is not shown on the canvas`)
+        if (branchesToEnd(node.id)) nodes.push({ ...base, paletteId: 'aw-end' })
         return
       case 'agent': {
         const agent = agents.get(node.agentId)

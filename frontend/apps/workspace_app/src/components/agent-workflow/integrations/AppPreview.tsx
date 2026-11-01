@@ -48,8 +48,8 @@ export const AppPreview = memo(function AppPreview({
         fill
           ? 'h-full w-full max-w-none rounded-none border-0 shadow-none'
           : device === 'mobile'
-            ? 'h-[620px] w-[360px] rounded-[28px]'
-            : 'h-[560px] w-full max-w-[760px] rounded-[10px]',
+            ? 'h-full max-h-[720px] min-h-[460px] w-[375px] max-w-full shrink-0 rounded-[28px]'
+            : 'h-full max-h-[820px] min-h-[420px] w-full max-w-[960px] rounded-[10px]',
       )}
     >
       <header className="flex items-center gap-2.5 border-b border-[var(--app-border)] px-4 py-3">
